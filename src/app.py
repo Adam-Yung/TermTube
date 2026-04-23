@@ -11,13 +11,14 @@ from src.ui import gum
 # Lazy imports of pages (avoid slow startup)
 
 _MENU_ITEMS = [
-    ("🏠  Home          Recommended feed",       "home"),
-    ("🔍  Search        Find videos",            "search"),
-    ("📺  Subscriptions Your subscribed channels","subscriptions"),
-    ("📁  Library       Locally saved files",    "library"),
-    ("📜  History       Recently watched",       "history"),
-    ("⚙   Settings      View config info",       "settings"),
-    ("✕   Quit",                                 "quit"),
+    ("🏠  Home          Recommended feed",         "home"),
+    ("🔍  Search        Find videos",              "search"),
+    ("📺  Subscriptions Your subscribed channels", "subscriptions"),
+    ("🎵  Playlists     Manage playlists",         "playlists"),
+    ("🔖  Bookmarks     Locally saved videos",     "bookmarks"),
+    ("📜  History       Recently watched",         "history"),
+    ("⚙   Settings      View config info",         "settings"),
+    ("✕   Quit",                                   "quit"),
 ]
 
 _RESET = "\033[0m"
@@ -119,7 +120,7 @@ class App:
 
     def _route(self, page: str) -> None:
         from src.pages import (
-            home, search, subscriptions, history_page, library_page, video_detail
+            home, search, subscriptions, history_page, library_page, video_detail, playlist_page
         )
 
         if page == "home":
@@ -128,10 +129,12 @@ class App:
             video_id = search.run(self.config, self.cache)
         elif page == "subscriptions":
             video_id = subscriptions.run(self.config, self.cache)
+        elif page == "playlists":
+            video_id = playlist_page.run(self.config, self.cache)
+        elif page == "bookmarks":
+            video_id = library_page.run(self.config, self.cache)
         elif page == "history":
             video_id = history_page.run(self.config, self.cache)
-        elif page == "library":
-            video_id = library_page.run(self.config, self.cache)
         elif page == "settings":
             _show_settings(self.config)
             return

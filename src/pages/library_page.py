@@ -69,7 +69,7 @@ def run(config, cache) -> str | None:
 
     if not entries:
         gum.info(
-            f"Library is empty.\n"
+            f"Bookmarks is empty.\n"
             f"  Save videos with [Save Video] or audio with [Save Audio]\n"
             f"  from the video detail page."
         )
@@ -89,7 +89,7 @@ def run(config, cache) -> str | None:
     fzf_cmd = [
         "fzf",
         "--ansi",
-        "--header", f"  📁  Library  ({len(entries)} items)  │  \033[90m↑↓/jk nav  Enter/l select  h/Esc back\033[0m",
+        "--header", f"  🔖  Bookmarks  ({len(entries)} items)  │  \033[90m↑↓/jk nav  Enter/l select  h/Esc back\033[0m",
         "--with-nth=2..",
         "--delimiter=\t",
         "--preview", f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} {config.thumbnail_cols} {config.thumbnail_rows}",
@@ -100,7 +100,7 @@ def run(config, cache) -> str | None:
         "--border=rounded",
         "--color=header:italic,border:240",
         "--pointer=▶",
-        "--prompt=  📁  ",
+        "--prompt=  🔖  ",
     ]
 
     fzf_proc = subprocess.Popen(fzf_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)

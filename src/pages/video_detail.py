@@ -5,7 +5,7 @@ import os
 import sys
 import textwrap
 
-from src import history, library
+from src import history, library, playlist as playlist_mod
 from src.ui import gum, thumbnail as thumb
 from src import player as mpv_player
 from src import ytdlp
@@ -130,7 +130,7 @@ def _print_header(entry: dict, config) -> None:
 _ACTIONS: list[tuple[str, str | None]] = []  # built dynamically
 
 
-def _build_actions(entry: dict, config) -> list[tuple[str, str]]:
+def _build_actions(entry: dict, config) -> list[tuple[str, str | None]]:
     """Build (label, key) action pairs. Separators have key=None."""
     video_id = entry.get("id", "")
     local = library.find_local(video_id, config.video_dir, config.audio_dir)
@@ -140,18 +140,22 @@ def _build_actions(entry: dict, config) -> list[tuple[str, str]]:
 
     actions: list[tuple[str, str | None]] = []
 
+    # Watch / Listen
     if video_saved:
         actions.append((f"▶  Watch Video  {_GRN}[saved]{_RESET}", "watch"))
     else:
         actions.append(("▶  Watch Video  (stream)", "watch"))
+    actions.append(("▶  Watch — Select Quality…", "watch_quality"))
 
     if audio_saved:
         actions.append((f"♪  Listen to Audio  {_GRN}[saved]{_RESET}", "listen"))
     else:
         actions.append(("♪  Listen to Audio  (stream)", "listen"))
+    actions.append(("♪  Listen — Select Quality…", "listen_quality"))
 
     actions.append((_SEP_SENTINEL, None))
 
+    # Save
     if not video_saved:
         actions.append(("⬇  Save Video", "save_video"))
     if not audio_saved:
@@ -160,11 +164,58 @@ def _build_actions(entry: dict, config) -> list[tuple[str, str]]:
         actions.append(("⬇  Save All (video + audio)", "save_all"))
 
     actions.append((_SEP_SENTINEL, None))
+
+    # Playlist
+    pl_names = playlist_mod.video_playlists(video_id)
+    if pl_names:
+        pl_label = f"🎵  In playlists: {', '.join(pl_names[:3])}"
+    else:
+        pl_label = "🎵  Add to Playlist…"
+    actions.append((pl_label, "add_playlist"))
+
+    actions.append((_SEP_SENTINEL, None))
     actions.append(("⭐  Subscribe to Channel", "subscribe"))
     actions.append(("🌐  Open in Browser", "browser"))
     actions.append(("← Back", "back"))
 
     return actions
+
+
+def _pick_quality(audio_only: bool = False) -> str | None:
+    """Show a quality picker. Returns yt-dlp format string or None to cancel."""
+    choices = ytdlp.AUDIO_QUALITY_CHOICES if audio_only else ytdlp.QUALITY_CHOICES
+    labels = [label for label, _ in choices]
+    selected = gum.choose(labels, header="  🎬  Select Quality", height=len(labels) + 4)
+    if not selected:
+        return None
+    fmt_map = {label: fmt for label, fmt in choices}
+    return fmt_map.get(selected)
+
+
+def _run_download_with_ui(video_id: str, config, *, audio_only: bool, title: str) -> bool:
+    """Run a download showing a live progress bar. Returns True on success."""
+    import sys
+
+    def _on_progress(line: str, pct: float) -> None:
+        if pct >= 0:
+            filled = int(pct / 2)
+            bar = "█" * filled + "░" * (50 - filled)
+            sys.stderr.write(f"\r  [{bar}] {pct:5.1f}%  {_GRAY}{title[:30]}{_RESET}")
+            sys.stderr.flush()
+        elif "[download]" in line or "[ffmpeg]" in line or "[Merger]" in line:
+            short = line[:70]
+            sys.stderr.write(f"\r\033[K  {_GRAY}{short}{_RESET}")
+            sys.stderr.flush()
+
+    try:
+        if audio_only:
+            ok = ytdlp.download_audio_with_progress(video_id, config, on_progress=_on_progress)
+        else:
+            ok = ytdlp.download_video_with_progress(video_id, config, on_progress=_on_progress)
+    finally:
+        sys.stderr.write("\r\033[K")
+        sys.stderr.flush()
+    return ok
 
 
 def run(video_id: str, config, cache) -> None:
@@ -224,6 +275,18 @@ def run(video_id: str, config, cache) -> None:
                 logger.exception("mpv playback error")
                 input("Press Enter to continue…")
 
+        elif action_key == "watch_quality":
+            fmt = _pick_quality(audio_only=False)
+            if fmt:
+                history.add(entry)
+                try:
+                    mpv_player.play(url, audio_only=False, player=config.preferred_player,
+                                    title=title, ytdl_format=fmt)
+                except Exception as exc:
+                    gum.error(f"Playback error: {exc}")
+                    logger.exception("mpv playback error")
+                    input("Press Enter to continue…")
+
         elif action_key == "listen":
             play_url = local.get("audio_path") or url
             history.add(entry)
@@ -234,32 +297,43 @@ def run(video_id: str, config, cache) -> None:
                 logger.exception("mpv playback error")
                 input("Press Enter to continue…")
 
+        elif action_key == "listen_quality":
+            fmt = _pick_quality(audio_only=True)
+            if fmt:
+                history.add(entry)
+                try:
+                    mpv_player.play(url, audio_only=True, player=config.preferred_player,
+                                    title=title, ytdl_format=fmt)
+                except Exception as exc:
+                    gum.error(f"Playback error: {exc}")
+                    logger.exception("mpv playback error")
+                    input("Press Enter to continue…")
+
         elif action_key == "save_video":
             gum.info(f"Downloading video: {title}")
-            ok = gum.spin_while(
-                "Downloading video…",
-                lambda: ytdlp.download_video(video_id, config),
-            )
+            ok = _run_download_with_ui(video_id, config, audio_only=False, title=title)
             gum.success("Video saved!") if ok else gum.error("Download failed.")
             input("Press Enter to continue…")
 
         elif action_key == "save_audio":
             gum.info(f"Downloading audio: {title}")
-            ok = gum.spin_while(
-                "Downloading audio…",
-                lambda: ytdlp.download_audio(video_id, config),
-            )
+            ok = _run_download_with_ui(video_id, config, audio_only=True, title=title)
             gum.success("Audio saved!") if ok else gum.error("Download failed.")
             input("Press Enter to continue…")
 
         elif action_key == "save_all":
             gum.info(f"Downloading video + audio: {title}")
-            ok_v = gum.spin_while("Downloading video…", lambda: ytdlp.download_video(video_id, config))
-            ok_a = gum.spin_while("Downloading audio…", lambda: ytdlp.download_audio(video_id, config))
+            ok_v = _run_download_with_ui(video_id, config, audio_only=False, title=title)
+            ok_a = _run_download_with_ui(video_id, config, audio_only=True, title=title)
             if ok_v and ok_a:
                 gum.success("Video and audio saved!")
             else:
                 gum.error(f"Partial: video={'✓' if ok_v else '✗'} audio={'✓' if ok_a else '✗'}")
+            input("Press Enter to continue…")
+
+        elif action_key == "add_playlist":
+            from src.pages.playlist_page import pick_playlist_for_video
+            pick_playlist_for_video(video_id)
             input("Press Enter to continue…")
 
         elif action_key == "subscribe":

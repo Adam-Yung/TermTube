@@ -1,11 +1,14 @@
 """mpv player interface with custom seek bindings and IPC support."""
 
 from __future__ import annotations
+import json
 import os
 import shutil
+import socket
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from src import logger
 
@@ -61,12 +64,128 @@ def _vlc_path() -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+# ── IPC helpers ───────────────────────────────────────────────────────────────
+
+def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
+    """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect(socket_path)
+        s.sendall((json.dumps(cmd) + "\n").encode())
+        data = b""
+        try:
+            while True:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+                if b"\n" in data:
+                    break
+        except socket.timeout:
+            pass
+        s.close()
+        for line in data.decode(errors="replace").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    return json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+    except (OSError, ConnectionRefusedError, FileNotFoundError):
+        pass
+    return None
+
+
+def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
+    """Get an mpv property via IPC socket. Returns the value or None."""
+    resp = send_ipc_command({"command": ["get_property", prop]}, socket_path=socket_path)
+    if resp and resp.get("error") == "success":
+        return resp.get("data")
+    return None
+
+
+def is_playing(*, socket_path: str = IPC_SOCKET) -> bool:
+    """Return True if mpv is active and not paused."""
+    paused = get_ipc_property("pause", socket_path=socket_path)
+    return paused is False
+
+
+def pause_toggle(*, socket_path: str = IPC_SOCKET) -> None:
+    """Toggle pause in a running mpv instance."""
+    send_ipc_command({"command": ["cycle", "pause"]}, socket_path=socket_path)
+
+
+def seek_to(seconds: float, *, socket_path: str = IPC_SOCKET) -> None:
+    """Seek to an absolute position in seconds."""
+    send_ipc_command({"command": ["seek", seconds, "absolute"]}, socket_path=socket_path)
+
+
+def set_volume(vol: int, *, socket_path: str = IPC_SOCKET) -> None:
+    """Set playback volume (0–130)."""
+    send_ipc_command({"command": ["set_property", "volume", vol]}, socket_path=socket_path)
+
+
+def playlist_append(url: str, *, socket_path: str = IPC_SOCKET) -> None:
+    """Append a URL to mpv's internal playlist without interrupting current playback."""
+    send_ipc_command({"command": ["loadfile", url, "append"]}, socket_path=socket_path)
+
+
+def playlist_next(*, socket_path: str = IPC_SOCKET) -> None:
+    """Skip to the next item in mpv's playlist."""
+    send_ipc_command({"command": ["playlist-next"]}, socket_path=socket_path)
+
+
+def playlist_prev(*, socket_path: str = IPC_SOCKET) -> None:
+    """Skip to the previous item in mpv's playlist."""
+    send_ipc_command({"command": ["playlist-prev"]}, socket_path=socket_path)
+
+
+def play_playlist(
+    urls: list[str],
+    *,
+    audio_only: bool = False,
+    title: str = "",
+    ytdl_format: str = "",
+) -> None:
+    """Play multiple URLs sequentially as an mpv playlist. Blocks until done."""
+    if not urls:
+        return
+    if not _mpv_available():
+        raise RuntimeError("No supported player found. Install mpv: brew install mpv")
+    input_conf = _write_input_conf()
+    try:
+        cmd = [
+            "mpv",
+            f"--input-conf={input_conf}",
+            f"--input-ipc-server={IPC_SOCKET}",
+        ]
+        if audio_only:
+            cmd += ["--no-video", "--term-osd-bar"]
+        if title:
+            cmd += [f"--title={title}"]
+        if ytdl_format:
+            cmd += [f"--ytdl-format={ytdl_format}"]
+        cmd += ["--"] + urls
+        logger.debug("mpv playlist cmd: %s [+%d urls]", " ".join(cmd[:6]), len(urls))
+        result = subprocess.run(cmd)
+        if result.returncode not in (0, 4):
+            logger.warning("mpv exited with code %d", result.returncode)
+    finally:
+        for path in (input_conf, IPC_SOCKET):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
 def play(
     url: str,
     *,
     audio_only: bool = False,
     player: str = "mpv",
     title: str = "",
+    ytdl_format: str = "",
 ) -> None:
     """
     Stream video/audio URL with the configured player.
@@ -75,7 +194,7 @@ def play(
     if player == "vlc" and _vlc_available():
         _play_vlc(url, audio_only=audio_only)
     elif _mpv_available():
-        _play_mpv(url, audio_only=audio_only, title=title)
+        _play_mpv(url, audio_only=audio_only, title=title, ytdl_format=ytdl_format)
     else:
         raise RuntimeError("No supported player found. Install mpv: brew install mpv")
 
@@ -87,7 +206,7 @@ def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", titl
 
 # ── mpv ───────────────────────────────────────────────────────────────────────
 
-def _play_mpv(url: str, *, audio_only: bool = False, title: str = "") -> None:
+def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "") -> None:
     input_conf = _write_input_conf()
     try:
         cmd = [
@@ -111,6 +230,9 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "") -> None:
 
         if title:
             cmd += [f"--title={title}"]
+
+        if ytdl_format:
+            cmd += [f"--ytdl-format={ytdl_format}"]
 
         cmd += ["--", url]
 

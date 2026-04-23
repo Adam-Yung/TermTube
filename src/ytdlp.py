@@ -11,7 +11,9 @@ Progressive streaming design:
 from __future__ import annotations
 import hashlib
 import json
+import re
 import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Generator, Iterable
@@ -346,6 +348,120 @@ def get_stream_url(video_id: str, config, *, audio_only: bool = False) -> str | 
         return result.stdout.strip().split("\n")[0]
     logger.warning("get_stream_url failed for %s: %s", video_id, result.stderr.strip())
     return None
+
+
+# ── Quality helpers ───────────────────────────────────────────────────────────
+
+# (label, yt-dlp format string)
+QUALITY_CHOICES: list[tuple[str, str]] = [
+    ("best  (highest available)",          "bestvideo+bestaudio/best"),
+    ("1080p (Full HD)",                    "bestvideo[height<=1080]+bestaudio/best"),
+    ("720p  (HD)",                         "bestvideo[height<=720]+bestaudio/best"),
+    ("480p  (SD)",                         "bestvideo[height<=480]+bestaudio/best"),
+    ("360p  (low)",                        "bestvideo[height<=360]+bestaudio/best"),
+    ("Audio only (best quality)",          "bestaudio/best"),
+]
+
+AUDIO_QUALITY_CHOICES: list[tuple[str, str]] = [
+    ("best audio",   "bestaudio/best"),
+    ("medium audio", "bestaudio[abr<=128]/bestaudio/best"),
+]
+
+_PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%')
+
+
+def _run_download_with_progress(
+    cmd: list[str],
+    on_progress: Callable[[str, float], None] | None = None,
+) -> bool:
+    """Run a yt-dlp download command, streaming progress. Returns True on success."""
+    logger.debug("download cmd: %s", " ".join(cmd))
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        for line in proc.stdout:  # type: ignore[union-attr]
+            line = line.rstrip()
+            m = _PROGRESS_RE.search(line)
+            pct = float(m.group(1)) if m else -1.0
+            if on_progress:
+                on_progress(line, pct)
+            elif pct >= 0:
+                # Default: simple progress bar to stderr
+                filled = int(pct / 2)
+                bar = "█" * filled + "░" * (50 - filled)
+                sys.stderr.write(f"\r  [{bar}] {pct:5.1f}%")
+                sys.stderr.flush()
+        if on_progress is None:
+            sys.stderr.write("\r\033[K")
+            sys.stderr.flush()
+        proc.wait()
+        return proc.returncode == 0
+    except FileNotFoundError:
+        raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+
+
+def download_video_with_progress(
+    video_id: str,
+    config,
+    *,
+    quality_format: str = "",
+    on_progress: Callable[[str, float], None] | None = None,
+) -> bool:
+    """Download video with live progress. quality_format overrides preferred_quality."""
+    config.video_dir.mkdir(parents=True, exist_ok=True)
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
+    if quality_format:
+        fmt = quality_format
+    else:
+        q = config.preferred_quality
+        fmt = "bestvideo+bestaudio/best" if q == "best" else f"bestvideo[height<={q}]+bestaudio/best"
+
+    cmd = [
+        "yt-dlp",
+        "--format", fmt,
+        "--merge-output-format", "mp4",
+        "--output", str(config.video_dir / config.video_format),
+        "--write-info-json",
+        "--write-thumbnail",
+        "--newline",
+        "--no-warnings",
+        *cookie_args(config),
+        url,
+    ]
+    return _run_download_with_progress(cmd, on_progress)
+
+
+def download_audio_with_progress(
+    video_id: str,
+    config,
+    *,
+    on_progress: Callable[[str, float], None] | None = None,
+) -> bool:
+    """Download audio with live progress."""
+    config.audio_dir.mkdir(parents=True, exist_ok=True)
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
+    cmd = [
+        "yt-dlp",
+        "--format", "bestaudio/best",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", "0",
+        "--output", str(config.audio_dir / config.audio_format),
+        "--write-info-json",
+        "--write-thumbnail",
+        "--newline",
+        "--no-warnings",
+        *cookie_args(config),
+        url,
+    ]
+    return _run_download_with_progress(cmd, on_progress)
 
 
 def open_in_browser(video_id: str) -> None:
