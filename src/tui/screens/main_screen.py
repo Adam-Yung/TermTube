@@ -28,6 +28,7 @@ _TABS = [
     ("history",       "🕐 History"),
     ("library",       "📁 Library"),
     ("playlists",     "🎵 Playlists"),
+    ("help",          "❓ Help"),
 ]
 
 _MIN_FEED_COUNT = 15
@@ -36,10 +37,10 @@ _MIN_FEED_COUNT = 15
 class MainScreen(Screen):
     """
     Primary screen with:
-      - Nav tabs across the top (Home / Subs / Search / History / Library / Playlists)
-      - VideoListPanel (left, 45%) — streams entries, j/k navigation
+      - Nav tabs across the top (Home / Subs / Search / History / Library / Playlists / Help)
+      - VideoListPanel (left, 45%) — streams entries, j/k navigation, lazy loading
       - DetailPanel (right, 55%) — thumbnail + metadata + action hints
-      - Optional debug log panel at bottom (toggle with ?)
+      - Optional debug log panel at bottom (toggle with Ctrl+D)
       - Footer with key hints
     """
 
@@ -66,15 +67,19 @@ class MainScreen(Screen):
         # App
         Binding("/",          "search",         "Search",    show=True),
         Binding("r",          "refresh",        "Refresh",   show=True),
-        Binding("?",          "toggle_log",     "Debug",     show=False),
+        Binding("?",          "toggle_help",    "Help",      show=True),
+        Binding("ctrl+d",     "toggle_log",     "Debug",     show=False),
         Binding("q",          "quit_app",       "Quit",      show=True),
-        # Tab shortcuts
-        Binding("1",          "tab_home",       show=False),
-        Binding("2",          "tab_subs",       show=False),
-        Binding("3",          "tab_search",     show=False),
-        Binding("4",          "tab_history",    show=False),
-        Binding("5",          "tab_library",    show=False),
-        Binding("6",          "tab_playlists",  show=False),
+        # Page shortcuts — Ctrl+digit (avoids conflict with 0–9 seek in NowPlaying)
+        Binding("ctrl+1",     "tab_home",       show=False),
+        Binding("ctrl+2",     "tab_subs",       show=False),
+        Binding("ctrl+3",     "tab_search",     show=False),
+        Binding("ctrl+4",     "tab_history",    show=False),
+        Binding("ctrl+5",     "tab_library",    show=False),
+        Binding("ctrl+6",     "tab_playlists",  show=False),
+        Binding("ctrl+7",     "tab_help",       show=False),
+        # Nav picker popup
+        Binding("grave_accent", "nav_picker",   "Pages",     show=False),
     ]
 
     def __init__(self) -> None:
@@ -108,7 +113,9 @@ class MainScreen(Screen):
     def on_mount(self) -> None:
         # Hide debug log by default
         self.query_one("#debug-log").display = False
-        self._load_view("home")
+        # NOTE: Do NOT call _load_view here. Textual's Tabs widget fires
+        # TabActivated for the initially active tab automatically when it mounts,
+        # so calling _load_view here would cause each feed to load twice.
 
     # ── Tab switching ─────────────────────────────────────────────────────────
 
@@ -122,6 +129,20 @@ class MainScreen(Screen):
                 pass
             else:
                 self._open_search_dialog()
+        elif tab_id == "help":
+            # Restore the previous tab visually so Help doesn't "stay active"
+            # while the modal is open — then push the Help modal.
+            prev_tab = self._current_tab
+            tabs = self.query_one("#nav-tabs", Tabs)
+
+            def _after_help(_: None) -> None:
+                # Return focus to whichever tab was active before Help was opened
+                tabs.active = prev_tab if prev_tab != "help" else "home"
+
+            self.app.push_screen(
+                __import__("src.tui.screens.help_screen", fromlist=["HelpScreen"]).HelpScreen(),
+                _after_help,
+            )
         else:
             self._current_tab = tab_id
             self._nav_stack.clear()
@@ -345,7 +366,7 @@ class MainScreen(Screen):
         prev = self._nav_stack.pop()
         self._current_tab = prev
         tabs = self.query_one("#nav-tabs", Tabs)
-        if prev in ("home", "subscriptions", "history", "library", "playlists"):
+        if prev in ("home", "subscriptions", "history", "library", "playlists", "help"):
             tabs.active = prev  # triggers on_tabs_tab_activated → _load_view
         elif prev == "search":
             self._load_view("search")
@@ -538,6 +559,12 @@ class MainScreen(Screen):
         self._load_view(self._current_tab)
         self.notify(f"Refreshing {self._current_tab}…", timeout=2)
 
+    # ── Help ──────────────────────────────────────────────────────────────────
+
+    def action_toggle_help(self) -> None:
+        from src.tui.screens.help_screen import HelpScreen
+        self.app.push_screen(HelpScreen())
+
     # ── Debug log toggle ──────────────────────────────────────────────────────
 
     def action_toggle_log(self) -> None:
@@ -545,7 +572,7 @@ class MainScreen(Screen):
         log = self.query_one("#debug-log")
         log.display = self._log_visible
         if self._log_visible:
-            self.notify("Debug log visible — press ? to hide", timeout=2)
+            self.notify("Debug log visible — press Ctrl+D to hide", timeout=2)
 
     def _log(self, msg: str) -> None:
         """Write a line to the in-TUI debug log."""
@@ -574,6 +601,26 @@ class MainScreen(Screen):
 
     def action_tab_playlists(self) -> None:
         self.query_one("#nav-tabs", Tabs).active = "playlists"
+
+    def action_tab_help(self) -> None:
+        self.action_toggle_help()
+
+    # ── Nav picker popup ──────────────────────────────────────────────────────
+
+    def action_nav_picker(self) -> None:
+        from src.tui.screens.nav_modal import NavModal
+
+        def on_pick(tab_id: str | None) -> None:
+            if not tab_id:
+                return
+            if tab_id == "search":
+                self._open_search_dialog()
+            elif tab_id == "help":
+                self.action_toggle_help()
+            else:
+                self.query_one("#nav-tabs", Tabs).active = tab_id
+
+        self.app.push_screen(NavModal(), on_pick)
 
     # ── Quit ──────────────────────────────────────────────────────────────────
 

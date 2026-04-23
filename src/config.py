@@ -26,6 +26,11 @@ DEFAULT_CONFIG: dict = {
     },
     "thumbnail_cols": 38,
     "thumbnail_rows": 20,
+    # thumbnail_format: how chafa renders in the Textual TUI.
+    # "symbols" (default) = Unicode block chars + ANSI colors — works everywhere.
+    # "sixel"             = sixel graphics — requires sixel-capable terminal.
+    # "ascii"             = restrict to ASCII-only symbols — most compatible fallback.
+    "thumbnail_format": "symbols",
 }
 
 
@@ -135,6 +140,11 @@ class Config:
     @property
     def thumbnail_rows(self) -> int:
         return int(self._data.get("thumbnail_rows", 20))
+
+    @property
+    def thumbnail_format(self) -> str:
+        fmt = self._data.get("thumbnail_format", "symbols")
+        return fmt if fmt in ("symbols", "sixel", "ascii") else "symbols"
 
     def cache_ttl(self, key: str) -> int:
         return int(self._data["cache_ttl"].get(key, 3600))

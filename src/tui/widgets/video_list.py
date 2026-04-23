@@ -1,4 +1,4 @@
-"""VideoListPanel — scrollable video list with live-streaming support."""
+"""VideoListPanel — scrollable video list with live-streaming and lazy loading."""
 
 from __future__ import annotations
 
@@ -7,13 +7,17 @@ from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import ListItem, ListView, Static
 
 if TYPE_CHECKING:
     pass
 
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+BATCH_SIZE = 20           # entries revealed per batch
+PREFETCH_THRESHOLD = 5    # reveal next batch when cursor is within N of visible end
 
 # ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -149,7 +153,13 @@ class VideoListItem(ListItem):
 # ── Panel widget ──────────────────────────────────────────────────────────────
 
 class VideoListPanel(Widget):
-    """Left panel: scrollable list of videos with streaming support."""
+    """
+    Left panel: scrollable list of videos with streaming + lazy loading.
+
+    All streamed entries go into _buffer. Only BATCH_SIZE entries are shown
+    in the ListView at a time. As the user scrolls near the bottom, the next
+    batch is automatically revealed from the buffer.
+    """
 
     # ── Messages ──────────────────────────────────────────────────────────────
 
@@ -169,7 +179,8 @@ class VideoListPanel(Widget):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._entries: list[dict] = []
+        self._buffer: list[dict] = []   # all entries received from the stream
+        self._visible: int = 0          # how many are currently in the ListView
         self._loading = False
 
     # ── Compose ───────────────────────────────────────────────────────────────
@@ -197,7 +208,8 @@ class VideoListPanel(Widget):
 
     def clear_and_set_loading(self) -> None:
         """Reset the list and show a loading state."""
-        self._entries = []
+        self._buffer = []
+        self._visible = 0
         self._loading = True
         lv = self.query_one("#list-view", ListView)
         lv.clear()
@@ -224,30 +236,76 @@ class VideoListPanel(Widget):
         self.query_one("#list-loading", Static).update("")
 
     def append_entry(self, entry: dict) -> None:
-        """Add one entry to the list (called from thread via call_from_thread)."""
-        self._entries.append(entry)
+        """
+        Buffer one entry from the stream. Immediately reveals it if still within
+        the initial batch; otherwise buffers it for lazy reveal on scroll.
+        Called from a background thread via call_from_thread — runs on main thread.
+        """
+        self._buffer.append(entry)
+        n_total = len(self._buffer)
+
+        # Reveal immediately if within the first batch
+        if self._visible < BATCH_SIZE:
+            self._reveal_entry(entry)
+
+        # Update count header (shows total buffered, not just visible)
+        self.query_one("#list-header", Static).update(
+            f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
+        )
+
+    def _reveal_entry(self, entry: dict) -> None:
+        """Add one entry to the ListView (makes it visible)."""
         lv = self.query_one("#list-view", ListView)
         item = VideoListItem(entry)
         lv.append(item)
-        n = len(self._entries)
-        self.query_one("#list-header", Static).update(
-            f"[dim]{n} {'video' if n == 1 else 'videos'}[/dim]"
-        )
+        self._visible += 1
         # Auto-select first item
-        if n == 1:
+        if self._visible == 1:
             lv.index = 0
+
+    def _reveal_next_batch(self) -> None:
+        """Reveal the next BATCH_SIZE entries from the buffer, if any."""
+        start = self._visible
+        end = min(start + BATCH_SIZE, len(self._buffer))
+        if start >= end:
+            return
+        for entry in self._buffer[start:end]:
+            self._reveal_entry(entry)
+        # Update "more available" indicator
+        remaining = len(self._buffer) - self._visible
+        if remaining > 0 and self._loading:
+            self.query_one("#list-loading", Static).update(
+                f"[dim]  ↓ {remaining} more buffered — scroll to load[/dim]"
+            )
 
     def finish_loading(self) -> None:
         """Call when streaming is complete."""
         self._loading = False
-        self.query_one("#list-loading", Static).update("")
-        n = len(self._entries)
-        if n == 0:
+        n_total = len(self._buffer)
+        n_hidden = n_total - self._visible
+
+        if n_total == 0:
             self.query_one("#list-header", Static).update("[dim]No results[/dim]")
+            self.query_one("#list-loading", Static).update("")
         else:
             self.query_one("#list-header", Static).update(
-                f"[dim]{n} {'video' if n == 1 else 'videos'}[/dim]"
+                f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
             )
+            if n_hidden > 0:
+                self.query_one("#list-loading", Static).update(
+                    f"[dim]  ↓ scroll for {n_hidden} more[/dim]"
+                )
+            else:
+                self.query_one("#list-loading", Static).update("")
+
+    def _update_load_more_indicator(self) -> None:
+        remaining = len(self._buffer) - self._visible
+        if remaining > 0:
+            self.query_one("#list-loading", Static).update(
+                f"[dim]  ↓ scroll for {remaining} more[/dim]"
+            )
+        else:
+            self.query_one("#list-loading", Static).update("")
 
     def cursor_down(self) -> None:
         self.query_one("#list-view", ListView).action_cursor_down()
@@ -271,6 +329,15 @@ class VideoListPanel(Widget):
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.item and isinstance(event.item, VideoListItem):
             self.post_message(self.Selected(event.item.entry))
+
+        # Lazy load: reveal next batch when cursor is within PREFETCH_THRESHOLD
+        # of the end of the currently visible list.
+        lv = self.query_one("#list-view", ListView)
+        if lv.index is not None and self._visible < len(self._buffer):
+            remaining_visible = self._visible - 1 - lv.index
+            if remaining_visible <= PREFETCH_THRESHOLD:
+                self._reveal_next_batch()
+                self._update_load_more_indicator()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, VideoListItem):

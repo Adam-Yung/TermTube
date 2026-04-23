@@ -36,6 +36,17 @@ class NowPlayingModal(ModalScreen[bool]):
         Binding("L",      "seek_fwd_big",  "+10s",         show=False),
         Binding("left",   "seek_back",     "−5s",          show=False),
         Binding("right",  "seek_fwd",      "+5s",          show=False),
+        # 0-9 seek to percentage
+        Binding("0",      "seek_pct_0",    "0%",           show=False),
+        Binding("1",      "seek_pct_10",   "10%",          show=False),
+        Binding("2",      "seek_pct_20",   "20%",          show=False),
+        Binding("3",      "seek_pct_30",   "30%",          show=False),
+        Binding("4",      "seek_pct_40",   "40%",          show=False),
+        Binding("5",      "seek_pct_50",   "50%",          show=False),
+        Binding("6",      "seek_pct_60",   "60%",          show=False),
+        Binding("7",      "seek_pct_70",   "70%",          show=False),
+        Binding("8",      "seek_pct_80",   "80%",          show=False),
+        Binding("9",      "seek_pct_90",   "90%",          show=False),
         Binding("q",      "stop",          "Stop",         show=True),
         Binding("escape", "stop",          "Stop",         show=False),
     ]
@@ -63,8 +74,9 @@ class NowPlayingModal(ModalScreen[bool]):
             yield Static("Loading…", id="np-time")
             yield Static(
                 "[dim]space[/dim] pause  "
-                "[dim]h / l[/dim] ±5s  "
-                "[dim]H / L[/dim] ±10s  "
+                "[dim]h/l[/dim] ±5s  "
+                "[dim]H/L[/dim] ±10s  "
+                "[dim]0–9[/dim] seek%  "
                 "[dim]q[/dim] stop",
                 id="np-hint",
                 markup=True,
@@ -155,6 +167,21 @@ class NowPlayingModal(ModalScreen[bool]):
     def action_seek_fwd_big(self) -> None:
         from src.player import send_ipc_command
         send_ipc_command({"command": ["seek", 10, "relative"]}, socket_path=self._SOCKET)
+
+    def _seek_pct(self, pct: int) -> None:
+        from src.player import send_ipc_command
+        send_ipc_command({"command": ["seek", pct, "absolute-percent"]}, socket_path=self._SOCKET)
+
+    def action_seek_pct_0(self)  -> None: self._seek_pct(0)
+    def action_seek_pct_10(self) -> None: self._seek_pct(10)
+    def action_seek_pct_20(self) -> None: self._seek_pct(20)
+    def action_seek_pct_30(self) -> None: self._seek_pct(30)
+    def action_seek_pct_40(self) -> None: self._seek_pct(40)
+    def action_seek_pct_50(self) -> None: self._seek_pct(50)
+    def action_seek_pct_60(self) -> None: self._seek_pct(60)
+    def action_seek_pct_70(self) -> None: self._seek_pct(70)
+    def action_seek_pct_80(self) -> None: self._seek_pct(80)
+    def action_seek_pct_90(self) -> None: self._seek_pct(90)
 
     def action_stop(self) -> None:
         self._stopped = True

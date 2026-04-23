@@ -413,3 +413,66 @@ NowPlayingModal {
     padding: 0 1;
     text-style: bold;
 }
+
+/* ── Help Screen ─────────────────────────────────────────────────────────── */
+HelpScreen {
+    align: center middle;
+}
+
+#help-outer {
+    width: 80%;
+    height: 90%;
+    max-width: 100;
+    background: #0f0f18;
+    border: solid #ff4444;
+}
+
+#help-scroll {
+    width: 100%;
+    height: 1fr;
+    padding: 1 3;
+    overflow-y: auto;
+}
+
+#help-content {
+    width: 100%;
+}
+
+/* ── Nav Picker Modal ────────────────────────────────────────────────────── */
+NavModal {
+    align: center middle;
+}
+
+#nav-dialog {
+    width: 36;
+    height: auto;
+    background: #141414;
+    border: solid #ff4444;
+    padding: 1 2;
+}
+
+#nav-title {
+    color: #ff4444;
+    text-style: bold;
+    margin-bottom: 1;
+    text-align: center;
+    height: 1;
+}
+
+.nav-row {
+    height: 1;
+    color: #cccccc;
+    padding: 0 1;
+}
+
+.nav-row:hover {
+    background: #2a2a2a;
+    color: #ffffff;
+}
+
+#nav-hint {
+    color: #555555;
+    margin-top: 1;
+    text-align: center;
+    height: 1;
+}

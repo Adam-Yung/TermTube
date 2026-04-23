@@ -23,9 +23,25 @@ def _is_kitty() -> bool:
 
 
 def _chafa_format() -> str:
-    """Return the best chafa output format for the current terminal."""
+    """Return the best chafa output format for the current terminal (CLI/fzf context)."""
     if _is_kitty() and shutil.which("chafa"):
         return "kitty"
+    return "symbols"
+
+
+def _chafa_format_for_tui(config=None) -> str:
+    """Return the chafa format safe for use inside the Textual TUI (Rich rendering).
+
+    Kitty graphics protocol is binary and cannot be parsed by Rich.Text.from_ansi().
+    This function therefore never returns 'kitty' — it maps to a config-controlled
+    format that works within Textual's rendering pipeline.
+    """
+    if config is not None:
+        fmt = getattr(config, "thumbnail_format", None)
+        if fmt is None:
+            fmt = config.get("thumbnail_format", "symbols") if hasattr(config, "get") else "symbols"
+        if fmt in ("sixel", "ascii", "symbols"):
+            return fmt
     return "symbols"
 
 
@@ -104,9 +120,14 @@ def _best_thumb_url(entry: dict) -> str:
 
 # ── Render ─────────────────────────────────────────────────────────────────────
 
-def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20) -> str:
+def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20, config=None) -> str:
     """
-    Return chafa ANSI/kitty output for the video's thumbnail.
+    Return chafa ANSI output for the video's thumbnail, safe for Textual TUI rendering.
+
+    Uses _chafa_format_for_tui() — never emits Kitty graphics protocol (binary),
+    which would appear as garbage inside Rich.Text.from_ansi().
+
+    config: optional Config object; if provided its thumbnail_format setting is used.
     Downloads thumbnail if not cached. Returns empty string if unavailable.
     """
     if not _has_chafa():
@@ -123,9 +144,18 @@ def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20) -> str
     if not local.exists():
         return ""
 
-    fmt = _chafa_format()
-    # kitty format doesn't need heavy optimization (lossless transfer)
-    extra_flags = [] if fmt == "kitty" else ["--optimize=3"]
+    fmt = _chafa_format_for_tui(config)
+
+    # Build chafa flags based on format
+    extra_flags: list[str] = []
+    if fmt == "ascii":
+        # Restrict to plain ASCII-range symbols for maximum terminal compat
+        extra_flags = ["--symbols=ascii", "--optimize=3"]
+        fmt = "symbols"
+    elif fmt == "sixel":
+        pass  # No extra flags; sixel is self-contained
+    else:
+        extra_flags = ["--optimize=3"]
 
     try:
         result = subprocess.run(

@@ -196,7 +196,8 @@ class DetailPanel(Widget):
         # Use actual rendered width; fall back to a sensible default
         cols = max(30, (self.size.width or 80) - 4)
         rows = 20
-        ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows)
+        config = getattr(self.app, "config", None)
+        ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
         self.app.call_from_thread(
             self.query_one("#thumbnail", ThumbnailWidget).set_ansi, vid, ansi
         )
