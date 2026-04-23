@@ -15,7 +15,7 @@ if str(_ROOT) not in sys.path:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="myt",
-        description="MyYouTube — YouTube TUI powered by yt-dlp + fzf + gum",
+        description="MyYouTube — YouTube TUI powered by yt-dlp + Textual",
     )
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
@@ -58,9 +58,9 @@ def main() -> None:
         print("\033[33m⚠ No cookie source configured. Home feed and subscriptions require authentication.\033[0m")
         print("  Run: myt --cookies-help  for setup instructions.\n")
 
-    # Launch app
-    from src.app import App
-    app = App(config)
+    # Launch Textual TUI
+    from src.tui.app import MyYouTubeApp
+    app = MyYouTubeApp(config)
     app.run()
 
 

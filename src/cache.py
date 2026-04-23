@@ -75,6 +75,22 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return None
 
+    def get_feed_stale(self, key: str) -> list[str] | None:
+        """Return cached feed IDs even if TTL has expired (stale-while-revalidate).
+        Returns None only if no cache file exists at all."""
+        path = CACHE_DIR / f"feed_{key}.json"
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text())
+            return data.get("ids") or None
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def is_feed_fresh(self, key: str) -> bool:
+        """True if the feed cache exists and is within TTL."""
+        return self.get_feed(key) is not None
+
     def put_feed(self, key: str, ids: list[str]) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
         try:

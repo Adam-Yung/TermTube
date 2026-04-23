@@ -8,12 +8,9 @@ import sys
 # (tool_name, brew_formula, apt_package, is_required)
 DEPS: list[tuple[str, str, str, bool]] = [
     ("yt-dlp",  "yt-dlp",  "yt-dlp",  True),
-    ("fzf",     "fzf",     "fzf",     True),
-    ("gum",     "gum",     "",        True),
     ("mpv",     "mpv",     "mpv",     True),
     ("chafa",   "chafa",   "chafa",   False),  # optional: thumbnails
     ("ffmpeg",  "ffmpeg",  "ffmpeg",  False),  # optional: audio conversion
-    ("jq",      "jq",      "jq",      False),  # optional: JSON cli debug
 ]
 
 COOKIES_HELP = """

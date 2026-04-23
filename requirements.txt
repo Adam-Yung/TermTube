@@ -1,2 +1,3 @@
 PyYAML>=6.0
 requests>=2.31
+textual>=0.50.0
