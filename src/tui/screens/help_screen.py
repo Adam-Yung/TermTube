@@ -24,16 +24,16 @@ _HELP_CONTENT = """\
   [#ff4444]Enter[/#ff4444]          Open selected item (video or playlist)
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]PAGES  (Ctrl+digit for direct switch)[/bold white]
+[bold white]PAGES  (F-keys or backtick picker)[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]Ctrl+1[/#ff4444]         🏠  Home / Recommended
-  [#ff4444]Ctrl+2[/#ff4444]         📺  Subscriptions
-  [#ff4444]Ctrl+3[/#ff4444]         🔍  Search
-  [#ff4444]Ctrl+4[/#ff4444]         🕐  History
-  [#ff4444]Ctrl+5[/#ff4444]         📁  Library (downloaded files)
-  [#ff4444]Ctrl+6[/#ff4444]         🎵  Playlists
-  [#ff4444]Ctrl+7[/#ff4444]         ❓  Help (this screen)
+  [#ff4444]F1[/#ff4444]             🏠  Home / Recommended
+  [#ff4444]F2[/#ff4444]             📺  Subscriptions
+  [#ff4444]F3[/#ff4444]             🔍  Search
+  [#ff4444]F4[/#ff4444]             🕐  History
+  [#ff4444]F5[/#ff4444]             📁  Library (downloaded files)
+  [#ff4444]F6[/#ff4444]             🎵  Playlists
+  [#ff4444]F7[/#ff4444]             ❓  Help (this screen)
   [#ff4444]`  (backtick)[/#ff4444]  Show page-picker popup
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
@@ -94,7 +94,9 @@ _HELP_CONTENT = """\
   [#ff4444]browser[/#ff4444]           chrome / firefox / brave  (for yt-dlp auth)
   [#ff4444]cookies_file[/#ff4444]      Path to Netscape cookies.txt (takes priority)
   [#ff4444]preferred_quality[/#ff4444] best / 1080 / 720 / 480 / 360
-  [#ff4444]thumbnail_format[/#ff4444]  symbols (default) / sixel / ascii
+  [#ff4444]thumbnail_format[/#ff4444]  auto (default) / sixel / symbols / ascii
+                       auto = sixel when terminal supports it, else symbols
+                       sixel works in: iTerm2, WezTerm, foot, mlterm, xterm
   [#ff4444]thumbnail_cols[/#ff4444]    Width in chars for thumbnail preview (default 38)
   [#ff4444]video_dir[/#ff4444]         Download directory for videos
   [#ff4444]audio_dir[/#ff4444]         Download directory for audio files

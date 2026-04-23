@@ -70,14 +70,15 @@ class MainScreen(Screen):
         Binding("?",          "toggle_help",    "Help",      show=True),
         Binding("ctrl+d",     "toggle_log",     "Debug",     show=False),
         Binding("q",          "quit_app",       "Quit",      show=True),
-        # Page shortcuts — Ctrl+digit (avoids conflict with 0–9 seek in NowPlaying)
-        Binding("ctrl+1",     "tab_home",       show=False),
-        Binding("ctrl+2",     "tab_subs",       show=False),
-        Binding("ctrl+3",     "tab_search",     show=False),
-        Binding("ctrl+4",     "tab_history",    show=False),
-        Binding("ctrl+5",     "tab_library",    show=False),
-        Binding("ctrl+6",     "tab_playlists",  show=False),
-        Binding("ctrl+7",     "tab_help",       show=False),
+        # Page shortcuts — F1-F7 (ctrl+digit is unreliable in most terminals;
+        # F-keys are universally supported across Terminal.app, iTerm2, WezTerm…)
+        Binding("f1",         "tab_home",       show=False),
+        Binding("f2",         "tab_subs",       show=False),
+        Binding("f3",         "tab_search",     show=False),
+        Binding("f4",         "tab_history",    show=False),
+        Binding("f5",         "tab_library",    show=False),
+        Binding("f6",         "tab_playlists",  show=False),
+        Binding("f7",         "tab_help",       show=False),
         # Nav picker popup
         Binding("grave_accent", "nav_picker",   "Pages",     show=False),
     ]
@@ -625,6 +626,13 @@ class MainScreen(Screen):
     # ── Quit ──────────────────────────────────────────────────────────────────
 
     def action_quit_app(self) -> None:
+        # Kill any running yt-dlp subprocesses so worker threads unblock
+        # immediately — otherwise app.exit() hangs waiting for @work threads.
+        try:
+            import src.ytdlp as ytdlp
+            ytdlp.kill_all_active()
+        except Exception:
+            pass
         self.app.exit()
 
     # ── Detail panel updates ──────────────────────────────────────────────────

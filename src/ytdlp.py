@@ -21,6 +21,28 @@ from typing import Callable, Generator, Iterable
 from src.cache import Cache
 from src import logger
 
+# ── Active process registry (for clean shutdown) ──────────────────────────────
+
+_active_procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
+_active_procs_lock = threading.Lock()
+
+
+def kill_all_active() -> None:
+    """Kill every yt-dlp subprocess that is currently streaming.
+
+    Called by the TUI before exit so that worker threads blocked on subprocess
+    stdout unblock immediately, preventing the app from hanging on quit.
+    """
+    with _active_procs_lock:
+        procs = list(_active_procs)
+        _active_procs.clear()
+    for proc in procs:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
 # ── Feed URLs ─────────────────────────────────────────────────────────────────
 
 FEED_URLS = {
@@ -92,7 +114,11 @@ def _normalise_entry(entry: dict) -> dict:
 # ── Low-level streaming ───────────────────────────────────────────────────────
 
 def _stream_json_lines(cmd: list[str], *, capture_stderr: bool = False) -> Generator[dict, None, None]:
-    """Run cmd, yield each stdout line parsed as JSON. Ignores non-JSON lines."""
+    """Run cmd, yield each stdout line parsed as JSON. Ignores non-JSON lines.
+
+    The subprocess is registered in _active_procs so that kill_all_active()
+    can terminate it immediately on quit, unblocking the worker thread.
+    """
     logger.debug("yt-dlp cmd: %s", " ".join(cmd))
     try:
         stderr_dest = subprocess.PIPE if capture_stderr else subprocess.DEVNULL
@@ -103,21 +129,27 @@ def _stream_json_lines(cmd: list[str], *, capture_stderr: bool = False) -> Gener
             text=True,
             bufsize=1,
         )
-        for line in proc.stdout:  # type: ignore[union-attr]
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
-        proc.wait()
-        if capture_stderr and proc.stderr:
-            err = proc.stderr.read()
-            if err.strip():
-                logger.debug("yt-dlp stderr: %s", err.strip())
-            if proc.returncode != 0:
-                logger.warning("yt-dlp exited %d: %s", proc.returncode, err.strip())
+        with _active_procs_lock:
+            _active_procs.add(proc)
+        try:
+            for line in proc.stdout:  # type: ignore[union-attr]
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+            proc.wait()
+            if capture_stderr and proc.stderr:
+                err = proc.stderr.read()
+                if err.strip():
+                    logger.debug("yt-dlp stderr: %s", err.strip())
+                if proc.returncode != 0:
+                    logger.warning("yt-dlp exited %d: %s", proc.returncode, err.strip())
+        finally:
+            with _active_procs_lock:
+                _active_procs.discard(proc)
     except FileNotFoundError:
         raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
 
