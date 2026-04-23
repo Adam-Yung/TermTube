@@ -6,11 +6,16 @@ from src.ui.fzf import run_list
 
 
 def run(config, cache) -> str | None:
-    """Show subscription feed. Returns selected video_id or None."""
+    """
+    Show subscription feed.
+    Serves from disk cache instantly if fresh (TTL: subscriptions cache_ttl).
+    Returns selected video_id or None.
+    """
     stream = ytdlp.stream_flat(
         ytdlp.FEED_URLS["subscriptions"],
         config,
         cache,
+        feed_key="subscriptions",
     )
     return run_list(
         "📺  Subscriptions",

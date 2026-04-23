@@ -31,11 +31,12 @@ _GRAY  = "\033[90m"
 _MAG   = "\033[35m"
 _RED   = "\033[31m"
 _BLU   = "\033[34m"
+_BCYAN = "\033[96m"
 
 
 def _fmt_views(n) -> str:
     if n is None:
-        return "?"
+        return ""
     n = int(n)
     if n >= 1_000_000_000:
         return f"{n/1_000_000_000:.1f}B"
@@ -52,18 +53,16 @@ def _fmt_duration(secs) -> str:
     secs = int(secs)
     h, rem = divmod(secs, 3600)
     m, s = divmod(rem, 60)
-    if h:
-        return f"{h}:{m:02d}:{s:02d}"
-    return f"{m}:{s:02d}"
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def _fmt_date(d: str) -> str:
     if d and len(d) == 8:
         return f"{d[:4]}-{d[4:6]}-{d[6:]}"
-    return d or "—"
+    return d or ""
 
 
-def _separator(char: str = "─", width: int = 52) -> str:
+def _sep(width: int, char: str = "─") -> str:
     return f"{_GRAY}{char * width}{_RESET}"
 
 
@@ -72,7 +71,7 @@ def _badge(text: str, color: str = _CYAN) -> str:
 
 
 def render(video_id: str, cols: int, rows: int) -> None:
-    # Load from cache (raw — ignores TTL so preview is always fast)
+    # ── Load from cache (raw — ignores TTL so preview is always fast) ─────────
     path = VIDEO_DIR / f"{video_id}.json"
     if not path.exists():
         print(f"\n  {_GRAY}Loading…{_RESET}")
@@ -84,70 +83,96 @@ def render(video_id: str, cols: int, rows: int) -> None:
         print(f"\n  {_RED}Cache read error{_RESET}")
         return
 
+    is_flat = entry.get("description") is None  # True for flat-playlist entries
+
     # ── Thumbnail ─────────────────────────────────────────────────────────────
-    thumb_art = thumb.render(video_id, entry, cols=cols, rows=rows)
+    # Use slightly fewer rows for thumbnail so metadata fits below
+    thumb_rows = min(rows - 6, 14)
+    thumb_cols = cols - 2
+    thumb_art = thumb.render(video_id, entry, cols=thumb_cols, rows=thumb_rows)
+
     if thumb_art:
         print(thumb_art, end="")
     else:
-        print(f"  {_GRAY}[no thumbnail]{_RESET}")
+        # Placeholder box in place of thumbnail
+        print(f"\n  {_GRAY}{'░' * min(thumb_cols, 40)}{_RESET}")
+        print()
 
-    print(_separator())
+    print(_sep(cols - 2))
 
     # ── Title ─────────────────────────────────────────────────────────────────
     title = entry.get("title") or "Untitled"
-    # Wrap long titles
-    wrapped = textwrap.fill(title, width=cols - 2, subsequent_indent="  ")
-    print(f"\n  {_BOLD}{wrapped}{_RESET}\n")
+    effective_width = max(cols - 4, 20)
+    title_lines = textwrap.wrap(title, width=effective_width)
+    print()
+    for line in title_lines[:2]:  # max 2 lines for title
+        print(f"  {_BOLD}{line}{_RESET}")
+    print()
 
     # ── Channel + stats ───────────────────────────────────────────────────────
     channel  = entry.get("channel") or entry.get("uploader") or ""
     date     = _fmt_date(entry.get("upload_date", ""))
     duration = _fmt_duration(entry.get("duration"))
     views    = _fmt_views(entry.get("view_count"))
-    likes    = entry.get("like_count")
+    likes    = _fmt_views(entry.get("like_count")) if entry.get("like_count") else ""
+    subs     = _fmt_views(entry.get("channel_follower_count")) if entry.get("channel_follower_count") else ""
 
     if channel:
-        print(f"  {_CYAN}▶ {channel}{_RESET}")
+        sub_str = f"  {_GRAY}({subs} subs){_RESET}" if subs else ""
+        print(f"  {_CYAN}◉ {channel}{sub_str}{_RESET}")
 
-    stats_parts = []
+    stat_parts = []
     if date:
-        stats_parts.append(f"{_YEL}{date}{_RESET}")
-    if duration:
-        stats_parts.append(f"{_GRN}⏱ {duration}{_RESET}")
+        stat_parts.append(f"{_YEL}{date}{_RESET}")
+    if duration != "—":
+        stat_parts.append(f"{_GRN}⏱ {duration}{_RESET}")
     if views:
-        stats_parts.append(f"{_GRAY}👁 {views} views{_RESET}")
+        stat_parts.append(f"{_GRAY}👁 {views}{_RESET}")
     if likes:
-        stats_parts.append(f"{_MAG}👍 {_fmt_views(likes)}{_RESET}")
+        stat_parts.append(f"{_MAG}👍 {likes}{_RESET}")
 
-    if stats_parts:
-        print("  " + "  │  ".join(stats_parts))
+    if stat_parts:
+        print("  " + f"  {_GRAY}·{_RESET}  ".join(stat_parts))
+
+    # ── Status badge for flat entries ─────────────────────────────────────────
+    if is_flat:
+        print()
+        print(f"  {_GRAY}⏳ Loading details…{_RESET}")
 
     print()
 
     # ── Description ───────────────────────────────────────────────────────────
     desc = entry.get("description") or entry.get("short_description") or ""
     if desc:
-        print(_separator())
+        print(_sep(cols - 2))
         print()
-        # Trim very long descriptions for preview
-        desc_lines = desc.strip().splitlines()[:12]
-        for line in desc_lines:
-            wrapped_line = textwrap.fill(line or " ", width=cols - 2, subsequent_indent="  ")
-            print(f"  {_DIM}{wrapped_line}{_RESET}")
-        if len(desc.splitlines()) > 12:
-            print(f"\n  {_GRAY}… (full description in video view){_RESET}")
+        desc_lines = desc.strip().splitlines()
+        for line in desc_lines[:10]:
+            if not line.strip():
+                print()
+                continue
+            wrapped = textwrap.fill(line, width=effective_width, subsequent_indent="  ")
+            print(f"  {_DIM}{wrapped}{_RESET}")
+        if len(desc_lines) > 10:
+            print(f"\n  {_GRAY}… (truncated){_RESET}")
+        print()
+    elif not is_flat:
+        # Full fetch returned but no description
+        print(f"  {_GRAY}(no description){_RESET}")
         print()
 
     # ── Tags ──────────────────────────────────────────────────────────────────
     tags = entry.get("tags") or []
     if tags:
         tag_line = "  ".join(f"{_GRAY}#{t}{_RESET}" for t in tags[:6])
-        print(f"\n  {tag_line}\n")
+        print(f"  {tag_line}")
+        print()
 
     # ── Availability notice ───────────────────────────────────────────────────
     avail = entry.get("availability")
     if avail and avail != "public":
-        print(f"  {_YEL}⚠ {avail}{_RESET}\n")
+        print(f"  {_YEL}⚠ {avail}{_RESET}")
+        print()
 
 
 def main() -> None:
@@ -155,7 +180,7 @@ def main() -> None:
         sys.exit(0)
 
     video_id = sys.argv[1]
-    cols = int(sys.argv[2]) if len(sys.argv) > 2 else 38
+    cols = int(sys.argv[2]) if len(sys.argv) > 2 else 40
     rows = int(sys.argv[3]) if len(sys.argv) > 3 else 20
 
     render(video_id, cols, rows)

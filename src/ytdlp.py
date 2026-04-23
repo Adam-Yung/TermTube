@@ -1,11 +1,15 @@
 """yt-dlp interface — all yt-dlp subprocess calls live here.
 
 Progressive streaming design:
-  stream_flat()  →  yields entry dicts as yt-dlp produces them (fast, no blocking)
-  fetch_full()   →  fetches complete metadata for one video (slower, use async)
+  stream_flat()    →  cache-first: yields from disk cache instantly if fresh,
+                      otherwise fetches from yt-dlp and saves feed index.
+  stream_search()  →  same, keyed by query hash.
+  fetch_full()     →  fetches complete metadata for one video (slower).
+  enrich_in_background() → parallel background fetch for multiple videos.
 """
 
 from __future__ import annotations
+import hashlib
 import json
 import subprocess
 import threading
@@ -37,16 +41,15 @@ _FAST_FLAGS = [
 
 def cookie_args(config) -> list[str]:
     """Return yt-dlp --cookies or --cookies-from-browser flags."""
-    return config.cookie_args  # delegated to Config
+    return config.cookie_args
 
 
-# ── Thumbnail normalisation ───────────────────────────────────────────────────
+# ── Entry normalisation ───────────────────────────────────────────────────────
 
 def _best_thumb_url(entry: dict) -> str:
     """Pick the best thumbnail URL from a yt-dlp entry dict."""
     thumbs = entry.get("thumbnails") or []
     if thumbs:
-        # Prefer jpg; yt-dlp lists lowest→highest resolution
         jpg = [t for t in thumbs if "jpg" in t.get("url", "")]
         best = (jpg or thumbs)[-1]
         return best.get("url", "")
@@ -54,9 +57,8 @@ def _best_thumb_url(entry: dict) -> str:
 
 
 def _normalise_entry(entry: dict) -> dict:
-    """Ensure flat-playlist entries have a 'thumbnail' field and webpage_url."""
+    """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
-    # Flat entries may only have 'thumbnails' list — promote the best to 'thumbnail'
     if not entry.get("thumbnail"):
         url = _best_thumb_url(entry)
         if url:
@@ -104,20 +106,51 @@ def stream_flat(
     config,
     cache: Cache,
     *,
+    feed_key: str | None = None,
     on_entry: Callable[[dict], None] | None = None,
 ) -> Generator[dict, None, None]:
     """
     Stream basic video entries from a URL using --flat-playlist.
-    Each entry is written to cache as it arrives.
-    Yields entry dicts; also calls on_entry(entry) if provided.
+
+    Cache-first: if feed_key is given and the cache is fresh, entries are
+    yielded instantly from disk (no network call). Otherwise, fetches from
+    yt-dlp and saves the feed index for next time.
     """
+    # ── Serve from cache ──────────────────────────────────────────────────────
+    if feed_key:
+        cached_ids = cache.get_feed(feed_key)
+        if cached_ids:
+            logger.debug("stream_flat cache hit for feed '%s' (%d ids)", feed_key, len(cached_ids))
+            count = 0
+            for vid_id in cached_ids:
+                entry = cache.get_video_raw(vid_id)
+                if entry:
+                    if on_entry:
+                        on_entry(entry)
+                    yield entry
+                    count += 1
+            if count > 0:
+                return  # Served entirely from cache
+
+    # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
+    logger.debug("stream_flat fetching fresh: %s", url)
     cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    seen_ids: list[str] = []
+
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
         _normalise_entry(entry)
         cache.put_video(entry)
+        vid = entry.get("id", "")
+        if vid:
+            seen_ids.append(vid)
         if on_entry:
             on_entry(entry)
         yield entry
+
+    # Save feed index for instant next load
+    if feed_key and seen_ids:
+        cache.put_feed(feed_key, seen_ids)
+        logger.debug("Saved feed index '%s' with %d ids", feed_key, len(seen_ids))
 
 
 def stream_search(
@@ -127,7 +160,27 @@ def stream_search(
     *,
     count: int = 40,
 ) -> Generator[dict, None, None]:
-    """Stream search results for query."""
+    """
+    Stream search results for query.
+    Results are cached by query hash; repeat searches are instant.
+    """
+    # Cache key = short hash of the query string
+    cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
+
+    # ── Serve from cache ──────────────────────────────────────────────────────
+    cached_ids = cache.get_feed(cache_key)
+    if cached_ids:
+        logger.debug("stream_search cache hit for '%s'", query)
+        count_served = 0
+        for vid_id in cached_ids:
+            entry = cache.get_video_raw(vid_id)
+            if entry:
+                yield entry
+                count_served += 1
+        if count_served > 0:
+            return
+
+    # ── Fresh fetch ───────────────────────────────────────────────────────────
     url = f"ytsearch{count}:{query}"
     cmd = [
         "yt-dlp",
@@ -139,10 +192,18 @@ def stream_search(
         *cookie_args(config),
         url,
     ]
+    seen_ids: list[str] = []
+
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
         _normalise_entry(entry)
         cache.put_video(entry)
+        vid = entry.get("id", "")
+        if vid:
+            seen_ids.append(vid)
         yield entry
+
+    if seen_ids:
+        cache.put_feed(cache_key, seen_ids)
 
 
 # ── Full metadata (for video detail page) ────────────────────────────────────
@@ -168,8 +229,8 @@ def fetch_full(video_id: str, config, cache: Cache) -> dict | None:
     logger.debug("fetch_full fetching: %s", video_id)
     results = list(_stream_json_lines(cmd, capture_stderr=logger.is_debug()))
     if not results:
-        logger.warning("fetch_full got no data for %s — using flat cache", video_id)
-        return cache.get_video_raw(video_id)  # fall back to flat data
+        logger.warning("fetch_full got no data for %s — falling back to flat cache", video_id)
+        return cache.get_video_raw(video_id)
     entry = results[0]
     _normalise_entry(entry)
     cache.put_video(entry)
@@ -185,9 +246,9 @@ def enrich_in_background(
     on_done: Callable[[str, dict], None] | None = None,
 ) -> None:
     """
-    Fetch full metadata for a list of video IDs in parallel background threads.
-    on_done(video_id, entry) is called when each finishes.
-    Runs as a daemon thread — fire and forget.
+    Fetch full metadata for video IDs in parallel background threads.
+    Also pre-downloads thumbnails for enriched videos.
+    on_done(video_id, entry) called when each finishes. Fire-and-forget.
     """
     ids = list(video_ids)
     if not ids:
@@ -196,14 +257,20 @@ def enrich_in_background(
     logger.debug("enrich_in_background: %d videos, max_workers=%d", len(ids), max_workers)
 
     def _worker() -> None:
+        from src.ui import thumbnail as _thumb
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = {pool.submit(fetch_full, vid, config, cache): vid for vid in ids}
             for future in as_completed(futures):
                 vid = futures[future]
                 try:
                     entry = future.result()
-                    if entry and on_done:
-                        on_done(vid, entry)
+                    if entry:
+                        # Pre-download thumbnail so preview is instant
+                        thumb_url = entry.get("thumbnail", "")
+                        if thumb_url and not _thumb._thumb_path(vid).exists():
+                            _thumb.download(vid, thumb_url)
+                        if on_done:
+                            on_done(vid, entry)
                 except Exception as exc:
                     logger.debug("enrich_in_background error for %s: %s", vid, exc)
 
@@ -289,7 +356,6 @@ def open_in_browser(video_id: str) -> None:
 
 def subscribe_channel(channel_url: str, config) -> bool:
     """Subscribe to a channel (requires authenticated session)."""
-    # yt-dlp doesn't support subscribing; open in browser instead
     import webbrowser
     webbrowser.open(channel_url)
     return True
