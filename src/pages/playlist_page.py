@@ -127,7 +127,7 @@ def _show_playlist_videos(name: str, config, cache) -> str | None:
     selected_line = output[1] if len(output) > 1 else ""
 
     if key == "p":
-        _play_all(name, video_ids)
+        _play_all(name, video_ids, config)
         return None
 
     if key == "ctrl-d" and selected_line:
@@ -142,12 +142,13 @@ def _show_playlist_videos(name: str, config, cache) -> str | None:
     return selected_line.split("\t")[0]
 
 
-def _play_all(name: str, video_ids: list[str]) -> None:
+def _play_all(name: str, video_ids: list[str], config=None) -> None:
     """Play all videos in a playlist sequentially via mpv."""
     gum.info(f"Playing '{name}' ({len(video_ids)} videos)…")
     urls = [f"https://www.youtube.com/watch?v={vid}" for vid in video_ids]
+    ck = config.cookie_args if config else []
     try:
-        mpv_player.play_playlist(urls, title=f"Playlist: {name}")
+        mpv_player.play_playlist(urls, title=f"Playlist: {name}", cookie_args=ck)
     except Exception as exc:
         gum.error(f"Playback error: {exc}")
         logger.exception("playlist playback error")

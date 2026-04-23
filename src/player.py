@@ -141,12 +141,33 @@ def playlist_prev(*, socket_path: str = IPC_SOCKET) -> None:
     send_ipc_command({"command": ["playlist-prev"]}, socket_path=socket_path)
 
 
+def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
+    """
+    Convert yt-dlp cookie flags to mpv --ytdl-raw-options format.
+    e.g. ['--cookies', '/path/to/cookies.txt']  →  'cookies=/path/to/cookies.txt'
+         ['--cookies-from-browser', 'chrome']    →  'cookies-from-browser=chrome'
+    """
+    opts: list[str] = []
+    i = 0
+    while i < len(cookie_args):
+        arg = cookie_args[i]
+        if arg.startswith("--") and i + 1 < len(cookie_args) and not cookie_args[i + 1].startswith("--"):
+            key = arg[2:]          # strip leading '--'
+            val = cookie_args[i + 1]
+            opts.append(f"{key}={val}")
+            i += 2
+        else:
+            i += 1
+    return ",".join(opts)
+
+
 def play_playlist(
     urls: list[str],
     *,
     audio_only: bool = False,
     title: str = "",
     ytdl_format: str = "",
+    cookie_args: list[str] | None = None,
 ) -> None:
     """Play multiple URLs sequentially as an mpv playlist. Blocks until done."""
     if not urls:
@@ -166,6 +187,9 @@ def play_playlist(
             cmd += [f"--title={title}"]
         if ytdl_format:
             cmd += [f"--ytdl-format={ytdl_format}"]
+        ytdl_raw = _cookie_args_to_ytdl_raw(cookie_args or [])
+        if ytdl_raw:
+            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--"] + urls
         logger.debug("mpv playlist cmd: %s [+%d urls]", " ".join(cmd[:6]), len(urls))
         result = subprocess.run(cmd)
@@ -186,15 +210,19 @@ def play(
     player: str = "mpv",
     title: str = "",
     ytdl_format: str = "",
+    cookie_args: list[str] | None = None,
 ) -> None:
     """
     Stream video/audio URL with the configured player.
     Blocks until playback ends.
+    cookie_args: yt-dlp cookie flags (e.g. config.cookie_args) passed to mpv's
+                 internal yt-dlp via --ytdl-raw-options so YouTube auth works.
     """
     if player == "vlc" and _vlc_available():
         _play_vlc(url, audio_only=audio_only)
     elif _mpv_available():
-        _play_mpv(url, audio_only=audio_only, title=title, ytdl_format=ytdl_format)
+        _play_mpv(url, audio_only=audio_only, title=title, ytdl_format=ytdl_format,
+                  cookie_args=cookie_args)
     else:
         raise RuntimeError("No supported player found. Install mpv: brew install mpv")
 
@@ -206,7 +234,8 @@ def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", titl
 
 # ── mpv ───────────────────────────────────────────────────────────────────────
 
-def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "") -> None:
+def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "",
+              cookie_args: list[str] | None = None) -> None:
     input_conf = _write_input_conf()
     try:
         cmd = [
@@ -233,6 +262,10 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
 
         if ytdl_format:
             cmd += [f"--ytdl-format={ytdl_format}"]
+
+        ytdl_raw = _cookie_args_to_ytdl_raw(cookie_args or [])
+        if ytdl_raw:
+            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
 
         cmd += ["--", url]
 

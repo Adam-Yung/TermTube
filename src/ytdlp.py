@@ -58,6 +58,27 @@ def _best_thumb_url(entry: dict) -> str:
     return entry.get("thumbnail", "")
 
 
+import re as _re
+_VIDEO_ID_RE = _re.compile(r'^[A-Za-z0-9_-]{11}$')
+
+
+def _is_playable_video(entry: dict) -> bool:
+    """
+    Return True only for proper YouTube video entries.
+    Filters out playlists, channels, YouTube Mix (RD...), and other non-video results
+    that yt-dlp --flat-playlist sometimes includes.
+    """
+    vid = entry.get("id", "")
+    # Standard YouTube video IDs are exactly 11 URL-safe base64 chars
+    if not _VIDEO_ID_RE.match(vid):
+        return False
+    # Explicit type field
+    etype = entry.get("_type", "video")
+    if etype in ("playlist", "channel"):
+        return False
+    return True
+
+
 def _normalise_entry(entry: dict) -> dict:
     """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
@@ -118,10 +139,15 @@ def stream_flat(
     yielded instantly from disk (no network call). Otherwise, fetches from
     yt-dlp and saves the feed index for next time.
     """
+    # Minimum number of entries to consider a feed cache valid.
+    # If the previous fetch was interrupted early or auth failed, the cache
+    # would have too few entries — treat that as a miss and refetch.
+    _MIN_FEED_COUNT = 15
+
     # ── Serve from cache ──────────────────────────────────────────────────────
     if feed_key:
         cached_ids = cache.get_feed(feed_key)
-        if cached_ids:
+        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
             logger.debug("stream_flat cache hit for feed '%s' (%d ids)", feed_key, len(cached_ids))
             count = 0
             for vid_id in cached_ids:
@@ -131,8 +157,14 @@ def stream_flat(
                         on_entry(entry)
                     yield entry
                     count += 1
-            if count > 0:
+            if count >= _MIN_FEED_COUNT:
                 return  # Served entirely from cache
+            # Too few video JSONs present — fall through to fresh fetch
+            logger.debug("stream_flat: only %d/%d video JSONs found, refetching", count, len(cached_ids))
+        elif cached_ids:
+            logger.debug("stream_flat: cached feed '%s' too small (%d ids < %d), refetching",
+                         feed_key, len(cached_ids), _MIN_FEED_COUNT)
+            cache.clear_feed(feed_key)
 
     # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
     logger.debug("stream_flat fetching fresh: %s", url)
@@ -140,6 +172,10 @@ def stream_flat(
     seen_ids: list[str] = []
 
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
+        if not _is_playable_video(entry):
+            logger.debug("stream_flat: skipping non-video entry id=%r type=%r",
+                         entry.get("id"), entry.get("_type"))
+            continue
         _normalise_entry(entry)
         cache.put_video(entry)
         vid = entry.get("id", "")
@@ -149,10 +185,14 @@ def stream_flat(
             on_entry(entry)
         yield entry
 
-    # Save feed index for instant next load
-    if feed_key and seen_ids:
+    # Only save feed index if we got a reasonable number of entries.
+    # This prevents caching an incomplete result from an interrupted or
+    # unauthenticated fetch.
+    if feed_key and len(seen_ids) >= _MIN_FEED_COUNT:
         cache.put_feed(feed_key, seen_ids)
         logger.debug("Saved feed index '%s' with %d ids", feed_key, len(seen_ids))
+    elif feed_key and seen_ids:
+        logger.debug("stream_flat: only %d results, not caching feed '%s'", len(seen_ids), feed_key)
 
 
 def stream_search(
@@ -160,7 +200,7 @@ def stream_search(
     config,
     cache: Cache,
     *,
-    count: int = 40,
+    count: int = 50,
 ) -> Generator[dict, None, None]:
     """
     Stream search results for query.
@@ -168,19 +208,26 @@ def stream_search(
     """
     # Cache key = short hash of the query string
     cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
+    _MIN_SEARCH_COUNT = 5  # Searches can legitimately have few results
 
     # ── Serve from cache ──────────────────────────────────────────────────────
     cached_ids = cache.get_feed(cache_key)
-    if cached_ids:
-        logger.debug("stream_search cache hit for '%s'", query)
+    if cached_ids and len(cached_ids) >= _MIN_SEARCH_COUNT:
+        logger.debug("stream_search cache hit for '%s' (%d ids)", query, len(cached_ids))
         count_served = 0
         for vid_id in cached_ids:
             entry = cache.get_video_raw(vid_id)
             if entry:
                 yield entry
                 count_served += 1
-        if count_served > 0:
+        if count_served >= _MIN_SEARCH_COUNT:
             return
+        logger.debug("stream_search: only %d/%d video JSONs found for '%s', refetching",
+                     count_served, len(cached_ids), query)
+    elif cached_ids:
+        logger.debug("stream_search: stale small cache (%d ids) for '%s', refetching",
+                     len(cached_ids), query)
+        cache.clear_feed(cache_key)
 
     # ── Fresh fetch ───────────────────────────────────────────────────────────
     url = f"ytsearch{count}:{query}"
@@ -197,6 +244,8 @@ def stream_search(
     seen_ids: list[str] = []
 
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
+        if not _is_playable_video(entry):
+            continue
         _normalise_entry(entry)
         cache.put_video(entry)
         vid = entry.get("id", "")
@@ -204,8 +253,10 @@ def stream_search(
             seen_ids.append(vid)
         yield entry
 
-    if seen_ids:
+    if len(seen_ids) >= _MIN_SEARCH_COUNT:
         cache.put_feed(cache_key, seen_ids)
+    elif seen_ids:
+        logger.debug("stream_search: only %d results for '%s', not caching", len(seen_ids), query)
 
 
 # ── Full metadata (for video detail page) ────────────────────────────────────

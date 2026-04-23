@@ -92,7 +92,7 @@ def run(config, cache) -> str | None:
         "--header", f"  🔖  Bookmarks  ({len(entries)} items)  │  \033[90m↑↓/jk nav  Enter/l select  h/Esc back\033[0m",
         "--with-nth=2..",
         "--delimiter=\t",
-        "--preview", f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} {config.thumbnail_cols} {config.thumbnail_rows}",
+        "--preview", f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} $FZF_PREVIEW_COLUMNS $FZF_PREVIEW_LINES",
         "--preview-window=right:50%:wrap",
         "--bind=j:down,k:up,h:abort,l:accept,backspace:abort,ctrl-j:preview-down,ctrl-k:preview-up",
         "--no-sort",

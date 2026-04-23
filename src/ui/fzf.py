@@ -168,7 +168,9 @@ def _build_fzf_cmd(
     extra_binds: list[str] | None,
 ) -> list[str]:
     """Build the fzf command with all styling flags."""
-    preview_cmd = f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} {preview_cols} {preview_rows}"
+    # Use fzf's live pane-size env vars so chafa renders at the actual preview width/height.
+    # $FZF_PREVIEW_COLUMNS and $FZF_PREVIEW_LINES are set by fzf before each preview run.
+    preview_cmd = f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} $FZF_PREVIEW_COLUMNS $FZF_PREVIEW_LINES"
 
     # Navigation hint shown inside the border (compact)
     nav_hint = (

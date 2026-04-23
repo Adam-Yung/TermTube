@@ -265,11 +265,15 @@ def run(video_id: str, config, cache) -> None:
         title = entry.get("title", "")
         local = library.find_local(video_id, config.video_dir, config.audio_dir)
 
+        # Cookies forwarded to mpv's internal yt-dlp so YouTube auth works
+        _ck = config.cookie_args
+
         if action_key == "watch":
             play_url = local.get("video_path") or url
             history.add(entry)
             try:
-                mpv_player.play(play_url, audio_only=False, player=config.preferred_player, title=title)
+                mpv_player.play(play_url, audio_only=False, player=config.preferred_player,
+                                title=title, cookie_args=_ck)
             except Exception as exc:
                 gum.error(f"Playback error: {exc}")
                 logger.exception("mpv playback error")
@@ -281,7 +285,7 @@ def run(video_id: str, config, cache) -> None:
                 history.add(entry)
                 try:
                     mpv_player.play(url, audio_only=False, player=config.preferred_player,
-                                    title=title, ytdl_format=fmt)
+                                    title=title, ytdl_format=fmt, cookie_args=_ck)
                 except Exception as exc:
                     gum.error(f"Playback error: {exc}")
                     logger.exception("mpv playback error")
@@ -291,7 +295,8 @@ def run(video_id: str, config, cache) -> None:
             play_url = local.get("audio_path") or url
             history.add(entry)
             try:
-                mpv_player.play(play_url, audio_only=True, player=config.preferred_player, title=title)
+                mpv_player.play(play_url, audio_only=True, player=config.preferred_player,
+                                title=title, cookie_args=_ck)
             except Exception as exc:
                 gum.error(f"Playback error: {exc}")
                 logger.exception("mpv playback error")
@@ -303,7 +308,7 @@ def run(video_id: str, config, cache) -> None:
                 history.add(entry)
                 try:
                     mpv_player.play(url, audio_only=True, player=config.preferred_player,
-                                    title=title, ytdl_format=fmt)
+                                    title=title, ytdl_format=fmt, cookie_args=_ck)
                 except Exception as exc:
                     gum.error(f"Playback error: {exc}")
                     logger.exception("mpv playback error")

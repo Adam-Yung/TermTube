@@ -125,7 +125,7 @@ def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20) -> str
 
     fmt = _chafa_format()
     # kitty format doesn't need heavy optimization (lossless transfer)
-    extra_flags = [] if fmt == "kitty" else ["--optimize=9"]
+    extra_flags = [] if fmt == "kitty" else ["--optimize=3"]
 
     try:
         result = subprocess.run(
@@ -133,7 +133,8 @@ def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20) -> str
                 "chafa",
                 f"--size={cols}x{rows}",
                 f"--format={fmt}",
-                "--stretch",
+                # No --stretch: preserve the 16:9 aspect ratio.
+                # chafa will letterbox within the given size.
                 *extra_flags,
                 str(local),
             ],
@@ -152,7 +153,7 @@ def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
     if not _has_chafa() or not url:
         return ""
     fmt = _chafa_format()
-    extra_flags = [] if fmt == "kitty" else ["--optimize=9"]
+    extra_flags = [] if fmt == "kitty" else ["--optimize=3"]
     try:
         curl = subprocess.Popen(
             ["curl", "-sL", "--max-time", "8", url],
@@ -164,7 +165,6 @@ def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
                 "chafa",
                 f"--size={cols}x{rows}",
                 f"--format={fmt}",
-                "--stretch",
                 *extra_flags,
                 "-",
             ],

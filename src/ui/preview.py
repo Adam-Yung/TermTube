@@ -86,9 +86,13 @@ def render(video_id: str, cols: int, rows: int) -> None:
     is_flat = entry.get("description") is None  # True for flat-playlist entries
 
     # ── Thumbnail ─────────────────────────────────────────────────────────────
-    # Use slightly fewer rows for thumbnail so metadata fits below
-    thumb_rows = min(rows - 6, 14)
+    # YouTube thumbnails are 16:9. Terminal chars are ~2× taller than wide in
+    # pixels (1:2 font ratio), so the natural row count for a full-width image is:
+    #   natural_rows = cols * (9/16) / 2  =  cols * 9/32
+    # This keeps the aspect ratio correct instead of squishing/stretching.
     thumb_cols = cols - 2
+    natural_rows = max(8, int(thumb_cols * 9 / 32))
+    thumb_rows = min(natural_rows, rows - 4)  # leave at least 4 rows for metadata
     thumb_art = thumb.render(video_id, entry, cols=thumb_cols, rows=thumb_rows)
 
     if thumb_art:
