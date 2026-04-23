@@ -197,7 +197,7 @@ class DetailPanel(Widget):
         cols = max(30, (self.size.width or 80) - 4)
         rows = 20
         ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows)
-        self.call_from_thread(
+        self.app.call_from_thread(
             self.query_one("#thumbnail", ThumbnailWidget).set_ansi, vid, ansi
         )
 
@@ -210,8 +210,8 @@ class DetailPanel(Widget):
             if full and self._current_id == vid:
                 desc = full.get("description", "")
                 if desc:
-                    self.call_from_thread(self._set_description, desc)
+                    self.app.call_from_thread(self._set_description, desc)
                 # Refresh playlist membership (full meta may have channel info)
-                self.call_from_thread(self._update_playlists, vid)
+                self.app.call_from_thread(self._update_playlists, vid)
         except Exception:
             pass

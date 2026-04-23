@@ -61,7 +61,10 @@ def main() -> None:
     # Launch Textual TUI
     from src.tui.app import MyYouTubeApp
     app = MyYouTubeApp(config)
-    app.run()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":

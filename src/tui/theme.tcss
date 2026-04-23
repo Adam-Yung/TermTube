@@ -333,6 +333,59 @@ QualityModal {
     color: #555555;
 }
 
+/* ── Now Playing Modal ───────────────────────────────────────────────────── */
+NowPlayingModal {
+    align: center middle;
+}
+
+#now-playing-dialog {
+    width: 65%;
+    height: auto;
+    background: #0d0d1a;
+    border: solid #4444aa;
+    padding: 1 2;
+}
+
+#np-header {
+    color: #8888ff;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#np-title {
+    color: #ffffff;
+    text-style: bold;
+    margin-bottom: 0;
+}
+
+#np-channel {
+    color: #ff6666;
+    margin-bottom: 1;
+}
+
+#now-playing-dialog ProgressBar {
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+#now-playing-dialog ProgressBar > .bar--bar {
+    color: #8888ff;
+}
+
+#now-playing-dialog ProgressBar > .bar--complete {
+    color: #44ff44;
+}
+
+#np-time {
+    color: #aaaaaa;
+    margin-bottom: 1;
+}
+
+#np-hint {
+    color: #555555;
+    margin-top: 1;
+}
+
 /* ── Debug log panel ─────────────────────────────────────────────────────── */
 #debug-log {
     height: 12;

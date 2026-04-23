@@ -21,6 +21,7 @@ class MyYouTubeApp(App):
     TITLE = "MyYouTube"
     SUB_TITLE = "YouTube in your terminal"
     CSS_PATH = Path(__file__).parent / "theme.tcss"
+    ENABLE_COMMAND_PALETTE = False
 
     def __init__(self, config: Config) -> None:
         super().__init__()

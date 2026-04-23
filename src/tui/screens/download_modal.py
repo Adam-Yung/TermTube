@@ -56,7 +56,7 @@ class DownloadModal(ModalScreen[bool]):
             if self._cancelled:
                 return
             if pct >= 0:
-                self.call_from_thread(self._update_progress, pct, line)
+                self.app.call_from_thread(self._update_progress, pct, line)
 
         if self._audio_only:
             success = ytdlp.download_audio_with_progress(
@@ -72,7 +72,7 @@ class DownloadModal(ModalScreen[bool]):
             )
 
         if not self._cancelled:
-            self.call_from_thread(self._on_done, success)
+            self.app.call_from_thread(self._on_done, success)
 
     def _update_progress(self, pct: float, line: str) -> None:
         try:

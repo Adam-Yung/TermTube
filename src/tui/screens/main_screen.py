@@ -151,12 +151,12 @@ class MainScreen(Screen):
 
             elif view == "search":
                 if not self._search_query:
-                    self.call_from_thread(panel.set_empty_message, "Press / to search")
+                    self.app.call_from_thread(panel.set_empty_message, "Press / to search")
                     return
                 import src.ytdlp as ytdlp
                 gen = ytdlp.stream_search(self._search_query, config, cache)
                 for entry in gen:
-                    self.call_from_thread(panel.append_entry, entry)
+                    self.app.call_from_thread(panel.append_entry, entry)
                     vid = entry.get("id")
                     if vid:
                         collected_ids.append(vid)
@@ -164,13 +164,13 @@ class MainScreen(Screen):
             elif view == "history":
                 from src import history as hist
                 for entry in hist.iter_entries():
-                    self.call_from_thread(panel.append_entry, entry)
+                    self.app.call_from_thread(panel.append_entry, entry)
 
             elif view == "library":
                 from src import library as lib
                 entries = lib.all_entries(config.video_dir, config.audio_dir)
                 for entry in entries:
-                    self.call_from_thread(panel.append_entry, entry)
+                    self.app.call_from_thread(panel.append_entry, entry)
 
             elif view == "playlists":
                 self._load_playlists_sync(panel)
@@ -184,11 +184,11 @@ class MainScreen(Screen):
         except Exception as exc:
             import traceback
             msg = str(exc)
-            self.call_from_thread(panel.set_error_message, f"⚠ {msg}")
-            self.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
+            self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
+            self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
             return
 
-        self.call_from_thread(panel.finish_loading)
+        self.app.call_from_thread(panel.finish_loading)
 
         # Background enrichment for feeds/search
         if collected_ids and view in ("home", "subscriptions", "search"):
@@ -211,12 +211,12 @@ class MainScreen(Screen):
                 for vid_id in stale_ids:
                     entry = cache.get_video_raw(vid_id)
                     if entry:
-                        self.call_from_thread(panel.append_entry, entry)
+                        self.app.call_from_thread(panel.append_entry, entry)
                         collected_ids.append(vid_id)
                         count += 1
                 if count >= _MIN_FEED_COUNT:
-                    self.call_from_thread(panel.finish_loading)
-                    self.call_from_thread(
+                    self.app.call_from_thread(panel.finish_loading)
+                    self.app.call_from_thread(
                         self.notify,
                         "Showing cached results — refreshing in background…",
                         timeout=3,
@@ -239,11 +239,11 @@ class MainScreen(Screen):
             ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key
         )
         for entry in gen:
-            self.call_from_thread(panel.append_entry, entry)
+            self.app.call_from_thread(panel.append_entry, entry)
             vid = entry.get("id")
             if vid:
                 collected_ids.append(vid)
-        self.call_from_thread(panel.finish_loading)
+        self.app.call_from_thread(panel.finish_loading)
         if collected_ids:
             ytdlp.enrich_in_background(collected_ids[:15], config, cache)
 
@@ -264,7 +264,7 @@ class MainScreen(Screen):
         from src import playlist
         names = playlist.list_names()
         if not names:
-            self.call_from_thread(
+            self.app.call_from_thread(
                 panel.set_empty_message, "No playlists. Select a video and press p."
             )
             return
@@ -279,14 +279,14 @@ class MainScreen(Screen):
                 "_is_playlist": True,
                 "_playlist_name": name,
             }
-            self.call_from_thread(panel.append_entry, entry)
-        self.call_from_thread(panel.finish_loading)
+            self.app.call_from_thread(panel.append_entry, entry)
+        self.app.call_from_thread(panel.finish_loading)
 
     def _load_playlist_videos_sync(self, name: str, panel, cache) -> None:
         from src import playlist
         ids = playlist.get_playlist(name)
         if not ids:
-            self.call_from_thread(panel.set_empty_message, f'Playlist "{name}" is empty.')
+            self.app.call_from_thread(panel.set_empty_message, f'Playlist "{name}" is empty.')
             return
         for vid_id in ids:
             entry = cache.get_video_raw(vid_id)
@@ -296,8 +296,8 @@ class MainScreen(Screen):
                     "title": vid_id,
                     "uploader": "",
                 }
-            self.call_from_thread(panel.append_entry, entry)
-        self.call_from_thread(panel.finish_loading)
+            self.app.call_from_thread(panel.append_entry, entry)
+        self.app.call_from_thread(panel.finish_loading)
 
     # ── Search ────────────────────────────────────────────────────────────────
 
@@ -370,7 +370,7 @@ class MainScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        self._play(entry, audio_only=False)
+        self._watch_video(entry)
 
     def action_watch_quality(self) -> None:
         entry = self._selected_entry()
@@ -380,7 +380,7 @@ class MainScreen(Screen):
 
         def on_fmt(fmt: str | None) -> None:
             if fmt is not None:
-                self._play(entry, audio_only=False, ytdl_format=fmt)
+                self._watch_video(entry, ytdl_format=fmt)
 
         self.app.push_screen(QualityModal(audio_only=False), on_fmt)
 
@@ -388,7 +388,7 @@ class MainScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        self._play(entry, audio_only=True)
+        self._open_now_playing(entry)
 
     def action_listen_quality(self) -> None:
         entry = self._selected_entry()
@@ -398,47 +398,44 @@ class MainScreen(Screen):
 
         def on_fmt(fmt: str | None) -> None:
             if fmt is not None:
-                self._play(entry, audio_only=True, ytdl_format=fmt)
+                self._open_now_playing(entry, ytdl_format=fmt)
 
         self.app.push_screen(QualityModal(audio_only=True), on_fmt)
 
-    @work(exclusive=True, group="player")
-    async def _play(
-        self,
-        entry: dict,
-        *,
-        audio_only: bool,
-        ytdl_format: str = "",
-    ) -> None:
-        """
-        Async worker: suspends the TUI, runs mpv in a thread, then resumes.
-        Using an async (not thread) worker so self.app.suspend() is called on
-        the event loop thread, which is required for correct terminal handling.
-        """
-        import asyncio
+    @work(thread=True, exclusive=True, group="player")
+    def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
+        """Launch mpv for video in a background thread; TUI stays visible."""
         from src import history, player
 
-        app = self.app  # type: ignore[attr-defined]
         vid = entry.get("id", "")
-        url: str = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
+        url: str = (
+            entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
+        )
         title: str = entry.get("title", "")
-        cookie_args = app.config.cookie_args
-        fmt = ytdl_format or ""
+        cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
 
-        self._log(f"Playing: [bold]{title[:60]}[/bold]")
-
-        with self.app.suspend():
-            await asyncio.to_thread(
-                player.play,
-                url,
-                audio_only=audio_only,
-                title=title,
-                ytdl_format=fmt,
-                cookie_args=cookie_args,
-            )
-
+        player.play(
+            url,
+            audio_only=False,
+            title=title,
+            ytdl_format=ytdl_format,
+            cookie_args=cookie_args,
+        )
         history.add(entry)
-        self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+        self.app.call_from_thread(self.notify, f"✓ Finished: {title[:50]}", timeout=4)
+
+    def _open_now_playing(self, entry: dict, *, ytdl_format: str = "") -> None:
+        """Open the in-TUI audio player modal."""
+        from src.tui.screens.now_playing import NowPlayingModal
+        from src import history
+
+        def on_done(success: bool | None) -> None:
+            history.add(entry)
+            title = entry.get("title", "")
+            if title:
+                self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+
+        self.app.push_screen(NowPlayingModal(entry, ytdl_format=ytdl_format), on_done)
 
     # ── Download ──────────────────────────────────────────────────────────────
 
