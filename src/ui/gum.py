@@ -15,16 +15,14 @@ def _has_gum() -> bool:
 
 class Spinner:
     """
-    Context manager that shows a gum spinner while a block runs.
+    Context manager that shows a spinner while a block runs.
 
     with Spinner("Fetching feed..."):
         do_slow_thing()
     """
 
-    def __init__(self, title: str, spinner_type: str = "dots") -> None:
+    def __init__(self, title: str) -> None:
         self.title = title
-        self.spinner_type = spinner_type
-        self._proc: subprocess.Popen | None = None
 
     def __enter__(self) -> "Spinner":
         _print_loading(self.title)
@@ -46,71 +44,73 @@ def _clear_loading() -> None:
 
 def spin_while(title: str, fn: Callable, spinner_type: str = "dots"):
     """Run fn() while showing a spinner. Returns fn()'s return value."""
-    if _has_gum():
-        import threading
-        result_box: list = [None]
-        exc_box: list = [None]
+    import threading, time
+    result_box: list = [None]
+    exc_box: list = [None]
 
-        def _run():
-            try:
-                result_box[0] = fn()
-            except Exception as e:
-                exc_box[0] = e
+    def _run():
+        try:
+            result_box[0] = fn()
+        except Exception as e:
+            exc_box[0] = e
 
-        t = threading.Thread(target=_run, daemon=True)
-        t.start()
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
 
-        # Show spinner by printing and animating manually (gum spin needs a subprocess command)
-        _frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-        i = 0
-        import time
-        while t.is_alive():
-            sys.stderr.write(f"\r\033[K  \033[36m{_frames[i % len(_frames)]}\033[0m  {title}")
-            sys.stderr.flush()
-            time.sleep(0.08)
-            i += 1
-        _clear_loading()
-        t.join()
+    _frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    i = 0
+    while t.is_alive():
+        sys.stderr.write(f"\r\033[K  \033[36m{_frames[i % len(_frames)]}\033[0m  {title}")
+        sys.stderr.flush()
+        time.sleep(0.08)
+        i += 1
+    _clear_loading()
+    t.join()
 
-        if exc_box[0]:
-            raise exc_box[0]
-        return result_box[0]
-    else:
-        _print_loading(title)
-        result = fn()
-        _clear_loading()
-        return result
+    if exc_box[0]:
+        raise exc_box[0]
+    return result_box[0]
 
 
 # ── Choose ────────────────────────────────────────────────────────────────────
 
 def choose(items: list[str], *, header: str = "", height: int = 10) -> str | None:
     """Show gum choose menu. Returns selected item or None."""
+    if not items:
+        return None
     if not _has_gum():
         return _fallback_choose(items, header)
 
-    cmd = ["gum", "choose", "--height", str(height)]
+    cmd = ["gum", "choose", "--height", str(min(height, len(items) + 4))]
     if header:
         cmd += ["--header", header]
     cmd += items
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0 or not result.stdout.strip():
-        return None
-    return result.stdout.strip()
+    # Use stdout=PIPE so gum's TUI (rendered to stderr/tty) stays visible
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        return result.stdout.strip()
+    except Exception:
+        return _fallback_choose(items, header)
 
 
 def _fallback_choose(items: list[str], header: str) -> str | None:
     if header:
-        print(f"\n{header}")
+        # Strip ANSI codes for plain display
+        import re
+        plain = re.sub(r'\033\[[0-9;]*m', '', header)
+        print(f"\n{plain}")
     for i, item in enumerate(items, 1):
-        print(f"  {i}. {item}")
+        import re
+        plain = re.sub(r'\033\[[0-9;]*m', '', item)
+        print(f"  {i}. {plain}")
     try:
-        raw = input("\nChoice (number or name): ").strip()
+        raw = input("\nChoice (number): ").strip()
         if raw.isdigit() and 1 <= int(raw) <= len(items):
             return items[int(raw) - 1]
-        matches = [x for x in items if x.lower().startswith(raw.lower())]
-        return matches[0] if matches else None
+        return None
     except (EOFError, KeyboardInterrupt):
         return None
 
@@ -132,10 +132,14 @@ def text_input(placeholder: str = "", header: str = "") -> str | None:
     if header:
         cmd += ["--header", header]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
+    # Use stdout=PIPE so gum's TUI renders to stderr/tty
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip() or None
+    except Exception:
         return None
-    return result.stdout.strip() or None
 
 
 # ── Confirm ───────────────────────────────────────────────────────────────────
@@ -153,6 +157,7 @@ def confirm(prompt: str, *, default: bool = True) -> bool:
     cmd = ["gum", "confirm", prompt]
     if not default:
         cmd += ["--default=false"]
+    # confirm renders TUI to stderr; exit code signals yes/no
     result = subprocess.run(cmd)
     return result.returncode == 0
 
@@ -175,10 +180,13 @@ def style(text: str, *, bold: bool = False, fg: str = "", bg: str = "", border: 
         cmd += ["--border", border]
     cmd += [text]
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0:
-        return result.stdout.rstrip("\n")
-    return text
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            return result.stdout.rstrip("\n")
+    except Exception:
+        pass
+    return _ansi_style(text, bold=bold, fg=fg)
 
 
 def _ansi_style(text: str, *, bold: bool = False, fg: str = "") -> str:
@@ -197,11 +205,10 @@ def _ansi_style(text: str, *, bold: bool = False, fg: str = "") -> str:
 def header(title: str, subtitle: str = "") -> None:
     """Print a styled page header."""
     width = 60
-    line = "─" * width
     print(f"\033[1;36m{title}\033[0m")
     if subtitle:
         print(f"\033[90m{subtitle}\033[0m")
-    print(f"\033[90m{line}\033[0m")
+    print(f"\033[90m{'─' * width}\033[0m")
 
 
 def error(msg: str) -> None:

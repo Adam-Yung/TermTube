@@ -22,4 +22,6 @@ def run(config, cache, *, initial_query: str | None = None) -> str | None:
         loading_msg=f'Searching for "{query}"…',
         preview_cols=config.thumbnail_cols,
         preview_rows=config.thumbnail_rows,
+        config=config,
+        cache=cache,
     )

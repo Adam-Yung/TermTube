@@ -4,6 +4,8 @@ Design:
   run_list()  streams items into fzf via stdin pipe, returns selected video_id.
   Items flow in progressively — fzf populates as yt-dlp produces entries.
   The preview pane runs src/ui/preview.py {video_id} for thumbnail + metadata.
+  Background enrichment fetches full metadata while fzf is open; the preview
+  pane automatically shows richer data on the next cursor hover.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Callable, Generator, Iterable
+from typing import Callable, Generator
 
 # Absolute path to the preview script — fzf calls it as a subprocess
 _PREVIEW_SCRIPT = str(Path(__file__).parent / "preview.py")
@@ -86,7 +88,7 @@ def format_video_line(entry: dict) -> str:
         right_parts.append(f"{_GRAY}{views} views{_RESET}")
 
     right = f"  {_GRAY}│{_RESET}  ".join(right_parts)
-    display = f"  {_BOLD}{title}{_RESET}  {right}"
+    display = f"  {_BOLD}{title}{_RESET}  {right}" if right else f"  {_BOLD}{title}{_RESET}"
 
     # Tab-separated: hidden_id \t display_text
     return f"{vid}\t{display}"
@@ -102,21 +104,26 @@ def _wait_for_first(
 ) -> tuple[dict | None, Generator]:
     """
     Drain the first item from gen while showing a loading animation.
-    Returns (first_item, remaining_gen_via_queue) or (None, empty).
-    The remaining items continue to be produced into a queue.
+    Returns (first_item, remaining_generator) or (None, empty).
     """
     q: queue.Queue = queue.Queue()
     first_event = threading.Event()
     first_item_box: list[dict | None] = [None]
+    done_event = threading.Event()
 
     def _produce():
-        for item in gen:
-            if not first_event.is_set():
-                first_item_box[0] = item
-                first_event.set()
-            else:
-                q.put(item)
-        q.put(None)  # sentinel
+        try:
+            for item in gen:
+                if not first_event.is_set():
+                    first_item_box[0] = item
+                    first_event.set()
+                else:
+                    q.put(item)
+        except Exception:
+            pass
+        finally:
+            q.put(None)  # sentinel
+            done_event.set()
 
     t = threading.Thread(target=_produce, daemon=True)
     t.start()
@@ -136,7 +143,6 @@ def _wait_for_first(
 
     first = first_item_box[0]
     if first is None:
-        t.join(timeout=1)
         return None, (x for x in [])  # empty gen
 
     def _remaining():
@@ -159,20 +165,22 @@ def run_list(
     preview_cols: int = 38,
     preview_rows: int = 20,
     extra_binds: list[str] | None = None,
+    config=None,
+    cache=None,
 ) -> str | None:
     """
     Show a fzf list populated progressively from entry_stream.
 
     Returns the selected video_id string, or None if the user pressed Esc/backspace.
+    When config and cache are provided, starts background metadata enrichment so the
+    preview pane progressively shows richer data as the user browses.
     """
     first, remaining = _wait_for_first(entry_stream, loading_msg=loading_msg)
     if first is None:
-        print(f"\033[33m  No results found.\033[0m")
+        print(f"\033[33m  No results found. Check your internet connection and cookie setup.\033[0m")
         return None
 
-    preview_cmd = (
-        f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} {preview_cols} {preview_rows}"
-    )
+    preview_cmd = f"{_PYTHON} {_PREVIEW_SCRIPT} {{1}} {preview_cols} {preview_rows}"
 
     binds = [
         "j:down",
@@ -213,20 +221,46 @@ def run_list(
         text=True,
     )
 
+    seen_ids: list[str] = []
+    enrichment_started = False
+
+    def _maybe_start_enrichment(ids: list[str]) -> None:
+        nonlocal enrichment_started
+        if enrichment_started or not config or not cache or not ids:
+            return
+        enrichment_started = True
+        from src import ytdlp as _ytdlp
+        _ytdlp.enrich_in_background(list(ids), config, cache, max_workers=2)
+
     def _feed():
         try:
             # Write first item
+            vid = first.get("id", "")
+            if vid:
+                seen_ids.append(vid)
             line = format_video_line(first)
             fzf_proc.stdin.write(line + "\n")  # type: ignore[union-attr]
             fzf_proc.stdin.flush()             # type: ignore[union-attr]
+
             # Stream remaining
             for entry in remaining:
+                vid = entry.get("id", "")
+                if vid:
+                    seen_ids.append(vid)
                 line = format_video_line(entry)
                 fzf_proc.stdin.write(line + "\n")  # type: ignore[union-attr]
                 fzf_proc.stdin.flush()             # type: ignore[union-attr]
+
+                # Start enrichment once we have a batch of IDs
+                if len(seen_ids) >= 5 and not enrichment_started:
+                    _maybe_start_enrichment(seen_ids[:10])
+
         except (BrokenPipeError, OSError):
             pass
         finally:
+            # If enrichment hasn't started yet, start it with whatever we have
+            if not enrichment_started and seen_ids:
+                _maybe_start_enrichment(seen_ids[:15])
             try:
                 fzf_proc.stdin.close()  # type: ignore[union-attr]
             except OSError:
@@ -249,12 +283,12 @@ def run_list(
 # ── Search input ──────────────────────────────────────────────────────────────
 
 def prompt_search(placeholder: str = "Search YouTube...") -> str | None:
-    """Show a fzf-based search prompt. Returns query or None."""
-    import shutil
-    if shutil.which("gum"):
+    """Show a search prompt. Returns query or None."""
+    import shutil as _shutil
+    if _shutil.which("gum"):
         result = subprocess.run(
             ["gum", "input", "--placeholder", placeholder, "--header", "  🔍 Search YouTube"],
-            capture_output=True,
+            stdout=subprocess.PIPE,
             text=True,
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -262,7 +296,7 @@ def prompt_search(placeholder: str = "Search YouTube...") -> str | None:
         return None
     # Fallback
     try:
-        q = input(f"Search: ").strip()
+        q = input("Search: ").strip()
         return q or None
     except (EOFError, KeyboardInterrupt):
         return None

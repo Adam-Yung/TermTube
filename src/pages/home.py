@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 from src import ytdlp
-from src.ui import fzf
 from src.ui.fzf import run_list
 
 
@@ -22,4 +21,6 @@ def run(config, cache) -> str | None:
         loading_msg="Fetching recommended feed…",
         preview_cols=config.thumbnail_cols,
         preview_rows=config.thumbnail_rows,
+        config=config,
+        cache=cache,
     )

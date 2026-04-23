@@ -20,8 +20,13 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr and ~/.cache/myyoutube/debug.log")
     parser.add_argument("--version", action="store_true", help="Show version")
     args = parser.parse_args()
+
+    # Set up logging before anything else
+    from src import logger
+    logger.setup(debug=args.debug)
 
     if args.version:
         print("MyYouTube 0.1.0")

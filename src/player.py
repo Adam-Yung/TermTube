@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from src import logger
+
 # Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
 # MyYouTube seek bindings
@@ -48,7 +50,6 @@ def _mpv_available() -> bool:
 
 
 def _vlc_available() -> bool:
-    # macOS VLC is commonly at this path or in PATH
     return shutil.which("vlc") is not None or Path("/Applications/VLC.app/Contents/MacOS/VLC").exists()
 
 
@@ -79,13 +80,7 @@ def play(
         raise RuntimeError("No supported player found. Install mpv: brew install mpv")
 
 
-def play_local(
-    path: str,
-    *,
-    audio_only: bool = False,
-    player: str = "mpv",
-    title: str = "",
-) -> None:
+def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", title: str = "") -> None:
     """Play a local file."""
     play(path, audio_only=audio_only, player=player, title=title)
 
@@ -98,8 +93,7 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "") -> None:
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
-            "--input-ipc-server=" + IPC_SOCKET,
-            "--no-terminal" if not audio_only else "--no-video",
+            f"--input-ipc-server={IPC_SOCKET}",
         ]
 
         if audio_only:
@@ -111,18 +105,19 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "") -> None:
                     "\\n  \033[1m${media-title}\033[0m"
                     "\\n  \033[36m${time-pos} / ${duration}\033[0m"
                     "  [\033[33m${percent-pos}%\033[0m]"
-                    "  \033[90m← seek  → seek  h/l ±5s  H/L ±10s  0-9 jump%\033[0m\\n",
+                    "  \033[90mh/l ±5s  H/L ±10s  0-9 jump%  q quit\033[0m\\n",
             ]
-        else:
-            # Video mode — let mpv handle its own terminal/window
-            cmd.remove("--no-terminal")
+        # For video mode, mpv handles its own window — no extra flags needed
 
         if title:
             cmd += [f"--title={title}"]
 
         cmd += ["--", url]
 
-        subprocess.run(cmd)
+        logger.debug("mpv cmd: %s", " ".join(cmd))
+        result = subprocess.run(cmd)
+        if result.returncode not in (0, 4):  # 4 = quit by user
+            logger.warning("mpv exited with code %d", result.returncode)
     finally:
         try:
             os.unlink(input_conf)
@@ -141,4 +136,5 @@ def _play_vlc(url: str, *, audio_only: bool = False) -> None:
     if audio_only:
         cmd += ["--no-video"]
     cmd += [url]
+    logger.debug("vlc cmd: %s", " ".join(cmd))
     subprocess.run(cmd)
