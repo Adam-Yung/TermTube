@@ -58,6 +58,14 @@ def main() -> None:
         print("\033[33m⚠ No cookie source configured. Home feed and subscriptions require authentication.\033[0m")
         print("  Run: myt --cookies-help  for setup instructions.\n")
 
+    # Import textual_image.widget BEFORE launching Textual — the library queries the
+    # terminal for sixel/TGP support and cell dimensions at import time, and those
+    # queries stop working once Textual's I/O threads are running.
+    try:
+        import textual_image.widget  # noqa: F401 — side-effect import for detection
+    except ImportError:
+        pass
+
     # Launch Textual TUI
     from src.tui.app import MyYouTubeApp
     app = MyYouTubeApp(config)

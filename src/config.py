@@ -27,10 +27,11 @@ DEFAULT_CONFIG: dict = {
     "thumbnail_cols": 38,
     "thumbnail_rows": 20,
     # thumbnail_format: how chafa renders thumbnails in the Textual TUI.
-    # "auto"    (default) = sixel when terminal supports it, else Unicode symbols.
-    # "sixel"             = force sixel graphics (iTerm2, WezTerm, foot, …).
-    # "symbols"           = Unicode block chars + ANSI colors — works everywhere.
-    # "ascii"             = restrict to ASCII-only symbols — most compatible.
+    # "auto"    (default) = high-quality Unicode block/sextant art (best Textual-compatible mode).
+    # "symbols"           = same as auto.
+    # "ascii"             = restrict to ASCII-only symbols (most compatible fallback).
+    # Note: sixel/kitty graphics protocols are incompatible with Textual's
+    # cell-based renderer and are silently mapped to "symbols".
     "thumbnail_format": "auto",
 }
 

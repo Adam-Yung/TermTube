@@ -61,16 +61,24 @@ def _chafa_format() -> str:
 
 
 def _chafa_format_for_tui(config=None) -> str:
-    """Return the chafa format for the Textual TUI, respecting config + terminal caps.
+    """Return the chafa format to use inside the Textual TUI.
 
-    Never returns 'kitty' — Kitty graphics protocol is binary and cannot be
-    parsed by Rich.Text.from_ansi().
+    Sixel (DCS sequences) and Kitty graphics (binary) are both incompatible
+    with Textual's cell-based renderer:
+      - Kitty: binary data → Rich.Text.from_ansi() shows raw bytes.
+      - Sixel: Rich only parses CSI sequences (ESC [). DCS sequences (ESC P)
+        are treated as literal text — raw bytes in the widget. Even bypassing
+        from_ansi() doesn't help: Textual renders each row independently with
+        explicit cursor moves between rows, and those cursor moves get embedded
+        inside the DCS sequence, corrupting the image.
+    Result: always use 'symbols' for TUI. We compensate with higher-quality
+    chafa flags (font-ratio, color-extractor) for a sharper result.
 
-    Config thumbnail_format values:
-      "auto"    (default) — sixel when the terminal supports it, else symbols
-      "sixel"   — always try sixel (user opt-in)
-      "symbols" — Unicode block art + ANSI colors (works everywhere)
-      "ascii"   — symbols mode restricted to ASCII chars (most compatible)
+    Config values respected:
+      "auto"    (default) — symbols (best Textual-compatible mode)
+      "symbols" — Unicode block/sextant art + full ANSI color
+      "ascii"   — symbols mode restricted to ASCII range
+      "sixel"   — ignored in TUI context; falls back to symbols
     """
     if config is not None:
         fmt = getattr(config, "thumbnail_format", None)
@@ -79,13 +87,9 @@ def _chafa_format_for_tui(config=None) -> str:
     else:
         fmt = "auto"
 
-    if fmt == "sixel":
-        return "sixel"
-    if fmt in ("symbols", "ascii"):
-        return fmt
-    # "auto" — detect at runtime
-    if _supports_sixel():
-        return "sixel"
+    # ascii restricts the symbol set; everything else (incl. sixel/auto) → full symbols
+    if fmt == "ascii":
+        return "ascii"
     return "symbols"
 
 
@@ -190,16 +194,23 @@ def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20, config
 
     fmt = _chafa_format_for_tui(config)
 
-    # Build chafa flags based on format
-    extra_flags: list[str] = []
+    # Build chafa flags.
+    # --font-ratio=0.5   accounts for typical terminal font aspect (2:1 h:w),
+    #                    giving correct aspect ratio for the thumbnail.
+    # --color-extractor=average  better colour sampling than default.
+    # --color-space=din99d       perceptual colour space: more accurate hues.
+    # --optimize=3       maximum dithering quality.
+    base_quality = [
+        "--font-ratio=0.5",
+        "--color-extractor=average",
+        "--color-space=din99d",
+        "--optimize=3",
+    ]
     if fmt == "ascii":
-        # Restrict to plain ASCII-range symbols for maximum terminal compat
-        extra_flags = ["--symbols=ascii", "--optimize=3"]
+        extra_flags = ["--symbols=ascii", *base_quality]
         fmt = "symbols"
-    elif fmt == "sixel":
-        pass  # No extra flags; sixel is self-contained
     else:
-        extra_flags = ["--optimize=3"]
+        extra_flags = base_quality
 
     try:
         result = subprocess.run(

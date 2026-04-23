@@ -64,16 +64,26 @@ def _fmt_age(upload_date: str | None) -> str:
         return ""
 
 
+def _key(k: str) -> str:
+    return f"[bold #ff4444]{k}[/bold #ff4444]"
+
+
+def _label(t: str) -> str:
+    return f"[#888888]{t}[/#888888]"
+
+
 _ACTIONS_MARKUP = (
-    "[#ff4444]w[/#ff4444][dim]Watch[/dim]  "
-    "[#ff4444]W[/#ff4444][dim]Quality▶[/dim]  "
-    "[#ff4444]l[/#ff4444][dim]Listen[/dim]  "
-    "[#ff4444]L[/#ff4444][dim]Quality♪[/dim]  "
-    "[#ff4444]d[/#ff4444][dim]DL Video[/dim]  "
-    "[#ff4444]a[/#ff4444][dim]DL Audio[/dim]  "
-    "[#ff4444]s[/#ff4444][dim]Subscribe[/dim]  "
-    "[#ff4444]p[/#ff4444][dim]Playlist[/dim]  "
-    "[#ff4444]b[/#ff4444][dim]Browser[/dim]"
+    # row 1 — playback
+    f"  {_key('w')} {_label('Watch')}   "
+    f"{_key('W')} {_label('Quality▶')}   "
+    f"{_key('l')} {_label('Listen')}   "
+    f"{_key('L')} {_label('Quality♪')}\n"
+    # row 2 — download / other
+    f"  {_key('d')} {_label('DL Video')}   "
+    f"{_key('a')} {_label('DL Audio')}   "
+    f"{_key('s')} {_label('Subscribe')}   "
+    f"{_key('p')} {_label('Playlist')}   "
+    f"{_key('b')} {_label('Browser')}"
 )
 
 
@@ -101,6 +111,9 @@ class DetailPanel(Widget):
             yield Static("", id="video-desc", markup=True)
             yield Static("", id="video-playlists", markup=True)
         yield Static(_ACTIONS_MARKUP, id="action-bar", markup=True)
+
+    def on_mount(self) -> None:
+        self.query_one("#action-bar").border_title = "Actions"
 
     def clear(self) -> None:
         self._current_id = ""
@@ -193,14 +206,32 @@ class DetailPanel(Widget):
     @work(thread=True, exclusive=True, group="thumbnail")
     def _render_thumbnail_bg(self, vid: str, entry: dict) -> None:
         from src.ui import thumbnail as thumb_mod
-        # Use actual rendered width; fall back to a sensible default
-        cols = max(30, (self.size.width or 80) - 4)
-        rows = 20
-        config = getattr(self.app, "config", None)
-        ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
-        self.app.call_from_thread(
-            self.query_one("#thumbnail", ThumbnailWidget).set_ansi, vid, ansi
-        )
+        from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+
+        if _HAS_TEXTUAL_IMAGE:
+            # Let textual-image render the raw image file — TGP on Kitty, sixel elsewhere.
+            local = thumb_mod._thumb_path(vid)
+            if not local.exists():
+                url = thumb_mod._best_thumb_url(entry)
+                if url:
+                    local = thumb_mod.download(vid, url) or None  # type: ignore[assignment]
+            if local and local.exists():
+                self.app.call_from_thread(
+                    self.query_one("#thumbnail", ThumbnailWidget).set_image_path, vid, local
+                )
+            else:
+                self.app.call_from_thread(
+                    self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
+                )
+        else:
+            # Fallback: chafa ANSI symbol art
+            cols = max(30, (self.size.width or 80) - 4)
+            rows = 20
+            config = getattr(self.app, "config", None)
+            ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
+            self.app.call_from_thread(
+                self.query_one("#thumbnail", ThumbnailWidget).set_ansi, vid, ansi
+            )
 
     @work(thread=True, exclusive=True, group="meta")
     def _fetch_full_meta_bg(self, vid: str, entry: dict) -> None:

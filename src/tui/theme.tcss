@@ -155,11 +155,14 @@ ThumbnailWidget {
 
 /* ── Action Bar ──────────────────────────────────────────────────────────── */
 #action-bar {
-    height: 3;
-    background: #141414;
-    border-top: solid #2a2a2a;
-    align: left middle;
+    height: 6;
+    background: #0d0d14;
+    border: solid #2a2a2a;
+    border-title-color: #555555;
+    border-title-style: dim;
+    margin: 0 1 1 1;
     padding: 0 1;
+    content-align: left middle;
 }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */

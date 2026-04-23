@@ -424,9 +424,10 @@ class MainScreen(Screen):
 
         self.app.push_screen(QualityModal(audio_only=True), on_fmt)
 
-    @work(thread=True, exclusive=True, group="player")
-    def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
-        """Launch mpv for video in a background thread; TUI stays visible."""
+    @work(exclusive=True, group="player")
+    async def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
+        """Launch mpv for video, suspending the TUI for clean terminal handoff."""
+        import asyncio
         from src import history, player
 
         vid = entry.get("id", "")
@@ -436,15 +437,20 @@ class MainScreen(Screen):
         title: str = entry.get("title", "")
         cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
 
-        player.play(
-            url,
-            audio_only=False,
-            title=title,
-            ytdl_format=ytdl_format,
-            cookie_args=cookie_args,
-        )
+        # app.suspend() gives mpv full terminal control and prevents any TUI
+        # rendering from interleaving with mpv's own output / key handling.
+        async with self.app.suspend():
+            await asyncio.to_thread(
+                player.play,
+                url,
+                audio_only=False,
+                title=title,
+                ytdl_format=ytdl_format,
+                cookie_args=cookie_args,
+            )
+
         history.add(entry)
-        self.app.call_from_thread(self.notify, f"✓ Finished: {title[:50]}", timeout=4)
+        self.notify(f"✓ Finished: {title[:50]}", timeout=4)
 
     def _open_now_playing(self, entry: dict, *, ytdl_format: str = "") -> None:
         """Open the in-TUI audio player modal."""
@@ -626,13 +632,19 @@ class MainScreen(Screen):
     # ── Quit ──────────────────────────────────────────────────────────────────
 
     def action_quit_app(self) -> None:
-        # Kill any running yt-dlp subprocesses so worker threads unblock
-        # immediately — otherwise app.exit() hangs waiting for @work threads.
+        import os
+        import threading
+        # Kill streaming subprocesses so worker threads stop blocking on stdout.
         try:
             import src.ytdlp as ytdlp
             ytdlp.kill_all_active()
         except Exception:
             pass
+        # Safety net: force-exit after 600 ms regardless of worker state.
+        # app.exit() starts Textual's shutdown (restores terminal), but @work
+        # threads blocked on call_from_thread or other I/O can still hang it.
+        # 600 ms is enough for Textual to restore the terminal before we kill.
+        threading.Timer(0.6, os._exit, args=(0,)).start()
         self.app.exit()
 
     # ── Detail panel updates ──────────────────────────────────────────────────

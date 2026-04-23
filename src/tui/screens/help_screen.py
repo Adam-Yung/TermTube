@@ -94,9 +94,9 @@ _HELP_CONTENT = """\
   [#ff4444]browser[/#ff4444]           chrome / firefox / brave  (for yt-dlp auth)
   [#ff4444]cookies_file[/#ff4444]      Path to Netscape cookies.txt (takes priority)
   [#ff4444]preferred_quality[/#ff4444] best / 1080 / 720 / 480 / 360
-  [#ff4444]thumbnail_format[/#ff4444]  auto (default) / sixel / symbols / ascii
-                       auto = sixel when terminal supports it, else symbols
-                       sixel works in: iTerm2, WezTerm, foot, mlterm, xterm
+  [#ff4444]thumbnail_format[/#ff4444]  auto (default) / symbols / ascii
+                       auto/symbols = high-quality Unicode block art (always works)
+                       ascii = restrict to ASCII symbols (most compatible)
   [#ff4444]thumbnail_cols[/#ff4444]    Width in chars for thumbnail preview (default 38)
   [#ff4444]video_dir[/#ff4444]         Download directory for videos
   [#ff4444]audio_dir[/#ff4444]         Download directory for audio files

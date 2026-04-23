@@ -107,6 +107,8 @@ class NowPlayingModal(ModalScreen[bool]):
             f"--input-ipc-server={self._SOCKET}",
             "--no-video",
             "--no-terminal",
+            "--really-quiet",   # suppress all stdout/stderr output to prevent
+            "--msg-level=all=no",  # terminal flicker bleeding into Textual
         ]
         if title:
             cmd += [f"--title={title}"]
@@ -118,7 +120,11 @@ class NowPlayingModal(ModalScreen[bool]):
         cmd += ["--", url]
 
         try:
-            self._proc = subprocess.Popen(cmd)
+            self._proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             self._proc.wait()
         finally:
             for path in (input_conf, self._SOCKET):
