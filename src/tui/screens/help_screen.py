@@ -21,7 +21,7 @@ _HELP_CONTENT = """\
   [#ff4444]g[/#ff4444]              Jump to top of list
   [#ff4444]G[/#ff4444]              Jump to bottom of list
   [#ff4444]Backspace[/#ff4444]      Go back (e.g. from playlist drill-down)
-  [#ff4444]Enter[/#ff4444]          Open selected item (video or playlist)
+  [#ff4444]Enter[/#ff4444]          Open video action menu (Watch / Listen / Download / …)
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]PAGES  (F-keys or backtick picker)[/bold white]
@@ -45,14 +45,14 @@ _HELP_CONTENT = """\
   [#ff4444]l[/#ff4444]              Listen (audio-only, in-TUI player)
   [#ff4444]L[/#ff4444]              Listen — pick quality first
 
-  [dim]During audio playback (Now Playing screen):[/dim]
+  [dim]During audio playback (embedded in action bar — browse freely while listening):[/dim]
   [#ff4444]Space[/#ff4444]          Pause / Resume
-  [#ff4444]h / ←[/#ff4444]         Seek back 5 seconds
-  [#ff4444]l / →[/#ff4444]         Seek forward 5 seconds
+  [#ff4444]h[/#ff4444]              Seek back 5 seconds
+  [#ff4444]l[/#ff4444]              Seek forward 5 seconds  [dim](replaces Listen action)[/dim]
   [#ff4444]H[/#ff4444]              Seek back 10 seconds
-  [#ff4444]L[/#ff4444]              Seek forward 10 seconds
+  [#ff4444]L[/#ff4444]              Seek forward 10 seconds  [dim](replaces Listen Quality)[/dim]
   [#ff4444]0–9[/#ff4444]            Seek to 0% / 10% / … / 90% of track
-  [#ff4444]q / Esc[/#ff4444]        Stop and close player
+  [#ff4444]s[/#ff4444]              Stop audio  [dim](replaces Subscribe action)[/dim]
 
   [dim]During video playback (mpv window, same bindings):[/dim]
   [#ff4444]h / l[/#ff4444]          ±5 seconds
@@ -77,6 +77,7 @@ _HELP_CONTENT = """\
 
   [#ff4444]/[/#ff4444]              Open search dialog
   [#ff4444]?[/#ff4444]              Toggle this Help screen
+  [#ff4444],[/#ff4444]              Open Settings (theme, quality, …)
   [#ff4444]Ctrl+D[/#ff4444]         Toggle debug log panel
   [#ff4444]q[/#ff4444]              Quit MyYouTube
 

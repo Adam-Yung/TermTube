@@ -1,4 +1,4 @@
-"""DetailPanel — right panel showing thumbnail, metadata, and actions."""
+"""DetailPanel — right panel showing thumbnail, metadata, and embedded player."""
 
 from __future__ import annotations
 
@@ -8,14 +8,15 @@ from typing import TYPE_CHECKING
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
-from textual.events import Resize
+from textual.events import Resize, ScreenResume
 from textual.widget import Widget
 from textual.widgets import Static
 
+from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 
 def _fmt_duration(secs: int | float | None) -> str:
@@ -64,31 +65,8 @@ def _fmt_age(upload_date: str | None) -> str:
         return ""
 
 
-def _key(k: str) -> str:
-    return f"[bold #ff4444]{k}[/bold #ff4444]"
-
-
-def _label(t: str) -> str:
-    return f"[#888888]{t}[/#888888]"
-
-
-_ACTIONS_MARKUP = (
-    # row 1 — playback
-    f"  {_key('w')} {_label('Watch')}   "
-    f"{_key('W')} {_label('Quality▶')}   "
-    f"{_key('l')} {_label('Listen')}   "
-    f"{_key('L')} {_label('Quality♪')}\n"
-    # row 2 — download / other
-    f"  {_key('d')} {_label('DL Video')}   "
-    f"{_key('a')} {_label('DL Audio')}   "
-    f"{_key('s')} {_label('Subscribe')}   "
-    f"{_key('p')} {_label('Playlist')}   "
-    f"{_key('b')} {_label('Browser')}"
-)
-
-
 class DetailPanel(Widget):
-    """Right panel: thumbnail + video metadata + action hints."""
+    """Right panel: thumbnail + video metadata + ActionBar (actions or now-playing)."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -101,7 +79,7 @@ class DetailPanel(Widget):
             yield ThumbnailWidget(id="thumbnail")
         with ScrollableContainer(id="video-info"):
             yield Static(
-                "[dim]↑↓ / jk navigate  ·  w watch  ·  l listen  ·  / search[/dim]",
+                "[dim]↑↓ / jk navigate  ·  ⏎ actions  ·  w watch  ·  l listen  ·  / search[/dim]",
                 id="video-title",
                 markup=True,
             )
@@ -110,24 +88,27 @@ class DetailPanel(Widget):
             yield Static("", id="video-desc-header", markup=True)
             yield Static("", id="video-desc", markup=True)
             yield Static("", id="video-playlists", markup=True)
-        yield Static(_ACTIONS_MARKUP, id="action-bar", markup=True)
+        yield ActionBar(id="action-bar")
 
-    def on_mount(self) -> None:
-        self.query_one("#action-bar").border_title = "Actions"
+    # ── Action bar proxy ──────────────────────────────────────────────────────
+
+    @property
+    def action_bar(self) -> ActionBar:
+        return self.query_one("#action-bar", ActionBar)
 
     def clear(self) -> None:
         self._current_id = ""
         self._last_entry = None
         self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
         self.query_one("#video-title", Static).update(
-            "[dim]↑↓ / jk navigate  ·  w watch  ·  l listen  ·  / search[/dim]"
+            "[dim]↑↓ / jk navigate  ·  ⏎ actions  ·  w watch  ·  l listen  ·  / search[/dim]"
         )
         for wid in ("#video-channel", "#video-stats", "#video-desc-header",
                     "#video-desc", "#video-playlists"):
             self.query_one(wid, Static).update("")
 
     def update_entry(self, entry: dict) -> None:
-        """Update panel with a new video entry (flat/cached metadata)."""
+        """Update panel with a new video entry."""
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
@@ -154,7 +135,6 @@ class DetailPanel(Widget):
             "  [dim]·[/dim]  ".join(stats_parts)
         )
 
-        # Show cached description if available, else show placeholder
         desc = entry.get("description", "")
         if desc:
             self._set_description(desc)
@@ -165,8 +145,6 @@ class DetailPanel(Widget):
             self.query_one("#video-desc", Static).update("[dim]Loading…[/dim]")
 
         self._update_playlists(vid)
-
-        # Background workers: thumbnail + full metadata
         self._render_thumbnail_bg(vid, entry)
         if not desc and not vid.startswith("__"):
             self._fetch_full_meta_bg(vid, entry)
@@ -195,7 +173,12 @@ class DetailPanel(Widget):
         except Exception:
             pass
 
-    # ── Resize: re-render thumbnail ───────────────────────────────────────────
+    # ── Thumbnail re-render on screen resume (fixes disappear after suspend) ──
+
+    def on_screen_resume(self, _: ScreenResume) -> None:
+        """Re-render thumbnail when the main screen regains control (e.g. after video)."""
+        if self._current_id and self._last_entry:
+            self._render_thumbnail_bg(self._current_id, self._last_entry)
 
     def on_resize(self, event: Resize) -> None:
         if self._current_id and self._last_entry:
@@ -209,7 +192,6 @@ class DetailPanel(Widget):
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
 
         if _HAS_TEXTUAL_IMAGE:
-            # Let textual-image render the raw image file — TGP on Kitty, sixel elsewhere.
             local = thumb_mod._thumb_path(vid)
             if not local.exists():
                 url = thumb_mod._best_thumb_url(entry)
@@ -224,7 +206,6 @@ class DetailPanel(Widget):
                     self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
                 )
         else:
-            # Fallback: chafa ANSI symbol art
             cols = max(30, (self.size.width or 80) - 4)
             rows = 20
             config = getattr(self.app, "config", None)
@@ -243,7 +224,6 @@ class DetailPanel(Widget):
                 desc = full.get("description", "")
                 if desc:
                     self.app.call_from_thread(self._set_description, desc)
-                # Refresh playlist membership (full meta may have channel info)
                 self.app.call_from_thread(self._update_playlists, vid)
         except Exception:
             pass

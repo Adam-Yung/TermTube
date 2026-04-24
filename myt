@@ -1,49 +1,58 @@
-#!/bin/bash
-# MyYouTube entry point — finds the myyoutube mamba env and runs main.py
+#!/usr/bin/env bash
+# MyYouTube entry point.
+#
+# Locates the Python environment created by setup.sh and runs MyYouTube.
+# Search order:
+#   1. .venv/  in the project directory  (created by setup.sh venv path)
+#   2. 'myyoutube' conda/mamba environment
+#   3. Prompt user to run setup.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── Locate Python from mamba/conda environment ─────────────────────────────
+# ── Find Python ────────────────────────────────────────────────────────────
+
 find_python() {
-    # 1. Try mamba/conda env directly
-    if command -v conda &>/dev/null; then
-        local base
-        base=$(conda info --base 2>/dev/null)
-        local env_python="$base/envs/myyoutube/bin/python3"
-        if [[ -f "$env_python" ]]; then
-            echo "$env_python"
-            return 0
-        fi
+    # 1. Project-local venv (.venv/) — setup.sh fallback when conda unavailable
+    local venv_py="$SCRIPT_DIR/.venv/bin/python3"
+    if [[ -f "$venv_py" ]]; then
+        echo "$venv_py"
+        return 0
     fi
 
-    # 2. Common miniforge/mambaforge locations
+    # 2. mamba/conda 'myyoutube' environment
+    local conda_base
+    conda_base=$(conda info --base 2>/dev/null || true)
     for base_dir in \
-        "$HOME/miniforge3" "$HOME/mambaforge" "$HOME/opt/miniforge3" \
-        "/opt/homebrew/Caskroom/miniforge/base" "/usr/local/miniforge3"
+        "${conda_base:+$conda_base/envs/myyoutube}" \
+        "$HOME/miniforge3/envs/myyoutube" \
+        "$HOME/mambaforge/envs/myyoutube" \
+        "$HOME/opt/miniforge3/envs/myyoutube" \
+        "/opt/homebrew/Caskroom/miniforge/base/envs/myyoutube" \
+        "/usr/local/miniforge3/envs/myyoutube"
     do
-        local env_python="$base_dir/envs/myyoutube/bin/python3"
-        if [[ -f "$env_python" ]]; then
-            echo "$env_python"
+        [[ -z "$base_dir" ]] && continue
+        if [[ -f "$base_dir/bin/python3" ]]; then
+            echo "$base_dir/bin/python3"
             return 0
         fi
     done
 
-    # 3. Fall back to system python (may be missing PyYAML etc.)
-    if command -v python3 &>/dev/null; then
-        echo "python3"
-        return 0
-    fi
-
-    echo ""
     return 1
 }
 
-PYTHON=$(find_python)
+# ── Main ───────────────────────────────────────────────────────────────────
 
-if [[ -z "$PYTHON" ]]; then
-    echo "Error: Python not found. Install miniforge: https://github.com/conda-forge/miniforge"
+if ! PYTHON=$(find_python 2>/dev/null); then
+    echo ""
+    echo -e "  \033[1;31m✗ No MyYouTube Python environment found.\033[0m"
+    echo ""
+    echo "  Run the one-time setup script first:"
+    echo -e "    \033[1;32mbash setup.sh\033[0m"
+    echo ""
+    echo "  It will create a conda/venv environment and install all dependencies."
+    echo ""
     exit 1
 fi
 

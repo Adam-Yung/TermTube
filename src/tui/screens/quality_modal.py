@@ -26,6 +26,8 @@ class QualityModal(ModalScreen[str | None]):
 
     BINDINGS = [
         Binding("escape", "dismiss_none", "Cancel", show=True),
+        Binding("j",      "cursor_down",  show=False),
+        Binding("k",      "cursor_up",    show=False),
     ]
 
     def __init__(self, *, audio_only: bool = False) -> None:
@@ -59,3 +61,9 @@ class QualityModal(ModalScreen[str | None]):
 
     def action_dismiss_none(self) -> None:
         self.dismiss(None)
+
+    def action_cursor_down(self) -> None:
+        self.query_one("#quality-list", ListView).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#quality-list", ListView).action_cursor_up()

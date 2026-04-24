@@ -33,6 +33,8 @@ DEFAULT_CONFIG: dict = {
     # Note: sixel/kitty graphics protocols are incompatible with Textual's
     # cell-based renderer and are silently mapped to "symbols".
     "thumbnail_format": "auto",
+    # theme: UI color theme. Options: crimson | amber | ocean | midnight
+    "theme": "crimson",
 }
 
 
@@ -147,6 +149,29 @@ class Config:
     def thumbnail_format(self) -> str:
         fmt = self._data.get("thumbnail_format", "auto")
         return fmt if fmt in ("auto", "symbols", "sixel", "ascii") else "auto"
+
+    @property
+    def theme(self) -> str:
+        t = self._data.get("theme", "crimson")
+        return t if t in ("crimson", "amber", "ocean", "midnight") else "crimson"
+
+    def save(self) -> None:
+        """Persist current config back to disk (only user-visible keys)."""
+        try:
+            existing: dict = {}
+            if self.path.exists():
+                import yaml
+                with open(self.path) as f:
+                    existing = yaml.safe_load(f) or {}
+            existing.update({k: v for k, v in self._data.items()
+                             if k not in ("cache_ttl",)})
+            existing["cache_ttl"] = self._data["cache_ttl"]
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "w") as f:
+                import yaml
+                yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
+        except Exception:
+            pass
 
     def cache_ttl(self, key: str) -> int:
         return int(self._data["cache_ttl"].get(key, 3600))

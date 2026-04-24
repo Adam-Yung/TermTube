@@ -23,13 +23,13 @@ Tabs {
 
 Tab {
     padding: 0 3;
-    color: #666666;
+    color: #555555;
 }
 
 Tab.-active {
-    color: #ffffff;
+    color: #ff6666;
     background: #1e1e1e;
-    text-style: bold;
+    text-style: bold underline;
 }
 
 Tab:hover {
@@ -74,8 +74,9 @@ VideoListItem:hover {
 }
 
 VideoListItem.--highlight {
-    background: #1a1a2e;
+    background: #16162a;
     border-left: thick #ff4444;
+    color: #ffffff;
 }
 
 VideoListItem > Static {
@@ -153,17 +154,35 @@ ThumbnailWidget {
     color: #6699cc;
 }
 
-/* ── Action Bar ──────────────────────────────────────────────────────────── */
-#action-bar {
-    height: 6;
+/* ── Action Bar (ActionBar widget — actions mode + now-playing mode) ─────── */
+ActionBar {
+    height: 8;
     background: #0d0d14;
     border: solid #2a2a2a;
     border-title-color: #555555;
     border-title-style: dim;
     margin: 0 1 1 1;
     padding: 0 1;
-    content-align: left middle;
 }
+
+ActionBar #ab-row1 { height: 1; margin-top: 1; color: #cccccc; }
+ActionBar #ab-row2 { height: 1; color: #888888; }
+
+ActionBar #np-title-line { height: 1; margin-top: 1; color: #ffffff; }
+
+/* Progress bar: full width, no bottom margin (overrides global ProgressBar rule) */
+ActionBar #np-bar {
+    height: 1;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+ActionBar #np-bar > .bar--bar { color: #6666ff; }
+ActionBar #np-bar > .bar--complete { color: #44ff44; }
+ActionBar #np-bar > .bar--indeterminate { color: #444488; }
+
+ActionBar #np-time-line { height: 1; color: #666666; }
+ActionBar #np-keys     { height: 1; color: #888888; }
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 Footer {
@@ -283,11 +302,21 @@ PlaylistModal {
 
 #playlist-list > ListItem {
     padding: 0 1;
-    color: #cccccc;
+    color: #888888;
+    border-left: thick #0d0d0d;
+}
+
+#playlist-list > ListItem > Static {
+    background: transparent;
 }
 
 #playlist-list > ListItem.--highlight {
-    background: #2a2a2a;
+    background: #1e0a0a;
+    border-left: thick #ff4444;
+    color: #ffffff;
+}
+
+#playlist-list > ListItem.--highlight > Static {
     color: #ffffff;
 }
 
@@ -324,11 +353,22 @@ QualityModal {
 
 #quality-list > ListItem {
     padding: 0 1;
-    color: #cccccc;
+    color: #888888;
+    border-left: thick #0d0d0d;
+}
+
+/* Make inner Statics transparent so ListItem's background/border shows through */
+#quality-list > ListItem > Static {
+    background: transparent;
 }
 
 #quality-list > ListItem.--highlight {
-    background: #2a2a2a;
+    background: #1e0a0a;
+    border-left: thick #ff4444;
+    color: #ffffff;
+}
+
+#quality-list > ListItem.--highlight > Static {
     color: #ffffff;
 }
 
@@ -479,3 +519,223 @@ NavModal {
     text-align: center;
     height: 1;
 }
+
+/* ── Video Action Modal ──────────────────────────────────────────────────── */
+VideoActionModal {
+    align: center middle;
+}
+
+#vaction-dialog {
+    width: 52;
+    height: auto;
+    max-height: 80%;
+    background: #111118;
+    border: solid #444444;
+    padding: 1 2;
+}
+
+#vaction-title {
+    color: #ffffff;
+    text-style: bold;
+    margin-bottom: 0;
+}
+
+#vaction-channel {
+    color: #666666;
+    margin-bottom: 1;
+}
+
+#vaction-list {
+    height: auto;
+    max-height: 18;
+    background: #0a0a12;
+    border: solid #2a2a2a;
+    margin-bottom: 1;
+}
+
+#vaction-list > ListItem {
+    padding: 0 1;
+    color: #888888;
+    border-left: thick #0a0a12;
+    height: 1;
+}
+
+#vaction-list > ListItem > Static {
+    background: transparent;
+}
+
+#vaction-list > ListItem.--highlight {
+    background: #1e0a0a;
+    border-left: thick #ff4444;
+    color: #ffffff;
+}
+
+#vaction-list > ListItem.--highlight > Static {
+    color: #ffffff;
+}
+
+#vaction-hint {
+    color: #555555;
+}
+
+/* ── Settings Modal ──────────────────────────────────────────────────────── */
+SettingsModal {
+    align: center middle;
+}
+
+#settings-dialog {
+    width: 60%;
+    height: 80%;
+    background: #111118;
+    border: solid #444444;
+    padding: 1 2;
+}
+
+#settings-title {
+    color: #ff4444;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#settings-scroll {
+    height: 1fr;
+    overflow-y: auto;
+}
+
+#s-theme-head, #s-quality-head, #s-thumb-head, #s-browser-head {
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+#theme-list, #quality-list-s, #thumb-list, #browser-list {
+    height: auto;
+    max-height: 8;
+    background: #0a0a12;
+    border: solid #2a2a2a;
+    margin-bottom: 1;
+}
+
+#theme-list > ListItem,
+#quality-list-s > ListItem,
+#thumb-list > ListItem,
+#browser-list > ListItem {
+    padding: 0 1;
+    color: #888888;
+    border-left: thick #0a0a12;
+    height: 1;
+}
+
+#theme-list > ListItem > Static,
+#quality-list-s > ListItem > Static,
+#thumb-list > ListItem > Static,
+#browser-list > ListItem > Static {
+    background: transparent;
+}
+
+#theme-list > ListItem.--highlight,
+#quality-list-s > ListItem.--highlight,
+#thumb-list > ListItem.--highlight,
+#browser-list > ListItem.--highlight {
+    background: #1e0a0a;
+    border-left: thick #ff4444;
+    color: #ffffff;
+}
+
+#theme-list > ListItem.--highlight > Static,
+#quality-list-s > ListItem.--highlight > Static,
+#thumb-list > ListItem.--highlight > Static,
+#browser-list > ListItem.--highlight > Static {
+    color: #ffffff;
+}
+
+#settings-hint {
+    color: #555555;
+    margin-top: 1;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   COLOUR THEMES
+   Applied via App-level class: app.add_class("theme-amber") etc.
+   Default (crimson) needs no class — it's the base CSS above.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Amber — warm orange ─────────────────────────────────────────────────── */
+App.theme-amber Header { background: #1a0d00; color: #e8820c; }
+App.theme-amber Tab.-active { color: #e8820c; background: #1e1800; text-style: bold underline; }
+App.theme-amber Tab:hover { background: #181200; }
+App.theme-amber VideoListItem.--highlight { background: #1a1200; border-left: thick #e8820c; }
+App.theme-amber VideoListItem:hover { background: #141000; }
+App.theme-amber #quality-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #quality-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-amber #playlist-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-amber #vaction-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-amber #theme-list > ListItem.--highlight,
+App.theme-amber #quality-list-s > ListItem.--highlight,
+App.theme-amber #thumb-list > ListItem.--highlight,
+App.theme-amber #browser-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #search-input:focus { border: solid #e8820c; }
+App.theme-amber #search-title { color: #e8820c; }
+App.theme-amber #quality-title { color: #e8820c; }
+App.theme-amber #playlist-title { color: #e8820c; }
+App.theme-amber #settings-title { color: #e8820c; }
+App.theme-amber Footer > .footer--key { color: #e8820c; background: #1a0d00; }
+App.theme-amber ActionBar #np-bar > .bar--bar { color: #e8820c; }
+App.theme-amber #help-outer { border: solid #e8820c; }
+App.theme-amber #nav-dialog { border: solid #e8820c; }
+App.theme-amber #nav-title { color: #e8820c; }
+
+/* ── Ocean — cool teal ───────────────────────────────────────────────────── */
+App.theme-ocean Header { background: #001622; color: #0ea5e9; }
+App.theme-ocean Tab.-active { color: #0ea5e9; background: #001520; text-style: bold underline; }
+App.theme-ocean Tab:hover { background: #001020; }
+App.theme-ocean VideoListItem.--highlight { background: #001a24; border-left: thick #0ea5e9; }
+App.theme-ocean VideoListItem:hover { background: #00141c; }
+App.theme-ocean #quality-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #quality-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-ocean #playlist-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-ocean #vaction-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-ocean #theme-list > ListItem.--highlight,
+App.theme-ocean #quality-list-s > ListItem.--highlight,
+App.theme-ocean #thumb-list > ListItem.--highlight,
+App.theme-ocean #browser-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
+App.theme-ocean #search-title { color: #0ea5e9; }
+App.theme-ocean #quality-title { color: #0ea5e9; }
+App.theme-ocean #playlist-title { color: #0ea5e9; }
+App.theme-ocean #settings-title { color: #0ea5e9; }
+App.theme-ocean Footer > .footer--key { color: #0ea5e9; background: #001622; }
+App.theme-ocean ActionBar #np-bar > .bar--bar { color: #0ea5e9; }
+App.theme-ocean #help-outer { border: solid #0ea5e9; }
+App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
+App.theme-ocean #nav-title { color: #0ea5e9; }
+
+/* ── Midnight — soft purple ──────────────────────────────────────────────── */
+App.theme-midnight Header { background: #0d0018; color: #a855f7; }
+App.theme-midnight Tab.-active { color: #a855f7; background: #0e0020; text-style: bold underline; }
+App.theme-midnight Tab:hover { background: #0a0018; }
+App.theme-midnight VideoListItem.--highlight { background: #160a28; border-left: thick #a855f7; }
+App.theme-midnight VideoListItem:hover { background: #100820; }
+App.theme-midnight #quality-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #quality-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-midnight #playlist-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-midnight #vaction-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
+App.theme-midnight #theme-list > ListItem.--highlight,
+App.theme-midnight #quality-list-s > ListItem.--highlight,
+App.theme-midnight #thumb-list > ListItem.--highlight,
+App.theme-midnight #browser-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #search-input:focus { border: solid #a855f7; }
+App.theme-midnight #search-title { color: #a855f7; }
+App.theme-midnight #quality-title { color: #a855f7; }
+App.theme-midnight #playlist-title { color: #a855f7; }
+App.theme-midnight #settings-title { color: #a855f7; }
+App.theme-midnight Footer > .footer--key { color: #a855f7; background: #0d0018; }
+App.theme-midnight ActionBar #np-bar > .bar--bar { color: #a855f7; }
+App.theme-midnight #help-outer { border: solid #a855f7; }
+App.theme-midnight #nav-dialog { border: solid #a855f7; }
+App.theme-midnight #nav-title { color: #a855f7; }

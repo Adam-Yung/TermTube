@@ -1,3 +1,22 @@
+# MyYouTube — Python dependencies
+# Install via:  bash setup.sh
+# Or manually:  pip install -r requirements.txt
+
+# Core
 PyYAML>=6.0
 requests>=2.31
-textual>=0.50.0
+
+# TUI framework
+textual>=0.68.0
+rich>=13.4.0
+
+# High-quality terminal image rendering (TGP / sixel / halfcell)
+# Gracefully optional — falls back to chafa symbol art if not installed.
+textual-image>=0.12.0
+Pillow>=10.3.0
+
+# System tools expected on PATH (install via brew / apt, not pip):
+#   yt-dlp      brew install yt-dlp
+#   mpv         brew install mpv
+#   chafa       brew install chafa       (optional image fallback renderer)
+#   ffmpeg      brew install ffmpeg      (optional, improves format support)

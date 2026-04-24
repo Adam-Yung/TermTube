@@ -14,7 +14,9 @@ class PlaylistModal(ModalScreen[None]):
 
     BINDINGS = [
         Binding("escape", "dismiss_modal", "Close", show=True),
-        Binding("n", "new_playlist", "New playlist", show=True),
+        Binding("n",      "new_playlist",  "New playlist", show=True),
+        Binding("j",      "cursor_down",   show=False),
+        Binding("k",      "cursor_up",     show=False),
     ]
 
     def __init__(self, entry: dict) -> None:
@@ -94,6 +96,12 @@ class PlaylistModal(ModalScreen[None]):
 
     def action_new_playlist(self) -> None:
         self.query_one("#playlist-new-input", Input).focus()
+
+    def action_cursor_down(self) -> None:
+        self.query_one("#playlist-list", ListView).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#playlist-list", ListView).action_cursor_up()
 
     def action_dismiss_modal(self) -> None:
         self.dismiss(None)

@@ -15,13 +15,34 @@ from textual.widgets import Static
 # textual_image.widget MUST be imported before Textual starts (terminal detection
 # and cell-size query run at import time and won't work after Textual's I/O threads
 # are running). main.py does this import at the right moment.
+#
+# Image rendering is disabled when:
+#   • textual-image is not installed
+#   • running inside tmux (TMUX env var set) — sixel/TGP passthrough is
+#     unreliable in tmux and causes flickering; symbols are safer there
+#   • terminal reports no image protocol support (textual-image auto-detects
+#     this and falls back to halfcell/unicode, which we accept as "supported")
+#
+# Override: set MYYOUTUBE_IMAGES=1 to force images even inside tmux.
+
+import os as _os
+
+_IN_TMUX = bool(_os.environ.get("TMUX"))
+_FORCE_IMAGES = _os.environ.get("MYYOUTUBE_IMAGES") == "1"
 
 _HAS_TEXTUAL_IMAGE = False
-try:
-    from textual_image.widget import Image as _TIImage  # type: ignore[import]
-    _HAS_TEXTUAL_IMAGE = True
-except ImportError:
-    pass
+if not _IN_TMUX or _FORCE_IMAGES:
+    try:
+        from textual_image.widget import Image as _TIImage  # type: ignore[import]
+        # Verify the auto-detected renderer supports actual images (not just unicode)
+        from textual_image.renderable import Image as _AutoRenderable
+        from textual_image.renderable.unicode import Image as _UnicodeRenderable
+        # If the best available renderer is plain unicode, it adds little over chafa
+        # symbols — only enable if we have a real image protocol (TGP or sixel).
+        if _AutoRenderable is not _UnicodeRenderable:
+            _HAS_TEXTUAL_IMAGE = True
+    except ImportError:
+        pass
 
 
 class ThumbnailWidget(Widget):
