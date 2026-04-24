@@ -1,0 +1,3 @@
+1. image when displayed with chafa isn't centered.  make it a bit larger for aesthetics too
+2. channel info is missing sometimes, and dynamic loading sometimes doesn't work until restarting or reloading shell
+3. add margin to entries in action window so they get set into columns neatly
