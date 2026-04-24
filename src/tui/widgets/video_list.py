@@ -237,16 +237,27 @@ class VideoListPanel(Widget):
 
     def append_entry(self, entry: dict) -> None:
         """
-        Buffer one entry from the stream. Immediately reveals it if still within
-        the initial batch; otherwise buffers it for lazy reveal on scroll.
+        Buffer one entry from the stream. Immediately reveals it if:
+          • still within the initial batch, OR
+          • the cursor is already near the bottom of the visible list.
+        The second condition handles slow feeds (e.g. home) where entries trickle
+        in after the user has already scrolled to the last visible item — without
+        it, lazy reveal would never trigger because the cursor doesn't move again.
         Called from a background thread via call_from_thread — runs on main thread.
         """
         self._buffer.append(entry)
         n_total = len(self._buffer)
 
+        lv = self.query_one("#list-view", ListView)
+
         # Reveal immediately if within the first batch
         if self._visible < BATCH_SIZE:
             self._reveal_entry(entry)
+        elif lv.index is not None:
+            # Also reveal immediately if cursor is sitting at/near the visible end
+            remaining = self._visible - 1 - lv.index
+            if remaining <= PREFETCH_THRESHOLD:
+                self._reveal_entry(entry)
 
         # Update count header (shows total buffered, not just visible)
         self.query_one("#list-header", Static).update(

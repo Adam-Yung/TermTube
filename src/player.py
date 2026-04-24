@@ -255,7 +255,10 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
                     "  [\033[33m${percent-pos}%\033[0m]"
                     "  \033[90mh/l ±5s  H/L ±10s  0-9 jump%  q quit\033[0m\\n",
             ]
-        # For video mode, mpv handles its own window — no extra flags needed
+        # Video mode: mpv opens its own window. Silence terminal output so
+        # nothing bleeds into the Textual TUI running in the background.
+        if not audio_only:
+            cmd += ["--really-quiet", "--no-terminal"]
 
         if title:
             cmd += [f"--title={title}"]

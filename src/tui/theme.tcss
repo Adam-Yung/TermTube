@@ -102,7 +102,7 @@ DetailPanel {
 }
 
 #thumbnail-area {
-    height: 22;
+    height: 18;
     background: #050505;
     border-bottom: solid #2a2a2a;
     align: center middle;
@@ -114,6 +114,20 @@ ThumbnailWidget {
     height: 100%;
     background: #050505;
     content-align: center middle;
+}
+
+/* textual-image widget: auto width lets it calculate the natural aspect ratio
+   rather than stretching to fill the full panel width */
+ThumbnailWidget > #thumb-image {
+    width: auto;
+    height: 100%;
+}
+
+#thumb-status {
+    width: 100%;
+    height: 100%;
+    content-align: center middle;
+    color: #444444;
 }
 
 #video-info {
@@ -154,9 +168,8 @@ ThumbnailWidget {
     color: #6699cc;
 }
 
-/* ── Action Bar (ActionBar widget — actions mode + now-playing mode) ─────── */
+/* ── Action Bar (ActionBar widget — height set dynamically by widget) ─────── */
 ActionBar {
-    height: 8;
     background: #0d0d14;
     border: solid #2a2a2a;
     border-title-color: #555555;

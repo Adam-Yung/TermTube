@@ -61,6 +61,9 @@ class ActionBar(Widget):
       • Player mode   — embedded now-playing bar with full-width text progress bar
     """
 
+    _HEIGHT_ACTIONS = 7   # border(2) + margin-top(1) + row1(1) + row2(1) + slack(2)
+    _HEIGHT_PLAYER  = 10  # border(2) + margin-top(1) + title(1) + gap(1) + bar(1) + gap(1) + time(1) + keys(1) + slack(1)
+
     DEFAULT_CSS = """
     ActionBar {
         height: 7;
@@ -75,9 +78,9 @@ class ActionBar(Widget):
     #ab-row1 { margin-top: 1; color: #cccccc; }
     #ab-row2 { color: #888888; }
     #np-title-line { margin-top: 1; color: #ffffff; }
-    #np-bar-text   { color: #6666ff; }
+    #np-bar-text   { margin-top: 1; color: #6666ff; }
     #np-time-line  { color: #666666; }
-    #np-keys       { color: #888888; }
+    #np-keys       { margin-top: 1; color: #888888; }
     """
 
     def __init__(self, **kwargs) -> None:
@@ -129,18 +132,20 @@ class ActionBar(Widget):
     # ── Private ───────────────────────────────────────────────────────────────
 
     def _set_mode_actions(self) -> None:
+        self.styles.height = self._HEIGHT_ACTIONS
         self.border_title = "Actions"
-        self.query_one("#ab-row1").display    = True
-        self.query_one("#ab-row2").display    = True
+        self.query_one("#ab-row1").display       = True
+        self.query_one("#ab-row2").display       = True
         self.query_one("#np-title-line").display = False
         self.query_one("#np-bar-text").display   = False
         self.query_one("#np-time-line").display  = False
         self.query_one("#np-keys").display       = False
 
     def _set_mode_player(self) -> None:
+        self.styles.height = self._HEIGHT_PLAYER
         self.border_title = "Now Playing"
-        self.query_one("#ab-row1").display    = False
-        self.query_one("#ab-row2").display    = False
+        self.query_one("#ab-row1").display       = False
+        self.query_one("#ab-row2").display       = False
         self.query_one("#np-title-line").display = True
         self.query_one("#np-bar-text").display   = True
         self.query_one("#np-time-line").display  = True

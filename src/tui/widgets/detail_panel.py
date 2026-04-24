@@ -206,8 +206,10 @@ class DetailPanel(Widget):
                     self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
                 )
         else:
-            cols = max(30, (self.size.width or 80) - 4)
-            rows = 20
+            # Cap at 55 cols — wider than that looks horizontally stretched
+            # because the chafa render fills the width even if the image is narrower.
+            cols = min(55, max(30, (self.size.width or 80) - 4))
+            rows = 18
             config = getattr(self.app, "config", None)
             ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
             self.app.call_from_thread(

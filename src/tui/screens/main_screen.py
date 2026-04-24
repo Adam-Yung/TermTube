@@ -366,6 +366,11 @@ class MainScreen(Screen):
             "--no-terminal",
             "--really-quiet",
             "--msg-level=all=no",
+            # Buffering: pre-cache 30 s and allow up to 150 MB demuxer buffer
+            # to reduce stutter on variable-bitrate YouTube streams.
+            "--cache=yes",
+            "--demuxer-max-bytes=150M",
+            "--demuxer-readahead-secs=30",
         ]
         if title:
             cmd += [f"--title={title}"]
@@ -501,10 +506,15 @@ class MainScreen(Screen):
 
         self.app.push_screen(QualityModal(audio_only=False), on_fmt)
 
-    @work(exclusive=True, group="player")
-    async def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
-        """Launch mpv for video, suspending the TUI for clean terminal handoff."""
-        import asyncio
+    @work(thread=True, exclusive=True, group="player")
+    def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
+        """Launch mpv for video in a background thread; TUI keeps running.
+
+        On macOS, mpv opens its own Cocoa window so the terminal is never
+        taken over — app.suspend() is unnecessary and causes the TUI to not
+        restore after mpv exits. Running in a plain thread is the correct approach.
+        mpv is silenced with --really-quiet to prevent any terminal output.
+        """
         from src import history, player
 
         vid = entry.get("id", "")
@@ -512,16 +522,15 @@ class MainScreen(Screen):
         title: str = entry.get("title", "")
         cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
 
-        # app.suspend() is a sync context manager in Textual 8.x — not async.
-        # We use plain `with`, then await the blocking player call inside.
-        with self.app.suspend():
-            await asyncio.to_thread(
-                player.play, url, audio_only=False, title=title,
-                ytdl_format=ytdl_format, cookie_args=cookie_args,
-            )
-
+        player.play(
+            url,
+            audio_only=False,
+            title=title,
+            ytdl_format=ytdl_format,
+            cookie_args=cookie_args,
+        )
         history.add(entry)
-        self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+        self.app.call_from_thread(self.notify, f"✓ Finished: {title[:50]}", timeout=4)
 
     # ── Download ──────────────────────────────────────────────────────────────
 
