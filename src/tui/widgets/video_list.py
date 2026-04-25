@@ -316,10 +316,14 @@ class VideoListPanel(Widget):
     def finish_loading(self) -> None:
         """Call when streaming is complete."""
         self._loading = False
-        
-        # Guarantee loading indicator turns off 
-        self.query_one("#list-loading-anim", LoadingIndicator).display = False
-        self.query_one("#list-view", ListView).display = True
+
+        # Only hide the spinner here if no videos ever appeared (i.e. _reveal_entry
+        # never ran, so the spinner is still visible). When at least one video was
+        # revealed, _reveal_entry already hid the spinner.
+        anim = self.query_one("#list-loading-anim", LoadingIndicator)
+        if anim.display:
+            anim.display = False
+            self.query_one("#list-view", ListView).display = True
 
         n_total = len(self._buffer)
         n_hidden = n_total - self._visible

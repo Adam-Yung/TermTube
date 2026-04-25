@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-_PLAYLISTS_PATH = Path.home() / ".local" / "share" / "termtube" / "playlists.json"
+_PLAYLISTS_PATH = Path.home() / ".config" / "TermTube" / "playlists.json"
 
 
 def _load() -> dict[str, list[str]]:

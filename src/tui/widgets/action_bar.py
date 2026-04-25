@@ -38,10 +38,10 @@ def _get_actions_table() -> Table:
 
 
 _NP_KEYS = (
-    "[dim]spc[/dim] pause  "
+    "[bold #ff6666]⎵[/bold #ff6666] [dim]pause[/dim]  "
     "[bold #ff6666]h[/bold #ff6666][dim]/[/dim][bold #ff6666]l[/bold #ff6666] [dim]±5s[/dim]  "
     "[bold #ff6666]H[/bold #ff6666][dim]/[/dim][bold #ff6666]L[/bold #ff6666] [dim]±10s[/dim]  "
-    "[dim]0–9[/dim] seek%  "
+    "[bold #ff6666]0[/bold #ff6666][dim]–[/dim][bold #ff6666]9[/bold #ff6666] [dim]seek%[/dim]  "
     "[bold #ff6666]s[/bold #ff6666] [dim]stop[/dim]"
 )
 
@@ -71,10 +71,10 @@ def _text_bar(pos: float, dur: float, width: int) -> str:
 def _queue_hint(queue_len: int) -> str:
     if queue_len > 0:
         return (
-            f"[bold #ff6666]e[/bold #ff6666] [dim]queue[/dim]  "
-            f"[bold #ff6666]>[/bold #ff6666] [dim]skip  ({queue_len} queued)[/dim]"
+            f"[bold #ff6666]e[/bold #ff6666] [dim]add to queue[/dim]  "
+            f"[bold #ff6666]>[/bold #ff6666] [dim]skip to next  ({queue_len} queued)[/dim]"
         )
-    return "[bold #ff6666]e[/bold #ff6666] [dim]queue next[/dim]"
+    return "[bold #ff6666]e[/bold #ff6666] [dim]add to queue[/dim]"
 
 
 class ActionBar(Widget):

@@ -15,6 +15,7 @@ _ACTIONS = [
     ("watch_quality", "▶·", "Watch — choose quality…"),
     ("listen",        "♪",  "Listen (audio only)"),
     ("listen_quality","♪·", "Listen — choose quality…"),
+    ("queue",         "♪+", "Add to queue  [dim](e)[/dim]"),
     ("dl_video",      "↓",  "Download video"),
     ("dl_audio",      "↓♪", "Download audio (MP3)"),
     ("copy_url",      "⎘",  "Copy video URL  [dim](y)[/dim]"),
@@ -47,9 +48,10 @@ class VideoActionModal(ModalScreen[str | None]):
         Binding("k",      "cursor_up",   show=False),
     ]
 
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: dict, *, hide_queue: bool = False) -> None:
         super().__init__()
         self._entry = entry
+        self._hide_queue = hide_queue
 
     def compose(self) -> ComposeResult:
         title = (self._entry.get("title") or "Video")[:50]
@@ -76,8 +78,11 @@ class VideoActionModal(ModalScreen[str | None]):
     def on_mount(self) -> None:
         lv = self.query_one("#vaction-list", ListView)
         for key, icon, label in _ACTIONS:
+            if key == "queue" and self._hide_queue:
+                continue
             lv.append(_ActionItem(key, icon, label))
         lv.focus()
+
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, _ActionItem):

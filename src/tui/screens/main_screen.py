@@ -130,7 +130,7 @@ class MainScreen(Screen):
         Binding("a",            "dl_audio",        "DL Audio",    show=False),
         # Queue
         Binding("e",            "queue_audio",     "Queue",       show=False),
-        Binding("greater_than", "audio_skip",      "Skip",        show=False),
+        Binding(">",            "audio_skip",      "Skip",        show=False),
         # Copy URL
         Binding("y",            "copy_url",        "Copy URL",    show=False),
         # Other
@@ -259,14 +259,16 @@ class MainScreen(Screen):
         cache = app.cache
         collected_ids: list[str] = []
 
+        # sync_handled: True when the sub-method already called finish_loading
+        sync_handled = False
         try:
             if view in ("home", "subscriptions"):
                 import src.ytdlp as ytdlp
                 self._stream_feed(view, panel, config, cache, ytdlp, collected_ids)
-                return
             elif view == "search":
                 if not self._search_query:
                     self.app.call_from_thread(panel.set_empty_message, "Press / to search")
+                    self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
                     return
                 import src.ytdlp as ytdlp
                 for entry in ytdlp.stream_search(self._search_query, config, cache):
@@ -283,23 +285,20 @@ class MainScreen(Screen):
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "playlists":
                 self._load_playlists_sync(panel)
-                return
+                sync_handled = True
             elif view.startswith("playlist:"):
                 self._load_playlist_videos_sync(view[len("playlist:"):], panel, cache)
-                return
+                sync_handled = True
         except Exception as exc:
             msg = str(exc)
             self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
             self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
-            
-            # 2. Fail! Show the dead animation
             self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
             return
 
-        # 3. Success! Hide the animation
         self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
-        
-        self.app.call_from_thread(panel.finish_loading)
+        if not sync_handled:
+            self.app.call_from_thread(panel.finish_loading)
         if collected_ids and view in ("home", "subscriptions", "search"):
             import src.ytdlp as ytdlp
             ytdlp.enrich_in_background(
@@ -324,6 +323,7 @@ class MainScreen(Screen):
             pass
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp, collected_ids: list) -> None:
+        """Populate `collected_ids` and append entries to panel. Cleanup is caller's responsibility."""
         fresh_ids = cache.get_feed(feed_key)
         is_suppressed = getattr(cache, "is_suppressed", lambda x: False)
 
@@ -339,20 +339,14 @@ class MainScreen(Screen):
                         self.app.call_from_thread(panel.append_entry, entry)
                         collected_ids.append(vid_id)
                         count += 1
-                        
+
                 if count >= _MIN_FEED_COUNT:
-                    self.app.call_from_thread(panel.finish_loading)
                     self.app.call_from_thread(self.notify, "Showing cached results — refreshing in background…", timeout=3)
                     t = threading.Thread(target=self._background_refresh, args=(feed_key, ytdlp, config, cache), daemon=True)
                     t.start()
-                    if collected_ids:
-                        ytdlp.enrich_in_background(
-                            collected_ids[:20], config, cache,
-                            on_done=self._make_enrich_callback(panel),
-                        )
                     return
             cache.clear_feed(feed_key)
-            
+
         gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
         for entry in gen:
             vid_id = entry.get("id")
@@ -361,13 +355,6 @@ class MainScreen(Screen):
             self.app.call_from_thread(panel.append_entry, entry)
             if vid_id:
                 collected_ids.append(vid_id)
-                
-        self.app.call_from_thread(panel.finish_loading)
-        if collected_ids:
-            ytdlp.enrich_in_background(
-                collected_ids[:20], config, cache,
-                on_done=self._make_enrich_callback(panel),
-            )
 
     @staticmethod
     def _background_refresh(feed_key: str, ytdlp, config, cache) -> None:
@@ -440,6 +427,16 @@ class MainScreen(Screen):
     def _open_video_action_menu(self, entry: dict) -> None:
         from src.tui.screens.video_action_modal import VideoActionModal
 
+        # Hide queue action if video is already playing or queued
+        current_id = self._audio_entry.get("id") if self._audio_entry else None
+        entry_id = entry.get("id")
+        queued_ids = {e.get("id") for e in self._audio_queue}
+        hide_queue = (
+            entry_id == current_id
+            or entry_id in queued_ids
+            or not self._audio_playing
+        )
+
         def on_action(key: str | None) -> None:
             if not key:
                 return
@@ -448,6 +445,7 @@ class MainScreen(Screen):
                 "watch_quality": self.action_watch_quality,
                 "listen":        lambda: self._start_audio(entry),
                 "listen_quality":lambda: self._listen_quality(entry),
+                "queue":         self.action_queue_audio,
                 "dl_video":      self.action_dl_video,
                 "dl_audio":      self.action_dl_audio,
                 "copy_url":      lambda: self._copy_video_url(entry),
@@ -459,7 +457,7 @@ class MainScreen(Screen):
             if fn:
                 fn()
 
-        self.app.push_screen(VideoActionModal(entry), on_action)
+        self.app.push_screen(VideoActionModal(entry, hide_queue=hide_queue), on_action)
 
     # ── Audio player ──────────────────────────────────────────────────────────
 
@@ -779,13 +777,17 @@ class MainScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
+        entry_id = entry.get("id")
         current_id = self._audio_entry.get("id") if self._audio_entry else None
-        if entry.get("id") and entry.get("id") == current_id:
+        if entry_id and entry_id == current_id:
             self.notify("Already playing this track", timeout=2)
+            return
+        if entry_id and any(e.get("id") == entry_id for e in self._audio_queue):
+            self.notify("Already in queue", timeout=2)
             return
         self._audio_queue.append(entry)
         title = entry.get("title", "video")[:40]
-        self.notify(f"Queued: {title}", timeout=3)
+        self.notify(f"Added to queue: {title}", timeout=3)
         self._action_bar().update_queue_hint(len(self._audio_queue))
 
     def action_audio_skip(self) -> None:

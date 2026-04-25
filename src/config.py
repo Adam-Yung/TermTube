@@ -9,7 +9,7 @@ _DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
 
 DEFAULT_CONFIG: dict = {
     "cookies_file": str(_CONFIG_DIR / "cookies.txt"),
-    "browser": "chrome",
+    "browser": "firefox",
     "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
     "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
     "video_format": "%(title)s_%(uploader)s.%(ext)s",
