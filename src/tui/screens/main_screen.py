@@ -122,6 +122,9 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
+        
+        # Background refresh home feed every 10 minutes (600 seconds)
+        self.set_interval(600.0, self._scheduled_home_refresh)
 
     # ── Tab switching ─────────────────────────────────────────────────────────
 
@@ -157,6 +160,21 @@ class MainScreen(Screen):
         self._stream_view(view)
 
     # ── Streaming workers ─────────────────────────────────────────────────────
+
+    @work(thread=True, exclusive=True, group="feed_loader")
+    def _scheduled_home_refresh(self) -> None:
+        """Silently refresh the home feed in the background every 10 minutes."""
+        import src.ytdlp as ytdlp
+        app = self.app  # type: ignore[attr-defined]
+        config = app.config
+        cache = app.cache
+        try:
+            # Iterating stream_flat forces the fetch and population of the cache
+            for _ in ytdlp.stream_flat(ytdlp.FEED_URLS["home"], config, cache, feed_key="home"):
+                pass
+            self.app.call_from_thread(self._log, "[green]Background home feed refresh complete.[/green]")
+        except Exception as e:
+            self.app.call_from_thread(self._log, f"[red]Background refresh failed: {e}[/red]")
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str) -> None:
@@ -228,16 +246,25 @@ class MainScreen(Screen):
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp, collected_ids: list) -> None:
         fresh_ids = cache.get_feed(feed_key)
+        
+        # Ensure we have the is_suppressed helper, otherwise default to False
+        is_suppressed = getattr(cache, "is_suppressed", lambda x: False)
+
         if fresh_ids is None:
             stale_ids = cache.get_feed_stale(feed_key)
             if stale_ids and len(stale_ids) >= _MIN_FEED_COUNT:
                 count = 0
                 for vid_id in stale_ids:
+                    # Skip suppressed videos from showing on the home page
+                    if feed_key == "home" and is_suppressed(vid_id):
+                        continue
+                        
                     entry = cache.get_video_raw(vid_id)
                     if entry:
                         self.app.call_from_thread(panel.append_entry, entry)
                         collected_ids.append(vid_id)
                         count += 1
+                        
                 if count >= _MIN_FEED_COUNT:
                     self.app.call_from_thread(panel.finish_loading)
                     self.app.call_from_thread(self.notify, "Showing cached results — refreshing in background…", timeout=3)
@@ -250,11 +277,18 @@ class MainScreen(Screen):
                         )
                     return
             cache.clear_feed(feed_key)
+            
         gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
         for entry in gen:
+            vid_id = entry.get("id")
+            # Skip suppressed videos from fresh fetches too
+            if feed_key == "home" and vid_id and is_suppressed(vid_id):
+                continue
+                
             self.app.call_from_thread(panel.append_entry, entry)
-            if entry.get("id"):
-                collected_ids.append(entry["id"])
+            if vid_id:
+                collected_ids.append(vid_id)
+                
         self.app.call_from_thread(panel.finish_loading)
         if collected_ids:
             ytdlp.enrich_in_background(
@@ -403,6 +437,11 @@ class MainScreen(Screen):
         import tempfile
 
         vid = entry.get("id", "")
+        
+        # Eliminate from home feed cache now that it's been listened to
+        if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
+            self.app.cache.suppress_video(vid)
+
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
@@ -416,8 +455,6 @@ class MainScreen(Screen):
             "--no-terminal",
             "--really-quiet",
             "--msg-level=all=no",
-            # Buffering: pre-cache 30 s and allow up to 150 MB demuxer buffer
-            # to reduce stutter on variable-bitrate YouTube streams.
             "--cache=yes",
             "--demuxer-max-bytes=150M",
             "--demuxer-readahead-secs=30",
@@ -479,7 +516,6 @@ class MainScreen(Screen):
     # ── Context-aware audio bindings ──────────────────────────────────────────
 
     def action_listen_or_seek(self) -> None:
-        """l — seek +5s if audio playing, else open listen."""
         if self._audio_playing:
             self._audio_ipc({"command": ["seek", 5, "relative"]})
         else:
@@ -488,7 +524,6 @@ class MainScreen(Screen):
                 self._start_audio(entry)
 
     def action_listen_q_or_seek_big(self) -> None:
-        """L — seek +10s if audio playing, else open listen quality picker."""
         if self._audio_playing:
             self._audio_ipc({"command": ["seek", 10, "relative"]})
         else:
@@ -497,22 +532,18 @@ class MainScreen(Screen):
                 self._listen_quality(entry)
 
     def action_audio_seek_back(self) -> None:
-        """h — seek -5s when audio playing."""
         if self._audio_playing:
             self._audio_ipc({"command": ["seek", -5, "relative"]})
 
     def action_audio_seek_back_big(self) -> None:
-        """H — seek -10s when audio playing."""
         if self._audio_playing:
             self._audio_ipc({"command": ["seek", -10, "relative"]})
 
     def action_audio_pause(self) -> None:
-        """space — pause/resume audio."""
         if self._audio_playing:
             self._audio_ipc({"command": ["cycle", "pause"]})
 
     def action_audio_stop_or_subscribe(self) -> None:
-        """s — stop audio if playing, else subscribe."""
         if self._audio_playing:
             self._stop_audio()
         else:
@@ -562,6 +593,11 @@ class MainScreen(Screen):
         from src import history, player
 
         vid = entry.get("id", "")
+        
+        # Eliminate from home feed cache now that it's been watched
+        if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
+            self.app.cache.suppress_video(vid)
+            
         url: str = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title: str = entry.get("title", "")
         cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]

@@ -112,6 +112,10 @@ class DetailPanel(Widget):
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
+        
+        # Track focus count for the stale feed elimination cache
+        if vid and not vid.startswith("__") and hasattr(self.app, "cache") and hasattr(self.app.cache, "register_focus"):
+            self.app.cache.register_focus(vid)
 
         thumb = self.query_one("#thumbnail", ThumbnailWidget)
         thumb.set_video_id(vid)
@@ -150,11 +154,7 @@ class DetailPanel(Widget):
             self._fetch_full_meta_bg(vid, entry)
     
     def refresh_metadata(self, entry: dict) -> None:
-        """Refresh channel/stats/description from an enriched entry.
-
-        No-op if the entry is not the currently displayed video.
-        Does not re-render the thumbnail (avoids flicker on background enrichment).
-        """
+        """Refresh channel/stats/description from an enriched entry."""
         if entry.get("id") != self._current_id:
             return
         self._last_entry = entry
@@ -199,10 +199,8 @@ class DetailPanel(Widget):
         except Exception:
             pass
 
-    # ── Thumbnail re-render on screen resume (fixes disappear after suspend) ──
-
     def on_screen_resume(self, _: ScreenResume) -> None:
-        """Re-render thumbnail when the main screen regains control (e.g. after video)."""
+        """Re-render thumbnail when the main screen regains control."""
         if self._current_id and self._last_entry:
             self._render_thumbnail_bg(self._current_id, self._last_entry)
 
@@ -232,7 +230,6 @@ class DetailPanel(Widget):
                     self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
                 )
         else:
-            # Query the actual dynamic size of the container so chafa fills all available space
             thumb_widget = self.query_one("#thumbnail", ThumbnailWidget)
             cols = thumb_widget.size.width if thumb_widget.size.width > 0 else max(30, (self.size.width or 80) - 4)
             rows = thumb_widget.size.height if thumb_widget.size.height > 0 else 25
@@ -256,3 +253,4 @@ class DetailPanel(Widget):
                 self.app.call_from_thread(self._update_playlists, vid)
         except Exception:
             pass
+
