@@ -35,23 +35,5 @@ class TermTubeApp(App):
         if theme in _VALID_THEMES and theme != "crimson":
             self.add_class(f"theme-{theme}")
 
-        self.sub_title = self._image_mode_label()
-
         from src.tui.screens.main_screen import MainScreen
         self.push_screen(MainScreen())
-
-    @staticmethod
-    def _image_mode_label() -> str:
-        """Subtitle showing the active image rendering mode."""
-        try:
-            from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
-            if not _HAS_TEXTUAL_IMAGE:
-                return "symbols mode"
-            from textual_image.renderable import Image as _Auto
-            from textual_image.renderable.tgp      import Image as _TGP
-            from textual_image.renderable.sixel    import Image as _Sixel
-            from textual_image.renderable.halfcell import Image as _Half
-            name = {_TGP: "TGP", _Sixel: "sixel", _Half: "halfcell"}.get(_Auto, "")
-            return f"images · {name}" if name else "symbols mode"
-        except Exception:
-            return ""

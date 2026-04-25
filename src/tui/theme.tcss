@@ -6,12 +6,36 @@ App {
     color: #e0e0e0;
 }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
-Header {
-    background: #1a0000;
-    color: #ff4444;
-    text-style: bold;
+/* ── Custom AppHeader ────────────────────────────────────────────────────── */
+AppHeader {
     height: 1;
+    dock: top;
+    background: #1a0000;
+}
+
+AppHeader #header-layout {
+    layout: horizontal;
+    width: 100%;
+}
+
+AppHeader #header-clock {
+    width: 25%;
+    color: #888888;
+    padding-left: 1;
+    content-align: left middle;
+}
+
+AppHeader #header-title {
+    width: 50%;
+    text-style: bold;
+    color: #ff4444;
+    content-align: center middle;
+}
+
+AppHeader #header-status {
+    width: 25%;
+    padding-right: 2;
+    content-align: right middle;
 }
 
 /* ── Nav Tabs ─────────────────────────────────────────────────────────────── */
@@ -55,6 +79,14 @@ VideoListPanel {
     color: #666666;
     padding: 0 1;
     border-bottom: solid #2a2a2a;
+}
+
+/* New animated loader layout config */
+#list-loading-anim {
+    height: 1fr;
+    content-align: center middle;
+    color: #ff6666;
+    display: none;
 }
 
 #list-view {
@@ -113,12 +145,10 @@ ThumbnailWidget {
     width: 100%;
     height: 100%;
     background: #050505;
-    content-align: center middle;  /* Centers the chafa ANSI text */
-    align: center middle;          /* Centers the textual-image child widget */
+    content-align: center middle;
+    align: center middle;
 }
 
-/* textual-image widget: auto width lets it calculate the natural aspect ratio
-   rather than stretching to fill the full panel width */
 ThumbnailWidget > #thumb-image {
     width: auto;
     height: 100%;
@@ -371,7 +401,6 @@ QualityModal {
     border-left: thick #0d0d0d;
 }
 
-/* Make inner Statics transparent so ListItem's background/border shows through */
 #quality-list > ListItem > Static {
     background: transparent;
 }
@@ -616,12 +645,12 @@ SettingsModal {
     overflow-y: auto;
 }
 
-#s-theme-head, #s-quality-head, #s-thumb-head, #s-browser-head {
+#s-theme-head, #s-quality-head, #s-thumb-head, #s-browser-head, #s-auth-head {
     margin-top: 1;
     margin-bottom: 0;
 }
 
-#theme-list, #quality-list-s, #thumb-list, #browser-list {
+#theme-list, #quality-list-s, #thumb-list, #browser-list, #auth-list {
     height: auto;
     max-height: 8;
     background: #0a0a12;
@@ -632,7 +661,8 @@ SettingsModal {
 #theme-list > ListItem,
 #quality-list-s > ListItem,
 #thumb-list > ListItem,
-#browser-list > ListItem {
+#browser-list > ListItem,
+#auth-list > ListItem {
     padding: 0 1;
     color: #888888;
     border-left: thick #0a0a12;
@@ -642,14 +672,16 @@ SettingsModal {
 #theme-list > ListItem > Static,
 #quality-list-s > ListItem > Static,
 #thumb-list > ListItem > Static,
-#browser-list > ListItem > Static {
+#browser-list > ListItem > Static,
+#auth-list > ListItem > Static {
     background: transparent;
 }
 
 #theme-list > ListItem.--highlight,
 #quality-list-s > ListItem.--highlight,
 #thumb-list > ListItem.--highlight,
-#browser-list > ListItem.--highlight {
+#browser-list > ListItem.--highlight,
+#auth-list > ListItem.--highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
@@ -658,7 +690,8 @@ SettingsModal {
 #theme-list > ListItem.--highlight > Static,
 #quality-list-s > ListItem.--highlight > Static,
 #thumb-list > ListItem.--highlight > Static,
-#browser-list > ListItem.--highlight > Static {
+#browser-list > ListItem.--highlight > Static,
+#auth-list > ListItem.--highlight > Static {
     color: #ffffff;
 }
 
@@ -671,10 +704,10 @@ SettingsModal {
    COLOUR THEMES
    Applied via App-level class: app.add_class("theme-amber") etc.
    Default (crimson) needs no class — it's the base CSS above.
-   ════════════════════════════════════════════════════════════════════════════ */
+════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Amber — warm orange ─────────────────────────────────────────────────── */
-App.theme-amber Header { background: #1a0d00; color: #e8820c; }
+App.theme-amber AppHeader { background: #1a0d00; color: #e8820c; }
 App.theme-amber Tab.-active { color: #e8820c; background: #1e1800; text-style: bold underline; }
 App.theme-amber Tab:hover { background: #181200; }
 App.theme-amber VideoListItem.--highlight { background: #1a1200; border-left: thick #e8820c; }
@@ -688,7 +721,9 @@ App.theme-amber #vaction-list > ListItem.--highlight > Static { color: #ffffff; 
 App.theme-amber #theme-list > ListItem.--highlight,
 App.theme-amber #quality-list-s > ListItem.--highlight,
 App.theme-amber #thumb-list > ListItem.--highlight,
-App.theme-amber #browser-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #browser-list > ListItem.--highlight,
+App.theme-amber #auth-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #list-loading-anim { color: #e8820c; }
 App.theme-amber #search-input:focus { border: solid #e8820c; }
 App.theme-amber #search-title { color: #e8820c; }
 App.theme-amber #quality-title { color: #e8820c; }
@@ -701,7 +736,7 @@ App.theme-amber #nav-dialog { border: solid #e8820c; }
 App.theme-amber #nav-title { color: #e8820c; }
 
 /* ── Ocean — cool teal ───────────────────────────────────────────────────── */
-App.theme-ocean Header { background: #001622; color: #0ea5e9; }
+App.theme-ocean AppHeader { background: #001622; color: #0ea5e9; }
 App.theme-ocean Tab.-active { color: #0ea5e9; background: #001520; text-style: bold underline; }
 App.theme-ocean Tab:hover { background: #001020; }
 App.theme-ocean VideoListItem.--highlight { background: #001a24; border-left: thick #0ea5e9; }
@@ -715,7 +750,9 @@ App.theme-ocean #vaction-list > ListItem.--highlight > Static { color: #ffffff; 
 App.theme-ocean #theme-list > ListItem.--highlight,
 App.theme-ocean #quality-list-s > ListItem.--highlight,
 App.theme-ocean #thumb-list > ListItem.--highlight,
-App.theme-ocean #browser-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #browser-list > ListItem.--highlight,
+App.theme-ocean #auth-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #list-loading-anim { color: #0ea5e9; }
 App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
 App.theme-ocean #search-title { color: #0ea5e9; }
 App.theme-ocean #quality-title { color: #0ea5e9; }
@@ -728,7 +765,7 @@ App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
 App.theme-ocean #nav-title { color: #0ea5e9; }
 
 /* ── Midnight — soft purple ──────────────────────────────────────────────── */
-App.theme-midnight Header { background: #0d0018; color: #a855f7; }
+App.theme-midnight AppHeader { background: #0d0018; color: #a855f7; }
 App.theme-midnight Tab.-active { color: #a855f7; background: #0e0020; text-style: bold underline; }
 App.theme-midnight Tab:hover { background: #0a0018; }
 App.theme-midnight VideoListItem.--highlight { background: #160a28; border-left: thick #a855f7; }
@@ -742,7 +779,9 @@ App.theme-midnight #vaction-list > ListItem.--highlight > Static { color: #fffff
 App.theme-midnight #theme-list > ListItem.--highlight,
 App.theme-midnight #quality-list-s > ListItem.--highlight,
 App.theme-midnight #thumb-list > ListItem.--highlight,
-App.theme-midnight #browser-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #browser-list > ListItem.--highlight,
+App.theme-midnight #auth-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #list-loading-anim { color: #a855f7; }
 App.theme-midnight #search-input:focus { border: solid #a855f7; }
 App.theme-midnight #search-title { color: #a855f7; }
 App.theme-midnight #quality-title { color: #a855f7; }

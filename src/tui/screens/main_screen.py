@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from textual import work
@@ -12,7 +13,8 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.screen import Screen
-from textual.widgets import Footer, Header, RichLog, Static, Tab, Tabs
+from textual.widget import Widget
+from textual.widgets import Footer, RichLog, Static, Tab, Tabs
 
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.detail_panel import DetailPanel
@@ -20,6 +22,57 @@ from src.tui.widgets.video_list import VideoListPanel
 
 if TYPE_CHECKING:
     pass
+
+
+# ── Custom Header ─────────────────────────────────────────────────────────────
+
+class AppHeader(Widget):
+    """Modern custom header: Clock (Left), Title (Center), Animated Status (Right)."""
+    
+    # Modern Braille spinner animation frames
+    _SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._state = "IDLE"  # Can be "IDLE", "LOADING", or "ERROR"
+        self._frame = 0
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(id="header-layout"):
+            yield Static("", id="header-clock")
+            yield Static("📺 TermTube", id="header-title")
+            yield Static("", id="header-status")
+
+    def on_mount(self) -> None:
+        self.set_interval(1.0, self._update_clock)
+        # 0.1s interval makes for a smooth, modern spinner animation
+        self.set_interval(0.1, self._animate_spinner)
+        self._update_clock()
+
+    def _update_clock(self) -> None:
+        now = datetime.now().strftime("%I:%M %p")
+        self.query_one("#header-clock", Static).update(f"[dim]⌚ {now}[/dim]")
+
+    def _animate_spinner(self) -> None:
+        status_widget = self.query_one("#header-status", Static)
+        if self._state == "LOADING":
+            char = self._SPINNER[self._frame % len(self._SPINNER)]
+            # Using your theme's crimson red for the spinner, but you can change this!
+            status_widget.update(f"[#ff6666]{char}[/#ff6666]")
+            self._frame += 1
+        elif self._state == "ERROR":
+            status_widget.update("[bold #ff4444]✗[/bold #ff4444]")
+        else:
+            status_widget.update("")  # IDLE state hides it completely
+
+    def set_status_loading(self) -> None:
+        self._state = "LOADING"
+
+    def set_status_idle(self) -> None:
+        self._state = "IDLE"
+
+    def set_status_error(self) -> None:
+        self._state = "ERROR"
 
 
 # ── Tab definitions ────────────────────────────────────────────────────────────
@@ -55,18 +108,18 @@ class MainScreen(Screen):
         Binding("G",            "cursor_bottom",   "Bottom",      show=False),
         Binding("backspace",    "nav_back",        "Back",        show=False),
         # Enter → video action menu
-        Binding("enter",        "activate",        "Actions",     show=True),
+        Binding("enter",        "activate",        "Actions",     show=False),
         # Playback (direct shortcuts, bypass action menu)
-        Binding("w",            "watch",           "Watch",       show=True),
+        Binding("w",            "watch",           "Watch",       show=False),
         Binding("W",            "watch_quality",   "Quality ▶",  show=False),
         # l / L / h / H — context-aware: seek when audio playing, else listen/nothing
-        Binding("l",            "listen_or_seek",  "Listen",      show=True),
+        Binding("l",            "listen_or_seek",  "Listen",      show=False),
         Binding("L",            "listen_q_or_seek_big", "Quality ♪", show=False),
         Binding("h",            "audio_seek_back", show=False),
         Binding("H",            "audio_seek_back_big", show=False),
         Binding("space",        "audio_pause",     "Pause",       show=False),
         Binding("s",            "audio_stop_or_subscribe", show=False),
-        # 0-9 audio seek (no conflict: digits not otherwise bound in main screen)
+        # 0-9 audio seek
         Binding("0", "audio_pct_0",  show=False), Binding("1", "audio_pct_10", show=False),
         Binding("2", "audio_pct_20", show=False), Binding("3", "audio_pct_30", show=False),
         Binding("4", "audio_pct_40", show=False), Binding("5", "audio_pct_50", show=False),
@@ -78,13 +131,13 @@ class MainScreen(Screen):
         # Other
         Binding("p",            "playlist",        "Playlist",    show=False),
         Binding("b",            "browser",         "Browser",     show=False),
-        # App
+        # App Footer visible commands
         Binding("/",            "search",          "Search",      show=True),
         Binding("r",            "refresh",         "Refresh",     show=True),
-        Binding("?",            "toggle_help",     "Help",        show=False),
-        Binding("comma",        "settings",        "Settings",    show=False),
-        Binding("ctrl+d",       "toggle_log",      "Debug",       show=False),
+        Binding("comma",        "settings",        "Settings",    show=True),
         Binding("q",            "quit_app",        "Quit",        show=True),
+        Binding("?",            "toggle_help",     "Help",        show=False),
+        Binding("ctrl+d",       "toggle_log",      "Debug",       show=False),
         # Page shortcuts — F1-F7
         Binding("f1",  "tab_home",      show=False), Binding("f2", "tab_subs",      show=False),
         Binding("f3",  "tab_search",    show=False), Binding("f4", "tab_history",   show=False),
@@ -109,7 +162,7 @@ class MainScreen(Screen):
     # ── Layout ────────────────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
+        yield AppHeader()
         yield Tabs(
             *[Tab(label, id=tid) for tid, label in _TABS],
             id="nav-tabs",
@@ -125,6 +178,8 @@ class MainScreen(Screen):
         
         # Background refresh home feed every 10 minutes (600 seconds)
         self.set_interval(600.0, self._scheduled_home_refresh)
+
+    # ... (Rest of MainScreen methods remain exactly the same)
 
     # ── Tab switching ─────────────────────────────────────────────────────────
 
@@ -165,21 +220,35 @@ class MainScreen(Screen):
     def _scheduled_home_refresh(self) -> None:
         """Silently refresh the home feed in the background every 10 minutes."""
         import src.ytdlp as ytdlp
-        app = self.app  # type: ignore[attr-defined]
+        
+        # 1. Trigger the loading animation
+        self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
+        
+        app = self.app
         config = app.config
         cache = app.cache
         try:
-            # Iterating stream_flat forces the fetch and population of the cache
             for _ in ytdlp.stream_flat(ytdlp.FEED_URLS["home"], config, cache, feed_key="home"):
                 pass
             self.app.call_from_thread(self._log, "[green]Background home feed refresh complete.[/green]")
+            
+            # 2. Success! Hide the animation
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
+            
         except Exception as e:
             self.app.call_from_thread(self._log, f"[red]Background refresh failed: {e}[/red]")
+            
+            # 3. Fail! Show the dead animation
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str) -> None:
         panel = self.query_one("#video-list-panel", VideoListPanel)
-        app = self.app  # type: ignore[attr-defined]
+        
+        # 1. Trigger the loading animation
+        self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
+        
+        app = self.app
         config = app.config
         cache = app.cache
         collected_ids: list[str] = []
@@ -216,8 +285,14 @@ class MainScreen(Screen):
             msg = str(exc)
             self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
             self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
+            
+            # 2. Fail! Show the dead animation
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
             return
 
+        # 3. Success! Hide the animation
+        self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
+        
         self.app.call_from_thread(panel.finish_loading)
         if collected_ids and view in ("home", "subscriptions", "search"):
             import src.ytdlp as ytdlp
@@ -227,7 +302,6 @@ class MainScreen(Screen):
             )
 
     def _make_enrich_callback(self, panel):
-        """Return an on_done callback for enrich_in_background."""
         app = self.app
         screen = self
 
@@ -238,7 +312,6 @@ class MainScreen(Screen):
         return _on_done
 
     def _maybe_refresh_detail(self, vid: str, entry: dict) -> None:
-        """Refresh detail panel metadata if vid is the currently displayed video."""
         try:
             self.query_one("#detail-panel", DetailPanel).refresh_metadata(entry)
         except Exception:
@@ -246,8 +319,6 @@ class MainScreen(Screen):
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp, collected_ids: list) -> None:
         fresh_ids = cache.get_feed(feed_key)
-        
-        # Ensure we have the is_suppressed helper, otherwise default to False
         is_suppressed = getattr(cache, "is_suppressed", lambda x: False)
 
         if fresh_ids is None:
@@ -255,10 +326,8 @@ class MainScreen(Screen):
             if stale_ids and len(stale_ids) >= _MIN_FEED_COUNT:
                 count = 0
                 for vid_id in stale_ids:
-                    # Skip suppressed videos from showing on the home page
                     if feed_key == "home" and is_suppressed(vid_id):
                         continue
-                        
                     entry = cache.get_video_raw(vid_id)
                     if entry:
                         self.app.call_from_thread(panel.append_entry, entry)
@@ -281,10 +350,8 @@ class MainScreen(Screen):
         gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
         for entry in gen:
             vid_id = entry.get("id")
-            # Skip suppressed videos from fresh fetches too
             if feed_key == "home" and vid_id and is_suppressed(vid_id):
                 continue
-                
             self.app.call_from_thread(panel.append_entry, entry)
             if vid_id:
                 collected_ids.append(vid_id)
@@ -342,7 +409,6 @@ class MainScreen(Screen):
     # ── Batch Lazy Loading Intercept ──────────────────────────────────────────
 
     def on_video_list_panel_batch_revealed(self, message: VideoListPanel.BatchRevealed) -> None:
-        """Fetch metadata for newly scrolled entries as they are lazily loaded."""
         if self._current_tab in ("home", "subscriptions", "search") or self._current_tab.startswith("playlist:"):
             import src.ytdlp as ytdlp
             ids = [e.get("id") for e in message.entries if e.get("id") and not e.get("id").startswith("__")]
@@ -388,7 +454,7 @@ class MainScreen(Screen):
 
         self.app.push_screen(VideoActionModal(entry), on_action)
 
-    # ── Audio player (embedded in action bar) ─────────────────────────────────
+    # ── Audio player ──────────────────────────────────────────────────────────
 
     @property
     def _audio_playing(self) -> bool:
@@ -398,7 +464,6 @@ class MainScreen(Screen):
         return self.query_one("#detail-panel", DetailPanel).action_bar
 
     def _start_audio(self, entry: dict, *, ytdl_format: str = "") -> None:
-        """Launch mpv audio in background and switch action bar to player mode."""
         if self._audio_playing:
             self.notify("Audio already playing — press s to stop first.", severity="warning")
             return
@@ -406,11 +471,9 @@ class MainScreen(Screen):
         self._audio_stopped = False
         self._action_bar().set_player_mode(entry)
         self._launch_audio_worker(entry, ytdl_format=ytdl_format)
-        # Start polling
         self._audio_poll_timer = self.set_interval(0.5, self._poll_audio_ipc)
 
     def _stop_audio(self) -> None:
-        """Stop audio playback and restore action bar."""
         self._audio_stopped = True
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
@@ -425,7 +488,6 @@ class MainScreen(Screen):
             self._audio_poll_timer.stop()
             self._audio_poll_timer = None
         self._action_bar().set_actions_mode()
-        # Clean up socket
         try:
             os.unlink(_AUDIO_SOCKET)
         except OSError:
@@ -437,14 +499,12 @@ class MainScreen(Screen):
         import tempfile
 
         vid = entry.get("id", "")
-        
-        # Eliminate from home feed cache now that it's been listened to
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
-        cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
+        cookie_args = self.app.config.cookie_args
 
         input_conf = player_mod._write_input_conf()
         cmd = [
@@ -593,14 +653,12 @@ class MainScreen(Screen):
         from src import history, player
 
         vid = entry.get("id", "")
-        
-        # Eliminate from home feed cache now that it's been watched
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)
             
         url: str = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title: str = entry.get("title", "")
-        cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
+        cookie_args = self.app.config.cookie_args
 
         player.play(
             url,

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import ListItem, ListView, Static
+from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 if TYPE_CHECKING:
     pass
@@ -194,6 +194,7 @@ class VideoListPanel(Widget):
     def compose(self) -> ComposeResult:
         yield Static("", id="list-breadcrumb", markup=True)
         yield Static("", id="list-header", markup=True)
+        yield LoadingIndicator(id="list-loading-anim")
         yield ListView(id="list-view")
         yield Static("", id="list-loading", markup=True)
 
@@ -213,15 +214,20 @@ class VideoListPanel(Widget):
         return None
 
     def clear_and_set_loading(self) -> None:
-        """Reset the list and show a loading state."""
+        """Reset the list and show a beautiful loading state."""
         self._buffer = []
         self._visible = 0
         self._loading = True
+        
+        # Display our modern loader, hide list while empty
+        self.query_one("#list-loading-anim", LoadingIndicator).display = True
         lv = self.query_one("#list-view", ListView)
+        lv.display = False
         lv.clear()
+        
         self.query_one("#list-breadcrumb", Static).update("")
         self.query_one("#list-header", Static).update("[dim]Loading…[/dim]")
-        self.query_one("#list-loading", Static).update("[dim]  ● fetching…[/dim]")
+        self.query_one("#list-loading", Static).update("")
 
     def set_breadcrumb(self, text: str) -> None:
         """Show a breadcrumb/subtitle (e.g., playlist name + back hint)."""
@@ -232,12 +238,16 @@ class VideoListPanel(Widget):
     def set_empty_message(self, msg: str) -> None:
         """Show an informational message when there are no items."""
         self._loading = False
+        self.query_one("#list-loading-anim", LoadingIndicator).display = False
+        self.query_one("#list-view", ListView).display = True
         self.query_one("#list-header", Static).update(f"[dim]{msg}[/dim]")
         self.query_one("#list-loading", Static).update("")
 
     def set_error_message(self, msg: str) -> None:
         """Show an error state."""
         self._loading = False
+        self.query_one("#list-loading-anim", LoadingIndicator).display = False
+        self.query_one("#list-view", ListView).display = True
         self.query_one("#list-header", Static).update(f"[#ff4444]{msg}[/#ff4444]")
         self.query_one("#list-loading", Static).update("")
 
@@ -268,6 +278,12 @@ class VideoListPanel(Widget):
 
     def _reveal_entry(self, entry: dict) -> None:
         """Add one entry to the ListView (makes it visible)."""
+        # Switch loader off upon revealing first item
+        anim = self.query_one("#list-loading-anim", LoadingIndicator)
+        if anim.display:
+            anim.display = False
+            self.query_one("#list-view", ListView).display = True
+
         lv = self.query_one("#list-view", ListView)
         item = VideoListItem(entry)
         lv.append(item)
@@ -300,6 +316,11 @@ class VideoListPanel(Widget):
     def finish_loading(self) -> None:
         """Call when streaming is complete."""
         self._loading = False
+        
+        # Guarantee loading indicator turns off 
+        self.query_one("#list-loading-anim", LoadingIndicator).display = False
+        self.query_one("#list-view", ListView).display = True
+
         n_total = len(self._buffer)
         n_hidden = n_total - self._visible
 
@@ -382,3 +403,4 @@ class VideoListPanel(Widget):
 
     def on_mount(self) -> None:
         self.query_one("#list-view", ListView).focus()
+

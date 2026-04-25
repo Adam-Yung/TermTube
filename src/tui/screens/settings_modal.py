@@ -66,6 +66,8 @@ class SettingsModal(ModalScreen[None]):
                 yield ListView(id="thumb-list")
                 yield Static("[bold #ff6666]Cookie Browser[/bold #ff6666]", id="s-browser-head", markup=True)
                 yield ListView(id="browser-list")
+                yield Static("[bold #ff6666]Authentication[/bold #ff6666]", id="s-auth-head", markup=True)
+                yield ListView(id="auth-list")
             yield Static(
                 "[dim]Enter[/dim] select  ·  [dim]Tab[/dim] next section  ·  [dim]Esc[/dim] close",
                 id="settings-hint",
@@ -102,6 +104,10 @@ class SettingsModal(ModalScreen[None]):
         for val, label in [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]:
             item = _ChoiceItem(val, ("▶ " if val == cur_b else "  ") + label)
             bl.append(item)
+            
+        # Authentication list
+        al = self.query_one("#auth-list", ListView)
+        al.append(_ChoiceItem("oauth2", "  🔑 Generate new OAuth2 Token"))
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if not isinstance(event.item, _ChoiceItem):
@@ -127,6 +133,11 @@ class SettingsModal(ModalScreen[None]):
             config._data["browser"] = event.item.value
             browsers = [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]
             self._refresh_list("browser-list", browsers, event.item.value)
+            
+        elif lv_id == "auth-list":
+            if event.item.value == "oauth2":
+                self._generate_oauth_token()
+                return
 
         # Persist immediately
         config.save()
@@ -137,6 +148,25 @@ class SettingsModal(ModalScreen[None]):
         for val, label in opts:
             item = _ChoiceItem(val, ("▶ " if val == selected else "  ") + label)
             lv.append(item)
+
+    def _generate_oauth_token(self) -> None:
+        """Suspend TUI and launch yt-dlp to request an OAuth2 token interactive flow."""
+        def _run() -> None:
+            import subprocess
+            print("\n\033[1;33m*** Generating YouTube OAuth2 Token ***\033[0m")
+            print("Follow the yt-dlp prompts below to authenticate in your browser.\n")
+            subprocess.call([
+                "yt-dlp",
+                "--oauth2",
+                "--dump-json",
+                # Using a safe, short youtube video to trigger the token flow
+                "https://www.youtube.com/watch?v=BaW_jenozKc"
+            ], stdout=subprocess.DEVNULL)
+            print("\n\033[1;32mAuthentication complete. Press Enter to return to TermTube.\033[0m")
+            input()
+
+        self.app.suspend(_run)
+        self.notify("OAuth2 flow finished.")
 
     def action_close(self) -> None:
         self.dismiss(None)
@@ -154,7 +184,7 @@ class SettingsModal(ModalScreen[None]):
             pass
 
     def action_next_section(self) -> None:
-        lists = ["theme-list", "quality-list-s", "thumb-list", "browser-list"]
+        lists = ["theme-list", "quality-list-s", "thumb-list", "browser-list", "auth-list"]
         for i, lid in enumerate(lists):
             lv = self.query_one(f"#{lid}", ListView)
             if lv.has_focus:
