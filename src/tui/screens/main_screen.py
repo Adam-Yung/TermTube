@@ -128,6 +128,11 @@ class MainScreen(Screen):
         # Download
         Binding("d",            "dl_video",        "DL Video",    show=False),
         Binding("a",            "dl_audio",        "DL Audio",    show=False),
+        # Queue
+        Binding("e",            "queue_audio",     "Queue",       show=False),
+        Binding("greater_than", "audio_skip",      "Skip",        show=False),
+        # Copy URL
+        Binding("y",            "copy_url",        "Copy URL",    show=False),
         # Other
         Binding("p",            "playlist",        "Playlist",    show=False),
         Binding("b",            "browser",         "Browser",     show=False),
@@ -158,6 +163,7 @@ class MainScreen(Screen):
         self._audio_entry: dict | None = None
         self._audio_stopped = False
         self._audio_poll_timer = None
+        self._audio_queue: list[dict] = []
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -444,6 +450,7 @@ class MainScreen(Screen):
                 "listen_quality":lambda: self._listen_quality(entry),
                 "dl_video":      self.action_dl_video,
                 "dl_audio":      self.action_dl_audio,
+                "copy_url":      lambda: self._copy_video_url(entry),
                 "subscribe":     self.action_subscribe_entry,
                 "playlist":      self.action_playlist,
                 "browser":       self.action_browser,
@@ -473,7 +480,7 @@ class MainScreen(Screen):
         self._launch_audio_worker(entry, ytdl_format=ytdl_format)
         self._audio_poll_timer = self.set_interval(0.5, self._poll_audio_ipc)
 
-    def _stop_audio(self) -> None:
+    def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
         self._audio_stopped = True
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
@@ -487,7 +494,8 @@ class MainScreen(Screen):
         if self._audio_poll_timer:
             self._audio_poll_timer.stop()
             self._audio_poll_timer = None
-        self._action_bar().set_actions_mode()
+        if not keep_player_mode:
+            self._action_bar().set_actions_mode()
         try:
             os.unlink(_AUDIO_SOCKET)
         except OSError:
@@ -550,9 +558,16 @@ class MainScreen(Screen):
         if self._audio_poll_timer:
             self._audio_poll_timer.stop()
             self._audio_poll_timer = None
-        self._action_bar().set_actions_mode()
-        if title:
-            self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+        if self._audio_queue:
+            next_entry = self._audio_queue.pop(0)
+            if title:
+                self.notify(f"✓ {title[:40]}", timeout=3)
+            self._start_audio(next_entry)
+            self._action_bar().update_queue_hint(len(self._audio_queue))
+        else:
+            self._action_bar().set_actions_mode()
+            if title:
+                self.notify(f"✓ Finished: {title[:50]}", timeout=4)
 
     def _poll_audio_ipc(self) -> None:
         if not self._audio_playing:
@@ -605,6 +620,7 @@ class MainScreen(Screen):
 
     def action_audio_stop_or_subscribe(self) -> None:
         if self._audio_playing:
+            self._audio_queue.clear()
             self._stop_audio()
         else:
             self.action_subscribe_entry()
@@ -731,6 +747,54 @@ class MainScreen(Screen):
             detail._update_playlists(entry.get("id", ""))
 
         self.app.push_screen(PlaylistModal(entry), on_done)
+
+    def action_copy_url(self) -> None:
+        entry = self._selected_entry()
+        if not entry:
+            return
+        self._copy_video_url(entry)
+
+    def _copy_video_url(self, entry: dict) -> None:
+        vid = entry.get("id", "")
+        if not vid or vid.startswith("__"):
+            self.notify("No URL available", severity="warning")
+            return
+        url = f"https://www.youtube.com/watch?v={vid}"
+        for cmd in (
+            ["pbcopy"],
+            ["xclip", "-selection", "clipboard"],
+            ["wl-copy"],
+        ):
+            try:
+                subprocess.run(cmd, input=url.encode(), check=True, capture_output=True)
+                self.notify("URL copied to clipboard")
+                return
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                continue
+        self.notify(f"URL: {url}", timeout=10)
+
+    def action_queue_audio(self) -> None:
+        if not self._audio_playing:
+            return
+        entry = self._selected_entry()
+        if not entry or entry.get("_is_playlist"):
+            return
+        current_id = self._audio_entry.get("id") if self._audio_entry else None
+        if entry.get("id") and entry.get("id") == current_id:
+            self.notify("Already playing this track", timeout=2)
+            return
+        self._audio_queue.append(entry)
+        title = entry.get("title", "video")[:40]
+        self.notify(f"Queued: {title}", timeout=3)
+        self._action_bar().update_queue_hint(len(self._audio_queue))
+
+    def action_audio_skip(self) -> None:
+        if not self._audio_playing or not self._audio_queue:
+            return
+        next_entry = self._audio_queue.pop(0)
+        self._stop_audio(keep_player_mode=True)
+        self._start_audio(next_entry)
+        self._action_bar().update_queue_hint(len(self._audio_queue))
 
     def action_browser(self) -> None:
         entry = self._selected_entry()

@@ -47,6 +47,8 @@ class Config:
             self.path = self._find_config()
 
         self._load()
+        if not self.path.exists():
+            self.save()
 
     # ── Discovery ────────────────────────────────────────────────────────────
 

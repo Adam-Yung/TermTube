@@ -9,23 +9,16 @@ from textual.widgets import Static
 
 
 def _get_actions_table() -> Table:
-    """Returns a borderless Rich Table to perfectly align shortcut columns."""
-    # Table.grid creates a layout table with no borders.
-    # padding=(0, 4) adds 4 spaces horizontally between columns.
     table = Table.grid(padding=(0, 4))
-    
-    # We need 5 columns for our actions
     for _ in range(5):
         table.add_column()
 
-    # Helper functions to replicate the exact colors from your original CSS
     def r1(k: str, v: str) -> str:
         return f"[#cccccc][bold #ff6666]{k}[/bold #ff6666] [dim]{v}[/dim][/#cccccc]"
 
     def r2(k: str, v: str) -> str:
         return f"[#888888][bold #ff6666]{k}[/bold #ff6666] [dim]{v}[/dim][/#888888]"
 
-    # Watch and Playlist are now vertically aligned in column 2, etc.
     table.add_row(
         r1("⏎", "Video actions"),
         r1("w", "Watch"),
@@ -40,7 +33,7 @@ def _get_actions_table() -> Table:
         r2("r", "Refresh"),
         r2("?", "Help")
     )
-    
+
     return table
 
 
@@ -63,7 +56,6 @@ def _fmt_secs(s: float) -> str:
 
 
 def _text_bar(pos: float, dur: float, width: int) -> str:
-    """Render a Unicode block progress bar of the given character width."""
     width = max(4, width)
     if dur <= 0:
         return f"[#2a2a40]{'─' * width}[/#2a2a40]"
@@ -76,15 +68,24 @@ def _text_bar(pos: float, dur: float, width: int) -> str:
     )
 
 
+def _queue_hint(queue_len: int) -> str:
+    if queue_len > 0:
+        return (
+            f"[bold #ff6666]e[/bold #ff6666] [dim]queue[/dim]  "
+            f"[bold #ff6666]>[/bold #ff6666] [dim]skip  ({queue_len} queued)[/dim]"
+        )
+    return "[bold #ff6666]e[/bold #ff6666] [dim]queue next[/dim]"
+
+
 class ActionBar(Widget):
     """
     Dual-mode bottom panel:
       • Actions mode  — keyboard shortcut grid
-      • Player mode   — embedded now-playing bar with full-width text progress bar
+      • Player mode   — embedded now-playing bar with text progress and queue hints
     """
 
-    _HEIGHT_ACTIONS = 7   # border(2) + margin-top(1) + table(2) + slack(2)
-    _HEIGHT_PLAYER  = 10  # border(2) + margin-top(1) + title(1) + gap(1) + bar(1) + gap(1) + time(1) + keys(1) + slack(1)
+    _HEIGHT_ACTIONS = 7
+    _HEIGHT_PLAYER  = 11  # +1 for queue hint line vs original 10
 
     DEFAULT_CSS = """
     ActionBar {
@@ -97,14 +98,14 @@ class ActionBar(Widget):
         padding: 0 1;
     }
     ActionBar > Static { height: 1; }
-    
-    /* The action table requires height: 2 to accommodate both rows */
+
     #ab-actions { height: 2; margin-top: 1; margin-left: 2; }
-    
+
     #np-title-line { margin-top: 1; color: #ffffff; }
     #np-bar-text   { margin-top: 1; color: #6666ff; }
     #np-time-line  { color: #666666; }
     #np-keys       { margin-top: 1; color: #888888; }
+    #np-queue-line { color: #888888; }
     """
 
     def __init__(self, **kwargs) -> None:
@@ -115,17 +116,15 @@ class ActionBar(Widget):
         self._title: str = ""
         self._channel: str = ""
         self._playing: bool = False
+        self._queue_len: int = 0
 
     def compose(self) -> ComposeResult:
-        # ── Actions mode ──────────────────────────────────────────────────────
-        # Yield the Rich Table as a single Static widget
         yield Static(_get_actions_table(), id="ab-actions")
-        
-        # ── Player mode (initially hidden) ────────────────────────────────────
         yield Static("", id="np-title-line", markup=True)
-        yield Static("", id="np-bar-text",   markup=True)   # text-based bar
+        yield Static("", id="np-bar-text",   markup=True)
         yield Static("", id="np-time-line",  markup=True)
         yield Static(_NP_KEYS, id="np-keys", markup=True)
+        yield Static("", id="np-queue-line", markup=True)
 
     def on_mount(self) -> None:
         self.border_title = "Actions"
@@ -135,15 +134,17 @@ class ActionBar(Widget):
 
     def set_actions_mode(self) -> None:
         self._playing = False
+        self._queue_len = 0
         self._set_mode_actions()
 
-    def set_player_mode(self, entry: dict) -> None:
+    def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:
         self._title   = (entry.get("title") or "Unknown")[:52]
         self._channel = entry.get("uploader") or entry.get("channel") or ""
         self._playing = True
         self._paused  = False
         self._pos = 0.0
         self._dur = 0.0
+        self._queue_len = queue_len
         self._set_mode_player()
 
     def update_progress(self, pos: float, dur: float, paused: bool) -> None:
@@ -153,6 +154,13 @@ class ActionBar(Widget):
         self._dur    = dur
         self._paused = paused
         self._refresh_player()
+
+    def update_queue_hint(self, queue_len: int) -> None:
+        """Update the queue hint line while staying in player mode."""
+        if not self._playing:
+            return
+        self._queue_len = queue_len
+        self.query_one("#np-queue-line", Static).update(_queue_hint(queue_len))
 
     # ── Private ───────────────────────────────────────────────────────────────
 
@@ -164,6 +172,7 @@ class ActionBar(Widget):
         self.query_one("#np-bar-text").display   = False
         self.query_one("#np-time-line").display  = False
         self.query_one("#np-keys").display       = False
+        self.query_one("#np-queue-line").display = False
 
     def _set_mode_player(self) -> None:
         self.styles.height = self._HEIGHT_PLAYER
@@ -173,24 +182,22 @@ class ActionBar(Widget):
         self.query_one("#np-bar-text").display   = True
         self.query_one("#np-time-line").display  = True
         self.query_one("#np-keys").display       = True
+        self.query_one("#np-queue-line").display = True
+        self.query_one("#np-queue-line", Static).update(_queue_hint(self._queue_len))
         self._refresh_player()
 
     def _refresh_player(self) -> None:
-        # Title line
         paused_tag = "  [dim bold][PAUSED][/dim bold]" if self._paused else ""
         chan = f"  [dim]· {self._channel}[/dim]" if self._channel else ""
         self.query_one("#np-title-line", Static).update(
             f"[bold white]🎵  {self._title}[/bold white]{chan}{paused_tag}"
         )
 
-        # Full-width text bar.
-        # Available inner width = widget width - 2 (border) - 2 (padding L+R).
         inner_w = max(8, (self.size.width or 60) - 4)
         self.query_one("#np-bar-text", Static).update(
             _text_bar(self._pos, self._dur, inner_w)
         )
 
-        # Time
         if self._dur > 0:
             elapsed  = _fmt_secs(self._pos)
             total    = _fmt_secs(self._dur)

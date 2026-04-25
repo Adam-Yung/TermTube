@@ -1,19 +1,25 @@
 # Active Context
 
-## Last completed task (2026-04-25)
+## Completed tasks (2026-04-25)
 
-Completed a setup/config cleanup pass:
+### Setup/config cleanup
+1. Fixed `--sync` symlink: `rm -rf APP_DIR && ln -s ORIG_DIR APP_DIR` — `.venv` lives in repo.
+2. Removed conda/mamba from `setup.sh`, `termtube`, `uninstall.sh`. venv only.
+3. Added `--help` to `setup.sh`.
+4. Config moved to `~/.config/TermTube/config.yaml`. Default created on first run.
+5. Updated README, CLAUDE.md, created `memory/`.
 
-1. **Fixed `--sync` symlink in `setup.sh`** — was using broken `ln -sf ORIG_DIR "$(dirname APP_DIR)"`. Now correctly does `rm -rf APP_DIR && ln -s ORIG_DIR APP_DIR`, making the install path a single directory symlink. `.venv` lives inside the repo and survives re-runs.
+### Audio queue + copy URL features
+1. **Config auto-creation** — `config.py` calls `self.save()` when config doesn't exist.
 
-2. **Removed conda/mamba** from `setup.sh`, `termtube` launcher, and `uninstall.sh`. All environment management is now Python `venv` only.
+2. **Copy video URL (`y`)** — `action_copy_url` + `_copy_video_url(entry)` in `main_screen.py`. Tries `pbcopy` → `xclip` → `wl-copy`, falls back to notification. Also in `VideoActionModal` as "⎘ Copy video URL (y)".
 
-3. **Added `--help` to `setup.sh`** with full option docs, config paths, and dependency hints.
-
-4. **Moved config to `~/.config/TermTube/`** — `config.py` now uses `~/.config/TermTube/config.yaml` as the sole config path. Removed the project-root `TermTube.yaml` fallback. Updated cookies path references in `deps.py`. Moved the existing `TermTube.yaml` to `~/.config/TermTube/config.yaml`.
-
-5. **Updated README, CLAUDE.md** with correct paths, venv-only install docs, and setup mode docs.
-
-6. **Created `memory/` folder** with `architecture_decisions.md` and this file.
+3. **Audio queue (`e` + `>`)** — `_audio_queue: list[dict]` on `MainScreen`.
+   - `e`: queue focused video (only when audio playing and focused != playing)
+   - `>`: skip to next queued track
+   - Natural end of track auto-plays from queue
+   - Explicit `s` stop clears the queue
+   - Queue length shown in ActionBar player mode via `#np-queue-line` / `update_queue_hint()`
+   - `ActionBar._HEIGHT_PLAYER` raised from 10 → 11 for the new queue line widget
 
 ## No active in-progress work.
