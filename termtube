@@ -3,13 +3,33 @@
 #
 # Locates the Python environment created by setup.sh and runs TermTube.
 # Search order:
-#   1. .venv/  in the project directory  (created by setup.sh venv path)
+#   1. .venv/  in the persistent app directory
 #   2. 'termtube' conda/mamba environment
 #   3. Prompt user to run setup.sh
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ── Resolve execution path (un-wrap symlinks) ──────────────────────────────
+
+# We need the true path of the script to find the relative /src directory.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+# ── Handle Uninstall ───────────────────────────────────────────────────────
+if [[ "${1:-}" == "--uninstall" ]]; then
+    UNINSTALLER="$SCRIPT_DIR/uninstall.sh"
+    if [[ -f "$UNINSTALLER" ]]; then
+        exec "$UNINSTALLER"
+    else
+        echo "Error: Uninstaller script not found at $UNINSTALLER"
+        exit 1
+    fi
+fi
 
 # ── Find Python ────────────────────────────────────────────────────────────
 

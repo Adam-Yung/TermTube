@@ -5,16 +5,12 @@
 #   1. mamba  — fastest conda-compatible solver
 #   2. conda  — standard Anaconda/Miniconda/Miniforge
 #   3. python3 venv — universal fallback (no conda required)
-#
-# After first run:  ./termtube  will auto-activate the environment.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
-ENV_NAME="termtube"
-VENV_DIR="$SCRIPT_DIR/.venv"
-PYTHON_MIN="3.11"
+ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$HOME/.local/share/TermTube"
+BIN_DIR="$HOME/.local/bin"
 
 # ── Colours ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -61,7 +57,6 @@ try_mamba() {
     fi
 
     success "mamba environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
     return 0
 }
 
@@ -81,7 +76,6 @@ try_conda() {
     fi
 
     success "conda environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
     return 0
 }
 
@@ -111,15 +105,14 @@ try_venv() {
     info "Using $ver"
 
     if [[ -d "$VENV_DIR" ]]; then
-        info "Virtual environment already exists at .venv/ — updating…"
+        info "Virtual environment already exists at $VENV_DIR — updating…"
     else
-        info "Creating virtual environment at .venv/…"
+        info "Creating virtual environment at $VENV_DIR…"
         "$py" -m venv "$VENV_DIR"
     fi
 
     pip_install "$VENV_DIR/bin/pip"
-    success "Virtual environment ready at .venv/"
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
+    success "Virtual environment ready at $VENV_DIR"
     return 0
 }
 
@@ -127,6 +120,38 @@ try_venv() {
 
 echo -e "${BOLD}TermTube Setup${RESET}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# 1. Persistence / Copy
+if [[ "$ORIG_DIR" != "$APP_DIR" ]]; then
+    header "Copying files for persistent installation…"
+    mkdir -p "$APP_DIR"
+    
+    # Remove existing src just in case this is an update
+    rm -rf "$APP_DIR/src"
+    
+    # Copy essential components safely
+    if [[ -d "$ORIG_DIR/src" ]]; then
+        cp -a "$ORIG_DIR/src" "$APP_DIR/"
+    fi
+    
+    # Add uninstall.sh to the list of files to copy
+    for f in requirements.txt termtube setup.sh uninstall.sh theme.tcss; do
+        if [[ -f "$ORIG_DIR/$f" ]]; then
+            cp -a "$ORIG_DIR/$f" "$APP_DIR/"
+        fi
+    done
+    
+    # Make sure to chmod the new script too
+    chmod +x "$APP_DIR/termtube" "$APP_DIR/setup.sh" "$APP_DIR/uninstall.sh"
+    success "Copied project files to $APP_DIR"
+fi
+
+# Switch context to the new persistent directory
+SCRIPT_DIR="$APP_DIR"
+REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
+ENV_NAME="termtube"
+VENV_DIR="$SCRIPT_DIR/.venv"
+PYTHON_MIN="3.11"
 
 # Check system dependencies (non-fatal warnings)
 header "Checking system tools…"
@@ -152,3 +177,24 @@ try_mamba || try_conda || try_venv || {
     error "Install mamba, conda, or Python >= 3.11 and try again."
     exit 1
 }
+
+# ── Symlink Installation ───────────────────────────────────────────────────
+header "Finishing up…"
+read -p "Install 'termtube' command to $BIN_DIR? [Y/n] " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    info "Skipping PATH installation."
+    echo -e "\n${BOLD}Run TermTube manually:${RESET}  ${GREEN}$APP_DIR/termtube${RESET}"
+else
+    mkdir -p "$BIN_DIR"
+    ln -sf "$APP_DIR/termtube" "$BIN_DIR/termtube"
+    
+    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+        warn "$BIN_DIR is not in your PATH."
+        info "To use the 'termtube' command globally, add this to your ~/.bashrc or ~/.zshrc:"
+        echo -e "  ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
+    else
+        success "Symlinked termtube to $BIN_DIR/termtube"
+        echo -e "\n${BOLD}Setup complete! Run it anywhere with:${RESET} ${GREEN}termtube${RESET}"
+    fi
+fi
