@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 _LOG_FILE = Path.home() / ".cache" / "termtube" / "debug.log"
-_log = logging.getLogger("myt")
+_log = logging.getLogger("termtube")
 _debug_enabled = False
 
 

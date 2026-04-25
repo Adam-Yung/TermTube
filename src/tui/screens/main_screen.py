@@ -35,7 +35,7 @@ _TABS = [
 ]
 
 _MIN_FEED_COUNT = 15
-_AUDIO_SOCKET = "/tmp/myt-mpv-audio.sock"
+_AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
 
 
 class MainScreen(Screen):

@@ -51,7 +51,7 @@ class NowPlayingModal(ModalScreen[bool]):
         Binding("escape", "stop",          "Stop",         show=False),
     ]
 
-    _SOCKET = "/tmp/myt-mpv-audio.sock"
+    _SOCKET = "/tmp/termtube-mpv-audio.sock"
 
     def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
         super().__init__()

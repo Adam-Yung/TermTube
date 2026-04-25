@@ -88,7 +88,7 @@ def _show_settings(config: Config) -> None:
     if cf_path and not cf:
         print(f"  {'cookies.txt':<22} \033[33m⚠ configured but not found at {cf_path}\033[0m")
         print()
-        print(f"  \033[90mRun 'myt --cookies-help' for instructions on getting a cookies.txt.\033[0m")
+        print(f"  \033[90mRun 'termtube --cookies-help' for instructions on getting a cookies.txt.\033[0m")
     print(f"  {'Video dir':<22} {config.video_dir}")
     print(f"  {'Audio dir':<22} {config.audio_dir}")
     print(f"  {'Preferred player':<22} {config.preferred_player}")

@@ -6,7 +6,7 @@ Python orchestrates all logic and state. fzf drives interactive list UIs. gum ha
 
 ## Architecture
 ```
-myt                    # executable entry point (chmod +x, Python shebang)
+termtube                    # executable entry point (chmod +x, Python shebang)
 src/
   app.py               # main router/page stack state machine
   config.py            # YAML config (PyYAML), reads/writes TermTube.yaml
@@ -37,7 +37,7 @@ requirements.txt       # PyYAML, requests (minimal deps)
 - **gum**: spin_while() for loading animation, choose() for action menus, text_input() for search
 - **Thumbnails**: Downloaded to `~/.cache/termtube/thumbs/{id}.jpg`, rendered with chafa
 - **Navigation**: App.run() loops showing main menu → routes to page fn → page returns video_id or None → None goes back to menu
-- **mpv**: Launched with `--input-ipc-server=/tmp/myt-mpv.sock` + temp input.conf with custom seek bindings
+- **mpv**: Launched with `--input-ipc-server=/tmp/termtube-mpv.sock` + temp input.conf with custom seek bindings
 - **Cookie priority**: `cookies_file` (path to Netscape cookies.txt) checked FIRST; falls back to `--cookies-from-browser {browser}`. See Config.cookie_args property.
 - **Cache**: `~/.cache/termtube/` — videos/{id}.json, thumbs/{id}.jpg, feed_{key}.json
 - **Library**: `--write-info-json` sidecar files alongside downloaded media. library.py scans for *.info.json
@@ -53,7 +53,7 @@ requirements.txt       # PyYAML, requests (minimal deps)
 ## Environment (macOS)
 - Tools available: yt-dlp (2026.03.17), fzf, mpv, chafa, jq, ffmpeg, gum, python3 (3.13.12)
 - mamba env: `termtube` at /Users/adyung/miniforge3/envs/termtube (Python 3.11)
-- Entry point: `./myt` shell wrapper → finds termtube env → runs src/main.py
+- Entry point: `./termtube` shell wrapper → finds termtube env → runs src/main.py
 - NOTE: mpv has a broken x265 dylib → `brew reinstall ffmpeg` may be needed. mpv can still play via yt-dlp without local ffmpeg for most formats.
 - Safari cookies: macOS sandboxes Safari. Recommend Chrome/Firefox/Brave as default browser option.
 

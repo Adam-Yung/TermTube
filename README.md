@@ -51,9 +51,9 @@ A modern, beautiful YouTube TUI built on `fzf`, `gum`, `chafa`, `mpv`, and `yt-d
 git clone https://github.com/yourname/termtube
 cd termtube
 pip install -r requirements.txt
-chmod +x myt
-./myt
-# or add to PATH: ln -s $(pwd)/myt /usr/local/bin/myt
+chmod +x termtube
+./termtube
+# or add to PATH: ln -s $(pwd)/termtube /usr/local/bin/termtube
 ```
 
 ## Configuration
@@ -121,7 +121,7 @@ You must be **logged into YouTube** in that browser.
 ### Quick Help
 
 ```bash
-myt --cookies-help   # show full setup instructions
+termtube --cookies-help   # show full setup instructions
 ```
 
 ## Local Library
@@ -135,7 +135,7 @@ The Library page reads these sidecar files to display info and allow playback wi
 ## Architecture
 
 ```
-myt                    Python entry point
+termtube                    Python entry point
 src/
   app.py               Page stack router
   config.py            Config management

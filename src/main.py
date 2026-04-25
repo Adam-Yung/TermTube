@@ -14,7 +14,7 @@ if str(_ROOT) not in sys.path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="myt",
+        prog="termtube",
         description="TermTube — YouTube TUI powered by yt-dlp + Textual",
     )
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
@@ -56,7 +56,7 @@ def main() -> None:
     # Warn if no cookie source is configured
     if not config.cookie_args:
         print("\033[33m⚠ No cookie source configured. Home feed and subscriptions require authentication.\033[0m")
-        print("  Run: myt --cookies-help  for setup instructions.\n")
+        print("  Run: termtube --cookies-help  for setup instructions.\n")
 
     # Import textual_image.widget BEFORE launching Textual — the library queries the
     # terminal for sixel/TGP support and cell dimensions at import time, and those

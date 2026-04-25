@@ -6,7 +6,7 @@
 #   2. conda  — standard Anaconda/Miniconda/Miniforge
 #   3. python3 venv — universal fallback (no conda required)
 #
-# After first run:  ./myt  will auto-activate the environment.
+# After first run:  ./termtube  will auto-activate the environment.
 
 set -euo pipefail
 
@@ -55,13 +55,13 @@ try_mamba() {
         info "Environment '$ENV_NAME' already exists — updating…"
         mamba run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
     else
-        info "Creating conda environment '$ENV_NAME' with Python $PYTHON_MIN…"
+        info "Creating conda environment '$ENV_NAME' with Python ${PYTHON_MIN}…"
         mamba create -y -n "$ENV_NAME" "python>=$PYTHON_MIN" pip --quiet
         mamba run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
     fi
 
     success "mamba environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
     return 0
 }
 
@@ -81,7 +81,7 @@ try_conda() {
     fi
 
     success "conda environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
     return 0
 }
 
@@ -119,7 +119,7 @@ try_venv() {
 
     pip_install "$VENV_DIR/bin/pip"
     success "Virtual environment ready at .venv/"
-    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./termtube${RESET}"
     return 0
 }
 

@@ -36,12 +36,12 @@ Ctrl+RIGHT seek +10
 q quit
 """
 
-IPC_SOCKET = "/tmp/myt-mpv.sock"
+IPC_SOCKET = "/tmp/termtube-mpv.sock"
 
 
 def _write_input_conf() -> str:
     """Write input.conf to a temp file and return its path."""
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False, prefix="myt-mpv-")
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False, prefix="termtube-mpv-")
     f.write(_INPUT_CONF)
     f.flush()
     f.close()
