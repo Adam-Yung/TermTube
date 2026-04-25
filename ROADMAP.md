@@ -72,26 +72,4 @@
 - 📋 **Startup time** — profile and reduce cold-start latency (target < 1s to first frame)
 - 📋 **Memory cap** — limit _buffer size in VideoListPanel to avoid unbounded growth
 
----
 
-## Phase 5 — Future Ideas (💡)
-
-- 💡 **Sponsorblock** integration
-- 💡 **Return YouTube Dislikes** API integration (show dislike count)
-- 💡 **yt-dlp plugin support** — forward yt-dlp plugin flags from config
-- 💡 **mpv script integration** — load custom mpv Lua scripts
-- 💡 **Keyboard macro recording** — record and replay key sequences
-- 💡 **Web UI companion** — serve a minimal REST API for controlling playback remotely
-
----
-
-## Known Limitations
-
-| Area | Limitation | Workaround |
-|---|---|---|
-| Thumbnails (Kitty+tmux) | TGP blocked by tmux; sixel used instead (may flicker in some configs) | `set -g allow-passthrough on` in tmux.conf |
-| Thumbnails (fallback) | If textual-image not installed, chafa symbols mode used | `pip install textual-image[textual] Pillow` |
-| Home feed | yt-dlp buffers all home feed output before streaming (~9s first load) | Subsequent visits use stale cache instantly |
-| Safari cookies | macOS sandboxes Safari cookies; yt-dlp cannot read them | Use Chrome/Firefox/Brave in config |
-| mpv x265 | Broken x265 dylib on some macOS mpv installs | `brew reinstall ffmpeg` |
-| Sixel flicker | Some tmux configs cause sixel flickering | Set `thumbnail_format: symbols` in config |

@@ -1,168 +1,83 @@
 # TermTube
 
-A modern, beautiful YouTube TUI built on `fzf`, `gum`, `chafa`, `mpv`, and `yt-dlp`. Browse your YouTube home feed, subscriptions, search, and local library — all from your terminal.
+A blazing fast, purely native Python TUI for YouTube. Built on the `Textual` framework, it offers a seamless, reactive interface right in your terminal, complete with high-res thumbnails, embedded audio playback, and instant feed loading.
 
 ## Features
 
-- **Home Page** — Your YouTube recommendations (via browser session cookies)
-- **Search** — Full YouTube search with instant results
-- **Subscriptions** — Videos from your subscribed channels, by date or channel
-- **Library** — Locally saved videos and audio
-- **History** — Previously watched videos (local + YouTube history)
-- **Video Detail** — Full description, channel info, and actions
-- **Thumbnails** — Rendered in-terminal via `chafa` (quality scales with terminal)
-- **Watch/Listen** — Stream video via `mpv`/`vlc`, or audio directly in terminal
-- **Save** — Download video or audio locally with metadata sidecars
-- **Subscribe** — Subscribe to channels from the TUI
-- **Open in Browser** — Jump to YouTube in your browser
+- **Lightning Fast UI** — Native Python interface with zero shell-wrapper overhead.
+- **Smart Home Feed** — Instantly loads via cache, automatically filtering out stale videos you've already scrolled past or watched using LRU memory tracking.
+- **Background Audio** — Listen to YouTube audio in the background while browsing, controlled via an embedded TUI action bar.
+- **High-Res Thumbnails** — Native support for Sixel and Kitty graphics protocols, falling back to beautiful `chafa` ANSI block renderings if unsupported.
+- **Full Ecosystem** — Home feeds, Subscriptions, Search, Library, History, and custom local Playlists.
+- **Watch & Save** — Suspend the TUI to watch videos cleanly in `mpv`, or download streams locally (Video/Audio) with metadata sidecars.
 
 ## Navigation
 
 | Key | Action |
 |-----|--------|
 | `↑↓` / `jk` | Move up/down in list |
-| `←→` / `hl` | Seek ±5s in player |
-| `H` `L` | Seek ±10s in player |
-| `Ctrl+←→` | Seek ±10s in player |
+| `l` / `h` | Seek ±5s in embedded audio player (or `l` to start listening) |
+| `L` / `H` | Seek ±10s in embedded audio player |
+| `w` | Watch video in external player |
 | `0`–`9` | Seek to 0%–90% of media |
-| `Enter` | Select / confirm |
-| `Backspace` / `Esc` | Go back |
-| `/` | Search (in fzf) |
+| `Enter` | Open detailed actions menu for selected video |
+| `/` | Search YouTube |
+| `\`` | Open quick-navigation pages picker |
 | `q` | Quit |
 
 ## Dependencies
 
+TermTube relies on a few core system utilities:
+
 | Tool | Purpose | Install |
 |------|---------|---------|
 | `yt-dlp` | YouTube engine | `brew install yt-dlp` |
-| `fzf` | Interactive list UI | `brew install fzf` |
-| `gum` | Beautiful prompts & spinners | `brew install gum` |
 | `mpv` | Video/audio playback | `brew install mpv` |
 | `chafa` | Terminal thumbnails | `brew install chafa` |
-| `jq` | JSON processing | `brew install jq` |
-| `ffmpeg` | Media conversion | `brew install ffmpeg` |
-| Python 3.10+ | Orchestration | `brew install python3` |
-
-> TermTube will prompt you to install any missing dependencies on first run.
+| Python 3.11+ | Orchestration | `brew install python3` |
 
 ## Installation
 
+TermTube uses a setup script to create a clean, isolated environment in `~/.local/share/TermTube` and adds a symlink to your path.
+
 ```bash
-git clone https://github.com/yourname/termtube
-cd termtube
-pip install -r requirements.txt
-chmod +x termtube
-./termtube
-# or add to PATH: ln -s $(pwd)/termtube /usr/local/bin/termtube
+git clone --depth 1 [https://github.com/yourname/termtube.git](https://github.com/yourname/termtube.git) /tmp/termtube
+cd /tmp/termtube
+bash setup.sh
 ```
+
+*(To completely remove TermTube from your system later, simply run `termtube --uninstall`)*
 
 ## Configuration
 
-On first run, `TermTube.yaml` is created in the project directory (or `~/.config/termtube/config.yaml`). Key settings:
+On first run, `TermTube.yaml` is generated in `~/.config/termtube/`. Key settings:
 
 ```yaml
-browser: chrome            # Browser for YouTube session cookies
-                           # Options: chrome, firefox, brave, edge
-                           # Note: Safari not supported on macOS (sandboxed)
-
+browser: chrome            # Browser for YouTube session cookies (used by yt-dlp)
 video_dir: ~/Documents/TermTube/Video
 audio_dir: ~/Documents/TermTube/Audio
-video_format: "%(title)s_%(uploader)s.%(ext)s"
-audio_format: "%(title)s_%(uploader)s.%(ext)s"
-
-preferred_quality: best    # or: 720, 1080, 4k
-preferred_player: mpv      # or: vlc
-
+preferred_quality: best    # Options: best, 720, 1080, 4k
+preferred_player: mpv      # Options: mpv, vlc
 cache_ttl:
   home: 3600               # 1 hour
   subscriptions: 3600
-  search: 1800             # 30 min
-  metadata: 86400          # 24 hours
 ```
 
-## Cookie Setup (Required for Home Feed & Subscriptions)
+## Cookie Setup (Required for Home Feed)
 
-TermTube needs your YouTube session cookies to fetch your home feed, subscriptions, and history. There are two methods — a cookies.txt file is **preferred** as it's faster and more reliable.
+TermTube needs your YouTube session cookies to fetch your personalized home feed and subscriptions. **Using a `cookies.txt` file is highly recommended** for performance.
 
-### Method 1: cookies.txt (Recommended)
+**Export via browser extension (easiest):**
+1. Install an extension like "Get cookies.txt LOCALLY" for your browser.
+2. Visit `youtube.com`, click the extension, and export as **Netscape format**.
+3. Save to `~/Documents/TermTube/cookies.txt`.
+4. Update your `TermTube.yaml` to point to it: `cookies_file: ~/Documents/TermTube/cookies.txt`
 
-Export your browser cookies to a Netscape-format file:
-
-**Option A — Browser extension (easiest):**
-- **Chrome/Edge**: Install [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-- **Firefox**: Install [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
-- Visit `youtube.com`, click the extension icon, export as **Netscape format**
-- Save to: `~/Documents/TermTube/cookies.txt`
-
-**Option B — Export via yt-dlp:**
-```bash
-yt-dlp --cookies-from-browser chrome \
-       --cookies ~/Documents/TermTube/cookies.txt \
-       --skip-download "https://www.youtube.com"
-```
-
-Then set in `TermTube.yaml`:
-```yaml
-cookies_file: ~/Documents/TermTube/cookies.txt
-```
-
-### Method 2: Live Browser Session (Fallback)
-
-Set `cookies_file: null` and configure your browser:
-```yaml
-cookies_file: null
-browser: chrome   # or firefox, brave, edge
-```
-
-You must be **logged into YouTube** in that browser.
-
-> **macOS Note**: Safari is sandboxed and usually blocked. Use Chrome, Firefox, or Brave.
-
-### Quick Help
-
-```bash
-termtube --cookies-help   # show full setup instructions
-```
-
-## Local Library
-
-When you save a video or audio, TermTube stores:
-- The media file in `video_dir` or `audio_dir`
-- A `.info.json` sidecar with full metadata (title, description, thumbnails, etc.)
-
-The Library page reads these sidecar files to display info and allow playback without re-fetching from YouTube.
+*(Fallback: If `cookies_file: null` is set, TermTube will attempt to extract cookies directly from the browser specified in your config. Note: macOS sandboxes Safari, so use Chrome, Brave, or Firefox).*
 
 ## Architecture
 
-```
-termtube                    Python entry point
-src/
-  app.py               Page stack router
-  config.py            Config management
-  ytdlp.py             All yt-dlp interactions
-  cache.py             Disk cache with TTL
-  library.py           Local library DB
-  history.py           Watch history
-  player.py            mpv IPC controller
-  deps.py              Dependency checker
-  ui/
-    fzf.py             fzf wrapper
-    gum.py             gum wrapper
-    thumbnail.py       chafa rendering
-    pages/             One file per page
-TermTube.yaml         User configuration
-```
+TermTube is a native Python application utilizing `Textual`. Network interactions are handled asynchronously via background workers, meaning the UI never blocks while fetching videos or thumbnails. 
 
-## Troubleshooting
+For full architectural details and contribution instructions, see `CLAUDE.md`.
 
-**"Operation not permitted" with Safari cookies**
-→ Use `browser: chrome` or `firefox` in your config.
-
-**mpv fails with dylib error**
-→ Run `brew reinstall ffmpeg && brew reinstall mpv`
-
-**Home feed returns no results**
-→ Make sure you're logged into YouTube in your configured browser. The recommended feed requires an active session.
-
-**Thumbnails look bad**
-→ Try a terminal that supports sixel graphics (iTerm2, WezTerm, Kitty). chafa auto-detects the best protocol.

@@ -1,110 +1,61 @@
-# TermTube — Claude Instructions
+# TermTube — AI Agent Instructions
 
 ## Project Overview
-A YouTube TUI wrapper using Python + fzf + gum + chafa + mpv + yt-dlp.
-Python orchestrates all logic and state. fzf drives interactive list UIs. gum handles prompts/spinners/styling.
+TermTube is a native Python TUI for YouTube. It utilizes the `Textual` framework for the UI, `yt-dlp` for data extraction, `mpv` for media playback (via IPC), and `textual-image`/`chafa` for terminal graphics. 
 
-## Architecture
-```
-termtube                    # executable entry point (chmod +x, Python shebang)
+**Core philosophy:** Lightning-fast cold starts, non-blocking asynchronous UI, and a native terminal feel without relying on shell wrappers (fzf/gum are deprecated).
+
+## Project Structure
+```text
+termtube                    # Executable entry point (resolves venv, runs main.py)
+setup.sh                    # Installation script (~/.local/share/TermTube persistence)
+uninstall.sh                # Uninstaller script
 src/
-  app.py               # main router/page stack state machine
-  config.py            # YAML config (PyYAML), reads/writes TermTube.yaml
-  ytdlp.py             # yt-dlp subprocess interface, feed fetching
-  cache.py             # disk cache (~/.cache/termtube/) with TTL
-  library.py           # local saved-video DB (JSON sidecar files)
-  history.py           # local watch history (JSON, separate from YouTube history)
-  player.py            # mpv IPC controller (--input-ipc-server)
-  deps.py              # dependency checker + install prompts
-  ui/
-    fzf.py             # fzf subprocess wrapper (build --preview, --bind, etc.)
-    gum.py             # gum subprocess wrapper (spinner, choose, input, style)
-    thumbnail.py       # chafa image rendering for fzf preview
-    pages/
-      home.py          # /feed/recommended via yt-dlp + cookies
-      search.py        # yt-dlp search
-      subscriptions.py # /feed/subscriptions via yt-dlp + cookies
-      library.py       # local saved files
-      history.py       # local watch history + yt-dlp /feed/history
-      video_detail.py  # single video view with actions menu
-TermTube.yaml         # user config (auto-created on first run)
-requirements.txt       # PyYAML, requests (minimal deps)
+  main.py                   # App launch script
+  config.py                 # PyYAML configuration manager
+  ytdlp.py                  # yt-dlp API wrapper (streams JSON lazily)
+  cache.py                  # Disk + RAM cache (LRU suppression, stale-while-revalidate)
+  library.py                # Local saved-video DB manager
+  history.py                # Local watch history manager
+  player.py                 # mpv IPC controller (--input-ipc-server)
+  deps.py                   # Dependency validation
+  tui/
+    app.py                  # Textual App root (TermTubeApp)
+    theme.tcss              # App styling
+    screens/                # Textual Screens (Main, Modals)
+    widgets/                # Custom Textual Widgets (VideoList, DetailPanel, Thumbnails)
 ```
 
-## Key Design Decisions
-- **Language**: Python 3.11 (termtube mamba env) as orchestrator; shell tools for UI
-- **fzf**: Used for all interactive list views. `--preview` runs `src/ui/preview.py {1} {cols} {rows}` (video_id as first tab-delimited field)
-- **gum**: spin_while() for loading animation, choose() for action menus, text_input() for search
-- **Thumbnails**: Downloaded to `~/.cache/termtube/thumbs/{id}.jpg`, rendered with chafa
-- **Navigation**: App.run() loops showing main menu → routes to page fn → page returns video_id or None → None goes back to menu
-- **mpv**: Launched with `--input-ipc-server=/tmp/termtube-mpv.sock` + temp input.conf with custom seek bindings
-- **Cookie priority**: `cookies_file` (path to Netscape cookies.txt) checked FIRST; falls back to `--cookies-from-browser {browser}`. See Config.cookie_args property.
-- **Cache**: `~/.cache/termtube/` — videos/{id}.json, thumbs/{id}.jpg, feed_{key}.json
-- **Library**: `--write-info-json` sidecar files alongside downloaded media. library.py scans for *.info.json
-- **History**: `~/.local/share/termtube/history.json` — LOCAL only (TUI watch history, NOT Google account)
+## Key Technical Decisions
+- **Framework**: Pure `Textual`. No shell subprocesses for UI (no fzf/gum).
+- **State & Concurrency**: Network I/O must use `@work(thread=True, exclusive=True)`. Update UI safely from threads using `self.app.call_from_thread()`. Decouple components using Textual `Message` classes.
+- **Lazy Loading**: `yt-dlp` streams JSON directly to a buffer. `VideoListPanel` renders items in small batches on scroll.
+- **Caching & Suppression**: Home feed boots instantly from disk cache. A background worker refreshes it every 10 mins. Videos focused 3+ times or watched are added to an LRU suppression list and hidden from future home feeds.
+- **Media Playback**: 
+  - **Audio**: `mpv` runs headlessly via socket IPC (`/tmp/termtube-mpv-audio.sock`). 
+  - **Video**: Uses `app.suspend()` to yield the terminal to `mpv`, restoring the TUI upon exit.
+- **Thumbnails**: Uses `textual-image` (Sixel/Kitty graphics) falling back to `chafa` (ANSI blocks). Downloads happen in background workers.
 
-## Progressive Loading (Key Feature)
-1. `yt-dlp --flat-playlist --dump-json --extractor-args youtube:skip=dash,hls URL` streams JSON lines
-2. `fzf.run_list()` calls `_wait_for_first()` which animates a spinner until first entry arrives
-3. Once first entry appears, fzf subprocess is started; entries written to fzf stdin as they arrive
-4. fzf preview pane (`src/ui/preview.py`) reads from `~/.cache/termtube/videos/{id}.json` (always fast)
-5. Background enrichment via `ytdlp.enrich_in_background()` can fetch full metadata in parallel
+---
 
-## Environment (macOS)
-- Tools available: yt-dlp (2026.03.17), fzf, mpv, chafa, jq, ffmpeg, gum, python3 (3.13.12)
-- mamba env: `termtube` at /Users/adyung/miniforge3/envs/termtube (Python 3.11)
-- Entry point: `./termtube` shell wrapper → finds termtube env → runs src/main.py
-- NOTE: mpv has a broken x265 dylib → `brew reinstall ffmpeg` may be needed. mpv can still play via yt-dlp without local ffmpeg for most formats.
-- Safari cookies: macOS sandboxes Safari. Recommend Chrome/Firefox/Brave as default browser option.
+## 🤖 AI Agent Directives (STRICT)
 
-## yt-dlp Feed URLs
-- Home/Recommended: `https://www.youtube.com/feed/recommended`
-- Subscriptions: `https://www.youtube.com/feed/subscriptions`
-- History: `https://www.youtube.com/feed/history`
-- Search: `ytsearch50:{query}` or `https://www.youtube.com/results?search_query={query}`
+To minimize token usage and maintain project coherence, all AI agents modifying this codebase MUST adhere to the following rules:
 
-## mpv Input Bindings (custom input.conf)
-```
-0 seek 0 absolute-percent
-1 seek 10 absolute-percent
-... 9 seek 90 absolute-percent
-h seek -5
-l seek +5
-H seek -10
-L seek +10
-LEFT seek -5
-RIGHT seek +5
-Ctrl+LEFT seek -10
-Ctrl+RIGHT seek +10
-```
+### 1. Memory Tracking (`memory/` directory)
+You must maintain a `memory/` folder in the root directory to track context across sessions. This prevents repetitive prompt explanations and saves tokens.
+- **Create/Update `memory/architecture_decisions.md`**: Document *why* a technical approach was taken (e.g., "Why we use IPC for mpv instead of subprocess blocking").
+- **Create/Update `memory/active_context.md`**: Briefly log the current active task or bug being worked on. Clear this when a task is completed.
 
-## Config File (TermTube.yaml) Schema
-```yaml
-browser: chrome        # for yt-dlp cookies-from-browser
-video_dir: ~/Documents/TermTube/Video
-audio_dir: ~/Documents/TermTube/Audio
-video_format: "%(title)s_%(uploader)s.%(ext)s"
-audio_format: "%(title)s_%(uploader)s.%(ext)s"
-preferred_quality: best  # or 720, 1080, etc.
-preferred_player: mpv    # or vlc
-cache_ttl:
-  home: 3600
-  subscriptions: 3600
-  search: 1800
-  metadata: 86400
-thumbnail_width: 40      # chars wide in fzf preview
-```
+### 2. Documentation Enforcement
+Whenever you implement a new feature, fix a bug, or change the architecture, you MUST update the following files if applicable:
+- `README.md` (for user-facing changes, features, or new dependencies).
+- `ROADMAP.md` (move items from Planned -> Done).
+- `CLAUDE.md` (this file, if core architecture, structure, or rules change).
+- `TermTube.yaml` (if adding new config keys).
 
-## Code Conventions
-- Python: type hints, f-strings, pathlib.Path for all paths
-- All yt-dlp calls go through `src/ytdlp.py` — never call yt-dlp directly from pages
-- All fzf calls go through `src/ui/fzf.py`
-- All gum calls go through `src/ui/gum.py`
-- Never block the main thread during network I/O — use subprocess with timeout
-- Error handling: always show user-friendly gum error, never traceback in production
-
-## Files to Update When Making Changes
-- Always update `CLAUDE.md` (this file) if architecture changes
-- Always update `memory/MEMORY.md` with new decisions/learnings
-- Update `README.md` for user-visible changes
-- Update `TermTube.yaml` schema docs if config keys change
+### 3. Code Generation Rules
+- **No dead code:** Clean up deprecated functions immediately.
+- **Non-blocking UI:** Never block the main Textual thread.
+- **Type hinting:** Use Python 3.11+ type hints (`list[str]`, `| None`, etc.).
+- **File context:** When providing code solutions, output the full file contents unless an explicit diff/snippet is requested, to prevent partial-update errors.
