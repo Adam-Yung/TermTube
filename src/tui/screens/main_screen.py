@@ -49,22 +49,22 @@ class MainScreen(Screen):
 
     BINDINGS = [
         # List navigation
-        Binding("j",            "cursor_down",     "Down",       show=False),
-        Binding("k",            "cursor_up",       "Up",         show=False),
-        Binding("g",            "cursor_top",      "Top",        show=False),
-        Binding("G",            "cursor_bottom",   "Bottom",     show=False),
-        Binding("backspace",    "nav_back",        "Back",       show=False),
+        Binding("j",            "cursor_down",     "Down",        show=False),
+        Binding("k",            "cursor_up",       "Up",          show=False),
+        Binding("g",            "cursor_top",      "Top",         show=False),
+        Binding("G",            "cursor_bottom",   "Bottom",      show=False),
+        Binding("backspace",    "nav_back",        "Back",        show=False),
         # Enter → video action menu
-        Binding("enter",        "activate",        "Actions",    show=True),
+        Binding("enter",        "activate",        "Actions",     show=True),
         # Playback (direct shortcuts, bypass action menu)
-        Binding("w",            "watch",           "Watch",      show=True),
+        Binding("w",            "watch",           "Watch",       show=True),
         Binding("W",            "watch_quality",   "Quality ▶",  show=False),
         # l / L / h / H — context-aware: seek when audio playing, else listen/nothing
-        Binding("l",            "listen_or_seek",  "Listen",     show=True),
+        Binding("l",            "listen_or_seek",  "Listen",      show=True),
         Binding("L",            "listen_q_or_seek_big", "Quality ♪", show=False),
         Binding("h",            "audio_seek_back", show=False),
         Binding("H",            "audio_seek_back_big", show=False),
-        Binding("space",        "audio_pause",     "Pause",      show=False),
+        Binding("space",        "audio_pause",     "Pause",       show=False),
         Binding("s",            "audio_stop_or_subscribe", show=False),
         # 0-9 audio seek (no conflict: digits not otherwise bound in main screen)
         Binding("0", "audio_pct_0",  show=False), Binding("1", "audio_pct_10", show=False),
@@ -73,18 +73,18 @@ class MainScreen(Screen):
         Binding("6", "audio_pct_60", show=False), Binding("7", "audio_pct_70", show=False),
         Binding("8", "audio_pct_80", show=False), Binding("9", "audio_pct_90", show=False),
         # Download
-        Binding("d",            "dl_video",        "DL Video",   show=False),
-        Binding("a",            "dl_audio",        "DL Audio",   show=False),
+        Binding("d",            "dl_video",        "DL Video",    show=False),
+        Binding("a",            "dl_audio",        "DL Audio",    show=False),
         # Other
-        Binding("p",            "playlist",        "Playlist",   show=False),
-        Binding("b",            "browser",         "Browser",    show=False),
+        Binding("p",            "playlist",        "Playlist",    show=False),
+        Binding("b",            "browser",         "Browser",     show=False),
         # App
-        Binding("/",            "search",          "Search",     show=True),
-        Binding("r",            "refresh",         "Refresh",    show=True),
-        Binding("?",            "toggle_help",     "Help",       show=False),
-        Binding("comma",        "settings",        "Settings",   show=False),
-        Binding("ctrl+d",       "toggle_log",      "Debug",      show=False),
-        Binding("q",            "quit_app",        "Quit",       show=True),
+        Binding("/",            "search",          "Search",      show=True),
+        Binding("r",            "refresh",         "Refresh",     show=True),
+        Binding("?",            "toggle_help",     "Help",        show=False),
+        Binding("comma",        "settings",        "Settings",    show=False),
+        Binding("ctrl+d",       "toggle_log",      "Debug",       show=False),
+        Binding("q",            "quit_app",        "Quit",        show=True),
         # Page shortcuts — F1-F7
         Binding("f1",  "tab_home",      show=False), Binding("f2", "tab_subs",      show=False),
         Binding("f3",  "tab_search",    show=False), Binding("f4", "tab_history",   show=False),
@@ -204,16 +204,12 @@ class MainScreen(Screen):
         if collected_ids and view in ("home", "subscriptions", "search"):
             import src.ytdlp as ytdlp
             ytdlp.enrich_in_background(
-                collected_ids[:15], config, cache,
+                collected_ids[:20], config, cache,
                 on_done=self._make_enrich_callback(panel),
             )
 
     def _make_enrich_callback(self, panel):
-        """Return an on_done callback for enrich_in_background.
-
-        The callback is invoked from a background thread and schedules UI
-        updates on the main thread via call_from_thread.
-        """
+        """Return an on_done callback for enrich_in_background."""
         app = self.app
         screen = self
 
@@ -249,11 +245,11 @@ class MainScreen(Screen):
                     t.start()
                     if collected_ids:
                         ytdlp.enrich_in_background(
-                            collected_ids[:15], config, cache,
+                            collected_ids[:20], config, cache,
                             on_done=self._make_enrich_callback(panel),
                         )
                     return
-                cache.clear_feed(feed_key)
+            cache.clear_feed(feed_key)
         gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
         for entry in gen:
             self.app.call_from_thread(panel.append_entry, entry)
@@ -262,7 +258,7 @@ class MainScreen(Screen):
         self.app.call_from_thread(panel.finish_loading)
         if collected_ids:
             ytdlp.enrich_in_background(
-                collected_ids[:15], config, cache,
+                collected_ids[:20], config, cache,
                 on_done=self._make_enrich_callback(panel),
             )
 
@@ -300,6 +296,29 @@ class MainScreen(Screen):
             entry = cache.get_video_raw(vid_id) or {"id": vid_id, "title": vid_id, "uploader": ""}
             self.app.call_from_thread(panel.append_entry, entry)
         self.app.call_from_thread(panel.finish_loading)
+
+    # ── Detail panel events ───────────────────────────────────────────────────
+
+    def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
+        self.query_one("#detail-panel", DetailPanel).update_entry(message.entry)
+
+    def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
+        self.action_activate()
+
+    # ── Batch Lazy Loading Intercept ──────────────────────────────────────────
+
+    def on_video_list_panel_batch_revealed(self, message: VideoListPanel.BatchRevealed) -> None:
+        """Fetch metadata for newly scrolled entries as they are lazily loaded."""
+        if self._current_tab in ("home", "subscriptions", "search") or self._current_tab.startswith("playlist:"):
+            import src.ytdlp as ytdlp
+            ids = [e.get("id") for e in message.entries if e.get("id") and not e.get("id").startswith("__")]
+            if ids:
+                ytdlp.enrich_in_background(
+                    ids,
+                    self.app.config,
+                    self.app.cache,
+                    on_done=self._make_enrich_callback(self.query_one("#video-list-panel", VideoListPanel))
+                )
 
     # ── Video action menu (Enter) ─────────────────────────────────────────────
 
@@ -540,13 +559,6 @@ class MainScreen(Screen):
 
     @work(thread=True, exclusive=True, group="player")
     def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
-        """Launch mpv for video in a background thread; TUI keeps running.
-
-        On macOS, mpv opens its own Cocoa window so the terminal is never
-        taken over — app.suspend() is unnecessary and causes the TUI to not
-        restore after mpv exits. Running in a plain thread is the correct approach.
-        mpv is silenced with --really-quiet to prevent any terminal output.
-        """
         from src import history, player
 
         vid = entry.get("id", "")
@@ -611,7 +623,6 @@ class MainScreen(Screen):
         else:
             self.notify("No channel URL available", severity="warning")
 
-    # Kept as `action_subscribe` for compatibility with other callers
     def action_subscribe(self) -> None:
         self.action_subscribe_entry()
 
@@ -774,10 +785,3 @@ class MainScreen(Screen):
         threading.Timer(0.6, os._exit, args=(0,)).start()
         self.app.exit()
 
-    # ── Detail panel events ───────────────────────────────────────────────────
-
-    def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
-        self.query_one("#detail-panel", DetailPanel).update_entry(message.entry)
-
-    def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
-        self.action_activate()

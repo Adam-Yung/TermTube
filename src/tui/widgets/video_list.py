@@ -175,6 +175,12 @@ class VideoListPanel(Widget):
             super().__init__()
             self.entry = entry
 
+    class BatchRevealed(Message):
+        """Fired when a new batch of videos is revealed in the list for lazy loading."""
+        def __init__(self, entries: list[dict]) -> None:
+            super().__init__()
+            self.entries = entries
+
     # ── State ─────────────────────────────────────────────────────────────────
 
     def __init__(self, **kwargs) -> None:
@@ -240,10 +246,6 @@ class VideoListPanel(Widget):
         Buffer one entry from the stream. Immediately reveals it if:
           • still within the initial batch, OR
           • the cursor is already near the bottom of the visible list.
-        The second condition handles slow feeds (e.g. home) where entries trickle
-        in after the user has already scrolled to the last visible item — without
-        it, lazy reveal would never trigger because the cursor doesn't move again.
-        Called from a background thread via call_from_thread — runs on main thread.
         """
         self._buffer.append(entry)
         n_total = len(self._buffer)
@@ -254,10 +256,10 @@ class VideoListPanel(Widget):
         if self._visible < BATCH_SIZE:
             self._reveal_entry(entry)
         elif lv.index is not None:
-            # Also reveal immediately if cursor is sitting at/near the visible end
+            # Leverage _reveal_next_batch so it properly emits our BatchRevealed message
             remaining = self._visible - 1 - lv.index
             if remaining <= PREFETCH_THRESHOLD:
-                self._reveal_entry(entry)
+                self._reveal_next_batch()
 
         # Update count header (shows total buffered, not just visible)
         self.query_one("#list-header", Static).update(
@@ -280,14 +282,20 @@ class VideoListPanel(Widget):
         end = min(start + BATCH_SIZE, len(self._buffer))
         if start >= end:
             return
-        for entry in self._buffer[start:end]:
+        
+        revealed_entries = self._buffer[start:end]
+        for entry in revealed_entries:
             self._reveal_entry(entry)
+            
         # Update "more available" indicator
         remaining = len(self._buffer) - self._visible
         if remaining > 0 and self._loading:
             self.query_one("#list-loading", Static).update(
                 f"[dim]  ↓ {remaining} more buffered — scroll to load[/dim]"
             )
+            
+        # Emit our new message so MainScreen knows to grab thumbnails for these!
+        self.post_message(self.BatchRevealed(revealed_entries))
 
     def finish_loading(self) -> None:
         """Call when streaming is complete."""
@@ -319,10 +327,7 @@ class VideoListPanel(Widget):
             self.query_one("#list-loading", Static).update("")
 
     def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
-        """Update a buffered entry and refresh its visible list item, if any.
-
-        Called via call_from_thread when background enrichment completes.
-        """
+        """Update a buffered entry and refresh its visible list item, if any."""
         for i, buf in enumerate(self._buffer):
             if buf.get("id") == vid_id:
                 self._buffer[i] = entry
