@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MyYouTube setup — creates a Python environment and installs dependencies.
+# TermTube setup — creates a Python environment and installs dependencies.
 #
 # Strategy (tries in order):
 #   1. mamba  — fastest conda-compatible solver
@@ -12,7 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
-ENV_NAME="myyoutube"
+ENV_NAME="termtube"
 VENV_DIR="$SCRIPT_DIR/.venv"
 PYTHON_MIN="3.11"
 
@@ -61,7 +61,7 @@ try_mamba() {
     fi
 
     success "mamba environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run MyYouTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
     return 0
 }
 
@@ -81,7 +81,7 @@ try_conda() {
     fi
 
     success "conda environment '$ENV_NAME' is ready."
-    echo -e "\n${BOLD}Run MyYouTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
     return 0
 }
 
@@ -119,13 +119,13 @@ try_venv() {
 
     pip_install "$VENV_DIR/bin/pip"
     success "Virtual environment ready at .venv/"
-    echo -e "\n${BOLD}Run MyYouTube:${RESET}  ${GREEN}./myt${RESET}"
+    echo -e "\n${BOLD}Run TermTube:${RESET}  ${GREEN}./myt${RESET}"
     return 0
 }
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
-echo -e "${BOLD}MyYouTube Setup${RESET}"
+echo -e "${BOLD}TermTube Setup${RESET}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check system dependencies (non-fatal warnings)

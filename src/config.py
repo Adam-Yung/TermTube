@@ -1,4 +1,4 @@
-"""Configuration management for MyYouTube."""
+"""Configuration management for TermTube."""
 
 from __future__ import annotations
 from pathlib import Path
@@ -6,14 +6,14 @@ import yaml
 
 # Resolved at import time relative to project root
 _PROJECT_ROOT = Path(__file__).parent.parent
-_DEFAULT_CONFIG_PATH = _PROJECT_ROOT / "MyYouTube.yaml"
-_XDG_CONFIG_PATH = Path.home() / ".config" / "myyoutube" / "config.yaml"
+_DEFAULT_CONFIG_PATH = _PROJECT_ROOT / "TermTube.yaml"
+_XDG_CONFIG_PATH = Path.home() / ".config" / "termtube" / "config.yaml"
 
 DEFAULT_CONFIG: dict = {
-    "cookies_file": str(Path.home() / "Documents" / "MyYouTube" / "cookies.txt"),
+    "cookies_file": str(Path.home() / "Documents" / "TermTube" / "cookies.txt"),
     "browser": "chrome",
-    "video_dir": str(Path.home() / "Documents" / "MyYouTube" / "Video"),
-    "audio_dir": str(Path.home() / "Documents" / "MyYouTube" / "Audio"),
+    "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
+    "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
     "video_format": "%(title)s_%(uploader)s.%(ext)s",
     "audio_format": "%(title)s_%(uploader)s.%(ext)s",
     "preferred_quality": "best",

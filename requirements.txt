@@ -1,4 +1,4 @@
-# MyYouTube — Python dependencies
+# TermTube — Python dependencies
 # Install via:  bash setup.sh
 # Or manually:  pip install -r requirements.txt
 

@@ -1,4 +1,4 @@
-audio_dir: ~/Documents/MyYouTube/Audio
+audio_dir: ~/Documents/TermTube/Audio
 audio_format: '%(title)s_%(uploader)s.%(ext)s'
 browser: chrome
 cache_ttl:
@@ -6,12 +6,12 @@ cache_ttl:
   metadata: 86400
   search: 1800
   subscriptions: 3600
-cookies_file: ~/Documents/MyYouTube/cookies.txt
+cookies_file: ~/Documents/TermTube/cookies.txt
 preferred_player: mpv
 preferred_quality: best
 theme: ocean
 thumbnail_cols: 38
 thumbnail_format: auto
 thumbnail_rows: 20
-video_dir: ~/Documents/MyYouTube/Video
+video_dir: ~/Documents/TermTube/Video
 video_format: '%(title)s_%(uploader)s.%(ext)s'

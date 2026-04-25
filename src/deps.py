@@ -30,7 +30,7 @@ COOKIES_HELP = """
   Then visit youtube.com, click the extension icon,
   and export in Netscape format. Save to:
 
-    ~/Documents/MyYouTube/cookies.txt
+    ~/Documents/TermTube/cookies.txt
 
 \033[90m──────────────────────────────────────────────\033[0m
 
@@ -39,7 +39,7 @@ COOKIES_HELP = """
   Run this once (fast, no video downloaded):
 
     yt-dlp --cookies-from-browser chrome \\
-           --cookies ~/Documents/MyYouTube/cookies.txt \\
+           --cookies ~/Documents/TermTube/cookies.txt \\
            --skip-download --quiet --no-warnings \\
            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
@@ -49,7 +49,7 @@ COOKIES_HELP = """
 
 \033[1mOption C — Browser session (fallback)\033[0m
 
-  Skip cookies.txt and set in MyYouTube.yaml:
+  Skip cookies.txt and set in TermTube.yaml:
 
     cookies_file: null
     browser: chrome

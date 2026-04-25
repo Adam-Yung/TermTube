@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# MyYouTube entry point.
+# TermTube entry point.
 #
-# Locates the Python environment created by setup.sh and runs MyYouTube.
+# Locates the Python environment created by setup.sh and runs TermTube.
 # Search order:
 #   1. .venv/  in the project directory  (created by setup.sh venv path)
-#   2. 'myyoutube' conda/mamba environment
+#   2. 'termtube' conda/mamba environment
 #   3. Prompt user to run setup.sh
 
 set -euo pipefail
@@ -21,16 +21,16 @@ find_python() {
         return 0
     fi
 
-    # 2. mamba/conda 'myyoutube' environment
+    # 2. mamba/conda 'termtube' environment
     local conda_base
     conda_base=$(conda info --base 2>/dev/null || true)
     for base_dir in \
-        "${conda_base:+$conda_base/envs/myyoutube}" \
-        "$HOME/miniforge3/envs/myyoutube" \
-        "$HOME/mambaforge/envs/myyoutube" \
-        "$HOME/opt/miniforge3/envs/myyoutube" \
-        "/opt/homebrew/Caskroom/miniforge/base/envs/myyoutube" \
-        "/usr/local/miniforge3/envs/myyoutube"
+        "${conda_base:+$conda_base/envs/termtube}" \
+        "$HOME/miniforge3/envs/termtube" \
+        "$HOME/mambaforge/envs/termtube" \
+        "$HOME/opt/miniforge3/envs/termtube" \
+        "/opt/homebrew/Caskroom/miniforge/base/envs/termtube" \
+        "/usr/local/miniforge3/envs/termtube"
     do
         [[ -z "$base_dir" ]] && continue
         if [[ -f "$base_dir/bin/python3" ]]; then
@@ -46,7 +46,7 @@ find_python() {
 
 if ! PYTHON=$(find_python 2>/dev/null); then
     echo ""
-    echo -e "  \033[1;31m✗ No MyYouTube Python environment found.\033[0m"
+    echo -e "  \033[1;31m✗ No TermTube Python environment found.\033[0m"
     echo ""
     echo "  Run the one-time setup script first:"
     echo -e "    \033[1;32mbash setup.sh\033[0m"

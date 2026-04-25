@@ -1,1 +1,1 @@
-# MyYouTube TUI package — Textual-based frontend
+# TermTube TUI package — Textual-based frontend

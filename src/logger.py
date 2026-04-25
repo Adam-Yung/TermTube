@@ -1,11 +1,11 @@
-"""Logging for MyYouTube — controlled by --debug flag."""
+"""Logging for TermTube — controlled by --debug flag."""
 
 from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
 
-_LOG_FILE = Path.home() / ".cache" / "myyoutube" / "debug.log"
+_LOG_FILE = Path.home() / ".cache" / "termtube" / "debug.log"
 _log = logging.getLogger("myt")
 _debug_enabled = False
 

@@ -5,7 +5,7 @@ import json
 import time
 from pathlib import Path
 
-CACHE_DIR = Path.home() / ".cache" / "myyoutube"
+CACHE_DIR = Path.home() / ".cache" / "termtube"
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
 

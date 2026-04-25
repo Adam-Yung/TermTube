@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MyYouTube entry point."""
+"""TermTube entry point."""
 
 from __future__ import annotations
 import argparse
@@ -15,12 +15,12 @@ if str(_ROOT) not in sys.path:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="myt",
-        description="MyYouTube — YouTube TUI powered by yt-dlp + Textual",
+        description="TermTube — YouTube TUI powered by yt-dlp + Textual",
     )
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr and ~/.cache/myyoutube/debug.log")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr and ~/.cache/termtube/debug.log")
     parser.add_argument("--version", action="store_true", help="Show version")
     args = parser.parse_args()
 
@@ -29,7 +29,7 @@ def main() -> None:
     logger.setup(debug=args.debug)
 
     if args.version:
-        print("MyYouTube 0.1.0")
+        print("TermTube 0.1.0")
         sys.exit(0)
 
     if args.cookies_help:
@@ -67,8 +67,8 @@ def main() -> None:
         pass
 
     # Launch Textual TUI
-    from src.tui.app import MyYouTubeApp
-    app = MyYouTubeApp(config)
+    from src.tui.app import TermTubeApp
+    app = TermTubeApp(config)
     try:
         app.run()
     except KeyboardInterrupt:

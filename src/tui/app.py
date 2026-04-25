@@ -1,4 +1,4 @@
-"""MyYouTubeApp — Textual application entry point."""
+"""TermTubeApp — Textual application entry point."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ from src.config import Config
 _VALID_THEMES = {"crimson", "amber", "ocean", "midnight"}
 
 
-class MyYouTubeApp(App):
+class TermTubeApp(App):
     """
-    MyYouTube — YouTube TUI powered by yt-dlp + Textual.
+    TermTube — YouTube TUI powered by yt-dlp + Textual.
 
     config and cache are stored on the App so any widget can access them via
     self.app.config / self.app.cache.
     """
 
-    TITLE = "MyYouTube"
+    TITLE = "TermTube"
     CSS_PATH = Path(__file__).parent / "theme.tcss"
     ENABLE_COMMAND_PALETTE = False
 

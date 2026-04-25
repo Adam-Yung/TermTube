@@ -1,4 +1,4 @@
-# MyYouTube
+# TermTube
 
 A modern, beautiful YouTube TUI built on `fzf`, `gum`, `chafa`, `mpv`, and `yt-dlp`. Browse your YouTube home feed, subscriptions, search, and local library — all from your terminal.
 
@@ -43,13 +43,13 @@ A modern, beautiful YouTube TUI built on `fzf`, `gum`, `chafa`, `mpv`, and `yt-d
 | `ffmpeg` | Media conversion | `brew install ffmpeg` |
 | Python 3.10+ | Orchestration | `brew install python3` |
 
-> MyYouTube will prompt you to install any missing dependencies on first run.
+> TermTube will prompt you to install any missing dependencies on first run.
 
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/myyoutube
-cd myyoutube
+git clone https://github.com/yourname/termtube
+cd termtube
 pip install -r requirements.txt
 chmod +x myt
 ./myt
@@ -58,15 +58,15 @@ chmod +x myt
 
 ## Configuration
 
-On first run, `MyYouTube.yaml` is created in the project directory (or `~/.config/myyoutube/config.yaml`). Key settings:
+On first run, `TermTube.yaml` is created in the project directory (or `~/.config/termtube/config.yaml`). Key settings:
 
 ```yaml
 browser: chrome            # Browser for YouTube session cookies
                            # Options: chrome, firefox, brave, edge
                            # Note: Safari not supported on macOS (sandboxed)
 
-video_dir: ~/Documents/MyYouTube/Video
-audio_dir: ~/Documents/MyYouTube/Audio
+video_dir: ~/Documents/TermTube/Video
+audio_dir: ~/Documents/TermTube/Audio
 video_format: "%(title)s_%(uploader)s.%(ext)s"
 audio_format: "%(title)s_%(uploader)s.%(ext)s"
 
@@ -82,7 +82,7 @@ cache_ttl:
 
 ## Cookie Setup (Required for Home Feed & Subscriptions)
 
-MyYouTube needs your YouTube session cookies to fetch your home feed, subscriptions, and history. There are two methods — a cookies.txt file is **preferred** as it's faster and more reliable.
+TermTube needs your YouTube session cookies to fetch your home feed, subscriptions, and history. There are two methods — a cookies.txt file is **preferred** as it's faster and more reliable.
 
 ### Method 1: cookies.txt (Recommended)
 
@@ -92,18 +92,18 @@ Export your browser cookies to a Netscape-format file:
 - **Chrome/Edge**: Install [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
 - **Firefox**: Install [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/)
 - Visit `youtube.com`, click the extension icon, export as **Netscape format**
-- Save to: `~/Documents/MyYouTube/cookies.txt`
+- Save to: `~/Documents/TermTube/cookies.txt`
 
 **Option B — Export via yt-dlp:**
 ```bash
 yt-dlp --cookies-from-browser chrome \
-       --cookies ~/Documents/MyYouTube/cookies.txt \
+       --cookies ~/Documents/TermTube/cookies.txt \
        --skip-download "https://www.youtube.com"
 ```
 
-Then set in `MyYouTube.yaml`:
+Then set in `TermTube.yaml`:
 ```yaml
-cookies_file: ~/Documents/MyYouTube/cookies.txt
+cookies_file: ~/Documents/TermTube/cookies.txt
 ```
 
 ### Method 2: Live Browser Session (Fallback)
@@ -126,7 +126,7 @@ myt --cookies-help   # show full setup instructions
 
 ## Local Library
 
-When you save a video or audio, MyYouTube stores:
+When you save a video or audio, TermTube stores:
 - The media file in `video_dir` or `audio_dir`
 - A `.info.json` sidecar with full metadata (title, description, thumbnails, etc.)
 
@@ -150,7 +150,7 @@ src/
     gum.py             gum wrapper
     thumbnail.py       chafa rendering
     pages/             One file per page
-MyYouTube.yaml         User configuration
+TermTube.yaml         User configuration
 ```
 
 ## Troubleshooting

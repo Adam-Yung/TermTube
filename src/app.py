@@ -76,7 +76,7 @@ def _show_main_menu() -> str | None:
 
 def _show_settings(config: Config) -> None:
     os.system("clear")
-    gum.header("⚙  Settings", "MyYouTube Configuration")
+    gum.header("⚙  Settings", "TermTube Configuration")
     print()
 
     cf = config.cookies_file

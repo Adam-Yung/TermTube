@@ -10,7 +10,7 @@ from textual.widgets import Static
 
 
 _HELP_CONTENT = """\
-[bold #ff4444]MyYouTube — Keyboard Reference[/bold #ff4444]
+[bold #ff4444]TermTube — Keyboard Reference[/bold #ff4444]
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]NAVIGATION[/bold white]
@@ -79,7 +79,7 @@ _HELP_CONTENT = """\
   [#ff4444]?[/#ff4444]              Toggle this Help screen
   [#ff4444],[/#ff4444]              Open Settings (theme, quality, …)
   [#ff4444]Ctrl+D[/#ff4444]         Toggle debug log panel
-  [#ff4444]q[/#ff4444]              Quit MyYouTube
+  [#ff4444]q[/#ff4444]              Quit TermTube
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]LAZY LOADING[/bold white]
@@ -89,7 +89,7 @@ _HELP_CONTENT = """\
   automatically load the next batch — no manual action needed.
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]CONFIGURATION  (MyYouTube.yaml)[/bold white]
+[bold white]CONFIGURATION  (TermTube.yaml)[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
   [#ff4444]browser[/#ff4444]           chrome / firefox / brave  (for yt-dlp auth)

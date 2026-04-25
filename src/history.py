@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Iterator
 
-HISTORY_PATH = Path.home() / ".local" / "share" / "myyoutube" / "history.json"
+HISTORY_PATH = Path.home() / ".local" / "share" / "termtube" / "history.json"
 
 
 def _load() -> list[dict]:

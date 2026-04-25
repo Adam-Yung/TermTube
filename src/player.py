@@ -14,7 +14,7 @@ from src import logger
 
 # Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
-# MyYouTube seek bindings
+# TermTube seek bindings
 0 seek 0 absolute-percent
 1 seek 10 absolute-percent
 2 seek 20 absolute-percent
