@@ -28,7 +28,7 @@ pip_install() {
     local pip_bin="$1"
     info "Installing Python dependencies from requirements.txt…"
     # Strip comment lines and the system-tool section before passing to pip
-    grep -v '^\s*#' "$REQUIREMENTS" | grep -v '^\s*$' | \
+    grep -v '^\s*#' "${REQUIREMENTS}" | grep -v '^\s*$' | \
         "$pip_bin" install --quiet -r /dev/stdin
     success "Dependencies installed."
 }
@@ -45,18 +45,18 @@ check_python_version() {
 
 try_mamba() {
     command -v mamba &>/dev/null || return 1
-    header "Setting up with mamba (conda environment '$ENV_NAME')"
+    header "Setting up with mamba (conda environment '${ENV_NAME}')"
 
-    if mamba env list 2>/dev/null | grep -q "^$ENV_NAME "; then
-        info "Environment '$ENV_NAME' already exists — updating…"
-        mamba run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
+    if mamba env list 2>/dev/null | grep -q "^${ENV_NAME} "; then
+        info "Environment '${ENV_NAME}' already exists — updating…"
+        mamba run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
     else
-        info "Creating conda environment '$ENV_NAME' with Python ${PYTHON_MIN}…"
-        mamba create -y -n "$ENV_NAME" "python>=$PYTHON_MIN" pip --quiet
-        mamba run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
+        info "Creating conda environment '${ENV_NAME}' with Python ${PYTHON_MIN}…"
+        mamba create -y -n "${ENV_NAME}" "python>=${PYTHON_MIN}" pip --quiet
+        mamba run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
     fi
 
-    success "mamba environment '$ENV_NAME' is ready."
+    success "mamba environment '${ENV_NAME}' is ready."
     return 0
 }
 
@@ -64,18 +64,18 @@ try_mamba() {
 
 try_conda() {
     command -v conda &>/dev/null || return 1
-    header "Setting up with conda (environment '$ENV_NAME')"
+    header "Setting up with conda (environment '${ENV_NAME}')"
 
-    if conda env list 2>/dev/null | grep -q "^$ENV_NAME "; then
-        info "Environment '$ENV_NAME' already exists — updating…"
-        conda run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
+    if conda env list 2>/dev/null | grep -q "^${ENV_NAME} "; then
+        info "Environment '${ENV_NAME}' already exists — updating…"
+        conda run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
     else
-        info "Creating conda environment '$ENV_NAME' with Python $PYTHON_MIN…"
-        conda create -y -n "$ENV_NAME" "python>=$PYTHON_MIN" pip --quiet
-        conda run -n "$ENV_NAME" pip install --quiet -r "$REQUIREMENTS"
+        info "Creating conda environment '${ENV_NAME}' with Python ${PYTHON_MIN}…"
+        conda create -y -n "${ENV_NAME}" "python>=${PYTHON_MIN}" pip --quiet
+        conda run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
     fi
 
-    success "conda environment '$ENV_NAME' is ready."
+    success "conda environment '${ENV_NAME}' is ready."
     return 0
 }
 
@@ -104,15 +104,15 @@ try_venv() {
     ver=$("$py" --version 2>&1)
     info "Using $ver"
 
-    if [[ -d "$VENV_DIR" ]]; then
-        info "Virtual environment already exists at $VENV_DIR — updating…"
+    if [[ -d "${VENV_DIR}" ]]; then
+        info "Virtual environment already exists at ${VENV_DIR} — updating…"
     else
-        info "Creating virtual environment at $VENV_DIR…"
-        "$py" -m venv "$VENV_DIR"
+        info "Creating virtual environment at ${VENV_DIR}…"
+        "$py" -m venv "${VENV_DIR}"
     fi
 
-    pip_install "$VENV_DIR/bin/pip"
-    success "Virtual environment ready at $VENV_DIR"
+    pip_install "${VENV_DIR}/bin/pip"
+    success "Virtual environment ready at ${VENV_DIR}"
     return 0
 }
 
@@ -122,35 +122,35 @@ echo -e "${BOLD}TermTube Setup${RESET}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # 1. Persistence / Copy
-if [[ "$ORIG_DIR" != "$APP_DIR" ]]; then
+if [[ "${ORIG_DIR}" != "${APP_DIR}" ]]; then
     header "Copying files for persistent installation…"
-    mkdir -p "$APP_DIR"
+    mkdir -p "${APP_DIR}"
     
     # Remove existing src just in case this is an update
-    rm -rf "$APP_DIR/src"
+    rm -rf "${APP_DIR}/src"
     
     # Copy essential components safely
-    if [[ -d "$ORIG_DIR/src" ]]; then
-        cp -a "$ORIG_DIR/src" "$APP_DIR/"
+    if [[ -d "${ORIG_DIR}/src" ]]; then
+        cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
     fi
     
     # Add uninstall.sh to the list of files to copy
     for f in requirements.txt termtube setup.sh uninstall.sh theme.tcss; do
-        if [[ -f "$ORIG_DIR/$f" ]]; then
-            cp -a "$ORIG_DIR/$f" "$APP_DIR/"
+        if [[ -f "${ORIG_DIR}/$f" ]]; then
+            cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
         fi
     done
     
     # Make sure to chmod the new script too
-    chmod +x "$APP_DIR/termtube" "$APP_DIR/setup.sh" "$APP_DIR/uninstall.sh"
-    success "Copied project files to $APP_DIR"
+    chmod +x "${APP_DIR}/termtube" "${APP_DIR}/setup.sh" "${APP_DIR}/uninstall.sh"
+    success "Copied project files to ${APP_DIR}"
 fi
 
 # Switch context to the new persistent directory
-SCRIPT_DIR="$APP_DIR"
-REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
+SCRIPT_DIR="${APP_DIR}"
+REQUIREMENTS="${SCRIPT_DIR}/requirements.txt"
 ENV_NAME="termtube"
-VENV_DIR="$SCRIPT_DIR/.venv"
+VENV_DIR="${SCRIPT_DIR}/.venv"
 PYTHON_MIN="3.11"
 
 # Check system dependencies (non-fatal warnings)
@@ -180,21 +180,21 @@ try_mamba || try_conda || try_venv || {
 
 # ── Symlink Installation ───────────────────────────────────────────────────
 header "Finishing up…"
-read -p "Install 'termtube' command to $BIN_DIR? [Y/n] " -n 1 -r
+read -p "Install 'termtube' command to ${BIN_DIR}? [Y/n] " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Nn]$ ]]; then
     info "Skipping PATH installation."
-    echo -e "\n${BOLD}Run TermTube manually:${RESET}  ${GREEN}$APP_DIR/termtube${RESET}"
+    echo -e "\n${BOLD}Run TermTube manually:${RESET}  ${GREEN}${APP_DIR}/termtube${RESET}"
 else
-    mkdir -p "$BIN_DIR"
-    ln -sf "$APP_DIR/termtube" "$BIN_DIR/termtube"
+    mkdir -p "${BIN_DIR}"
+    ln -sf "${APP_DIR}/termtube" "${BIN_DIR}/termtube"
     
-    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-        warn "$BIN_DIR is not in your PATH."
+    if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
+        warn "${BIN_DIR} is not in your PATH."
         info "To use the 'termtube' command globally, add this to your ~/.bashrc or ~/.zshrc:"
         echo -e "  ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
     else
-        success "Symlinked termtube to $BIN_DIR/termtube"
+        success "Symlinked termtube to ${BIN_DIR}/termtube"
         echo -e "\n${BOLD}Setup complete! Run it anywhere with:${RESET} ${GREEN}termtube${RESET}"
     fi
 fi
