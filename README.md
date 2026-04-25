@@ -22,7 +22,7 @@ A blazing fast, purely native Python TUI for YouTube. Built on the `Textual` fra
 | `0`–`9` | Seek to 0%–90% of media |
 | `Enter` | Open detailed actions menu for selected video |
 | `/` | Search YouTube |
-| `\`` | Open quick-navigation pages picker |
+| `` ` `` | Open quick-navigation pages picker |
 | `q` | Quit |
 
 ## Dependencies
@@ -33,51 +33,72 @@ TermTube relies on a few core system utilities:
 |------|---------|---------|
 | `yt-dlp` | YouTube engine | `brew install yt-dlp` |
 | `mpv` | Video/audio playback | `brew install mpv` |
-| `chafa` | Terminal thumbnails | `brew install chafa` |
-| Python 3.11+ | Orchestration | `brew install python3` |
+| `chafa` | Terminal thumbnails (optional) | `brew install chafa` |
+| `ffmpeg` | Audio conversion (optional) | `brew install ffmpeg` |
+| Python 3.11+ | Runtime | `brew install python@3.11` |
 
 ## Installation
 
-TermTube uses a setup script to create a clean, isolated environment in `~/.local/share/TermTube` and adds a symlink to your path.
+TermTube uses `setup.sh` to create a clean `venv` environment and optionally add the `termtube` command to your PATH.
 
 ```bash
-git clone --depth 1 [https://github.com/yourname/termtube.git](https://github.com/yourname/termtube.git) /tmp/termtube
-cd /tmp/termtube
+git clone --depth 1 https://github.com/yourname/termtube.git ~/termtube
+cd ~/termtube
 bash setup.sh
 ```
 
-*(To completely remove TermTube from your system later, simply run `termtube --uninstall`)*
+For **development** (edits take effect immediately, no re-install needed):
+
+```bash
+bash setup.sh --sync
+```
+
+Run `bash setup.sh --help` for full options.
+
+*(To remove TermTube: `termtube --uninstall`)*
 
 ## Configuration
 
-On first run, `TermTube.yaml` is generated in `~/.config/termtube/`. Key settings:
+Config lives at `~/.config/TermTube/config.yaml` and is created automatically on first run. Key settings:
 
 ```yaml
-browser: chrome            # Browser for YouTube session cookies (used by yt-dlp)
+browser: chrome              # Browser for YouTube cookies (chrome/firefox/brave/edge)
+cookies_file: ~/.config/TermTube/cookies.txt
 video_dir: ~/Documents/TermTube/Video
 audio_dir: ~/Documents/TermTube/Audio
-preferred_quality: best    # Options: best, 720, 1080, 4k
-preferred_player: mpv      # Options: mpv, vlc
+preferred_quality: best      # best | 720 | 1080 | 4k
+preferred_player: mpv
+theme: crimson               # crimson | amber | ocean | midnight
 cache_ttl:
-  home: 3600               # 1 hour
+  home: 3600                 # seconds
   subscriptions: 3600
+  search: 1800
+  metadata: 86400
 ```
 
-## Cookie Setup (Required for Home Feed)
+## Cookie Setup (Required for Home Feed & Subscriptions)
 
-TermTube needs your YouTube session cookies to fetch your personalized home feed and subscriptions. **Using a `cookies.txt` file is highly recommended** for performance.
+TermTube needs your YouTube session cookies to fetch your personalized home feed and subscriptions.
 
-**Export via browser extension (easiest):**
-1. Install an extension like "Get cookies.txt LOCALLY" for your browser.
-2. Visit `youtube.com`, click the extension, and export as **Netscape format**.
-3. Save to `~/Documents/TermTube/cookies.txt`.
-4. Update your `TermTube.yaml` to point to it: `cookies_file: ~/Documents/TermTube/cookies.txt`
+**Option A — Export via yt-dlp (recommended):**
+```bash
+yt-dlp --cookies-from-browser chrome \
+       --cookies ~/.config/TermTube/cookies.txt \
+       --skip-download --quiet --no-warnings \
+       "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+```
+Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
 
-*(Fallback: If `cookies_file: null` is set, TermTube will attempt to extract cookies directly from the browser specified in your config. Note: macOS sandboxes Safari, so use Chrome, Brave, or Firefox).*
+**Option B — Browser extension:**
+1. Install "Get cookies.txt LOCALLY" (Chrome) or "cookies.txt" (Firefox).
+2. Visit `youtube.com`, click the extension, export as **Netscape format**.
+3. Save to `~/.config/TermTube/cookies.txt`.
+
+**Option C — Browser session (no file):**
+Set `cookies_file: null` and `browser: chrome` in your config. TermTube will read cookies directly from the running browser. Safari is sandboxed on macOS and usually blocked.
 
 ## Architecture
 
-TermTube is a native Python application utilizing `Textual`. Network interactions are handled asynchronously via background workers, meaning the UI never blocks while fetching videos or thumbnails. 
+TermTube is a native Python application built on `Textual`. All network I/O runs in background threads — the UI never blocks. Feed data streams lazily from `yt-dlp`, and a stale-while-revalidate cache ensures cold starts are instant.
 
-For full architectural details and contribution instructions, see `CLAUDE.md`.
-
+For full architectural details and AI agent contribution instructions, see `CLAUDE.md`.

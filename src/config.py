@@ -4,13 +4,11 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-# Resolved at import time relative to project root
-_PROJECT_ROOT = Path(__file__).parent.parent
-_DEFAULT_CONFIG_PATH = _PROJECT_ROOT / "TermTube.yaml"
-_XDG_CONFIG_PATH = Path.home() / ".config" / "termtube" / "config.yaml"
+_CONFIG_DIR = Path.home() / ".config" / "TermTube"
+_DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
 
 DEFAULT_CONFIG: dict = {
-    "cookies_file": str(Path.home() / "Documents" / "TermTube" / "cookies.txt"),
+    "cookies_file": str(_CONFIG_DIR / "cookies.txt"),
     "browser": "chrome",
     "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
     "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
@@ -53,11 +51,7 @@ class Config:
     # ── Discovery ────────────────────────────────────────────────────────────
 
     def _find_config(self) -> Path:
-        if _DEFAULT_CONFIG_PATH.exists():
-            return _DEFAULT_CONFIG_PATH
-        if _XDG_CONFIG_PATH.exists():
-            return _XDG_CONFIG_PATH
-        return _DEFAULT_CONFIG_PATH  # will be created on first save if needed
+        return _DEFAULT_CONFIG_PATH
 
     def _load(self) -> None:
         if not self.path.exists():

@@ -1,12 +1,42 @@
 #!/usr/bin/env bash
-# TermTube setup — creates a Python environment and installs dependencies.
-#
-# Strategy (tries in order):
-#   1. mamba  — fastest conda-compatible solver
-#   2. conda  — standard Anaconda/Miniconda/Miniforge
-#   3. python3 venv — universal fallback (no conda required)
+# TermTube setup — creates a Python venv and installs dependencies.
 
 set -euo pipefail
+
+# ── Argument Parsing ───────────────────────────────────────────────────────
+SYNC_MODE=false
+for arg in "$@"; do
+    case "$arg" in
+        --sync)   SYNC_MODE=true ;;
+        --help|-h)
+            echo ""
+            echo "  TermTube Setup Script"
+            echo ""
+            echo "  Usage: bash setup.sh [OPTIONS]"
+            echo ""
+            echo "  Options:"
+            echo "    (no flags)   Copy project to ~/.local/share/TermTube and install there."
+            echo "                 Good for normal end-user installs. Changes to the source"
+            echo "                 directory are NOT reflected without re-running setup.sh."
+            echo ""
+            echo "    --sync       Symlink ~/.local/share/TermTube → current directory."
+            echo "                 Use this for development: edits in the source directory"
+            echo "                 are immediately live, and the .venv is kept inside the"
+            echo "                 repo so it survives re-runs."
+            echo ""
+            echo "    --help, -h   Show this help message and exit."
+            echo ""
+            echo "  Configuration:"
+            echo "    Config file:  ~/.config/TermTube/config.yaml  (created on first run)"
+            echo "    Cookies file: ~/.config/TermTube/cookies.txt  (add manually)"
+            echo ""
+            echo "  System dependencies (install separately):"
+            echo "    brew install yt-dlp mpv chafa ffmpeg"
+            echo ""
+            exit 0
+            ;;
+    esac
+done
 
 ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$HOME/.local/share/TermTube"
@@ -27,7 +57,6 @@ header()  { echo -e "\n${BOLD}$*${RESET}"; }
 pip_install() {
     local pip_bin="$1"
     info "Installing Python dependencies from requirements.txt…"
-    # Strip comment lines and the system-tool section before passing to pip
     grep -v '^\s*#' "${REQUIREMENTS}" | grep -v '^\s*$' | \
         "$pip_bin" install --quiet -r /dev/stdin
     success "Dependencies installed."
@@ -37,54 +66,14 @@ check_python_version() {
     local py="$1"
     local ver
     ver=$("$py" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
-    # Compare: major.minor >= 3.11
     python3 -c "import sys; sys.exit(0 if tuple(map(int,'$ver'.split('.'))) >= (3,11) else 1)" 2>/dev/null
 }
 
-# ── 1. Try mamba ───────────────────────────────────────────────────────────
+# ── Set up Python venv ─────────────────────────────────────────────────────
 
-try_mamba() {
-    command -v mamba &>/dev/null || return 1
-    header "Setting up with mamba (conda environment '${ENV_NAME}')"
+setup_venv() {
+    header "Setting up Python venv (.venv/)"
 
-    if mamba env list 2>/dev/null | grep -q "^${ENV_NAME} "; then
-        info "Environment '${ENV_NAME}' already exists — updating…"
-        mamba run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
-    else
-        info "Creating conda environment '${ENV_NAME}' with Python ${PYTHON_MIN}…"
-        mamba create -y -n "${ENV_NAME}" "python>=${PYTHON_MIN}" pip --quiet
-        mamba run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
-    fi
-
-    success "mamba environment '${ENV_NAME}' is ready."
-    return 0
-}
-
-# ── 2. Try conda ───────────────────────────────────────────────────────────
-
-try_conda() {
-    command -v conda &>/dev/null || return 1
-    header "Setting up with conda (environment '${ENV_NAME}')"
-
-    if conda env list 2>/dev/null | grep -q "^${ENV_NAME} "; then
-        info "Environment '${ENV_NAME}' already exists — updating…"
-        conda run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
-    else
-        info "Creating conda environment '${ENV_NAME}' with Python ${PYTHON_MIN}…"
-        conda create -y -n "${ENV_NAME}" "python>=${PYTHON_MIN}" pip --quiet
-        conda run -n "${ENV_NAME}" pip install --quiet -r "${REQUIREMENTS}"
-    fi
-
-    success "conda environment '${ENV_NAME}' is ready."
-    return 0
-}
-
-# ── 3. Fall back to python venv ────────────────────────────────────────────
-
-try_venv() {
-    header "Setting up with Python venv (.venv/)"
-
-    # Find a Python >= 3.11
     local py=""
     for candidate in python3.13 python3.12 python3.11 python3; do
         if command -v "$candidate" &>/dev/null && check_python_version "$candidate"; then
@@ -121,35 +110,38 @@ try_venv() {
 echo -e "${BOLD}TermTube Setup${RESET}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 1. Persistence / Copy
+# 1. Persistence / Copy / Sync
 if [[ "${ORIG_DIR}" != "${APP_DIR}" ]]; then
-    header "Copying files for persistent installation…"
-    mkdir -p "${APP_DIR}"
-    
-    # Remove existing src just in case this is an update
-    rm -rf "${APP_DIR}/src"
-    
-    # Copy essential components safely
-    if [[ -d "${ORIG_DIR}/src" ]]; then
-        cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
-    fi
-    
-    # Add uninstall.sh to the list of files to copy
-    for f in requirements.txt termtube setup.sh uninstall.sh theme.tcss; do
-        if [[ -f "${ORIG_DIR}/$f" ]]; then
-            cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
+    if [[ "${SYNC_MODE}" == true ]]; then
+        header "Symlinking for development sync…"
+        # Remove existing (directory or symlink) then create a single symlink
+        rm -rf "${APP_DIR}"
+        ln -s "${ORIG_DIR}" "${APP_DIR}"
+        success "Symlinked ${APP_DIR} → ${ORIG_DIR}"
+        info "Edits in ${ORIG_DIR} are immediately live. .venv lives inside your repo."
+    else
+        header "Copying files for persistent installation…"
+        rm -rf "${APP_DIR}"
+        mkdir -p "${APP_DIR}"
+
+        if [[ -d "${ORIG_DIR}/src" ]]; then
+            cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
         fi
-    done
-    
-    # Make sure to chmod the new script too
-    chmod +x "${APP_DIR}/termtube" "${APP_DIR}/setup.sh" "${APP_DIR}/uninstall.sh"
-    success "Copied project files to ${APP_DIR}"
+
+        for f in requirements.txt termtube setup.sh uninstall.sh theme.tcss; do
+            if [[ -f "${ORIG_DIR}/$f" ]]; then
+                cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
+            fi
+        done
+
+        chmod +x "${APP_DIR}/termtube" "${APP_DIR}/setup.sh" "${APP_DIR}/uninstall.sh"
+        success "Copied project files to ${APP_DIR}"
+    fi
 fi
 
-# Switch context to the new persistent directory
+# APP_DIR is either a real directory (copy mode) or a symlink to ORIG_DIR (sync mode)
 SCRIPT_DIR="${APP_DIR}"
 REQUIREMENTS="${SCRIPT_DIR}/requirements.txt"
-ENV_NAME="termtube"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 PYTHON_MIN="3.11"
 
@@ -170,31 +162,42 @@ for tool in chafa ffmpeg; do
     fi
 done
 
-# Set up Python environment
+# Set up Python venv
 header "Setting up Python environment…"
-try_mamba || try_conda || try_venv || {
+setup_venv || {
     error "Could not create a Python environment."
-    error "Install mamba, conda, or Python >= 3.11 and try again."
+    error "Install Python >= 3.11 and try again:  brew install python@3.11"
     exit 1
 }
 
+# Ensure config directory exists
+CONFIG_DIR="$HOME/.config/TermTube"
+if [[ ! -d "${CONFIG_DIR}" ]]; then
+    mkdir -p "${CONFIG_DIR}"
+    info "Created config directory at ${CONFIG_DIR}"
+fi
+
 # ── Symlink Installation ───────────────────────────────────────────────────
 header "Finishing up…"
-read -p "Install 'termtube' command to ${BIN_DIR}? [Y/n] " -n 1 -r
+read -r -p "Install 'termtube' command to ${BIN_DIR}? [Y/n] " -n 1
 echo
-if [[ $REPLY =~ ^[Nn]$ ]]; then
+if [[ "${REPLY}" =~ ^[Nn]$ ]]; then
     info "Skipping PATH installation."
     echo -e "\n${BOLD}Run TermTube manually:${RESET}  ${GREEN}${APP_DIR}/termtube${RESET}"
 else
     mkdir -p "${BIN_DIR}"
     ln -sf "${APP_DIR}/termtube" "${BIN_DIR}/termtube"
-    
+
     if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
         warn "${BIN_DIR} is not in your PATH."
-        info "To use the 'termtube' command globally, add this to your ~/.bashrc or ~/.zshrc:"
+        info "Add this to your ~/.bashrc or ~/.zshrc:"
         echo -e "  ${CYAN}export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}"
     else
         success "Symlinked termtube to ${BIN_DIR}/termtube"
         echo -e "\n${BOLD}Setup complete! Run it anywhere with:${RESET} ${GREEN}termtube${RESET}"
     fi
 fi
+
+echo ""
+info "Config: ${CONFIG_DIR}/config.yaml  (created on first run)"
+info "Cookies: place your cookies.txt at ${CONFIG_DIR}/cookies.txt"

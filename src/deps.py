@@ -1,6 +1,7 @@
 """Dependency checker — prompts user to install missing tools."""
 
 from __future__ import annotations
+
 import shutil
 import subprocess
 import sys
@@ -17,7 +18,7 @@ COOKIES_HELP = """
 \033[1;36mHow to get a cookies.txt file\033[0m
 \033[90m──────────────────────────────────────────────\033[0m
 
-\033[1mOption A — Browser extension (easiest)\033[0m
+\033[1mOption A — Browser extension (manual)\033[0m
 
   Chrome / Edge:
     Install "Get cookies.txt LOCALLY" from the Chrome Web Store
@@ -30,7 +31,7 @@ COOKIES_HELP = """
   Then visit youtube.com, click the extension icon,
   and export in Netscape format. Save to:
 
-    ~/Documents/TermTube/cookies.txt
+    ~/.config/TermTube/cookies.txt
 
 \033[90m──────────────────────────────────────────────\033[0m
 
@@ -39,7 +40,7 @@ COOKIES_HELP = """
   Run this once (fast, no video downloaded):
 
     yt-dlp --cookies-from-browser chrome \\
-           --cookies ~/Documents/TermTube/cookies.txt \\
+           --cookies ~/.config/TermTube/cookies.txt \\
            --skip-download --quiet --no-warnings \\
            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
@@ -47,9 +48,9 @@ COOKIES_HELP = """
 
 \033[90m──────────────────────────────────────────────\033[0m
 
-\033[1mOption C — Browser session (fallback)\033[0m
+\033[1mOption C — Browser session (simplest)\033[0m
 
-  Skip cookies.txt and set in TermTube.yaml:
+  Skip cookies.txt and set in ~/.config/TermTube/config.yaml:
 
     cookies_file: null
     browser: chrome
