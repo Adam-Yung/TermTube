@@ -203,7 +203,32 @@ class MainScreen(Screen):
         self.app.call_from_thread(panel.finish_loading)
         if collected_ids and view in ("home", "subscriptions", "search"):
             import src.ytdlp as ytdlp
-            ytdlp.enrich_in_background(collected_ids[:15], config, cache)
+            ytdlp.enrich_in_background(
+                collected_ids[:15], config, cache,
+                on_done=self._make_enrich_callback(panel),
+            )
+
+    def _make_enrich_callback(self, panel):
+        """Return an on_done callback for enrich_in_background.
+
+        The callback is invoked from a background thread and schedules UI
+        updates on the main thread via call_from_thread.
+        """
+        app = self.app
+        screen = self
+
+        def _on_done(vid: str, entry: dict) -> None:
+            app.call_from_thread(panel.update_entry_by_id, vid, entry)
+            app.call_from_thread(screen._maybe_refresh_detail, vid, entry)
+
+        return _on_done
+
+    def _maybe_refresh_detail(self, vid: str, entry: dict) -> None:
+        """Refresh detail panel metadata if vid is the currently displayed video."""
+        try:
+            self.query_one("#detail-panel", DetailPanel).refresh_metadata(entry)
+        except Exception:
+            pass
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp, collected_ids: list) -> None:
         fresh_ids = cache.get_feed(feed_key)
@@ -223,7 +248,10 @@ class MainScreen(Screen):
                     t = threading.Thread(target=self._background_refresh, args=(feed_key, ytdlp, config, cache), daemon=True)
                     t.start()
                     if collected_ids:
-                        ytdlp.enrich_in_background(collected_ids[:15], config, cache)
+                        ytdlp.enrich_in_background(
+                            collected_ids[:15], config, cache,
+                            on_done=self._make_enrich_callback(panel),
+                        )
                     return
                 cache.clear_feed(feed_key)
         gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
@@ -233,7 +261,10 @@ class MainScreen(Screen):
                 collected_ids.append(entry["id"])
         self.app.call_from_thread(panel.finish_loading)
         if collected_ids:
-            ytdlp.enrich_in_background(collected_ids[:15], config, cache)
+            ytdlp.enrich_in_background(
+                collected_ids[:15], config, cache,
+                on_done=self._make_enrich_callback(panel),
+            )
 
     @staticmethod
     def _background_refresh(feed_key: str, ytdlp, config, cache) -> None:
@@ -390,9 +421,10 @@ class MainScreen(Screen):
             except OSError:
                 pass
 
+        from src import history
+        history.add(entry)
+
         if not self._audio_stopped:
-            from src import history
-            history.add(entry)
             self.app.call_from_thread(self._on_audio_finished, entry)
 
     def _on_audio_finished(self, entry: dict) -> None:

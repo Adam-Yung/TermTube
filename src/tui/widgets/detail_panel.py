@@ -148,6 +148,32 @@ class DetailPanel(Widget):
         self._render_thumbnail_bg(vid, entry)
         if not desc and not vid.startswith("__"):
             self._fetch_full_meta_bg(vid, entry)
+    
+    def refresh_metadata(self, entry: dict) -> None:
+        """Refresh channel/stats/description from an enriched entry.
+
+        No-op if the entry is not the currently displayed video.
+        Does not re-render the thumbnail (avoids flicker on background enrichment).
+        """
+        if entry.get("id") != self._current_id:
+            return
+        self._last_entry = entry
+
+        channel = entry.get("uploader") or entry.get("channel") or ""
+        duration = _fmt_duration(entry.get("duration"))
+        views = _fmt_views(entry.get("view_count"))
+        age = _fmt_age(entry.get("upload_date"))
+
+        self.query_one("#video-channel", Static).update(
+            f"[#ff6666]📺 {channel}[/#ff6666]" if channel else ""
+        )
+        stats_parts = [p for p in [duration, views, age] if p]
+        self.query_one("#video-stats", Static).update(
+            "  [dim]·[/dim]  ".join(stats_parts)
+        )
+        desc = entry.get("description", "")
+        if desc:
+            self._set_description(desc)
 
     def _set_description(self, desc: str) -> None:
         desc = desc.strip()
@@ -209,7 +235,7 @@ class DetailPanel(Widget):
             # Cap at 55 cols — wider than that looks horizontally stretched
             # because the chafa render fills the width even if the image is narrower.
             cols = min(55, max(30, (self.size.width or 80) - 4))
-            rows = 18
+            rows = 25
             config = getattr(self.app, "config", None)
             ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
             self.app.call_from_thread(

@@ -318,6 +318,25 @@ class VideoListPanel(Widget):
         else:
             self.query_one("#list-loading", Static).update("")
 
+    def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
+        """Update a buffered entry and refresh its visible list item, if any.
+
+        Called via call_from_thread when background enrichment completes.
+        """
+        for i, buf in enumerate(self._buffer):
+            if buf.get("id") == vid_id:
+                self._buffer[i] = entry
+                break
+        lv = self.query_one("#list-view", ListView)
+        for item in lv._nodes:  # type: ignore[attr-defined]
+            if isinstance(item, VideoListItem) and item.entry.get("id") == vid_id:
+                item.entry = entry
+                try:
+                    item.query_one(Static).update(item._build_markup())
+                except Exception:
+                    pass
+                break
+
     def cursor_down(self) -> None:
         self.query_one("#list-view", ListView).action_cursor_down()
 

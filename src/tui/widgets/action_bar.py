@@ -7,12 +7,25 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 
+def _ac(key: str, label: str, col_width: int) -> str:
+    """Format one grid cell: key + label padded to col_width visible chars."""
+    pad = " " * max(0, col_width - (len(key) + 1 + len(label)))
+    return f"[bold #ff6666]{key}[/bold #ff6666] [dim]{label}[/dim]{pad}"
+
+
+# Column widths: col-1 = 16 (fits "⏎ Video actions"), col-2..4 = 11, col-5 = 0 (last)
 _ACTIONS_ROW1 = (
     "  [bold #ff6666]⏎[/bold #ff6666] [dim]Video actions[/dim]   "
     "[bold #ff6666]w[/bold #ff6666] [dim]Watch[/dim]   "
     "[bold #ff6666]l[/bold #ff6666] [dim]Listen[/dim]   "
     "[bold #ff6666]d[/bold #ff6666] [dim]DL Video[/dim]   "
     "[bold #ff6666]a[/bold #ff6666] [dim]DL Audio[/dim]"
+    "  "
+    + _ac("⏎", "Video actions", 16)
+    + _ac("w", "Watch",   11)
+    + _ac("l", "Listen",  11)
+    + _ac("d", "DL Video", 11)
+    + _ac("a", "DL Audio", 0)
 )
 _ACTIONS_ROW2 = (
     "  [bold #ff6666]s[/bold #ff6666] [dim]Subscribe[/dim]   "
@@ -20,7 +33,15 @@ _ACTIONS_ROW2 = (
     "[bold #ff6666]b[/bold #ff6666] [dim]Browser[/dim]   "
     "[bold #ff6666]r[/bold #ff6666] [dim]Refresh[/dim]   "
     "[bold #ff6666]?[/bold #ff6666] [dim]Help[/dim]"
+    "  "
+    + _ac("s", "Subscribe", 16)
+    + _ac("p", "Playlist",  11)
+    + _ac("b", "Browser",   11)
+    + _ac("r", "Refresh",   11)
+    + _ac("?", "Help",       0)
 )
+
+
 
 _NP_KEYS = (
     "[dim]spc[/dim] pause  "
