@@ -113,7 +113,8 @@ ThumbnailWidget {
     width: 100%;
     height: 100%;
     background: #050505;
-    content-align: center middle;
+    content-align: center middle;  /* Centers the chafa ANSI text */
+    align: center middle;          /* Centers the textual-image child widget */
 }
 
 /* textual-image widget: auto width lets it calculate the natural aspect ratio

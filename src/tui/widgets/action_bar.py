@@ -2,45 +2,46 @@
 
 from __future__ import annotations
 
+from rich.table import Table
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
 
-def _ac(key: str, label: str, col_width: int) -> str:
-    """Format one grid cell: key + label padded to col_width visible chars."""
-    pad = " " * max(0, col_width - (len(key) + 1 + len(label)))
-    return f"[bold #ff6666]{key}[/bold #ff6666] [dim]{label}[/dim]{pad}"
+def _get_actions_table() -> Table:
+    """Returns a borderless Rich Table to perfectly align shortcut columns."""
+    # Table.grid creates a layout table with no borders.
+    # padding=(0, 4) adds 4 spaces horizontally between columns.
+    table = Table.grid(padding=(0, 4))
+    
+    # We need 5 columns for our actions
+    for _ in range(5):
+        table.add_column()
 
+    # Helper functions to replicate the exact colors from your original CSS
+    def r1(k: str, v: str) -> str:
+        return f"[#cccccc][bold #ff6666]{k}[/bold #ff6666] [dim]{v}[/dim][/#cccccc]"
 
-# Column widths: col-1 = 16 (fits "⏎ Video actions"), col-2..4 = 11, col-5 = 0 (last)
-_ACTIONS_ROW1 = (
-    "  [bold #ff6666]⏎[/bold #ff6666] [dim]Video actions[/dim]   "
-    "[bold #ff6666]w[/bold #ff6666] [dim]Watch[/dim]   "
-    "[bold #ff6666]l[/bold #ff6666] [dim]Listen[/dim]   "
-    "[bold #ff6666]d[/bold #ff6666] [dim]DL Video[/dim]   "
-    "[bold #ff6666]a[/bold #ff6666] [dim]DL Audio[/dim]"
-    "  "
-    + _ac("⏎", "Video actions", 16)
-    + _ac("w", "Watch",   11)
-    + _ac("l", "Listen",  11)
-    + _ac("d", "DL Video", 11)
-    + _ac("a", "DL Audio", 0)
-)
-_ACTIONS_ROW2 = (
-    "  [bold #ff6666]s[/bold #ff6666] [dim]Subscribe[/dim]   "
-    "[bold #ff6666]p[/bold #ff6666] [dim]Playlist[/dim]   "
-    "[bold #ff6666]b[/bold #ff6666] [dim]Browser[/dim]   "
-    "[bold #ff6666]r[/bold #ff6666] [dim]Refresh[/dim]   "
-    "[bold #ff6666]?[/bold #ff6666] [dim]Help[/dim]"
-    "  "
-    + _ac("s", "Subscribe", 16)
-    + _ac("p", "Playlist",  11)
-    + _ac("b", "Browser",   11)
-    + _ac("r", "Refresh",   11)
-    + _ac("?", "Help",       0)
-)
+    def r2(k: str, v: str) -> str:
+        return f"[#888888][bold #ff6666]{k}[/bold #ff6666] [dim]{v}[/dim][/#888888]"
 
+    # Watch and Playlist are now vertically aligned in column 2, etc.
+    table.add_row(
+        r1("⏎", "Video actions"),
+        r1("w", "Watch"),
+        r1("l", "Listen"),
+        r1("d", "DL Video"),
+        r1("a", "DL Audio")
+    )
+    table.add_row(
+        r2("s", "Subscribe"),
+        r2("p", "Playlist"),
+        r2("b", "Browser"),
+        r2("r", "Refresh"),
+        r2("?", "Help")
+    )
+    
+    return table
 
 
 _NP_KEYS = (
@@ -82,7 +83,7 @@ class ActionBar(Widget):
       • Player mode   — embedded now-playing bar with full-width text progress bar
     """
 
-    _HEIGHT_ACTIONS = 7   # border(2) + margin-top(1) + row1(1) + row2(1) + slack(2)
+    _HEIGHT_ACTIONS = 7   # border(2) + margin-top(1) + table(2) + slack(2)
     _HEIGHT_PLAYER  = 10  # border(2) + margin-top(1) + title(1) + gap(1) + bar(1) + gap(1) + time(1) + keys(1) + slack(1)
 
     DEFAULT_CSS = """
@@ -96,8 +97,10 @@ class ActionBar(Widget):
         padding: 0 1;
     }
     ActionBar > Static { height: 1; }
-    #ab-row1 { margin-top: 1; color: #cccccc; }
-    #ab-row2 { color: #888888; }
+    
+    /* The action table requires height: 2 to accommodate both rows */
+    #ab-actions { height: 2; margin-top: 1; margin-left: 2; }
+    
     #np-title-line { margin-top: 1; color: #ffffff; }
     #np-bar-text   { margin-top: 1; color: #6666ff; }
     #np-time-line  { color: #666666; }
@@ -115,8 +118,9 @@ class ActionBar(Widget):
 
     def compose(self) -> ComposeResult:
         # ── Actions mode ──────────────────────────────────────────────────────
-        yield Static(_ACTIONS_ROW1, id="ab-row1", markup=True)
-        yield Static(_ACTIONS_ROW2, id="ab-row2", markup=True)
+        # Yield the Rich Table as a single Static widget
+        yield Static(_get_actions_table(), id="ab-actions")
+        
         # ── Player mode (initially hidden) ────────────────────────────────────
         yield Static("", id="np-title-line", markup=True)
         yield Static("", id="np-bar-text",   markup=True)   # text-based bar
@@ -155,8 +159,7 @@ class ActionBar(Widget):
     def _set_mode_actions(self) -> None:
         self.styles.height = self._HEIGHT_ACTIONS
         self.border_title = "Actions"
-        self.query_one("#ab-row1").display       = True
-        self.query_one("#ab-row2").display       = True
+        self.query_one("#ab-actions").display    = True
         self.query_one("#np-title-line").display = False
         self.query_one("#np-bar-text").display   = False
         self.query_one("#np-time-line").display  = False
@@ -165,8 +168,7 @@ class ActionBar(Widget):
     def _set_mode_player(self) -> None:
         self.styles.height = self._HEIGHT_PLAYER
         self.border_title = "Now Playing"
-        self.query_one("#ab-row1").display       = False
-        self.query_one("#ab-row2").display       = False
+        self.query_one("#ab-actions").display    = False
         self.query_one("#np-title-line").display = True
         self.query_one("#np-bar-text").display   = True
         self.query_one("#np-time-line").display  = True

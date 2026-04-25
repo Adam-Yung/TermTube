@@ -195,8 +195,8 @@ def render(video_id: str, entry: dict, *, cols: int = 38, rows: int = 20, config
     fmt = _chafa_format_for_tui(config)
 
     # Build chafa flags.
-    # --font-ratio=0.5   accounts for typical terminal font aspect (2:1 h:w),
-    #                    giving correct aspect ratio for the thumbnail.
+    # --font-ratio=0.5  accounts for typical terminal font aspect (2:1 h:w),
+    #                   giving correct aspect ratio for the thumbnail.
     # --color-extractor=average  better colour sampling than default.
     # --color-space=din99d       perceptual colour space: more accurate hues.
     # --optimize=3       maximum dithering quality.

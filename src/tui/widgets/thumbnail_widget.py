@@ -59,6 +59,7 @@ class ThumbnailWidget(Widget):
         background: #050505;
         width: 100%;
         height: 100%;
+        align: center middle;
     }
 
     #thumb-status {
@@ -71,6 +72,7 @@ class ThumbnailWidget(Widget):
     #thumb-image {
         width: 100%;
         height: 100%;
+        content-align: center middle;
     }
     """
 
