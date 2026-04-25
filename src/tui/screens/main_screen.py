@@ -141,7 +141,7 @@ class MainScreen(Screen):
         Binding("r",            "refresh",         "Refresh",     show=True),
         Binding("comma",        "settings",        "Settings",    show=True),
         Binding("q",            "quit_app",        "Quit",        show=True),
-        Binding("?",            "toggle_help",     "Help",        show=False),
+        Binding("?",            "toggle_help",     "Help",        show=True),
         Binding("ctrl+d",       "toggle_log",      "Debug",       show=False),
         # Page shortcuts — F1-F7
         Binding("f1",  "tab_home",      show=False), Binding("f2", "tab_subs",      show=False),
@@ -164,6 +164,7 @@ class MainScreen(Screen):
         self._audio_stopped = False
         self._audio_poll_timer = None
         self._audio_queue: list[dict] = []
+        self._audio_session: int = 0  # incremented per start; old workers bail if stale
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -226,7 +227,7 @@ class MainScreen(Screen):
     def _scheduled_home_refresh(self) -> None:
         """Silently refresh the home feed in the background every 10 minutes."""
         import src.ytdlp as ytdlp
-        
+
         # 1. Trigger the loading animation
         self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
         
@@ -395,6 +396,21 @@ class MainScreen(Screen):
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self.query_one("#detail-panel", DetailPanel).update_entry(message.entry)
+        self._refresh_queue_hint(message.entry)
+
+    def _refresh_queue_hint(self, focused_entry: dict | None = None) -> None:
+        """Update the action bar's queue hint based on what video is focused."""
+        try:
+            ab = self._action_bar()
+        except Exception:
+            return
+        if focused_entry is None:
+            focused_entry = self._selected_entry()
+        focused_id = focused_entry.get("id") if focused_entry else None
+        playing_id = self._audio_entry.get("id") if self._audio_entry else None
+        queued_ids = {e.get("id") for e in self._audio_queue}
+        hide_e = bool(focused_id and (focused_id == playing_id or focused_id in queued_ids))
+        ab.update_queue_hint(len(self._audio_queue), hide_e=hide_e)
 
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
         self.action_activate()
@@ -474,8 +490,11 @@ class MainScreen(Screen):
             return
         self._audio_entry = entry
         self._audio_stopped = False
-        self._action_bar().set_player_mode(entry)
-        self._launch_audio_worker(entry, ytdl_format=ytdl_format)
+        self._audio_session += 1
+        session = self._audio_session
+        self._action_bar().set_player_mode(entry, queue_len=len(self._audio_queue))
+        self._refresh_queue_hint()
+        self._launch_audio_worker(entry, session, ytdl_format=ytdl_format)
         self._audio_poll_timer = self.set_interval(0.5, self._poll_audio_ipc)
 
     def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
@@ -500,9 +519,12 @@ class MainScreen(Screen):
             pass
 
     @work(thread=True, exclusive=True, group="audio_player")
-    def _launch_audio_worker(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def _launch_audio_worker(self, entry: dict, session: int, *, ytdl_format: str = "") -> None:
         from src import player as player_mod
-        import tempfile
+
+        # Bail if a newer session already started (e.g. user skipped before we ran)
+        if self._audio_stopped or session != self._audio_session:
+            return
 
         vid = entry.get("id", "")
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
@@ -546,7 +568,8 @@ class MainScreen(Screen):
         from src import history
         history.add(entry)
 
-        if not self._audio_stopped:
+        # Only fire finished callback if this session is still the active one
+        if not self._audio_stopped and session == self._audio_session:
             self.app.call_from_thread(self._on_audio_finished, entry)
 
     def _on_audio_finished(self, entry: dict) -> None:
@@ -560,8 +583,7 @@ class MainScreen(Screen):
             next_entry = self._audio_queue.pop(0)
             if title:
                 self.notify(f"✓ {title[:40]}", timeout=3)
-            self._start_audio(next_entry)
-            self._action_bar().update_queue_hint(len(self._audio_queue))
+            self._start_audio(next_entry)  # _start_audio calls _refresh_queue_hint
         else:
             self._action_bar().set_actions_mode()
             if title:
@@ -788,15 +810,14 @@ class MainScreen(Screen):
         self._audio_queue.append(entry)
         title = entry.get("title", "video")[:40]
         self.notify(f"Added to queue: {title}", timeout=3)
-        self._action_bar().update_queue_hint(len(self._audio_queue))
+        self._refresh_queue_hint()
 
     def action_audio_skip(self) -> None:
         if not self._audio_playing or not self._audio_queue:
             return
         next_entry = self._audio_queue.pop(0)
         self._stop_audio(keep_player_mode=True)
-        self._start_audio(next_entry)
-        self._action_bar().update_queue_hint(len(self._audio_queue))
+        self._start_audio(next_entry)  # _start_audio calls _refresh_queue_hint
 
     def action_browser(self) -> None:
         entry = self._selected_entry()

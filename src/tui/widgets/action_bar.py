@@ -27,11 +27,11 @@ def _get_actions_table() -> Table:
         r1("a", "DL Audio")
     )
     table.add_row(
+        r2("y", "Copy URL"),
         r2("s", "Subscribe"),
         r2("p", "Playlist"),
         r2("b", "Browser"),
-        r2("r", "Refresh"),
-        r2("?", "Help")
+        r2("r", "Refresh")
     )
 
     return table
@@ -68,13 +68,14 @@ def _text_bar(pos: float, dur: float, width: int) -> str:
     )
 
 
-def _queue_hint(queue_len: int) -> str:
-    if queue_len > 0:
-        return (
-            f"[bold #ff6666]e[/bold #ff6666] [dim]add to queue[/dim]  "
-            f"[bold #ff6666]>[/bold #ff6666] [dim]skip to next  ({queue_len} queued)[/dim]"
-        )
-    return "[bold #ff6666]e[/bold #ff6666] [dim]add to queue[/dim]"
+def _queue_hint(queue_len: int, hide_e: bool = False) -> str:
+    e_part = "" if hide_e else "[bold #ff6666]e[/bold #ff6666] [dim]add to queue[/dim]"
+    skip_part = (
+        f"[bold #ff6666]>[/bold #ff6666] [dim]skip to next  ({queue_len} queued)[/dim]"
+        if queue_len > 0 else ""
+    )
+    parts = [p for p in (e_part, skip_part) if p]
+    return "  ".join(parts)
 
 
 class ActionBar(Widget):
@@ -155,12 +156,12 @@ class ActionBar(Widget):
         self._paused = paused
         self._refresh_player()
 
-    def update_queue_hint(self, queue_len: int) -> None:
+    def update_queue_hint(self, queue_len: int, *, hide_e: bool = False) -> None:
         """Update the queue hint line while staying in player mode."""
         if not self._playing:
             return
         self._queue_len = queue_len
-        self.query_one("#np-queue-line", Static).update(_queue_hint(queue_len))
+        self.query_one("#np-queue-line", Static).update(_queue_hint(queue_len, hide_e=hide_e))
 
     # ── Private ───────────────────────────────────────────────────────────────
 
@@ -183,7 +184,7 @@ class ActionBar(Widget):
         self.query_one("#np-time-line").display  = True
         self.query_one("#np-keys").display       = True
         self.query_one("#np-queue-line").display = True
-        self.query_one("#np-queue-line", Static).update(_queue_hint(self._queue_len))
+        self.query_one("#np-queue-line", Static).update("")
         self._refresh_player()
 
     def _refresh_player(self) -> None:
