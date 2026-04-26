@@ -131,7 +131,7 @@ class DetailPanel(Widget):
             f"[bold white]{title}[/bold white]"
         )
         self.query_one("#video-channel", Static).update(
-            f"[#ff6666]📺 {channel}[/#ff6666]" if channel else ""
+            f"📺 {channel}" if channel else ""
         )
 
         stats_parts = [p for p in [duration, views, age] if p]
@@ -165,7 +165,7 @@ class DetailPanel(Widget):
         age = _fmt_age(entry.get("upload_date"))
 
         self.query_one("#video-channel", Static).update(
-            f"[#ff6666]📺 {channel}[/#ff6666]" if channel else ""
+            f"📺 {channel}" if channel else ""
         )
         stats_parts = [p for p in [duration, views, age] if p]
         self.query_one("#video-stats", Static).update(

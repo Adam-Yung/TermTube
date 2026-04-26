@@ -94,7 +94,7 @@ class MainScreen(Screen):
       • Nav tabs + streaming video feeds (left panel)
       • Detail panel with thumbnail, metadata, embedded audio player (right panel)
       • Audio playback state — mpv runs in background, never blocks the TUI
-      • Video playback via app.suspend() for clean terminal handoff
+      • Video playback via WatchModal for seamless progress tracking
     """
 
     BINDINGS = [
@@ -667,13 +667,16 @@ class MainScreen(Screen):
         from src.player import send_ipc_command
         send_ipc_command(cmd, socket_path=_AUDIO_SOCKET)
 
-    # ── Video playback ────────────────────────────────────────────────────────
+    # ── Video playback (Delegates to WatchModal) ──────────────────────────────
 
     def action_watch(self) -> None:
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        self._watch_video(entry)
+        
+        # Open our new modal seamlessly
+        from src.tui.screens.watch_modal import WatchModal
+        self.app.push_screen(WatchModal(entry))
 
     def action_watch_quality(self) -> None:
         entry = self._selected_entry()
@@ -683,31 +686,11 @@ class MainScreen(Screen):
 
         def on_fmt(fmt: str | None) -> None:
             if fmt is not None:
-                self._watch_video(entry, ytdl_format=fmt)
+                from src.tui.screens.watch_modal import WatchModal
+                self.app.push_screen(WatchModal(entry, ytdl_format=fmt))
 
         self.app.push_screen(QualityModal(audio_only=False), on_fmt)
 
-    @work(thread=True, exclusive=True, group="player")
-    def _watch_video(self, entry: dict, *, ytdl_format: str = "") -> None:
-        from src import history, player
-
-        vid = entry.get("id", "")
-        if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
-            self.app.cache.suppress_video(vid)
-            
-        url: str = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
-        title: str = entry.get("title", "")
-        cookie_args = self.app.config.cookie_args
-
-        player.play(
-            url,
-            audio_only=False,
-            title=title,
-            ytdl_format=ytdl_format,
-            cookie_args=cookie_args,
-        )
-        history.add(entry)
-        self.app.call_from_thread(self.notify, f"✓ Finished: {title[:50]}", timeout=4)
 
     # ── Download ──────────────────────────────────────────────────────────────
 

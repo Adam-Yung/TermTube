@@ -1,4 +1,4 @@
-"""NowPlayingModal — in-TUI audio player with progress bar and seek controls."""
+"""WatchModal — in-TUI video player popup with progress tracking."""
 
 from __future__ import annotations
 
@@ -22,10 +22,10 @@ def _fmt_secs(s: float) -> str:
     return f"{m}:{sec:02d}"
 
 
-class NowPlayingModal(ModalScreen[bool]):
+class WatchModal(ModalScreen[bool]):
     """
-    Audio player screen: launches mpv headless with IPC, shows a live progress
-    bar, and handles keyboard seek/pause/stop without suspending the TUI.
+    Video watch screen: launches mpv (with video visible), shows a live progress
+    bar in the TUI, and handles keyboard seek/pause/stop via IPC.
     """
 
     BINDINGS = [
@@ -50,7 +50,7 @@ class NowPlayingModal(ModalScreen[bool]):
         Binding("escape", "stop",          "Stop",         show=False),
     ]
 
-    _SOCKET = "/tmp/termtube-mpv-audio.sock"
+    _SOCKET = "/tmp/termtube-mpv-video.sock"
 
     def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
         super().__init__()
@@ -62,8 +62,8 @@ class NowPlayingModal(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or "Unknown"
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
-        with Vertical(id="now-playing-dialog"):
-            yield Static("🎵  Now Playing", id="np-header")
+        with Vertical(id="watch-dialog"):
+            yield Static("📺  Now playing in mpv", id="np-header")
             yield Static(f"[bold white]{title}[/bold white]", id="np-title", markup=True)
             if channel:
                 yield Static(channel, id="np-channel")
@@ -80,29 +80,33 @@ class NowPlayingModal(ModalScreen[bool]):
             )
 
     def on_mount(self) -> None:
-        self._launch_audio()
+        self._launch_video()
         self.set_interval(0.5, self._poll_mpv)
 
     # ── Background mpv launcher ───────────────────────────────────────────────
 
-    @work(thread=True, exclusive=True, group="audio_player")
-    def _launch_audio(self) -> None:
+    @work(thread=True, exclusive=True, group="video_player")
+    def _launch_video(self) -> None:
         from src import player as player_mod
 
         vid = self._entry.get("id", "")
+        if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
+            self.app.cache.suppress_video(vid)
+
         url = (
             self._entry.get("_local_path")
             or f"https://www.youtube.com/watch?v={vid}"
         )
         title = self._entry.get("title", "")
-        cookie_args = self.app.config.cookie_args  # type: ignore[attr-defined]
+
+        config = getattr(self.app, "config", None)
+        cookie_args = config.cookie_args if config else []
 
         input_conf = player_mod._write_input_conf()
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
             f"--input-ipc-server={self._SOCKET}",
-            "--no-video",
             "--no-terminal",
             "--really-quiet",
             "--msg-level=all=no",
@@ -111,7 +115,7 @@ class NowPlayingModal(ModalScreen[bool]):
             cmd += [f"--title={title}"]
         if self._ytdl_format:
             cmd += [f"--ytdl-format={self._ytdl_format}"]
-        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
+        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
         if ytdl_raw:
             cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
@@ -146,13 +150,21 @@ class NowPlayingModal(ModalScreen[bool]):
                 except OSError:
                     pass
 
+        # Write history only after successful playback ends
+        from src import history
+        history.add(self._entry)
+
         if not self._stopped:
             self.app.call_from_thread(self.dismiss, True)
+            if title:
+                self.app.call_from_thread(
+                    self.app.notify, f"✓ Finished: {title[:50]}", timeout=4
+                )
 
     # ── IPC polling ───────────────────────────────────────────────────────────
 
     def _poll_mpv(self) -> None:
-        # Auto-dismiss if mpv process exits unexpectedly
+        # Auto-dismiss if the user manually closes the external mpv window
         if self._proc and self._proc.poll() is not None:
             if not self._stopped:
                 self._stopped = True
@@ -164,13 +176,16 @@ class NowPlayingModal(ModalScreen[bool]):
         pos, dur, paused = poll_audio_properties(socket_path=self._SOCKET)
         if pos is not None and dur and float(dur) > 0:
             frac = min(float(pos) / float(dur), 1.0)
-            self.query_one("#np-progress", ProgressBar).update(
-                progress=int(frac * 1000)
-            )
-            pause_indicator = "  ⏸ paused" if paused else ""
-            self.query_one("#np-time", Static).update(
-                f"{_fmt_secs(float(pos))}  /  {_fmt_secs(float(dur))}{pause_indicator}"
-            )
+            try:
+                self.query_one("#np-progress", ProgressBar).update(
+                    progress=int(frac * 1000)
+                )
+                pause_indicator = "  ⏸ paused" if paused else ""
+                self.query_one("#np-time", Static).update(
+                    f"{_fmt_secs(float(pos))}  /  {_fmt_secs(float(dur))}{pause_indicator}"
+                )
+            except Exception:
+                pass
 
     # ── IPC helper ────────────────────────────────────────────────────────────
 
