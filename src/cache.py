@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 import json
+import os
+import threading
 import time
 from pathlib import Path
 
 CACHE_DIR = Path.home() / ".cache" / "termtube"
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
+
+_SUPPRESSED_PATH = CACHE_DIR / "suppressed.json"
+
+# Lock protecting all cache file writes so concurrent enrichment threads don't
+# interleave partial writes on the same file.
+_write_lock = threading.Lock()
 
 
 def _ensure_dirs() -> None:
@@ -18,9 +26,26 @@ def _ensure_dirs() -> None:
 _ensure_dirs()
 
 
+def _atomic_write(path: Path, text: str) -> None:
+    """Write text to path atomically via a tmp file + os.replace()."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 class Cache:
     def __init__(self, ttl_map: dict[str, int]) -> None:
         self._ttl = ttl_map  # e.g. {"home": 3600, "metadata": 86400}
+        self._suppressed: set[str] = set()
+        self._focus_counts: dict[str, int] = {}
+        self._suppression_loaded = False
+        self._suppression_lock = threading.Lock()
 
     # ── Video metadata ────────────────────────────────────────────────────────
 
@@ -44,10 +69,8 @@ class Cache:
             return
         entry["_cached_at"] = time.time()
         path = VIDEO_DIR / f"{vid}.json"
-        try:
-            path.write_text(json.dumps(entry, ensure_ascii=False))
-        except OSError:
-            pass
+        with _write_lock:
+            _atomic_write(path, json.dumps(entry, ensure_ascii=False))
 
     def get_video_raw(self, video_id: str) -> dict | None:
         """Get cached entry regardless of TTL (used by preview script)."""
@@ -93,10 +116,8 @@ class Cache:
 
     def put_feed(self, key: str, ids: list[str]) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
-        try:
-            path.write_text(json.dumps({"_cached_at": time.time(), "ids": ids}))
-        except OSError:
-            pass
+        with _write_lock:
+            _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
 
     # ── Thumbnails ────────────────────────────────────────────────────────────
 
@@ -105,6 +126,59 @@ class Cache:
 
     def has_thumb(self, video_id: str) -> bool:
         return self.thumb_path(video_id).exists()
+
+    # ── Home feed suppression ─────────────────────────────────────────────────
+
+    def _load_suppressed(self) -> None:
+        """Load suppression set from disk (once per process)."""
+        with self._suppression_lock:
+            if self._suppression_loaded:
+                return
+            self._suppression_loaded = True
+            if not _SUPPRESSED_PATH.exists():
+                return
+            try:
+                data = json.loads(_SUPPRESSED_PATH.read_text())
+                self._suppressed = set(data.get("ids", []))
+                self._focus_counts = {k: v for k, v in data.get("focus_counts", {}).items()}
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    def _save_suppressed(self) -> None:
+        with _write_lock:
+            _atomic_write(
+                _SUPPRESSED_PATH,
+                json.dumps({
+                    "ids": list(self._suppressed),
+                    "focus_counts": self._focus_counts,
+                }, ensure_ascii=False),
+            )
+
+    def register_focus(self, video_id: str) -> None:
+        """Increment focus count for a video; suppress after 3 focuses.
+
+        Counts are accumulated in memory and only flushed to disk when the
+        suppression threshold is crossed — no disk I/O on every cursor move.
+        """
+        self._load_suppressed()
+        if video_id in self._suppressed:
+            return
+        count = self._focus_counts.get(video_id, 0) + 1
+        self._focus_counts[video_id] = count
+        if count >= 3:
+            self._suppressed.add(video_id)
+            self._save_suppressed()  # only write when threshold is crossed
+
+    def suppress_video(self, video_id: str) -> None:
+        """Immediately suppress a video (e.g. after listening to it)."""
+        self._load_suppressed()
+        if video_id not in self._suppressed:
+            self._suppressed.add(video_id)
+            self._save_suppressed()
+
+    def is_suppressed(self, video_id: str) -> bool:
+        self._load_suppressed()
+        return video_id in self._suppressed
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -118,3 +192,15 @@ class Cache:
             f.unlink(missing_ok=True)
         for f in VIDEO_DIR.glob("*.json"):
             f.unlink(missing_ok=True)
+        for f in THUMB_DIR.glob("*.jpg"):
+            f.unlink(missing_ok=True)
+
+    def prune_old_thumbnails(self, max_age_days: int = 30) -> None:
+        """Delete thumbnail files older than max_age_days to reclaim disk space."""
+        cutoff = time.time() - max_age_days * 86400
+        for f in THUMB_DIR.glob("*.jpg"):
+            try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass

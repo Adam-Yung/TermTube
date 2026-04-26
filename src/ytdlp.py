@@ -80,8 +80,7 @@ def _best_thumb_url(entry: dict) -> str:
     return entry.get("thumbnail", "")
 
 
-import re as _re
-_VIDEO_ID_RE = _re.compile(r'^[A-Za-z0-9_-]{11}$')
+_VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
 
 def _is_playable_video(entry: dict) -> bool:

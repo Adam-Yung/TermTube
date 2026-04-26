@@ -1,8 +1,6 @@
 ** TODOS **
 * suggest other UI, UX and performance and stability improvements to my terminal youtube app.  Raise any concerns with me, suggest fixes and workarounds, and discuss them with me, rewriting/updating the roadmap with me, and then we'll implement them one by one.
 *Add a popup centerstage in the main termtube window when watching video in mpv, showing the video progress and the text "Playing Video in MPV Window", also allow pressing q in the termtube window to stop the mpv video.  Doing that will close the popup
-* add a 'y' button shortcut to copy video url.
-* when already listening to a video track, add a shortcut with 'e' to allow user to queue the currently focused video (provided it's different from the one now playing) for playing once the current audio finishes.  Add > for skip to next track if there's a video in queue, show those shortcuts in the action window or now playing window when they are available.
 
 
 ** Tentatively Completed **
@@ -16,3 +14,6 @@ having a cache for the home page is crucial, but I want videos to be removed fro
 6. add beautiful modern looking animated  loading UI whenever we are fetching videos (on home screen when no cached results or TMPDIR file is empty, or in search page etc.) to populate the list in the left video list panel
 7. reimagine the top header to be more useful and beautiful, also remove the images tgp text, and turn the clock into a green/yellow dot showing token is valid or not.  add a field in the settings page to create new token with the yt-dlp command
 8. add settings ',' shortcut key next to quit in the bottom, and remove the watch and listen hints since they're covered in the action window. just show search, refresh, settings and quit
+9. add a 'y' button shortcut to copy video url.
+10. when already listening to a video track, add a shortcut with 'e' to allow user to queue the currently focused video (provided it's different from the one now playing) for playing once the current audio finishes.  Add > for skip to next track if there's a video in queue, show those shortcuts in the action window or now playing window when they are available.
+

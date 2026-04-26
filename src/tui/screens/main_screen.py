@@ -54,25 +54,22 @@ class AppHeader(Widget):
         self.query_one("#header-clock", Static).update(f"[dim]⌚ {now}[/dim]")
 
     def _animate_spinner(self) -> None:
-        status_widget = self.query_one("#header-status", Static)
-        if self._state == "LOADING":
-            char = self._SPINNER[self._frame % len(self._SPINNER)]
-            # Using your theme's crimson red for the spinner, but you can change this!
-            status_widget.update(f"[#ff6666]{char}[/#ff6666]")
-            self._frame += 1
-        elif self._state == "ERROR":
-            status_widget.update("[bold #ff4444]✗[/bold #ff4444]")
-        else:
-            status_widget.update("")  # IDLE state hides it completely
+        if self._state != "LOADING":
+            return  # IDLE/ERROR states are written once on transition; skip redundant updates
+        char = self._SPINNER[self._frame % len(self._SPINNER)]
+        self.query_one("#header-status", Static).update(f"[#ff6666]{char}[/#ff6666]")
+        self._frame += 1
 
     def set_status_loading(self) -> None:
         self._state = "LOADING"
 
     def set_status_idle(self) -> None:
         self._state = "IDLE"
+        self.query_one("#header-status", Static).update("")
 
     def set_status_error(self) -> None:
         self._state = "ERROR"
+        self.query_one("#header-status", Static).update("[bold #ff4444]✗[/bold #ff4444]")
 
 
 # ── Tab definitions ────────────────────────────────────────────────────────────
@@ -186,8 +183,6 @@ class MainScreen(Screen):
         # Background refresh home feed every 10 minutes (600 seconds)
         self.set_interval(600.0, self._scheduled_home_refresh)
 
-    # ... (Rest of MainScreen methods remain exactly the same)
-
     # ── Tab switching ─────────────────────────────────────────────────────────
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
@@ -251,21 +246,19 @@ class MainScreen(Screen):
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str) -> None:
         panel = self.query_one("#video-list-panel", VideoListPanel)
-        
-        # 1. Trigger the loading animation
+
         self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
-        
+
         app = self.app
         config = app.config
         cache = app.cache
-        collected_ids: list[str] = []
 
         # sync_handled: True when the sub-method already called finish_loading
         sync_handled = False
         try:
             if view in ("home", "subscriptions"):
                 import src.ytdlp as ytdlp
-                self._stream_feed(view, panel, config, cache, ytdlp, collected_ids)
+                self._stream_feed(view, panel, config, cache, ytdlp)
             elif view == "search":
                 if not self._search_query:
                     self.app.call_from_thread(panel.set_empty_message, "Press / to search")
@@ -274,8 +267,6 @@ class MainScreen(Screen):
                 import src.ytdlp as ytdlp
                 for entry in ytdlp.stream_search(self._search_query, config, cache):
                     self.app.call_from_thread(panel.append_entry, entry)
-                    if entry.get("id"):
-                        collected_ids.append(entry["id"])
             elif view == "history":
                 from src import history as hist
                 for entry in hist.iter_entries():
@@ -300,12 +291,6 @@ class MainScreen(Screen):
         self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
         if not sync_handled:
             self.app.call_from_thread(panel.finish_loading)
-        if collected_ids and view in ("home", "subscriptions", "search"):
-            import src.ytdlp as ytdlp
-            ytdlp.enrich_in_background(
-                collected_ids[:20], config, cache,
-                on_done=self._make_enrich_callback(panel),
-            )
 
     def _make_enrich_callback(self, panel):
         app = self.app
@@ -323,10 +308,10 @@ class MainScreen(Screen):
         except Exception:
             pass
 
-    def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp, collected_ids: list) -> None:
-        """Populate `collected_ids` and append entries to panel. Cleanup is caller's responsibility."""
+    def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp) -> None:
+        """Stream a home/subscriptions feed into panel."""
         fresh_ids = cache.get_feed(feed_key)
-        is_suppressed = getattr(cache, "is_suppressed", lambda x: False)
+        is_suppressed = cache.is_suppressed
 
         if fresh_ids is None:
             stale_ids = cache.get_feed_stale(feed_key)
@@ -338,13 +323,15 @@ class MainScreen(Screen):
                     entry = cache.get_video_raw(vid_id)
                     if entry:
                         self.app.call_from_thread(panel.append_entry, entry)
-                        collected_ids.append(vid_id)
                         count += 1
 
                 if count >= _MIN_FEED_COUNT:
-                    self.app.call_from_thread(self.notify, "Showing cached results — refreshing in background…", timeout=3)
-                    t = threading.Thread(target=self._background_refresh, args=(feed_key, ytdlp, config, cache), daemon=True)
-                    t.start()
+                    self.app.call_from_thread(
+                        self.notify,
+                        "Showing cached results — refreshing in background…",
+                        timeout=3,
+                    )
+                    self._background_refresh_worker(feed_key)
                     return
             cache.clear_feed(feed_key)
 
@@ -354,17 +341,19 @@ class MainScreen(Screen):
             if feed_key == "home" and vid_id and is_suppressed(vid_id):
                 continue
             self.app.call_from_thread(panel.append_entry, entry)
-            if vid_id:
-                collected_ids.append(vid_id)
 
-    @staticmethod
-    def _background_refresh(feed_key: str, ytdlp, config, cache) -> None:
+    @work(thread=True, group="bg_refresh")
+    def _background_refresh_worker(self, feed_key: str) -> None:
+        """Silently refetch a feed in the background after serving stale cache."""
+        import src.ytdlp as ytdlp
         try:
-            cache.clear_feed(feed_key)
-            for _ in ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key):
+            self.app.cache.clear_feed(feed_key)
+            for _ in ytdlp.stream_flat(
+                ytdlp.FEED_URLS[feed_key], self.app.config, self.app.cache, feed_key=feed_key
+            ):
                 pass
-        except Exception:
-            pass
+        except Exception as exc:
+            self.app.call_from_thread(self._log, f"[dim]Background refresh failed: {exc}[/dim]")
 
     def _load_playlists_sync(self, panel) -> None:
         from src import playlist
@@ -557,8 +546,24 @@ class MainScreen(Screen):
         cmd += ["--", url]
 
         try:
-            self._audio_proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._audio_proc = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
             self._audio_proc.wait()
+        except FileNotFoundError:
+            self.app.call_from_thread(
+                self.notify,
+                "mpv not found — install with: brew install mpv",
+                severity="error",
+            )
+            self.app.call_from_thread(self._stop_audio)
+            return
+        except OSError as exc:
+            self.app.call_from_thread(
+                self.notify, f"Failed to launch mpv: {exc}", severity="error"
+            )
+            self.app.call_from_thread(self._stop_audio)
+            return
         finally:
             try:
                 os.unlink(input_conf)
@@ -592,12 +597,10 @@ class MainScreen(Screen):
     def _poll_audio_ipc(self) -> None:
         if not self._audio_playing:
             return
-        from src.player import get_ipc_property
-        pos = get_ipc_property("time-pos", socket_path=_AUDIO_SOCKET)
-        dur = get_ipc_property("duration", socket_path=_AUDIO_SOCKET)
-        paused = get_ipc_property("pause", socket_path=_AUDIO_SOCKET) is True
+        from src.player import poll_audio_properties
+        pos, dur, paused = poll_audio_properties(socket_path=_AUDIO_SOCKET)
         if pos is not None and dur is not None:
-            self._action_bar().update_progress(float(pos), float(dur), paused)
+            self._action_bar().update_progress(pos, dur, paused)
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal

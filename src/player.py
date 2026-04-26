@@ -105,6 +105,62 @@ def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
     return None
 
 
+def poll_audio_properties(
+    *, socket_path: str = IPC_SOCKET
+) -> tuple[float | None, float | None, bool]:
+    """Return (time_pos, duration, is_paused) in a single socket connection.
+
+    Batches all three get_property requests into one Unix socket lifecycle,
+    reducing overhead from 3 connect/send/recv/close cycles to one.
+    """
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(1.0)
+        s.connect(socket_path)
+        for i, prop in enumerate(("time-pos", "duration", "pause")):
+            s.sendall(
+                (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
+            )
+        data = b""
+        results: dict[int, dict] = {}
+        try:
+            while len(results) < 3:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+                *complete_lines, data = data.split(b"\n")
+                for raw in complete_lines:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        resp = json.loads(raw)
+                        rid = resp.get("request_id")
+                        if rid is not None:
+                            results[rid] = resp
+                    except json.JSONDecodeError:
+                        pass
+        except socket.timeout:
+            pass
+        s.close()
+
+        def _val(rid: int) -> Any:
+            r = results.get(rid, {})
+            return r.get("data") if r.get("error") == "success" else None
+
+        pos = _val(0)
+        dur = _val(1)
+        paused = _val(2)
+        return (
+            float(pos) if pos is not None else None,
+            float(dur) if dur is not None else None,
+            paused is True,
+        )
+    except (OSError, ConnectionRefusedError, FileNotFoundError):
+        return None, None, False
+
+
 def is_playing(*, socket_path: str = IPC_SOCKET) -> bool:
     """Return True if mpv is active and not paused."""
     paused = get_ipc_property("pause", socket_path=socket_path)
