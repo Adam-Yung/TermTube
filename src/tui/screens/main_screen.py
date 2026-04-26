@@ -80,7 +80,7 @@ _TABS = [
     ("history", "🕐 History"),
     ("library", "📁 Library"),
     ("playlists", "🎵 Playlists"),
-    ("help", "❓ Help"),
+    ("help", "📚 Help"),
 ]
 
 _MIN_FEED_COUNT = 15
