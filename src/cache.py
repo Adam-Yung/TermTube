@@ -1,6 +1,7 @@
 """Disk-based cache with per-key TTL."""
 
 from __future__ import annotations
+
 import json
 import os
 import threading
@@ -140,7 +141,9 @@ class Cache:
             try:
                 data = json.loads(_SUPPRESSED_PATH.read_text())
                 self._suppressed = set(data.get("ids", []))
-                self._focus_counts = {k: v for k, v in data.get("focus_counts", {}).items()}
+                self._focus_counts = {
+                    k: v for k, v in data.get("focus_counts", {}).items()
+                }
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -148,10 +151,13 @@ class Cache:
         with _write_lock:
             _atomic_write(
                 _SUPPRESSED_PATH,
-                json.dumps({
-                    "ids": list(self._suppressed),
-                    "focus_counts": self._focus_counts,
-                }, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "ids": list(self._suppressed),
+                        "focus_counts": self._focus_counts,
+                    },
+                    ensure_ascii=False,
+                ),
             )
 
     def register_focus(self, video_id: str) -> None:
@@ -200,6 +206,17 @@ class Cache:
         cutoff = time.time() - max_age_days * 86400
         for f in THUMB_DIR.glob("*.jpg"):
             try:
+                if f.stat().st_mtime < cutoff:
+                    f.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def prune_old_videos(self, max_age_days: int = 7) -> None:
+        """Delete video JSON files older than max_age_days to reclaim disk space."""
+        cutoff = time.time() - max_age_days * 86400
+        for f in VIDEO_DIR.glob("*.json"):
+            try:
+                # Use file modification time to quickly identify stale cache
                 if f.stat().st_mtime < cutoff:
                     f.unlink(missing_ok=True)
             except OSError:

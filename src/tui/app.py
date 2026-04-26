@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from textual.app import App, ComposeResult
@@ -35,5 +36,18 @@ class TermTubeApp(App):
         if theme in _VALID_THEMES and theme != "crimson":
             self.add_class(f"theme-{theme}")
 
+        # Silently clean up old cache files in the background to prevent disk bloat
+        threading.Thread(target=self._run_housekeeping, daemon=True).start()
+
         from src.tui.screens.main_screen import MainScreen
+
         self.push_screen(MainScreen())
+
+    def _run_housekeeping(self) -> None:
+        """Background task to prune stale files from the cache directories."""
+        try:
+            # Keep thumbnails for 14 days, but prune heavy video JSONs after 7 days
+            self.cache.prune_old_thumbnails(max_age_days=14)
+            self.cache.prune_old_videos(max_age_days=7)
+        except Exception:
+            pass  # Fail silently so it never crashes the TUI

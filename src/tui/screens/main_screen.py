@@ -26,15 +26,15 @@ if TYPE_CHECKING:
 
 # ── Custom Header ─────────────────────────────────────────────────────────────
 
+
 class AppHeader(Widget):
     """Modern custom header: Clock (Left), Title (Center), Animated Status (Right)."""
-    
-    # Modern Braille spinner animation frames
+
     _SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._state = "IDLE"  # Can be "IDLE", "LOADING", or "ERROR"
+        self._state = "IDLE"
         self._frame = 0
 
     def compose(self) -> ComposeResult:
@@ -45,7 +45,6 @@ class AppHeader(Widget):
 
     def on_mount(self) -> None:
         self.set_interval(1.0, self._update_clock)
-        # 0.1s interval makes for a smooth, modern spinner animation
         self.set_interval(0.1, self._animate_spinner)
         self._update_clock()
 
@@ -55,9 +54,9 @@ class AppHeader(Widget):
 
     def _animate_spinner(self) -> None:
         if self._state != "LOADING":
-            return  # IDLE/ERROR states are written once on transition; skip redundant updates
+            return
         char = self._SPINNER[self._frame % len(self._SPINNER)]
-        self.query_one("#header-status", Static).update(f"[#ff6666]{char}[/#ff6666]")
+        self.query_one("#header-status", Static).update(char)
         self._frame += 1
 
     def set_status_loading(self) -> None:
@@ -69,19 +68,19 @@ class AppHeader(Widget):
 
     def set_status_error(self) -> None:
         self._state = "ERROR"
-        self.query_one("#header-status", Static).update("[bold #ff4444]✗[/bold #ff4444]")
+        self.query_one("#header-status", Static).update("✗")
 
 
 # ── Tab definitions ────────────────────────────────────────────────────────────
 
 _TABS = [
-    ("home",          "🏠 Home"),
+    ("home", "🏠 Home"),
     ("subscriptions", "📺 Subscriptions"),
-    ("search",        "🔍 Search"),
-    ("history",       "🕐 History"),
-    ("library",       "📁 Library"),
-    ("playlists",     "🎵 Playlists"),
-    ("help",          "❓ Help"),
+    ("search", "🔍 Search"),
+    ("history", "🕐 History"),
+    ("library", "📁 Library"),
+    ("playlists", "🎵 Playlists"),
+    ("help", "❓ Help"),
 ]
 
 _MIN_FEED_COUNT = 15
@@ -99,52 +98,60 @@ class MainScreen(Screen):
 
     BINDINGS = [
         # List navigation
-        Binding("j",            "cursor_down",     "Down",        show=False),
-        Binding("k",            "cursor_up",       "Up",          show=False),
-        Binding("g",            "cursor_top",      "Top",         show=False),
-        Binding("G",            "cursor_bottom",   "Bottom",      show=False),
-        Binding("backspace",    "nav_back",        "Back",        show=False),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+        Binding("g", "cursor_top", "Top", show=False),
+        Binding("G", "cursor_bottom", "Bottom", show=False),
+        Binding("backspace", "nav_back", "Back", show=False),
         # Enter → video action menu
-        Binding("enter",        "activate",        "Actions",     show=False),
+        Binding("enter", "activate", "Actions", show=False),
         # Playback (direct shortcuts, bypass action menu)
-        Binding("w",            "watch",           "Watch",       show=False),
-        Binding("W",            "watch_quality",   "Quality ▶",  show=False),
+        Binding("w", "watch", "Watch", show=False),
+        Binding("W", "watch_quality", "Quality ▶", show=False),
         # l / L / h / H — context-aware: seek when audio playing, else listen/nothing
-        Binding("l",            "listen_or_seek",  "Listen",      show=False),
-        Binding("L",            "listen_q_or_seek_big", "Quality ♪", show=False),
-        Binding("h",            "audio_seek_back", show=False),
-        Binding("H",            "audio_seek_back_big", show=False),
-        Binding("space",        "audio_pause",     "Pause",       show=False),
-        Binding("s",            "audio_stop_or_subscribe", show=False),
+        Binding("l", "listen_or_seek", "Listen", show=False),
+        Binding("L", "listen_q_or_seek_big", "Quality ♪", show=False),
+        Binding("h", "audio_seek_back", show=False),
+        Binding("H", "audio_seek_back_big", show=False),
+        Binding("space", "audio_pause", "Pause", show=False),
+        Binding("s", "audio_stop_or_subscribe", show=False),
         # 0-9 audio seek
-        Binding("0", "audio_pct_0",  show=False), Binding("1", "audio_pct_10", show=False),
-        Binding("2", "audio_pct_20", show=False), Binding("3", "audio_pct_30", show=False),
-        Binding("4", "audio_pct_40", show=False), Binding("5", "audio_pct_50", show=False),
-        Binding("6", "audio_pct_60", show=False), Binding("7", "audio_pct_70", show=False),
-        Binding("8", "audio_pct_80", show=False), Binding("9", "audio_pct_90", show=False),
+        Binding("0", "audio_pct_0", show=False),
+        Binding("1", "audio_pct_10", show=False),
+        Binding("2", "audio_pct_20", show=False),
+        Binding("3", "audio_pct_30", show=False),
+        Binding("4", "audio_pct_40", show=False),
+        Binding("5", "audio_pct_50", show=False),
+        Binding("6", "audio_pct_60", show=False),
+        Binding("7", "audio_pct_70", show=False),
+        Binding("8", "audio_pct_80", show=False),
+        Binding("9", "audio_pct_90", show=False),
         # Download
-        Binding("d",            "dl_video",        "DL Video",    show=False),
-        Binding("a",            "dl_audio",        "DL Audio",    show=False),
+        Binding("d", "dl_video", "DL Video", show=False),
+        Binding("a", "dl_audio", "DL Audio", show=False),
         # Queue
-        Binding("e",            "queue_audio",     "Queue",       show=False),
-        Binding(">",            "audio_skip",      "Skip",        show=False),
+        Binding("e", "queue_audio", "Queue", show=False),
+        Binding(">", "audio_skip", "Skip", show=False),
         # Copy URL
-        Binding("y",            "copy_url",        "Copy URL",    show=False),
+        Binding("y", "copy_url", "Copy URL", show=False),
         # Other
-        Binding("p",            "playlist",        "Playlist",    show=False),
-        Binding("b",            "browser",         "Browser",     show=False),
+        Binding("p", "playlist", "Playlist", show=False),
+        Binding("b", "browser", "Browser", show=False),
         # App Footer visible commands
-        Binding("/",            "search",          "Search",      show=True),
-        Binding("r",            "refresh",         "Refresh",     show=True),
-        Binding("comma",        "settings",        "Settings",    show=True),
-        Binding("q",            "quit_app",        "Quit",        show=True),
-        Binding("?",            "toggle_help",     "Help",        show=True),
-        Binding("ctrl+d",       "toggle_log",      "Debug",       show=False),
+        Binding("/", "search", "Search", show=True),
+        Binding("r", "refresh", "Refresh", show=True),
+        Binding("comma", "settings", "Settings", show=True),
+        Binding("q", "quit_app", "Quit", show=True),
+        Binding("?", "toggle_help", "Help", show=True),
+        Binding("ctrl+d", "toggle_log", "Debug", show=False),
         # Page shortcuts — F1-F7
-        Binding("f1",  "tab_home",      show=False), Binding("f2", "tab_subs",      show=False),
-        Binding("f3",  "tab_search",    show=False), Binding("f4", "tab_history",   show=False),
-        Binding("f5",  "tab_library",   show=False), Binding("f6", "tab_playlists", show=False),
-        Binding("f7",  "tab_help",      show=False),
+        Binding("f1", "tab_home", show=False),
+        Binding("f2", "tab_subs", show=False),
+        Binding("f3", "tab_search", show=False),
+        Binding("f4", "tab_history", show=False),
+        Binding("f5", "tab_library", show=False),
+        Binding("f6", "tab_playlists", show=False),
+        Binding("f7", "tab_help", show=False),
         # Nav picker
         Binding("grave_accent", "nav_picker", "Pages", show=False),
     ]
@@ -174,12 +181,14 @@ class MainScreen(Screen):
         with Horizontal(id="main-content"):
             yield VideoListPanel(id="video-list-panel")
             yield DetailPanel(id="detail-panel")
-        yield RichLog(id="debug-log", highlight=True, markup=True, max_lines=100, wrap=False)
+        yield RichLog(
+            id="debug-log", highlight=True, markup=True, max_lines=100, wrap=False
+        )
         yield Footer()
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
-        
+
         # Background refresh home feed every 10 minutes (600 seconds)
         self.set_interval(600.0, self._scheduled_home_refresh)
 
@@ -202,7 +211,9 @@ class MainScreen(Screen):
                 tabs.active = prev_tab if prev_tab != "help" else "home"
 
             self.app.push_screen(
-                __import__("src.tui.screens.help_screen", fromlist=["HelpScreen"]).HelpScreen(),
+                __import__(
+                    "src.tui.screens.help_screen", fromlist=["HelpScreen"]
+                ).HelpScreen(),
                 _after_help,
             )
         else:
@@ -225,21 +236,27 @@ class MainScreen(Screen):
 
         # 1. Trigger the loading animation
         self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
-        
+
         app = self.app
         config = app.config
         cache = app.cache
         try:
-            for _ in ytdlp.stream_flat(ytdlp.FEED_URLS["home"], config, cache, feed_key="home"):
+            for _ in ytdlp.stream_flat(
+                ytdlp.FEED_URLS["home"], config, cache, feed_key="home"
+            ):
                 pass
-            self.app.call_from_thread(self._log, "[green]Background home feed refresh complete.[/green]")
-            
+            self.app.call_from_thread(
+                self._log, "[green]Background home feed refresh complete.[/green]"
+            )
+
             # 2. Success! Hide the animation
             self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
-            
+
         except Exception as e:
-            self.app.call_from_thread(self._log, f"[red]Background refresh failed: {e}[/red]")
-            
+            self.app.call_from_thread(
+                self._log, f"[red]Background refresh failed: {e}[/red]"
+            )
+
             # 3. Fail! Show the dead animation
             self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
 
@@ -258,28 +275,34 @@ class MainScreen(Screen):
         try:
             if view in ("home", "subscriptions"):
                 import src.ytdlp as ytdlp
+
                 self._stream_feed(view, panel, config, cache, ytdlp)
             elif view == "search":
                 if not self._search_query:
-                    self.app.call_from_thread(panel.set_empty_message, "Press / to search")
+                    self.app.call_from_thread(
+                        panel.set_empty_message, "Press / to search"
+                    )
                     self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
                     return
                 import src.ytdlp as ytdlp
+
                 for entry in ytdlp.stream_search(self._search_query, config, cache):
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "history":
                 from src import history as hist
+
                 for entry in hist.iter_entries():
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "library":
                 from src import library as lib
+
                 for entry in lib.all_entries(config.video_dir, config.audio_dir):
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "playlists":
                 self._load_playlists_sync(panel)
                 sync_handled = True
             elif view.startswith("playlist:"):
-                self._load_playlist_videos_sync(view[len("playlist:"):], panel, cache)
+                self._load_playlist_videos_sync(view[len("playlist:") :], panel, cache)
                 sync_handled = True
         except Exception as exc:
             msg = str(exc)
@@ -309,33 +332,34 @@ class MainScreen(Screen):
             pass
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp) -> None:
-        """Stream a home/subscriptions feed into panel."""
-        fresh_ids = cache.get_feed(feed_key)
+        """Stream a home/subscriptions feed into panel, prioritizing the disk cache."""
         is_suppressed = cache.is_suppressed
 
-        if fresh_ids is None:
-            stale_ids = cache.get_feed_stale(feed_key)
-            if stale_ids and len(stale_ids) >= _MIN_FEED_COUNT:
-                count = 0
-                for vid_id in stale_ids:
-                    if feed_key == "home" and is_suppressed(vid_id):
-                        continue
-                    entry = cache.get_video_raw(vid_id)
-                    if entry:
-                        self.app.call_from_thread(panel.append_entry, entry)
-                        count += 1
+        cached_ids = cache.get_feed(feed_key) or cache.get_feed_stale(feed_key)
 
-                if count >= _MIN_FEED_COUNT:
-                    self.app.call_from_thread(
-                        self.notify,
-                        "Showing cached results — refreshing in background…",
-                        timeout=3,
-                    )
-                    self._background_refresh_worker(feed_key)
-                    return
-            cache.clear_feed(feed_key)
+        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
+            count = 0
+            for vid_id in cached_ids:
+                if feed_key == "home" and is_suppressed(vid_id):
+                    continue
+                entry = cache.get_video_raw(vid_id)
+                if entry:
+                    self.app.call_from_thread(panel.append_entry, entry)
+                    count += 1
 
-        gen = ytdlp.stream_flat(ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key)
+            if count >= _MIN_FEED_COUNT:
+                self.app.call_from_thread(
+                    self.notify,
+                    f"Loaded from cache — refreshing in background…",
+                    timeout=3,
+                )
+                self._background_refresh_worker(feed_key)
+                return
+
+        cache.clear_feed(feed_key)
+        gen = ytdlp.stream_flat(
+            ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key
+        )
         for entry in gen:
             vid_id = entry.get("id")
             if feed_key == "home" and vid_id and is_suppressed(vid_id):
@@ -346,38 +370,59 @@ class MainScreen(Screen):
     def _background_refresh_worker(self, feed_key: str) -> None:
         """Silently refetch a feed in the background after serving stale cache."""
         import src.ytdlp as ytdlp
+
         try:
             self.app.cache.clear_feed(feed_key)
             for _ in ytdlp.stream_flat(
-                ytdlp.FEED_URLS[feed_key], self.app.config, self.app.cache, feed_key=feed_key
+                ytdlp.FEED_URLS[feed_key],
+                self.app.config,
+                self.app.cache,
+                feed_key=feed_key,
             ):
                 pass
         except Exception as exc:
-            self.app.call_from_thread(self._log, f"[dim]Background refresh failed: {exc}[/dim]")
+            self.app.call_from_thread(
+                self._log, f"[dim]Background refresh failed: {exc}[/dim]"
+            )
 
     def _load_playlists_sync(self, panel) -> None:
         from src import playlist
+
         names = playlist.list_names()
         if not names:
-            self.app.call_from_thread(panel.set_empty_message, "No playlists. Select a video and press p.")
+            self.app.call_from_thread(
+                panel.set_empty_message, "No playlists. Select a video and press p."
+            )
             return
         for name in names:
             ids = playlist.get_playlist(name)
-            entry = {"id": f"__playlist__{name}", "title": f"🎵  {name}",
-                     "uploader": f"{len(ids)} video{'s' if len(ids)!=1 else ''}",
-                     "duration": None, "view_count": None,
-                     "_is_playlist": True, "_playlist_name": name}
+            entry = {
+                "id": f"__playlist__{name}",
+                "title": f"🎵  {name}",
+                "uploader": f"{len(ids)} video{'s' if len(ids)!=1 else ''}",
+                "duration": None,
+                "view_count": None,
+                "_is_playlist": True,
+                "_playlist_name": name,
+            }
             self.app.call_from_thread(panel.append_entry, entry)
         self.app.call_from_thread(panel.finish_loading)
 
     def _load_playlist_videos_sync(self, name: str, panel, cache) -> None:
         from src import playlist
+
         ids = playlist.get_playlist(name)
         if not ids:
-            self.app.call_from_thread(panel.set_empty_message, f'Playlist "{name}" is empty.')
+            self.app.call_from_thread(
+                panel.set_empty_message, f'Playlist "{name}" is empty.'
+            )
             return
         for vid_id in ids:
-            entry = cache.get_video_raw(vid_id) or {"id": vid_id, "title": vid_id, "uploader": ""}
+            entry = cache.get_video_raw(vid_id) or {
+                "id": vid_id,
+                "title": vid_id,
+                "uploader": "",
+            }
             self.app.call_from_thread(panel.append_entry, entry)
         self.app.call_from_thread(panel.finish_loading)
 
@@ -398,7 +443,9 @@ class MainScreen(Screen):
         focused_id = focused_entry.get("id") if focused_entry else None
         playing_id = self._audio_entry.get("id") if self._audio_entry else None
         queued_ids = {e.get("id") for e in self._audio_queue}
-        hide_e = bool(focused_id and (focused_id == playing_id or focused_id in queued_ids))
+        hide_e = bool(
+            focused_id and (focused_id == playing_id or focused_id in queued_ids)
+        )
         ab.update_queue_hint(len(self._audio_queue), hide_e=hide_e)
 
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
@@ -406,16 +453,29 @@ class MainScreen(Screen):
 
     # ── Batch Lazy Loading Intercept ──────────────────────────────────────────
 
-    def on_video_list_panel_batch_revealed(self, message: VideoListPanel.BatchRevealed) -> None:
-        if self._current_tab in ("home", "subscriptions", "search") or self._current_tab.startswith("playlist:"):
+    def on_video_list_panel_batch_revealed(
+        self, message: VideoListPanel.BatchRevealed
+    ) -> None:
+        if self._current_tab in (
+            "home",
+            "subscriptions",
+            "search",
+        ) or self._current_tab.startswith("playlist:"):
             import src.ytdlp as ytdlp
-            ids = [e.get("id") for e in message.entries if e.get("id") and not e.get("id").startswith("__")]
+
+            ids = [
+                e.get("id")
+                for e in message.entries
+                if e.get("id") and not e.get("id").startswith("__")
+            ]
             if ids:
                 ytdlp.enrich_in_background(
                     ids,
                     self.app.config,
                     self.app.cache,
-                    on_done=self._make_enrich_callback(self.query_one("#video-list-panel", VideoListPanel))
+                    on_done=self._make_enrich_callback(
+                        self.query_one("#video-list-panel", VideoListPanel)
+                    ),
                 )
 
     # ── Video action menu (Enter) ─────────────────────────────────────────────
@@ -437,26 +497,24 @@ class MainScreen(Screen):
         entry_id = entry.get("id")
         queued_ids = {e.get("id") for e in self._audio_queue}
         hide_queue = (
-            entry_id == current_id
-            or entry_id in queued_ids
-            or not self._audio_playing
+            entry_id == current_id or entry_id in queued_ids or not self._audio_playing
         )
 
         def on_action(key: str | None) -> None:
             if not key:
                 return
             dispatch = {
-                "watch":         self.action_watch,
+                "watch": self.action_watch,
                 "watch_quality": self.action_watch_quality,
-                "listen":        lambda: self._start_audio(entry),
-                "listen_quality":lambda: self._listen_quality(entry),
-                "queue":         self.action_queue_audio,
-                "dl_video":      self.action_dl_video,
-                "dl_audio":      self.action_dl_audio,
-                "copy_url":      lambda: self._copy_video_url(entry),
-                "subscribe":     self.action_subscribe_entry,
-                "playlist":      self.action_playlist,
-                "browser":       self.action_browser,
+                "listen": lambda: self._start_audio(entry),
+                "listen_quality": lambda: self._listen_quality(entry),
+                "queue": self.action_queue_audio,
+                "dl_video": self.action_dl_video,
+                "dl_audio": self.action_dl_audio,
+                "copy_url": lambda: self._copy_video_url(entry),
+                "subscribe": self.action_subscribe_entry,
+                "playlist": self.action_playlist,
+                "browser": self.action_browser,
             }
             fn = dispatch.get(key)
             if fn:
@@ -475,7 +533,9 @@ class MainScreen(Screen):
 
     def _start_audio(self, entry: dict, *, ytdl_format: str = "") -> None:
         if self._audio_playing:
-            self.notify("Audio already playing — press s to stop first.", severity="warning")
+            self.notify(
+                "Audio already playing — press s to stop first.", severity="warning"
+            )
             return
         self._audio_entry = entry
         self._audio_stopped = False
@@ -490,6 +550,7 @@ class MainScreen(Screen):
         self._audio_stopped = True
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
+
             send_ipc_command({"command": ["quit"]}, socket_path=_AUDIO_SOCKET)
             try:
                 self._audio_proc.terminate()
@@ -508,7 +569,9 @@ class MainScreen(Screen):
             pass
 
     @work(thread=True, exclusive=True, group="audio_player")
-    def _launch_audio_worker(self, entry: dict, session: int, *, ytdl_format: str = "") -> None:
+    def _launch_audio_worker(
+        self, entry: dict, session: int, *, ytdl_format: str = ""
+    ) -> None:
         from src import player as player_mod
 
         # Bail if a newer session already started (e.g. user skipped before we ran)
@@ -516,7 +579,11 @@ class MainScreen(Screen):
             return
 
         vid = entry.get("id", "")
-        if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
+        if (
+            vid
+            and hasattr(self.app, "cache")
+            and hasattr(self.app.cache, "suppress_video")
+        ):
             self.app.cache.suppress_video(vid)
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
@@ -571,6 +638,7 @@ class MainScreen(Screen):
                 pass
 
         from src import history
+
         history.add(entry)
 
         # Only fire finished callback if this session is still the active one
@@ -598,6 +666,7 @@ class MainScreen(Screen):
         if not self._audio_playing:
             return
         from src.player import poll_audio_properties
+
         pos, dur, paused = poll_audio_properties(socket_path=_AUDIO_SOCKET)
         if pos is not None and dur is not None:
             self._action_bar().update_progress(pos, dur, paused)
@@ -652,19 +721,39 @@ class MainScreen(Screen):
         if self._audio_playing:
             self._audio_ipc({"command": ["seek", pct, "absolute-percent"]})
 
-    def action_audio_pct_0(self)  -> None: self._audio_pct(0)
-    def action_audio_pct_10(self) -> None: self._audio_pct(10)
-    def action_audio_pct_20(self) -> None: self._audio_pct(20)
-    def action_audio_pct_30(self) -> None: self._audio_pct(30)
-    def action_audio_pct_40(self) -> None: self._audio_pct(40)
-    def action_audio_pct_50(self) -> None: self._audio_pct(50)
-    def action_audio_pct_60(self) -> None: self._audio_pct(60)
-    def action_audio_pct_70(self) -> None: self._audio_pct(70)
-    def action_audio_pct_80(self) -> None: self._audio_pct(80)
-    def action_audio_pct_90(self) -> None: self._audio_pct(90)
+    def action_audio_pct_0(self) -> None:
+        self._audio_pct(0)
+
+    def action_audio_pct_10(self) -> None:
+        self._audio_pct(10)
+
+    def action_audio_pct_20(self) -> None:
+        self._audio_pct(20)
+
+    def action_audio_pct_30(self) -> None:
+        self._audio_pct(30)
+
+    def action_audio_pct_40(self) -> None:
+        self._audio_pct(40)
+
+    def action_audio_pct_50(self) -> None:
+        self._audio_pct(50)
+
+    def action_audio_pct_60(self) -> None:
+        self._audio_pct(60)
+
+    def action_audio_pct_70(self) -> None:
+        self._audio_pct(70)
+
+    def action_audio_pct_80(self) -> None:
+        self._audio_pct(80)
+
+    def action_audio_pct_90(self) -> None:
+        self._audio_pct(90)
 
     def _audio_ipc(self, cmd: dict) -> None:
         from src.player import send_ipc_command
+
         send_ipc_command(cmd, socket_path=_AUDIO_SOCKET)
 
     # ── Video playback (Delegates to WatchModal) ──────────────────────────────
@@ -673,9 +762,10 @@ class MainScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        
+
         # Open our new modal seamlessly
         from src.tui.screens.watch_modal import WatchModal
+
         self.app.push_screen(WatchModal(entry))
 
     def action_watch_quality(self) -> None:
@@ -687,10 +777,10 @@ class MainScreen(Screen):
         def on_fmt(fmt: str | None) -> None:
             if fmt is not None:
                 from src.tui.screens.watch_modal import WatchModal
+
                 self.app.push_screen(WatchModal(entry, ytdl_format=fmt))
 
         self.app.push_screen(QualityModal(audio_only=False), on_fmt)
-
 
     # ── Download ──────────────────────────────────────────────────────────────
 
@@ -708,6 +798,7 @@ class MainScreen(Screen):
 
     def _open_download(self, entry: dict, *, audio_only: bool) -> None:
         from src.tui.screens.download_modal import DownloadModal
+
         vid = entry.get("id", "")
         mode = "audio" if audio_only else "video"
         title = entry.get("title", vid)
@@ -716,7 +807,9 @@ class MainScreen(Screen):
             if success:
                 self.notify(f"✓ Downloaded {mode}: {title[:40]}", timeout=5)
             else:
-                self.notify("✗ Download failed or cancelled", severity="warning", timeout=4)
+                self.notify(
+                    "✗ Download failed or cancelled", severity="warning", timeout=4
+                )
 
         self.app.push_screen(DownloadModal(vid, entry, audio_only=audio_only), on_done)
 
@@ -733,6 +826,7 @@ class MainScreen(Screen):
                 url = f"https://www.youtube.com/@{uid}"
         if url:
             import webbrowser
+
             webbrowser.open(url)
             channel = entry.get("uploader") or entry.get("channel") or "channel"
             self.notify(f"Opened {channel} in browser")
@@ -812,6 +906,7 @@ class MainScreen(Screen):
         vid = entry.get("id", "")
         if vid and not vid.startswith("__"):
             import webbrowser
+
             webbrowser.open(f"https://www.youtube.com/watch?v={vid}")
             self.notify("Opened in browser")
 
@@ -892,10 +987,12 @@ class MainScreen(Screen):
 
     def action_toggle_help(self) -> None:
         from src.tui.screens.help_screen import HelpScreen
+
         self.app.push_screen(HelpScreen())
 
     def action_settings(self) -> None:
         from src.tui.screens.settings_modal import SettingsModal
+
         self.app.push_screen(SettingsModal())
 
     # ── Debug log ─────────────────────────────────────────────────────────────
@@ -914,13 +1011,26 @@ class MainScreen(Screen):
 
     # ── Tab shortcuts ─────────────────────────────────────────────────────────
 
-    def action_tab_home(self)      -> None: self.query_one("#nav-tabs", Tabs).active = "home"
-    def action_tab_subs(self)      -> None: self.query_one("#nav-tabs", Tabs).active = "subscriptions"
-    def action_tab_search(self)    -> None: self._open_search_dialog()
-    def action_tab_history(self)   -> None: self.query_one("#nav-tabs", Tabs).active = "history"
-    def action_tab_library(self)   -> None: self.query_one("#nav-tabs", Tabs).active = "library"
-    def action_tab_playlists(self) -> None: self.query_one("#nav-tabs", Tabs).active = "playlists"
-    def action_tab_help(self)      -> None: self.action_toggle_help()
+    def action_tab_home(self) -> None:
+        self.query_one("#nav-tabs", Tabs).active = "home"
+
+    def action_tab_subs(self) -> None:
+        self.query_one("#nav-tabs", Tabs).active = "subscriptions"
+
+    def action_tab_search(self) -> None:
+        self._open_search_dialog()
+
+    def action_tab_history(self) -> None:
+        self.query_one("#nav-tabs", Tabs).active = "history"
+
+    def action_tab_library(self) -> None:
+        self.query_one("#nav-tabs", Tabs).active = "library"
+
+    def action_tab_playlists(self) -> None:
+        self.query_one("#nav-tabs", Tabs).active = "playlists"
+
+    def action_tab_help(self) -> None:
+        self.action_toggle_help()
 
     # ── Nav picker ────────────────────────────────────────────────────────────
 
@@ -943,12 +1053,13 @@ class MainScreen(Screen):
 
     def action_quit_app(self) -> None:
         import threading
+
         self._stop_audio()
         try:
             import src.ytdlp as ytdlp
+
             ytdlp.kill_all_active()
         except Exception:
             pass
         threading.Timer(0.6, os._exit, args=(0,)).start()
         self.app.exit()
-

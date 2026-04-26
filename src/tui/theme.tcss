@@ -843,3 +843,41 @@ App.theme-midnight #video-channel { color: #a855f7; }
 App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7; }
 App.theme-midnight #watch-dialog #np-header { color: #a855f7; }
 App.theme-midnight #watch-dialog ProgressBar > .bar--bar { color: #a855f7; }
+
+/* ── Spinner / AppHeader ─────────────────────────────────────────────────── */
+AppHeader #header-status {
+    color: #ff6666;
+    width: 25%;
+    padding-right: 2;
+    content-align: right middle;
+}
+
+App.theme-amber AppHeader #header-status { color: #e8820c; }
+App.theme-ocean AppHeader #header-status { color: #0ea5e9; }
+App.theme-midnight AppHeader #header-status { color: #a855f7; }
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+Scrollbar > .scrollbar--thumb { background: #ff4444; }
+Scrollbar > .scrollbar--thumb:hover { background: #ff6666; }
+
+App.theme-amber Scrollbar > .scrollbar--thumb { background: #e8820c; }
+App.theme-amber Scrollbar > .scrollbar--thumb:hover { background: #ffb84d; }
+
+App.theme-ocean Scrollbar > .scrollbar--thumb { background: #0ea5e9; }
+App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8; }
+
+App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
+App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
+
+/* ── Now Playing / Player Specific Hooks ─────────────────────────────────── */
+App.theme-amber #now-playing-dialog { border: solid #e8820c; }
+App.theme-amber #now-playing-dialog #np-header { color: #e8820c; }
+App.theme-amber #now-playing-dialog ProgressBar > .bar--bar { color: #e8820c; }
+
+App.theme-ocean #now-playing-dialog { border: solid #0ea5e9; }
+App.theme-ocean #now-playing-dialog #np-header { color: #0ea5e9; }
+App.theme-ocean #now-playing-dialog ProgressBar > .bar--bar { color: #0ea5e9; }
+
+App.theme-midnight #now-playing-dialog { border: solid #a855f7; }
+App.theme-midnight #now-playing-dialog #np-header { color: #a855f7; }
+App.theme-midnight #now-playing-dialog ProgressBar > .bar--bar { color: #a855f7; }

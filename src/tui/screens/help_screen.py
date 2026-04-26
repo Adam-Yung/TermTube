@@ -8,78 +8,77 @@ from textual.containers import ScrollableContainer, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-
 _HELP_CONTENT = """\
-[bold #ff4444]TermTube — Keyboard Reference[/bold #ff4444]
+[bold {COLOR}]TermTube — Keyboard Reference[/bold {COLOR}]
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]NAVIGATION[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]j / ↓[/#ff4444]          Move cursor down
-  [#ff4444]k / ↑[/#ff4444]          Move cursor up
-  [#ff4444]g[/#ff4444]              Jump to top of list
-  [#ff4444]G[/#ff4444]              Jump to bottom of list
-  [#ff4444]Backspace[/#ff4444]      Go back (e.g. from playlist drill-down)
-  [#ff4444]Enter[/#ff4444]          Open video action menu (Watch / Listen / Download / …)
+  [{COLOR}]j / ↓[/{COLOR}]          Move cursor down
+  [{COLOR}]k / ↑[/{COLOR}]          Move cursor up
+  [{COLOR}]g[/{COLOR}]              Jump to top of list
+  [{COLOR}]G[/{COLOR}]              Jump to bottom of list
+  [{COLOR}]Backspace[/{COLOR}]      Go back (e.g. from playlist drill-down)
+  [{COLOR}]Enter[/{COLOR}]          Open video action menu (Watch / Listen / Download / …)
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]PAGES  (F-keys or backtick picker)[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]F1[/#ff4444]             🏠  Home / Recommended
-  [#ff4444]F2[/#ff4444]             📺  Subscriptions
-  [#ff4444]F3[/#ff4444]             🔍  Search
-  [#ff4444]F4[/#ff4444]             🕐  History
-  [#ff4444]F5[/#ff4444]             📁  Library (downloaded files)
-  [#ff4444]F6[/#ff4444]             🎵  Playlists
-  [#ff4444]F7[/#ff4444]             ❓  Help (this screen)
-  [#ff4444]`  (backtick)[/#ff4444]  Show page-picker popup
+  [{COLOR}]F1[/{COLOR}]             🏠  Home / Recommended
+  [{COLOR}]F2[/{COLOR}]             📺  Subscriptions
+  [{COLOR}]F3[/{COLOR}]             🔍  Search
+  [{COLOR}]F4[/{COLOR}]             🕐  History
+  [{COLOR}]F5[/{COLOR}]             📁  Library (downloaded files)
+  [{COLOR}]F6[/{COLOR}]             🎵  Playlists
+  [{COLOR}]F7[/{COLOR}]             ❓  Help (this screen)
+  [{COLOR}]`  (backtick)[/{COLOR}]  Show page-picker popup
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]PLAYBACK[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]w[/#ff4444]              Watch video (best quality)
-  [#ff4444]W[/#ff4444]              Watch video — pick quality first
-  [#ff4444]l[/#ff4444]              Listen (audio-only, in-TUI player)
-  [#ff4444]L[/#ff4444]              Listen — pick quality first
+  [{COLOR}]w[/{COLOR}]              Watch video (best quality)
+  [{COLOR}]W[/{COLOR}]              Watch video — pick quality first
+  [{COLOR}]l[/{COLOR}]              Listen (audio-only, in-TUI player)
+  [{COLOR}]L[/{COLOR}]              Listen — pick quality first
 
   [dim]During audio playback (embedded in action bar — browse freely while listening):[/dim]
-  [#ff4444]Space[/#ff4444]          Pause / Resume
-  [#ff4444]h[/#ff4444]              Seek back 5 seconds
-  [#ff4444]l[/#ff4444]              Seek forward 5 seconds  [dim](replaces Listen action)[/dim]
-  [#ff4444]H[/#ff4444]              Seek back 10 seconds
-  [#ff4444]L[/#ff4444]              Seek forward 10 seconds  [dim](replaces Listen Quality)[/dim]
-  [#ff4444]0–9[/#ff4444]            Seek to 0% / 10% / … / 90% of track
-  [#ff4444]s[/#ff4444]              Stop audio  [dim](replaces Subscribe action)[/dim]
+  [{COLOR}]Space[/{COLOR}]          Pause / Resume
+  [{COLOR}]h[/{COLOR}]              Seek back 5 seconds
+  [{COLOR}]l[/{COLOR}]              Seek forward 5 seconds  [dim](replaces Listen action)[/dim]
+  [{COLOR}]H[/{COLOR}]              Seek back 10 seconds
+  [{COLOR}]L[/{COLOR}]              Seek forward 10 seconds  [dim](replaces Listen Quality)[/dim]
+  [{COLOR}]0–9[/{COLOR}]            Seek to 0% / 10% / … / 90% of track
+  [{COLOR}]s[/{COLOR}]              Stop audio  [dim](replaces Subscribe action)[/dim]
 
   [dim]During video playback (mpv window, same bindings):[/dim]
-  [#ff4444]h / l[/#ff4444]          ±5 seconds
-  [#ff4444]H / L[/#ff4444]          ±10 seconds
-  [#ff4444]0–9[/#ff4444]            Seek to 0% / 10% / … / 90%
-  [#ff4444]q[/#ff4444]              Quit mpv
+  [{COLOR}]h / l[/{COLOR}]          ±5 seconds
+  [{COLOR}]H / L[/{COLOR}]          ±10 seconds
+  [{COLOR}]0–9[/{COLOR}]            Seek to 0% / 10% / … / 90%
+  [{COLOR}]q[/{COLOR}]              Quit mpv
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]DOWNLOADS & ACTIONS[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]d[/#ff4444]              Download video to Library
-  [#ff4444]a[/#ff4444]              Download audio (MP3) to Library
-  [#ff4444]s[/#ff4444]              Open channel page in browser (subscribe)
-  [#ff4444]p[/#ff4444]              Add video to a playlist
-  [#ff4444]b[/#ff4444]              Open video in browser
-  [#ff4444]r[/#ff4444]              Refresh current feed (clears cache)
+  [{COLOR}]d[/{COLOR}]              Download video to Library
+  [{COLOR}]a[/{COLOR}]              Download audio (MP3) to Library
+  [{COLOR}]s[/{COLOR}]              Open channel page in browser (subscribe)
+  [{COLOR}]p[/{COLOR}]              Add video to a playlist
+  [{COLOR}]b[/{COLOR}]              Open video in browser
+  [{COLOR}]r[/{COLOR}]              Refresh current feed (clears cache)
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]SEARCH & MISC[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]/[/#ff4444]              Open search dialog
-  [#ff4444]?[/#ff4444]              Toggle this Help screen
-  [#ff4444],[/#ff4444]              Open Settings (theme, quality, …)
-  [#ff4444]Ctrl+D[/#ff4444]         Toggle debug log panel
-  [#ff4444]q[/#ff4444]              Quit TermTube
+  [{COLOR}]/[/{COLOR}]              Open search dialog
+  [{COLOR}]?[/{COLOR}]              Toggle this Help screen
+  [{COLOR}],[/{COLOR}]              Open Settings (theme, quality, …)
+  [{COLOR}]Ctrl+D[/{COLOR}]         Toggle debug log panel
+  [{COLOR}]q[/{COLOR}]              Quit TermTube
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 [bold white]LAZY LOADING[/bold white]
@@ -92,15 +91,15 @@ _HELP_CONTENT = """\
 [bold white]CONFIGURATION  (TermTube.yaml)[/bold white]
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [#ff4444]browser[/#ff4444]           chrome / firefox / brave  (for yt-dlp auth)
-  [#ff4444]cookies_file[/#ff4444]      Path to Netscape cookies.txt (takes priority)
-  [#ff4444]preferred_quality[/#ff4444] best / 1080 / 720 / 480 / 360
-  [#ff4444]thumbnail_format[/#ff4444]  auto (default) / symbols / ascii
+  [{COLOR}]browser[/{COLOR}]           chrome / firefox / brave  (for yt-dlp auth)
+  [{COLOR}]cookies_file[/{COLOR}]      Path to Netscape cookies.txt (takes priority)
+  [{COLOR}]preferred_quality[/{COLOR}] best / 1080 / 720 / 480 / 360
+  [{COLOR}]thumbnail_format[/{COLOR}]  auto (default) / symbols / ascii
                        auto/symbols = high-quality Unicode block art (always works)
                        ascii = restrict to ASCII symbols (most compatible)
-  [#ff4444]thumbnail_cols[/#ff4444]    Width in chars for thumbnail preview (default 38)
-  [#ff4444]video_dir[/#ff4444]         Download directory for videos
-  [#ff4444]audio_dir[/#ff4444]         Download directory for audio files
+  [{COLOR}]thumbnail_cols[/{COLOR}]    Width in chars for thumbnail preview (default 38)
+  [{COLOR}]video_dir[/{COLOR}]         Download directory for videos
+  [{COLOR}]audio_dir[/{COLOR}]         Download directory for audio files
 
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
@@ -112,8 +111,8 @@ class HelpScreen(ModalScreen[None]):
     """Full-page keyboard reference, openable via ? or the Help tab."""
 
     BINDINGS = [
-        Binding("?",      "close", "Close", show=True),
-        Binding("q",      "close", "Close", show=False),
+        Binding("?", "close", "Close", show=True),
+        Binding("q", "close", "Close", show=False),
         Binding("escape", "close", "Close", show=False),
     ]
 
@@ -143,10 +142,25 @@ class HelpScreen(ModalScreen[None]):
     }
     """
 
+    def _get_theme_color(self) -> str:
+        try:
+            theme = self.app.config.theme
+        except Exception:
+            theme = "crimson"
+        return {
+            "crimson": "#ff4444",
+            "amber": "#e8820c",
+            "ocean": "#0ea5e9",
+            "midnight": "#a855f7",
+        }.get(theme, "#ff4444")
+
     def compose(self) -> ComposeResult:
+        color = self._get_theme_color()
+        content = _HELP_CONTENT.format(COLOR=color)
+
         with Vertical(id="help-outer"):
             with ScrollableContainer(id="help-scroll"):
-                yield Static(_HELP_CONTENT, id="help-content", markup=True)
+                yield Static(content, id="help-content", markup=True)
 
     def on_mount(self) -> None:
         self.query_one("#help-outer").border_title = "❓ Help & Keyboard Reference"
