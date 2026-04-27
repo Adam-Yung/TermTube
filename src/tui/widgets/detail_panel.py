@@ -129,13 +129,17 @@ class DetailPanel(Widget):
         self._current_id = vid
         self._last_entry = entry
 
-        # Immediately prime the thumbnail widget so it shows "Loading…" rather
-        # than the previous video's image while the user is still scrolling.
+        # Immediately prime the thumbnail widget and kick off the render worker.
+        # The worker is exclusive — it auto-cancels the previous one on rapid
+        # scrolling — so cached thumbnails appear without any artificial delay.
         thumb = self.query_one("#thumbnail", ThumbnailWidget)
         thumb.set_video_id(vid)
         thumb.set_loading()
+        if vid and not vid.startswith("__"):
+            self._render_thumbnail_bg(vid, entry)
 
-        # Cancel any in-flight debounce and arm a fresh one.
+        # Debounce only the text/metadata updates and background meta-fetch.
+        # This stops the Static widgets from thrashing during fast j/k scrolling.
         if self._update_timer is not None:
             self._update_timer.stop()
         self._update_timer = self.set_timer(0.08, lambda: self._do_update(entry))
@@ -179,7 +183,6 @@ class DetailPanel(Widget):
             self.query_one("#video-desc", Static).update("[dim]Loading…[/dim]")
 
         self._update_playlists(vid)
-        self._render_thumbnail_bg(vid, entry)
         if not desc and not vid.startswith("__"):
             self._fetch_full_meta_bg(vid, entry)
 
