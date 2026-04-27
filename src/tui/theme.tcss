@@ -168,6 +168,9 @@ ThumbnailWidget > #thumb-image {
     height: 1fr;
     overflow-y: auto;
     padding: 1 2;
+    scrollbar-color: #ff4444;
+    scrollbar-background: #0a0a0a;
+    scrollbar-color-hover: #ff6666;
 }
 
 #video-title {
@@ -212,13 +215,16 @@ ActionBar {
     padding: 0 1;
 }
 
-ActionBar #ab-row1 { height: 1; margin-top: 1; color: #cccccc; }
+ActionBar #ab-row1 { height: 1;
+    margin-top: 1; color: #cccccc; }
 ActionBar #ab-row2 { height: 1; color: #888888; }
 
-ActionBar #np-title-line { height: 1; margin-top: 1; color: #ffffff; }
+ActionBar #np-title-line { height: 1; margin-top: 1; color: #ffffff;
+}
 
 ActionBar #np-time-line { height: 1; color: #666666; }
-ActionBar #np-keys     { height: 1; color: #888888; }
+ActionBar #np-keys     { height: 1; color: #888888;
+}
 
 /* ── Footer ──────────────────────────────────────────────────────────────── */
 Footer {
@@ -299,17 +305,17 @@ ProgressBar {
     margin-bottom: 1;
 }
 
-ProgressBar > .bar--bar {
+ProgressBar .bar--bar {
     color: #ff4444;
 }
 
-ProgressBar > .bar--complete {
-    color: #44ff44;
+ProgressBar .bar--complete {
+    color: #ff4444;
 }
 
-App.theme-amber   ProgressBar > .bar--bar { color: #e8820c; }
-App.theme-ocean   ProgressBar > .bar--bar { color: #0ea5e9; }
-App.theme-midnight ProgressBar > .bar--bar { color: #a855f7; }
+App.theme-amber ProgressBar .bar--bar, App.theme-amber ProgressBar .bar--complete { color: #e8820c; }
+App.theme-ocean ProgressBar .bar--bar, App.theme-ocean ProgressBar .bar--complete { color: #0ea5e9; }
+App.theme-midnight ProgressBar .bar--bar, App.theme-midnight ProgressBar .bar--complete { color: #a855f7; }
 
 /* ── Playlist Modal ──────────────────────────────────────────────────────── */
 PlaylistModal {
@@ -438,12 +444,8 @@ WatchModal {
     margin-bottom: 0;
 }
 
-#watch-dialog ProgressBar > .bar--bar {
+#watch-dialog ProgressBar .bar--bar, #watch-dialog ProgressBar .bar--complete {
     color: #ff4444;
-}
-
-#watch-dialog ProgressBar > .bar--complete {
-    color: #44ff44;
 }
 
 /* ── Shared np-* widget styles (WatchModal) ──────────────────────────────── */
@@ -513,7 +515,8 @@ ImageWarningModal {
     color: #ffffff;
 }
 
-#imgwarn-list > ListItem.-highlight > Static { color: #ffffff; }
+#imgwarn-list > ListItem.-highlight > Static { color: #ffffff;
+}
 
 /* ── Debug log panel ─────────────────────────────────────────────────────── */
 #debug-log {
@@ -751,108 +754,147 @@ SettingsModal {
 
 /* ── Amber — warm orange ─────────────────────────────────────────────────── */
 App.theme-amber AppHeader { background: #1a0d00; color: #e8820c; }
-App.theme-amber #header-title { color: #e8820c; }
+App.theme-amber #header-title { color: #e8820c;
+}
 App.theme-amber Tab.-active { color: #e8820c; background: #1e1800; text-style: bold underline; }
-App.theme-amber Tab:hover { background: #181200; }
+App.theme-amber Tab:hover { background: #181200;
+}
 App.theme-amber #list-view > VideoListItem.-highlight { background: #1a1200; border-left: thick #e8820c; }
-App.theme-amber VideoListItem:hover { background: #141000; }
+App.theme-amber VideoListItem:hover { background: #141000;
+}
 App.theme-amber #quality-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #quality-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-amber #quality-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-amber #playlist-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #playlist-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-amber #playlist-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-amber #vaction-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #vaction-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-amber #vaction-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-amber #theme-list > ListItem.-highlight,
 App.theme-amber #quality-list-s > ListItem.-highlight,
 App.theme-amber #thumb-list > ListItem.-highlight,
 App.theme-amber #browser-list > ListItem.-highlight,
-App.theme-amber #auth-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #list-view { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
-App.theme-amber #list-loading-anim { color: #e8820c; }
+App.theme-amber #auth-list > ListItem.-highlight { background: #1a0e00;
+border-left: thick #e8820c; }
+App.theme-amber #list-view, App.theme-amber #video-info { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
+App.theme-amber #list-loading-anim { color: #e8820c;
+}
 App.theme-amber #search-input:focus { border: solid #e8820c; }
 App.theme-amber #search-title { color: #e8820c; }
-App.theme-amber #download-title { color: #e8820c; }
+App.theme-amber #download-title { color: #e8820c;
+}
 App.theme-amber #quality-title { color: #e8820c; }
 App.theme-amber #playlist-title { color: #e8820c; }
-App.theme-amber #settings-title { color: #e8820c; }
+App.theme-amber #settings-title { color: #e8820c;
+}
 App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
 App.theme-amber #help-outer { border: solid #e8820c; }
-App.theme-amber #nav-dialog { border: solid #e8820c; }
+App.theme-amber #nav-dialog { border: solid #e8820c;
+}
 App.theme-amber #nav-title { color: #e8820c; }
 App.theme-amber #video-channel { color: #e8820c; }
-App.theme-amber #watch-dialog { background: #1a0d00; border: solid #e8820c; }
+App.theme-amber #watch-dialog { background: #1a0d00; border: solid #e8820c;
+}
 App.theme-amber #watch-dialog #np-header { color: #e8820c; }
-App.theme-amber #watch-dialog ProgressBar > .bar--bar { color: #e8820c; }
+App.theme-amber #watch-dialog ProgressBar .bar--bar, App.theme-amber #watch-dialog ProgressBar .bar--complete { color: #e8820c;
+}
 
 /* ── Ocean — cool teal ───────────────────────────────────────────────────── */
 App.theme-ocean AppHeader { background: #001622; color: #0ea5e9; }
-App.theme-ocean #header-title { color: #0ea5e9; }
+App.theme-ocean #header-title { color: #0ea5e9;
+}
 App.theme-ocean Tab.-active { color: #0ea5e9; background: #001520; text-style: bold underline; }
-App.theme-ocean Tab:hover { background: #001020; }
+App.theme-ocean Tab:hover { background: #001020;
+}
 App.theme-ocean #list-view > VideoListItem.-highlight { background: #001a24; border-left: thick #0ea5e9; }
-App.theme-ocean VideoListItem:hover { background: #00141c; }
+App.theme-ocean VideoListItem:hover { background: #00141c;
+}
 App.theme-ocean #quality-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #quality-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-ocean #quality-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-ocean #playlist-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #playlist-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-ocean #playlist-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-ocean #vaction-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #vaction-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-ocean #vaction-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-ocean #theme-list > ListItem.-highlight,
 App.theme-ocean #quality-list-s > ListItem.-highlight,
 App.theme-ocean #thumb-list > ListItem.-highlight,
 App.theme-ocean #browser-list > ListItem.-highlight,
-App.theme-ocean #auth-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #list-view { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
-App.theme-ocean #list-loading-anim { color: #0ea5e9; }
+App.theme-ocean #auth-list > ListItem.-highlight { background: #001525;
+border-left: thick #0ea5e9; }
+App.theme-ocean #list-view, App.theme-ocean #video-info { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
+App.theme-ocean #list-loading-anim { color: #0ea5e9;
+}
 App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
 App.theme-ocean #search-title { color: #0ea5e9; }
-App.theme-ocean #download-title { color: #0ea5e9; }
+App.theme-ocean #download-title { color: #0ea5e9;
+}
 App.theme-ocean #quality-title { color: #0ea5e9; }
 App.theme-ocean #playlist-title { color: #0ea5e9; }
-App.theme-ocean #settings-title { color: #0ea5e9; }
+App.theme-ocean #settings-title { color: #0ea5e9;
+}
 App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
 App.theme-ocean #help-outer { border: solid #0ea5e9; }
-App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
+App.theme-ocean #nav-dialog { border: solid #0ea5e9;
+}
 App.theme-ocean #nav-title { color: #0ea5e9; }
 App.theme-ocean #video-channel { color: #0ea5e9; }
-App.theme-ocean #watch-dialog { background: #001622; border: solid #0ea5e9; }
+App.theme-ocean #watch-dialog { background: #001622; border: solid #0ea5e9;
+}
 App.theme-ocean #watch-dialog #np-header { color: #0ea5e9; }
-App.theme-ocean #watch-dialog ProgressBar > .bar--bar { color: #0ea5e9; }
+App.theme-ocean #watch-dialog ProgressBar .bar--bar, App.theme-ocean #watch-dialog ProgressBar .bar--complete { color: #0ea5e9;
+}
 
 /* ── Midnight — soft purple ──────────────────────────────────────────────── */
 App.theme-midnight AppHeader { background: #0d0018; color: #a855f7; }
-App.theme-midnight #header-title { color: #a855f7; }
+App.theme-midnight #header-title { color: #a855f7;
+}
 App.theme-midnight Tab.-active { color: #a855f7; background: #0e0020; text-style: bold underline; }
-App.theme-midnight Tab:hover { background: #0a0018; }
+App.theme-midnight Tab:hover { background: #0a0018;
+}
 App.theme-midnight #list-view > VideoListItem.-highlight { background: #160a28; border-left: thick #a855f7; }
-App.theme-midnight VideoListItem:hover { background: #100820; }
+App.theme-midnight VideoListItem:hover { background: #100820;
+}
 App.theme-midnight #quality-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #quality-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-midnight #quality-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-midnight #playlist-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #playlist-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-midnight #playlist-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-midnight #vaction-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #vaction-list > ListItem.-highlight > Static { color: #ffffff; }
+App.theme-midnight #vaction-list > ListItem.-highlight > Static { color: #ffffff;
+}
 App.theme-midnight #theme-list > ListItem.-highlight,
 App.theme-midnight #quality-list-s > ListItem.-highlight,
 App.theme-midnight #thumb-list > ListItem.-highlight,
 App.theme-midnight #browser-list > ListItem.-highlight,
-App.theme-midnight #auth-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #list-view { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
-App.theme-midnight #list-loading-anim { color: #a855f7; }
+App.theme-midnight #auth-list > ListItem.-highlight { background: #130a22;
+border-left: thick #a855f7; }
+App.theme-midnight #list-view, App.theme-midnight #video-info { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
+App.theme-midnight #list-loading-anim { color: #a855f7;
+}
 App.theme-midnight #search-input:focus { border: solid #a855f7; }
 App.theme-midnight #search-title { color: #a855f7; }
-App.theme-midnight #download-title { color: #a855f7; }
+App.theme-midnight #download-title { color: #a855f7;
+}
 App.theme-midnight #quality-title { color: #a855f7; }
 App.theme-midnight #playlist-title { color: #a855f7; }
-App.theme-midnight #settings-title { color: #a855f7; }
+App.theme-midnight #settings-title { color: #a855f7;
+}
 App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
 App.theme-midnight #help-outer { border: solid #a855f7; }
-App.theme-midnight #nav-dialog { border: solid #a855f7; }
+App.theme-midnight #nav-dialog { border: solid #a855f7;
+}
 App.theme-midnight #nav-title { color: #a855f7; }
 App.theme-midnight #video-channel { color: #a855f7; }
-App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7; }
+App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7;
+}
 App.theme-midnight #watch-dialog #np-header { color: #a855f7; }
-App.theme-midnight #watch-dialog ProgressBar > .bar--bar { color: #a855f7; }
+App.theme-midnight #watch-dialog ProgressBar .bar--bar, App.theme-midnight #watch-dialog ProgressBar .bar--complete { color: #a855f7;
+}
 
 /* ── Spinner / AppHeader ─────────────────────────────────────────────────── */
 AppHeader #header-status {
@@ -863,19 +905,22 @@ AppHeader #header-status {
 }
 
 App.theme-amber AppHeader #header-status { color: #e8820c; }
-App.theme-ocean AppHeader #header-status { color: #0ea5e9; }
+App.theme-ocean AppHeader #header-status { color: #0ea5e9;
+}
 App.theme-midnight AppHeader #header-status { color: #a855f7; }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────── */
-Scrollbar > .scrollbar--thumb { background: #ff4444; }
+Scrollbar > .scrollbar--thumb { background: #ff4444;
+}
 Scrollbar > .scrollbar--thumb:hover { background: #ff6666; }
 
 App.theme-amber Scrollbar > .scrollbar--thumb { background: #e8820c; }
-App.theme-amber Scrollbar > .scrollbar--thumb:hover { background: #ffb84d; }
+App.theme-amber Scrollbar > .scrollbar--thumb:hover { background: #ffb84d;
+}
 
 App.theme-ocean Scrollbar > .scrollbar--thumb { background: #0ea5e9; }
-App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8; }
+App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8;
+}
 
 App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
 App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
-
