@@ -119,8 +119,8 @@ class DetailPanel(Widget):
         """Update panel for a newly focused video entry.
 
         Split into two phases:
-          • Immediate — update tracking state and show thumbnail loading indicator
-            so the panel never shows stale content during rapid j/k scrolling.
+          • Immediate — update tracking state; show loading indicator only for
+            uncached thumbnails so cached ones swap in without a flash.
           • Deferred (80 ms) — rebuild all text widgets and launch background
             workers. The timer is cancelled and restarted on every call, so the
             expensive work only runs when the cursor actually rests.
@@ -134,9 +134,16 @@ class DetailPanel(Widget):
         # scrolling — so cached thumbnails appear without any artificial delay.
         thumb = self.query_one("#thumbnail", ThumbnailWidget)
         thumb.set_video_id(vid)
-        thumb.set_loading()
         if vid and not vid.startswith("__"):
+            from src.ui.thumbnail import _thumb_path
+            # Only flash the loading indicator when the image isn't already on
+            # disk. For cache hits the old thumbnail stays visible until the
+            # worker swaps in the new one, eliminating the brief loading flash.
+            if not _thumb_path(vid).exists():
+                thumb.set_loading()
             self._render_thumbnail_bg(vid, entry)
+        else:
+            thumb.set_loading()
 
         # Debounce only the text/metadata updates and background meta-fetch.
         # This stops the Static widgets from thrashing during fast j/k scrolling.
