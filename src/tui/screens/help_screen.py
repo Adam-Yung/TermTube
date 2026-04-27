@@ -51,7 +51,9 @@ _HELP_CONTENT = """\
   [{COLOR}]H[/{COLOR}]              Seek back 10 seconds
   [{COLOR}]L[/{COLOR}]              Seek forward 10 seconds  [dim](replaces Listen Quality)[/dim]
   [{COLOR}]0–9[/{COLOR}]            Seek to 0% / 10% / … / 90% of track
-  [{COLOR}]s[/{COLOR}]              Stop audio  [dim](replaces Subscribe action)[/dim]
+  [{COLOR}]e[/{COLOR}]              Add focused video to audio queue
+  [{COLOR}]>[/{COLOR}]              Skip to next track in queue
+  [{COLOR}]s[/{COLOR}]              Stop audio + clear queue  [dim](replaces Subscribe action)[/dim]
 
   [dim]During video playback (mpv window, same bindings):[/dim]
   [{COLOR}]h / l[/{COLOR}]          ±5 seconds
@@ -65,6 +67,7 @@ _HELP_CONTENT = """\
 
   [{COLOR}]d[/{COLOR}]              Download video to Library
   [{COLOR}]a[/{COLOR}]              Download audio (MP3) to Library
+  [{COLOR}]y[/{COLOR}]              Copy video URL to clipboard
   [{COLOR}]s[/{COLOR}]              Open channel page in browser (subscribe)
   [{COLOR}]p[/{COLOR}]              Add video to a playlist
   [{COLOR}]b[/{COLOR}]              Open video in browser

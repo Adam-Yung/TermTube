@@ -364,74 +364,6 @@ def enrich_in_background(
 
 # ── Download ──────────────────────────────────────────────────────────────────
 
-def download_video(video_id: str, config, *, on_progress: Callable[[str], None] | None = None) -> bool:
-    """Download video to config.video_dir. Returns True on success."""
-    config.video_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    quality = config.preferred_quality
-    fmt = "bestvideo+bestaudio/best" if quality == "best" else f"bestvideo[height<={quality}]+bestaudio/best"
-
-    cmd = [
-        "yt-dlp",
-        "--format", fmt,
-        "--merge-output-format", "mp4",
-        "--output", str(config.video_dir / config.video_format),
-        "--write-info-json",
-        "--write-thumbnail",
-        "--no-warnings",
-        *cookie_args(config),
-        url,
-    ]
-    logger.debug("download_video: %s", " ".join(cmd))
-    result = subprocess.run(cmd)
-    return result.returncode == 0
-
-
-def download_audio(video_id: str, config, *, on_progress: Callable[[str], None] | None = None) -> bool:
-    """Download audio-only to config.audio_dir. Returns True on success."""
-    config.audio_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    cmd = [
-        "yt-dlp",
-        "--format", "bestaudio/best",
-        "--extract-audio",
-        "--audio-format", "mp3",
-        "--audio-quality", "0",
-        "--output", str(config.audio_dir / config.audio_format),
-        "--write-info-json",
-        "--write-thumbnail",
-        "--no-warnings",
-        *cookie_args(config),
-        url,
-    ]
-    logger.debug("download_audio: %s", " ".join(cmd))
-    result = subprocess.run(cmd)
-    return result.returncode == 0
-
-
-def get_stream_url(video_id: str, config, *, audio_only: bool = False) -> str | None:
-    """Get a direct streamable URL for mpv (avoids re-fetching inside mpv)."""
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    fmt = "bestaudio/best" if audio_only else "bestvideo+bestaudio/best"
-    cmd = [
-        "yt-dlp",
-        "--format", fmt,
-        "--get-url",
-        "--no-warnings",
-        "--quiet",
-        *cookie_args(config),
-        url,
-    ]
-    logger.debug("get_stream_url: %s", url)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0 and result.stdout.strip():
-        return result.stdout.strip().split("\n")[0]
-    logger.warning("get_stream_url failed for %s: %s", video_id, result.stderr.strip())
-    return None
-
-
 # ── Quality helpers ───────────────────────────────────────────────────────────
 
 # (label, yt-dlp format string)
@@ -546,14 +478,3 @@ def download_audio_with_progress(
     return _run_download_with_progress(cmd, on_progress)
 
 
-def open_in_browser(video_id: str) -> None:
-    """Open the video in the default system browser."""
-    import webbrowser
-    webbrowser.open(f"https://www.youtube.com/watch?v={video_id}")
-
-
-def subscribe_channel(channel_url: str, config) -> bool:
-    """Subscribe to a channel (requires authenticated session)."""
-    import webbrowser
-    webbrowser.open(channel_url)
-    return True

@@ -421,25 +421,6 @@ QualityModal {
     color: #555555;
 }
 
-/* ── Now Playing Modal (audio) ───────────────────────────────────────────── */
-NowPlayingModal {
-    align: center middle;
-}
-
-#now-playing-dialog {
-    width: 65%;
-    height: auto;
-    background: #0d0d1a;
-    border: solid #4444aa;
-    padding: 1 2;
-}
-
-#now-playing-dialog #np-header {
-    color: #8888ff;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
 /* ── Watch Modal (video in external mpv window) ──────────────────────────── */
 WatchModal {
     align: center middle;
@@ -472,7 +453,7 @@ WatchModal {
     color: #44ff44;
 }
 
-/* ── Shared np-* widget styles (NowPlayingModal + WatchModal) ────────────── */
+/* ── Shared np-* widget styles (WatchModal) ──────────────────────────────── */
 #np-title {
     color: #ffffff;
     text-style: bold;
@@ -482,19 +463,6 @@ WatchModal {
 #np-channel {
     color: #ff6666;
     margin-bottom: 1;
-}
-
-#now-playing-dialog ProgressBar {
-    margin-top: 1;
-    margin-bottom: 0;
-}
-
-#now-playing-dialog ProgressBar > .bar--bar {
-    color: #8888ff;
-}
-
-#now-playing-dialog ProgressBar > .bar--complete {
-    color: #44ff44;
 }
 
 #np-time {

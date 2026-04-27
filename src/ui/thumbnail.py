@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import threading
 from pathlib import Path
 
 from src.cache import THUMB_DIR
@@ -126,27 +125,6 @@ def download(video_id: str, url: str) -> Path | None:
         dest.unlink(missing_ok=True)
         return None
 
-
-def download_background(video_ids_and_urls: list[tuple[str, str]], *, max_workers: int = 4) -> None:
-    """
-    Pre-download thumbnails for a list of (video_id, url) pairs in background threads.
-    Skips IDs that are already cached. Fire-and-forget.
-    """
-    to_fetch = [(vid, url) for vid, url in video_ids_and_urls
-                if vid and url and not _thumb_path(vid).exists()]
-    if not to_fetch:
-        return
-
-    logger.debug("pre-downloading %d thumbnails in background", len(to_fetch))
-
-    def _worker():
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            for vid, url in to_fetch:
-                pool.submit(download, vid, url)
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
 
 
 # ── URL selection ──────────────────────────────────────────────────────────────

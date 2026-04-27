@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import time as _time
-from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
-
-if TYPE_CHECKING:
-    pass
 
 BATCH_SIZE = 20
 PREFETCH_THRESHOLD = 5

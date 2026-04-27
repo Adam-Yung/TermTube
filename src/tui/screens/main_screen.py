@@ -6,7 +6,6 @@ import os
 import subprocess
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from textual import work
 from textual.app import ComposeResult
@@ -19,9 +18,6 @@ from textual.widgets import Footer, RichLog, Static, Tab, Tabs
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
-
-if TYPE_CHECKING:
-    pass
 
 
 # ── Custom Header ─────────────────────────────────────────────────────────────
@@ -835,9 +831,6 @@ class MainScreen(Screen):
             self.notify(f"Opened {channel} in browser")
         else:
             self.notify("No channel URL available", severity="warning")
-
-    def action_subscribe(self) -> None:
-        self.action_subscribe_entry()
 
     def action_playlist(self) -> None:
         entry = self._selected_entry()
