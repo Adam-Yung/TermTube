@@ -64,14 +64,27 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return None
 
+    # Fields from a full yt-dlp fetch that are large and never read back from
+    # cache.  Stripping them cuts average JSON size from ~48 KB to ~2 KB.
+    _FAT_FIELDS = frozenset({
+        "formats",
+        "requested_formats",
+        "requested_downloads",
+        "automatic_captions",
+        "subtitles",
+        "heatmap",
+        "fragments",
+    })
+
     def put_video(self, entry: dict) -> None:
         vid = entry.get("id") or entry.get("webpage_url_basename")
         if not vid:
             return
-        entry["_cached_at"] = time.time()
+        slim = {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
+        slim["_cached_at"] = time.time()
         path = VIDEO_DIR / f"{vid}.json"
         with _write_lock:
-            _atomic_write(path, json.dumps(entry, ensure_ascii=False))
+            _atomic_write(path, json.dumps(slim, ensure_ascii=False))
 
     def get_video_raw(self, video_id: str) -> dict | None:
         """Get cached entry regardless of TTL (used by preview script)."""
@@ -201,23 +214,46 @@ class Cache:
         for f in THUMB_DIR.glob("*.jpg"):
             f.unlink(missing_ok=True)
 
-    def prune_old_thumbnails(self, max_age_days: int = 30) -> None:
-        """Delete thumbnail files older than max_age_days to reclaim disk space."""
+    def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
+        """Delete thumbnails older than max_age_days, then enforce max_count cap."""
         cutoff = time.time() - max_age_days * 86400
+        files: list[tuple[float, Path]] = []
         for f in THUMB_DIR.glob("*.jpg"):
             try:
-                if f.stat().st_mtime < cutoff:
+                mtime = f.stat().st_mtime
+                if mtime < cutoff:
                     f.unlink(missing_ok=True)
+                else:
+                    files.append((mtime, f))
             except OSError:
                 pass
+        # Hard cap: evict oldest by access time if still over limit.
+        if len(files) > max_count:
+            files.sort()
+            for _, f in files[: len(files) - max_count]:
+                f.unlink(missing_ok=True)
 
-    def prune_old_videos(self, max_age_days: int = 7) -> None:
-        """Delete video JSON files older than max_age_days to reclaim disk space."""
-        cutoff = time.time() - max_age_days * 86400
+    def prune_old_videos(self, max_age_days: int = 3, max_count: int = 400) -> None:
+        """Delete video JSONs older than max_age_days, then enforce max_count cap.
+
+        Uses the _cached_at timestamp stored inside the JSON rather than st_mtime.
+        st_mtime is reset by enrich_in_background on every enrichment write, which
+        would otherwise make every enriched file appear perpetually fresh.
+        """
+        now = time.time()
+        cutoff = now - max_age_days * 86400
+        files: list[tuple[float, Path]] = []
         for f in VIDEO_DIR.glob("*.json"):
             try:
-                # Use file modification time to quickly identify stale cache
-                if f.stat().st_mtime < cutoff:
+                cached_at = json.loads(f.read_text()).get("_cached_at", 0)
+                if cached_at < cutoff:
                     f.unlink(missing_ok=True)
-            except OSError:
+                else:
+                    files.append((cached_at, f))
+            except (OSError, json.JSONDecodeError, ValueError):
                 pass
+        # Hard cap: evict oldest by _cached_at if still over limit.
+        if len(files) > max_count:
+            files.sort()
+            for _, f in files[: len(files) - max_count]:
+                f.unlink(missing_ok=True)

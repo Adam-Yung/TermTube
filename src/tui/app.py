@@ -46,8 +46,7 @@ class TermTubeApp(App):
     def _run_housekeeping(self) -> None:
         """Background task to prune stale files from the cache directories."""
         try:
-            # Keep thumbnails for 14 days, but prune heavy video JSONs after 7 days
-            self.cache.prune_old_thumbnails(max_age_days=14)
-            self.cache.prune_old_videos(max_age_days=7)
+            self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
+            self.cache.prune_old_videos(max_age_days=3, max_count=400)
         except Exception:
             pass  # Fail silently so it never crashes the TUI
