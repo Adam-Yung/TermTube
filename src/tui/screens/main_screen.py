@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import threading
 from datetime import datetime
@@ -15,10 +16,10 @@ from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Footer, RichLog, Static, Tab, Tabs
 
+from src import logger as _logger
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
-
 
 # ── Custom Header ─────────────────────────────────────────────────────────────
 
@@ -187,6 +188,7 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
+        self._log("[dim]TermTube ready[/dim]")
         self.set_interval(600.0, self._scheduled_home_refresh)
         self.set_timer(0.4, self._maybe_show_image_warning)
 
@@ -235,6 +237,7 @@ class MainScreen(Screen):
             self._load_view(tab_id)
 
     def _load_view(self, view: str) -> None:
+        self._log(f"[dim]Loading {view}…[/dim]")
         panel = self.query_one("#video-list-panel", VideoListPanel)
         panel.clear_and_set_loading()
         self.query_one("#detail-panel", DetailPanel).clear()
@@ -361,6 +364,8 @@ class MainScreen(Screen):
                     count += 1
 
             if count >= _MIN_FEED_COUNT:
+                self._log(f"[dim]{feed_key}: {count} from cache, refreshing…[/dim]")
+
                 self.app.call_from_thread(
                     self.notify,
                     f"Loaded from cache — refreshing in background…",
@@ -554,12 +559,14 @@ class MainScreen(Screen):
         self._audio_stopped = False
         self._audio_session += 1
         session = self._audio_session
+        self._log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
         self._action_bar().set_player_mode(entry, queue_len=len(self._audio_queue))
         self._refresh_queue_hint()
         self._launch_audio_worker(entry, session, ytdl_format=ytdl_format)
         self._audio_poll_timer = self.set_interval(0.5, self._poll_audio_ipc)
 
     def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
+        self._log("[dim]Audio stop[/dim]")
         self._audio_stopped = True
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
@@ -632,6 +639,9 @@ class MainScreen(Screen):
             self._audio_proc.wait()
         except FileNotFoundError:
             self.app.call_from_thread(
+                self._log, "[red]Error: mpv not found — install with: brew install mpv[/red]"
+            )
+            self.app.call_from_thread(
                 self.notify,
                 "mpv not found — install with: brew install mpv",
                 severity="error",
@@ -639,6 +649,9 @@ class MainScreen(Screen):
             self.app.call_from_thread(self._stop_audio)
             return
         except OSError as exc:
+            self.app.call_from_thread(
+                self._log, f"[red]Error: failed to launch mpv: {exc}[/red]"
+            )
             self.app.call_from_thread(
                 self.notify, f"Failed to launch mpv: {exc}", severity="error"
             )
@@ -659,6 +672,7 @@ class MainScreen(Screen):
             self.app.call_from_thread(self._on_audio_finished, entry)
 
     def _on_audio_finished(self, entry: dict) -> None:
+        self._log(f"[dim]Audio finished: {entry.get('title', '')[:60]}[/dim]")
         title = entry.get("title", "")
         self._audio_proc = None
         self._audio_entry = None
@@ -1018,6 +1032,8 @@ class MainScreen(Screen):
             self.query_one("#debug-log", RichLog).write(msg)
         except Exception:
             pass
+        plain = re.sub(r"\[/?[^\]]*\]", "", msg)
+        _logger.debug("%s", plain)
 
     # ── Tab shortcuts ─────────────────────────────────────────────────────────
 

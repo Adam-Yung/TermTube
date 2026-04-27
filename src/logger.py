@@ -1,37 +1,47 @@
-"""Logging for TermTube — controlled by --debug flag."""
+"""Logging for TermTube — file output only with --debug flag."""
 
 from __future__ import annotations
 import logging
+import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
-_LOG_FILE = Path.home() / ".cache" / "termtube" / "debug.log"
+_LOG_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "TermTube"
 _log = logging.getLogger("termtube")
 _debug_enabled = False
+_log_file: Path | None = None
 
 
 def setup(debug: bool = False) -> None:
-    """Call once at startup with the --debug flag value."""
-    global _debug_enabled
+    """Call once at startup. With --debug, writes to a timestamped file in $TMPDIR/TermTube/."""
+    global _debug_enabled, _log_file
     _debug_enabled = debug
 
-    _log.setLevel(logging.DEBUG if debug else logging.WARNING)
+    if not debug:
+        _log.setLevel(logging.WARNING)
+        return
 
-    if debug:
-        # File handler — always write debug logs to file
-        _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        fh = logging.FileHandler(_LOG_FILE, mode="w", encoding="utf-8")
+    _log.setLevel(logging.DEBUG)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    _log_file = _LOG_DIR / f"{timestamp}.log"
+
+    try:
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(_log_file, mode="w", encoding="utf-8")
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"))
         _log.addHandler(fh)
+    except OSError:
+        pass
 
-        # Stderr handler — show debug output on terminal
-        sh = logging.StreamHandler(sys.stderr)
-        sh.setLevel(logging.DEBUG)
-        sh.setFormatter(logging.Formatter("\033[90m[DBG] %(message)s\033[0m"))
-        _log.addHandler(sh)
+    sh = logging.StreamHandler(sys.stderr)
+    sh.setLevel(logging.DEBUG)
+    sh.setFormatter(logging.Formatter("\033[90m[DBG] %(message)s\033[0m"))
+    _log.addHandler(sh)
 
-        _log.debug("Debug logging enabled. Log file: %s", _LOG_FILE)
+    _log.debug("Debug logging enabled. Log: %s", _log_file)
 
 
 def is_debug() -> bool:
