@@ -164,6 +164,13 @@ class ActionBar(Widget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def refresh_theme(self) -> None:
+        """Re-render all Rich-markup elements after a theme change."""
+        self.query_one("#ab-actions", Static).update(self._get_actions_table())
+        self._update_np_keys()
+        if self._playing:
+            self._refresh_player()
+
     def set_actions_mode(self) -> None:
         self._playing = False
         self._queue_len = 0

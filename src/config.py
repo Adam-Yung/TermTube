@@ -33,6 +33,8 @@ DEFAULT_CONFIG: dict = {
     "thumbnail_format": "auto",
     # theme: UI color theme. Options: crimson | amber | ocean | midnight
     "theme": "crimson",
+    # thumbnail_warning_dismissed: set to true after user clicks "Never show again"
+    "thumbnail_warning_dismissed": False,
 }
 
 

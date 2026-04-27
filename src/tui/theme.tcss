@@ -217,17 +217,6 @@ ActionBar #ab-row2 { height: 1; color: #888888; }
 
 ActionBar #np-title-line { height: 1; margin-top: 1; color: #ffffff; }
 
-/* Progress bar: full width, no bottom margin (overrides global ProgressBar rule) */
-ActionBar #np-bar {
-    height: 1;
-    width: 100%;
-    margin-top: 0;
-    margin-bottom: 0;
-}
-ActionBar #np-bar > .bar--bar { color: #6666ff; }
-ActionBar #np-bar > .bar--complete { color: #44ff44; }
-ActionBar #np-bar > .bar--indeterminate { color: #444488; }
-
 ActionBar #np-time-line { height: 1; color: #666666; }
 ActionBar #np-keys     { height: 1; color: #888888; }
 
@@ -317,6 +306,10 @@ ProgressBar > .bar--bar {
 ProgressBar > .bar--complete {
     color: #44ff44;
 }
+
+App.theme-amber   ProgressBar > .bar--bar { color: #e8820c; }
+App.theme-ocean   ProgressBar > .bar--bar { color: #0ea5e9; }
+App.theme-midnight ProgressBar > .bar--bar { color: #a855f7; }
 
 /* ── Playlist Modal ──────────────────────────────────────────────────────── */
 PlaylistModal {
@@ -474,6 +467,53 @@ WatchModal {
     color: #555555;
     margin-top: 1;
 }
+
+/* ── Image Warning Modal ─────────────────────────────────────────────────── */
+ImageWarningModal {
+    align: center middle;
+}
+
+#imgwarn-dialog {
+    width: 56;
+    height: auto;
+    background: #1a1a1a;
+    border: solid #888800;
+    padding: 1 2;
+}
+
+#imgwarn-title {
+    color: #dddd00;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#imgwarn-body {
+    color: #aaaaaa;
+    margin-bottom: 1;
+}
+
+#imgwarn-list {
+    height: auto;
+    background: #0d0d0d;
+    border: solid #333333;
+}
+
+#imgwarn-list > ListItem {
+    padding: 0 1;
+    color: #888888;
+    border-left: thick #0d0d0d;
+    height: 1;
+}
+
+#imgwarn-list > ListItem > Static { background: transparent; }
+
+#imgwarn-list > ListItem.-highlight {
+    background: #1e1e00;
+    border-left: thick #dddd00;
+    color: #ffffff;
+}
+
+#imgwarn-list > ListItem.-highlight > Static { color: #ffffff; }
 
 /* ── Debug log panel ─────────────────────────────────────────────────────── */
 #debug-log {
@@ -736,7 +776,6 @@ App.theme-amber #quality-title { color: #e8820c; }
 App.theme-amber #playlist-title { color: #e8820c; }
 App.theme-amber #settings-title { color: #e8820c; }
 App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
-App.theme-amber ActionBar #np-bar > .bar--bar { color: #e8820c; }
 App.theme-amber #help-outer { border: solid #e8820c; }
 App.theme-amber #nav-dialog { border: solid #e8820c; }
 App.theme-amber #nav-title { color: #e8820c; }
@@ -772,7 +811,6 @@ App.theme-ocean #quality-title { color: #0ea5e9; }
 App.theme-ocean #playlist-title { color: #0ea5e9; }
 App.theme-ocean #settings-title { color: #0ea5e9; }
 App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
-App.theme-ocean ActionBar #np-bar > .bar--bar { color: #0ea5e9; }
 App.theme-ocean #help-outer { border: solid #0ea5e9; }
 App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
 App.theme-ocean #nav-title { color: #0ea5e9; }
@@ -808,7 +846,6 @@ App.theme-midnight #quality-title { color: #a855f7; }
 App.theme-midnight #playlist-title { color: #a855f7; }
 App.theme-midnight #settings-title { color: #a855f7; }
 App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
-App.theme-midnight ActionBar #np-bar > .bar--bar { color: #a855f7; }
 App.theme-midnight #help-outer { border: solid #a855f7; }
 App.theme-midnight #nav-dialog { border: solid #a855f7; }
 App.theme-midnight #nav-title { color: #a855f7; }
@@ -842,15 +879,3 @@ App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8; }
 App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
 App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
 
-/* ── Now Playing / Player Specific Hooks ─────────────────────────────────── */
-App.theme-amber #now-playing-dialog { border: solid #e8820c; }
-App.theme-amber #now-playing-dialog #np-header { color: #e8820c; }
-App.theme-amber #now-playing-dialog ProgressBar > .bar--bar { color: #e8820c; }
-
-App.theme-ocean #now-playing-dialog { border: solid #0ea5e9; }
-App.theme-ocean #now-playing-dialog #np-header { color: #0ea5e9; }
-App.theme-ocean #now-playing-dialog ProgressBar > .bar--bar { color: #0ea5e9; }
-
-App.theme-midnight #now-playing-dialog { border: solid #a855f7; }
-App.theme-midnight #now-playing-dialog #np-header { color: #a855f7; }
-App.theme-midnight #now-playing-dialog ProgressBar > .bar--bar { color: #a855f7; }

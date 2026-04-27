@@ -187,9 +187,23 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
-
-        # Background refresh home feed every 10 minutes (600 seconds)
         self.set_interval(600.0, self._scheduled_home_refresh)
+        self.set_timer(0.4, self._maybe_show_image_warning)
+
+    def _maybe_show_image_warning(self) -> None:
+        from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+        if _HAS_TEXTUAL_IMAGE:
+            return
+        if self.app.config.get("thumbnail_warning_dismissed", False):
+            return
+        from src.tui.screens.image_warning_modal import ImageWarningModal
+
+        def _on_done(never_show: bool) -> None:
+            if never_show:
+                self.app.config._data["thumbnail_warning_dismissed"] = True
+                self.app.config.save()
+
+        self.app.push_screen(ImageWarningModal(), _on_done)
 
     # ── Tab switching ─────────────────────────────────────────────────────────
 

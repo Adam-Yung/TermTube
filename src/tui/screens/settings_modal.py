@@ -120,6 +120,7 @@ class SettingsModal(ModalScreen[None]):
             self.app.remove_class("theme-crimson", "theme-amber", "theme-ocean", "theme-midnight")
             self.app.add_class(f"theme-{event.item.value}")
             self._refresh_list("theme-list", _THEMES, event.item.value)
+            self._refresh_live_theme()
 
         elif lv_id == "quality-list-s":
             config._data["preferred_quality"] = event.item.value
@@ -141,6 +142,23 @@ class SettingsModal(ModalScreen[None]):
 
         # Persist immediately
         config.save()
+
+    def _refresh_live_theme(self) -> None:
+        """Re-render Rich-markup widgets that bake the theme color at compose time."""
+        from src.tui.widgets.video_list import VideoListItem
+        from src.tui.widgets.action_bar import ActionBar
+        from textual.widgets import Static
+        for item in self.app.query(VideoListItem):
+            try:
+                item._cached_markup = item._build_markup()
+                item.query_one(Static).update(item._cached_markup)
+            except Exception:
+                pass
+        for ab in self.app.query(ActionBar):
+            try:
+                ab.refresh_theme()
+            except Exception:
+                pass
 
     def _refresh_list(self, list_id: str, opts: list, selected: str) -> None:
         lv = self.query_one(f"#{list_id}", ListView)
