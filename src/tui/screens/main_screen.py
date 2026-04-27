@@ -61,6 +61,9 @@ class AppHeader(Widget):
 
     def set_status_loading(self) -> None:
         self._state = "LOADING"
+        self._frame = 0
+        char = self._SPINNER[0]
+        self.query_one("#header-status", Static).update(char)
 
     def set_status_idle(self) -> None:
         self._state = "IDLE"

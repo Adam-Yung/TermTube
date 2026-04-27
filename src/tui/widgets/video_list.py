@@ -85,9 +85,12 @@ class VideoListItem(ListItem):
     def __init__(self, entry: dict) -> None:
         super().__init__()
         self.entry = entry
+        # Cached markup — computed once in compose(), reused by update_entry_by_id.
+        self._cached_markup: str = ""
 
     def compose(self) -> ComposeResult:
-        yield Static(self._build_markup(), markup=True, shrink=True)
+        self._cached_markup = self._build_markup()
+        yield Static(self._cached_markup, markup=True, shrink=True)
 
     def _build_markup(self) -> str:
         try:
@@ -169,6 +172,12 @@ class VideoListPanel(Widget):
         self._visible: int = 0
         self._loading = False
         self._initial_batch_posted: bool = False
+        # Cached widget references — set in on_mount, avoids repeated DOM traversals.
+        self._lv: ListView
+        self._anim: LoadingIndicator
+        self._header: Static
+        self._breadcrumb: Static
+        self._footer: Static
 
     def compose(self) -> ComposeResult:
         yield Static("", id="list-breadcrumb", markup=True)
@@ -177,13 +186,22 @@ class VideoListPanel(Widget):
         yield ListView(id="list-view")
         yield Static("", id="list-loading", markup=True)
 
+    def on_mount(self) -> None:
+        # Cache all frequently-accessed child widgets once to avoid repeated
+        # DOM traversals during streaming (hundreds of calls per feed load).
+        self._lv = self.query_one("#list-view", ListView)
+        self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
+        self._header = self.query_one("#list-header", Static)
+        self._breadcrumb = self.query_one("#list-breadcrumb", Static)
+        self._footer = self.query_one("#list-loading", Static)
+        self._lv.focus()
+
     @property
     def selected_entry(self) -> dict | None:
-        lv = self.query_one("#list-view", ListView)
-        if lv.index is None:
+        if self._lv.index is None:
             return None
         try:
-            child = lv.highlighted_child
+            child = self._lv.highlighted_child
             if isinstance(child, VideoListItem):
                 return child.entry
         except Exception:
@@ -197,31 +215,30 @@ class VideoListPanel(Widget):
         self._loading = True
         self._initial_batch_posted = False
 
-        self.query_one("#list-loading-anim", LoadingIndicator).display = True
-        lv = self.query_one("#list-view", ListView)
-        lv.display = False
-        lv.clear()
+        self._anim.display = True
+        self._lv.display = False
+        self._lv.clear()
 
-        self.query_one("#list-breadcrumb", Static).update("")
-        self.query_one("#list-header", Static).update("[dim]Loading…[/dim]")
-        self.query_one("#list-loading", Static).update("")
+        self._breadcrumb.update("")
+        self._header.update("[dim]Loading…[/dim]")
+        self._footer.update("")
 
     def set_breadcrumb(self, text: str) -> None:
-        self.query_one("#list-breadcrumb", Static).update(f"[dim]{text}[/dim]")
+        self._breadcrumb.update(f"[dim]{text}[/dim]")
 
     def set_empty_message(self, msg: str) -> None:
         self._loading = False
-        self.query_one("#list-loading-anim", LoadingIndicator).display = False
-        self.query_one("#list-view", ListView).display = True
-        self.query_one("#list-header", Static).update(f"[dim]{msg}[/dim]")
-        self.query_one("#list-loading", Static).update("")
+        self._anim.display = False
+        self._lv.display = True
+        self._header.update(f"[dim]{msg}[/dim]")
+        self._footer.update("")
 
     def set_error_message(self, msg: str) -> None:
         self._loading = False
-        self.query_one("#list-loading-anim", LoadingIndicator).display = False
-        self.query_one("#list-view", ListView).display = True
-        self.query_one("#list-header", Static).update(f"[#ff4444]{msg}[/#ff4444]")
-        self.query_one("#list-loading", Static).update("")
+        self._anim.display = False
+        self._lv.display = True
+        self._header.update(f"[#ff4444]{msg}[/#ff4444]")
+        self._footer.update("")
 
     def append_entry(self, entry: dict) -> None:
         vid = entry.get("id", "")
@@ -230,31 +247,27 @@ class VideoListPanel(Widget):
         self._buffer.append(entry)
         n_total = len(self._buffer)
 
-        lv = self.query_one("#list-view", ListView)
-
         if self._visible < BATCH_SIZE:
             self._reveal_entry(entry)
-        elif lv.index is not None:
-            remaining = self._visible - 1 - lv.index
+        elif self._lv.index is not None:
+            remaining = self._visible - 1 - self._lv.index
             if remaining <= PREFETCH_THRESHOLD:
                 self._reveal_next_batch()
 
-        self.query_one("#list-header", Static).update(
+        self._header.update(
             f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
         )
 
     def _reveal_entry(self, entry: dict) -> None:
-        anim = self.query_one("#list-loading-anim", LoadingIndicator)
-        if anim.display:
-            anim.display = False
-            self.query_one("#list-view", ListView).display = True
+        if self._anim.display:
+            self._anim.display = False
+            self._lv.display = True
 
-        lv = self.query_one("#list-view", ListView)
         item = VideoListItem(entry)
-        lv.append(item)
+        self._lv.append(item)
         self._visible += 1
         if self._visible == 1:
-            lv.index = 0
+            self._lv.index = 0
         if self._visible == BATCH_SIZE and not self._initial_batch_posted:
             self._initial_batch_posted = True
             self.post_message(self.BatchRevealed(list(self._buffer[:BATCH_SIZE])))
@@ -271,7 +284,7 @@ class VideoListPanel(Widget):
 
         remaining = len(self._buffer) - self._visible
         if remaining > 0 and self._loading:
-            self.query_one("#list-loading", Static).update(
+            self._footer.update(
                 f"[dim]  ↓ {remaining} more buffered — scroll to load[/dim]"
             )
 
@@ -279,27 +292,24 @@ class VideoListPanel(Widget):
 
     def finish_loading(self) -> None:
         self._loading = False
-        anim = self.query_one("#list-loading-anim", LoadingIndicator)
-        if anim.display:
-            anim.display = False
-            self.query_one("#list-view", ListView).display = True
+        if self._anim.display:
+            self._anim.display = False
+            self._lv.display = True
 
         n_total = len(self._buffer)
         n_hidden = n_total - self._visible
 
         if n_total == 0:
-            self.query_one("#list-header", Static).update("[dim]No results[/dim]")
-            self.query_one("#list-loading", Static).update("")
+            self._header.update("[dim]No results[/dim]")
+            self._footer.update("")
         else:
-            self.query_one("#list-header", Static).update(
+            self._header.update(
                 f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
             )
             if n_hidden > 0:
-                self.query_one("#list-loading", Static).update(
-                    f"[dim]  ↓ scroll for {n_hidden} more[/dim]"
-                )
+                self._footer.update(f"[dim]  ↓ scroll for {n_hidden} more[/dim]")
             else:
-                self.query_one("#list-loading", Static).update("")
+                self._footer.update("")
 
         if self._visible > 0 and not self._initial_batch_posted:
             self._initial_batch_posted = True
@@ -308,47 +318,46 @@ class VideoListPanel(Widget):
     def _update_load_more_indicator(self) -> None:
         remaining = len(self._buffer) - self._visible
         if remaining > 0:
-            self.query_one("#list-loading", Static).update(
+            self._footer.update(
                 f"[dim]  ↓ scroll for {remaining} more[/dim]"
             )
         else:
-            self.query_one("#list-loading", Static).update("")
+            self._footer.update("")
 
     def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
         idx = self._buffer_index.get(vid_id)
         if idx is not None and idx < len(self._buffer):
             self._buffer[idx] = entry
-        lv = self.query_one("#list-view", ListView)
-        for item in lv.query(VideoListItem):
+        for item in self._lv.query(VideoListItem):
             if item.entry.get("id") == vid_id:
                 item.entry = entry
                 try:
-                    item.query_one(Static).update(item._build_markup())
+                    item._cached_markup = item._build_markup()
+                    item.query_one(Static).update(item._cached_markup)
                 except Exception:
                     pass
                 break
 
     def cursor_down(self) -> None:
-        self.query_one("#list-view", ListView).action_cursor_down()
+        self._lv.action_cursor_down()
 
     def cursor_up(self) -> None:
-        self.query_one("#list-view", ListView).action_cursor_up()
+        self._lv.action_cursor_up()
 
     def cursor_to_top(self) -> None:
         if self._visible > 0:
-            self.query_one("#list-view", ListView).index = 0
+            self._lv.index = 0
 
     def cursor_to_bottom(self) -> None:
         if self._visible > 0:
-            self.query_one("#list-view", ListView).index = self._visible - 1
+            self._lv.index = self._visible - 1
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.item and isinstance(event.item, VideoListItem):
             self.post_message(self.Selected(event.item.entry))
 
-        lv = self.query_one("#list-view", ListView)
-        if lv.index is not None and self._visible < len(self._buffer):
-            remaining_visible = self._visible - 1 - lv.index
+        if self._lv.index is not None and self._visible < len(self._buffer):
+            remaining_visible = self._visible - 1 - self._lv.index
             if remaining_visible <= PREFETCH_THRESHOLD:
                 self._reveal_next_batch()
                 self._update_load_more_indicator()
@@ -356,6 +365,3 @@ class VideoListPanel(Widget):
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, VideoListItem):
             self.post_message(self.Activated(event.item.entry))
-
-    def on_mount(self) -> None:
-        self.query_one("#list-view", ListView).focus()

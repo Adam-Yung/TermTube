@@ -17,6 +17,7 @@ from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from textual.timer import Timer
 
 
 def _fmt_duration(secs: int | float | None) -> str:
@@ -73,6 +74,10 @@ class DetailPanel(Widget):
         self._current_id: str = ""
         self._last_entry: dict | None = None
         self._thumb_lock = threading.Lock()
+        # Debounce handle — cancelled and re-set on every navigation keystroke so
+        # expensive work (text updates, background workers) only fires when the
+        # cursor rests for 80 ms.
+        self._update_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="thumbnail-area"):
@@ -97,6 +102,9 @@ class DetailPanel(Widget):
         return self.query_one("#action-bar", ActionBar)
 
     def clear(self) -> None:
+        if self._update_timer is not None:
+            self._update_timer.stop()
+            self._update_timer = None
         self._current_id = ""
         self._last_entry = None
         self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
@@ -108,18 +116,40 @@ class DetailPanel(Widget):
             self.query_one(wid, Static).update("")
 
     def update_entry(self, entry: dict) -> None:
-        """Update panel with a new video entry."""
+        """Update panel for a newly focused video entry.
+
+        Split into two phases:
+          • Immediate — update tracking state and show thumbnail loading indicator
+            so the panel never shows stale content during rapid j/k scrolling.
+          • Deferred (80 ms) — rebuild all text widgets and launch background
+            workers. The timer is cancelled and restarted on every call, so the
+            expensive work only runs when the cursor actually rests.
+        """
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
-        
-        # Track focus count for the stale feed elimination cache
-        if vid and not vid.startswith("__") and hasattr(self.app, "cache") and hasattr(self.app.cache, "register_focus"):
-            self.app.cache.register_focus(vid)
 
+        # Immediately prime the thumbnail widget so it shows "Loading…" rather
+        # than the previous video's image while the user is still scrolling.
         thumb = self.query_one("#thumbnail", ThumbnailWidget)
         thumb.set_video_id(vid)
         thumb.set_loading()
+
+        # Cancel any in-flight debounce and arm a fresh one.
+        if self._update_timer is not None:
+            self._update_timer.stop()
+        self._update_timer = self.set_timer(0.08, lambda: self._do_update(entry))
+
+    def _do_update(self, entry: dict) -> None:
+        """Deferred body of update_entry — runs after 80 ms of cursor rest."""
+        vid = entry.get("id", "")
+        # Guard: cursor may have moved again during the debounce window.
+        if vid != self._current_id:
+            return
+
+        # Track focus count for LRU suppression.
+        if vid and not vid.startswith("__") and hasattr(self.app, "cache") and hasattr(self.app.cache, "register_focus"):
+            self.app.cache.register_focus(vid)
 
         title = entry.get("title") or "Untitled"
         channel = entry.get("uploader") or entry.get("channel") or ""
@@ -152,7 +182,7 @@ class DetailPanel(Widget):
         self._render_thumbnail_bg(vid, entry)
         if not desc and not vid.startswith("__"):
             self._fetch_full_meta_bg(vid, entry)
-    
+
     def refresh_metadata(self, entry: dict) -> None:
         """Refresh channel/stats/description from an enriched entry."""
         if entry.get("id") != self._current_id:
@@ -221,7 +251,20 @@ class DetailPanel(Widget):
                 url = thumb_mod._best_thumb_url(entry)
                 if url:
                     local = thumb_mod.download(vid, url) or None  # type: ignore[assignment]
+
             if local and local.exists():
+                # Validate the JPEG fully in this worker thread before handing to
+                # textual-image. Avoids an OSError deep in PIL's render pipeline
+                # (broken data stream) and keeps the main thread unblocked.
+                try:
+                    from PIL import Image as _PILImage
+                    with _PILImage.open(local) as _pil_img:
+                        _pil_img.load()
+                except Exception:
+                    self.app.call_from_thread(
+                        self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
+                    )
+                    return
                 self.app.call_from_thread(
                     self.query_one("#thumbnail", ThumbnailWidget).set_image_path, vid, local
                 )
@@ -233,7 +276,7 @@ class DetailPanel(Widget):
             thumb_widget = self.query_one("#thumbnail", ThumbnailWidget)
             cols = thumb_widget.size.width if thumb_widget.size.width > 0 else max(30, (self.size.width or 80) - 4)
             rows = thumb_widget.size.height if thumb_widget.size.height > 0 else 25
-            
+
             config = getattr(self.app, "config", None)
             ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
             self.app.call_from_thread(
@@ -253,4 +296,3 @@ class DetailPanel(Widget):
                 self.app.call_from_thread(self._update_playlists, vid)
         except Exception:
             pass
-

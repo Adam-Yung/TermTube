@@ -182,6 +182,14 @@ class ActionBar(Widget):
     def update_progress(self, pos: float, dur: float, paused: bool) -> None:
         if not self._playing:
             return
+        # Skip redundant redraws: ignore sub-quarter-second position drift while
+        # pause state is unchanged — avoids ~2 renders/sec when paused.
+        if (
+            paused == self._paused
+            and abs(pos - self._pos) < 0.25
+            and abs(dur - self._dur) < 1.0
+        ):
+            return
         self._pos = pos
         self._dur = dur
         self._paused = paused

@@ -92,6 +92,9 @@ VideoListPanel {
 #list-view {
     height: 1fr;
     background: #0f0f0f;
+    scrollbar-color: #ff4444;
+    scrollbar-background: #1a1a1a;
+    scrollbar-color-hover: #ff6666;
 }
 
 VideoListItem {
@@ -105,7 +108,7 @@ VideoListItem:hover {
     border-left: thick #555555;
 }
 
-VideoListItem.--highlight {
+#list-view > VideoListItem.-highlight {
     background: #16162a;
     border-left: thick #ff4444;
     color: #ffffff;
@@ -235,14 +238,13 @@ Footer {
     height: 1;
 }
 
-Footer > .footer--highlight {
-    color: #888888;
-    background: #1e1e1e;
-}
-
-Footer > .footer--key {
+FooterKey .footer-key--key {
     color: #ff4444;
     background: #200000;
+}
+
+FooterKey .footer-key--description {
+    color: #888888;
 }
 
 /* ── Search Modal ────────────────────────────────────────────────────────── */
@@ -354,13 +356,13 @@ PlaylistModal {
     background: transparent;
 }
 
-#playlist-list > ListItem.--highlight {
+#playlist-list > ListItem\.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
 }
 
-#playlist-list > ListItem.--highlight > Static {
+#playlist-list > ListItem\.-highlight > Static {
     color: #ffffff;
 }
 
@@ -405,13 +407,13 @@ QualityModal {
     background: transparent;
 }
 
-#quality-list > ListItem.--highlight {
+#quality-list > ListItem\.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
 }
 
-#quality-list > ListItem.--highlight > Static {
+#quality-list > ListItem\.-highlight > Static {
     color: #ffffff;
 }
 
@@ -640,13 +642,13 @@ VideoActionModal {
     background: transparent;
 }
 
-#vaction-list > ListItem.--highlight {
+#vaction-list > ListItem\.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
 }
 
-#vaction-list > ListItem.--highlight > Static {
+#vaction-list > ListItem\.-highlight > Static {
     color: #ffffff;
 }
 
@@ -710,21 +712,21 @@ SettingsModal {
     background: transparent;
 }
 
-#theme-list > ListItem.--highlight,
-#quality-list-s > ListItem.--highlight,
-#thumb-list > ListItem.--highlight,
-#browser-list > ListItem.--highlight,
-#auth-list > ListItem.--highlight {
+#theme-list > ListItem\.-highlight,
+#quality-list-s > ListItem\.-highlight,
+#thumb-list > ListItem\.-highlight,
+#browser-list > ListItem\.-highlight,
+#auth-list > ListItem\.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
 }
 
-#theme-list > ListItem.--highlight > Static,
-#quality-list-s > ListItem.--highlight > Static,
-#thumb-list > ListItem.--highlight > Static,
-#browser-list > ListItem.--highlight > Static,
-#auth-list > ListItem.--highlight > Static {
+#theme-list > ListItem\.-highlight > Static,
+#quality-list-s > ListItem\.-highlight > Static,
+#thumb-list > ListItem\.-highlight > Static,
+#browser-list > ListItem\.-highlight > Static,
+#auth-list > ListItem\.-highlight > Static {
     color: #ffffff;
 }
 
@@ -744,19 +746,20 @@ App.theme-amber AppHeader { background: #1a0d00; color: #e8820c; }
 App.theme-amber #header-title { color: #e8820c; }
 App.theme-amber Tab.-active { color: #e8820c; background: #1e1800; text-style: bold underline; }
 App.theme-amber Tab:hover { background: #181200; }
-App.theme-amber VideoListItem.--highlight { background: #1a1200; border-left: thick #e8820c; }
+App.theme-amber #list-view > VideoListItem.-highlight { background: #1a1200; border-left: thick #e8820c; }
 App.theme-amber VideoListItem:hover { background: #141000; }
-App.theme-amber #quality-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #quality-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-amber #playlist-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-amber #vaction-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-amber #theme-list > ListItem.--highlight,
-App.theme-amber #quality-list-s > ListItem.--highlight,
-App.theme-amber #thumb-list > ListItem.--highlight,
-App.theme-amber #browser-list > ListItem.--highlight,
-App.theme-amber #auth-list > ListItem.--highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #quality-list > ListItem\.-highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #quality-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-amber #playlist-list > ListItem\.-highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #playlist-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-amber #vaction-list > ListItem\.-highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #vaction-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-amber #theme-list > ListItem\.-highlight,
+App.theme-amber #quality-list-s > ListItem\.-highlight,
+App.theme-amber #thumb-list > ListItem\.-highlight,
+App.theme-amber #browser-list > ListItem\.-highlight,
+App.theme-amber #auth-list > ListItem\.-highlight { background: #1a0e00; border-left: thick #e8820c; }
+App.theme-amber #list-view { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
 App.theme-amber #list-loading-anim { color: #e8820c; }
 App.theme-amber #search-input:focus { border: solid #e8820c; }
 App.theme-amber #search-title { color: #e8820c; }
@@ -764,7 +767,7 @@ App.theme-amber #download-title { color: #e8820c; }
 App.theme-amber #quality-title { color: #e8820c; }
 App.theme-amber #playlist-title { color: #e8820c; }
 App.theme-amber #settings-title { color: #e8820c; }
-App.theme-amber Footer > .footer--key { color: #e8820c; background: #1a0d00; }
+App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
 App.theme-amber ActionBar #np-bar > .bar--bar { color: #e8820c; }
 App.theme-amber #help-outer { border: solid #e8820c; }
 App.theme-amber #nav-dialog { border: solid #e8820c; }
@@ -779,19 +782,20 @@ App.theme-ocean AppHeader { background: #001622; color: #0ea5e9; }
 App.theme-ocean #header-title { color: #0ea5e9; }
 App.theme-ocean Tab.-active { color: #0ea5e9; background: #001520; text-style: bold underline; }
 App.theme-ocean Tab:hover { background: #001020; }
-App.theme-ocean VideoListItem.--highlight { background: #001a24; border-left: thick #0ea5e9; }
+App.theme-ocean #list-view > VideoListItem.-highlight { background: #001a24; border-left: thick #0ea5e9; }
 App.theme-ocean VideoListItem:hover { background: #00141c; }
-App.theme-ocean #quality-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #quality-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-ocean #playlist-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-ocean #vaction-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-ocean #theme-list > ListItem.--highlight,
-App.theme-ocean #quality-list-s > ListItem.--highlight,
-App.theme-ocean #thumb-list > ListItem.--highlight,
-App.theme-ocean #browser-list > ListItem.--highlight,
-App.theme-ocean #auth-list > ListItem.--highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #quality-list > ListItem\.-highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #quality-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-ocean #playlist-list > ListItem\.-highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #playlist-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-ocean #vaction-list > ListItem\.-highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #vaction-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-ocean #theme-list > ListItem\.-highlight,
+App.theme-ocean #quality-list-s > ListItem\.-highlight,
+App.theme-ocean #thumb-list > ListItem\.-highlight,
+App.theme-ocean #browser-list > ListItem\.-highlight,
+App.theme-ocean #auth-list > ListItem\.-highlight { background: #001525; border-left: thick #0ea5e9; }
+App.theme-ocean #list-view { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
 App.theme-ocean #list-loading-anim { color: #0ea5e9; }
 App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
 App.theme-ocean #search-title { color: #0ea5e9; }
@@ -799,7 +803,7 @@ App.theme-ocean #download-title { color: #0ea5e9; }
 App.theme-ocean #quality-title { color: #0ea5e9; }
 App.theme-ocean #playlist-title { color: #0ea5e9; }
 App.theme-ocean #settings-title { color: #0ea5e9; }
-App.theme-ocean Footer > .footer--key { color: #0ea5e9; background: #001622; }
+App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
 App.theme-ocean ActionBar #np-bar > .bar--bar { color: #0ea5e9; }
 App.theme-ocean #help-outer { border: solid #0ea5e9; }
 App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
@@ -814,19 +818,20 @@ App.theme-midnight AppHeader { background: #0d0018; color: #a855f7; }
 App.theme-midnight #header-title { color: #a855f7; }
 App.theme-midnight Tab.-active { color: #a855f7; background: #0e0020; text-style: bold underline; }
 App.theme-midnight Tab:hover { background: #0a0018; }
-App.theme-midnight VideoListItem.--highlight { background: #160a28; border-left: thick #a855f7; }
+App.theme-midnight #list-view > VideoListItem.-highlight { background: #160a28; border-left: thick #a855f7; }
 App.theme-midnight VideoListItem:hover { background: #100820; }
-App.theme-midnight #quality-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #quality-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-midnight #playlist-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #playlist-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-midnight #vaction-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #vaction-list > ListItem.--highlight > Static { color: #ffffff; }
-App.theme-midnight #theme-list > ListItem.--highlight,
-App.theme-midnight #quality-list-s > ListItem.--highlight,
-App.theme-midnight #thumb-list > ListItem.--highlight,
-App.theme-midnight #browser-list > ListItem.--highlight,
-App.theme-midnight #auth-list > ListItem.--highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #quality-list > ListItem\.-highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #quality-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-midnight #playlist-list > ListItem\.-highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #playlist-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-midnight #vaction-list > ListItem\.-highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #vaction-list > ListItem\.-highlight > Static { color: #ffffff; }
+App.theme-midnight #theme-list > ListItem\.-highlight,
+App.theme-midnight #quality-list-s > ListItem\.-highlight,
+App.theme-midnight #thumb-list > ListItem\.-highlight,
+App.theme-midnight #browser-list > ListItem\.-highlight,
+App.theme-midnight #auth-list > ListItem\.-highlight { background: #130a22; border-left: thick #a855f7; }
+App.theme-midnight #list-view { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
 App.theme-midnight #list-loading-anim { color: #a855f7; }
 App.theme-midnight #search-input:focus { border: solid #a855f7; }
 App.theme-midnight #search-title { color: #a855f7; }
@@ -834,7 +839,7 @@ App.theme-midnight #download-title { color: #a855f7; }
 App.theme-midnight #quality-title { color: #a855f7; }
 App.theme-midnight #playlist-title { color: #a855f7; }
 App.theme-midnight #settings-title { color: #a855f7; }
-App.theme-midnight Footer > .footer--key { color: #a855f7; background: #0d0018; }
+App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
 App.theme-midnight ActionBar #np-bar > .bar--bar { color: #a855f7; }
 App.theme-midnight #help-outer { border: solid #a855f7; }
 App.theme-midnight #nav-dialog { border: solid #a855f7; }
