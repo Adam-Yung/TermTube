@@ -1,14 +1,19 @@
-"""DetailPanel — right panel showing thumbnail, metadata, and embedded player."""
+"""DetailPanel — right panel showing thumbnail, metadata, and embedded player.
+
+This panel is a *passive view*: it does not start any background workers.
+The owning screen (MainScreen) drives focus and thumbnail rendering with
+debounced workers and pushes results in via the public methods below
+(`update_basic`, `set_description`, `set_thumbnail_*`).
+"""
 
 from __future__ import annotations
 
-import threading
 from typing import TYPE_CHECKING
 
-from textual import work
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
 from textual.events import Resize, ScreenResume
+from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Static
 
@@ -17,7 +22,6 @@ from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from textual.timer import Timer
 
 
 def _fmt_duration(secs: int | float | None) -> str:
@@ -67,17 +71,22 @@ def _fmt_age(upload_date: str | None) -> str:
 
 
 class DetailPanel(Widget):
-    """Right panel: thumbnail + video metadata + ActionBar (actions or now-playing)."""
+    """Right panel: thumbnail + video metadata + ActionBar (actions or now-playing).
+
+    Passive — the owning screen pushes content in.
+    """
+
+    class RerenderRequested(Message):
+        """Posted on resize/screen-resume so the screen can re-trigger thumbnail render."""
+
+        def __init__(self, entry: dict) -> None:
+            super().__init__()
+            self.entry = entry
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._current_id: str = ""
         self._last_entry: dict | None = None
-        self._thumb_lock = threading.Lock()
-        # Debounce handle — cancelled and re-set on every navigation keystroke so
-        # expensive work (text updates, background workers) only fires when the
-        # cursor rests for 80 ms.
-        self._update_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         with Vertical(id="thumbnail-area"):
@@ -101,10 +110,15 @@ class DetailPanel(Widget):
     def action_bar(self) -> ActionBar:
         return self.query_one("#action-bar", ActionBar)
 
+    @property
+    def current_id(self) -> str:
+        return self._current_id
+
+    @property
+    def last_entry(self) -> dict | None:
+        return self._last_entry
+
     def clear(self) -> None:
-        if self._update_timer is not None:
-            self._update_timer.stop()
-            self._update_timer = None
         self._current_id = ""
         self._last_entry = None
         self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
@@ -115,52 +129,18 @@ class DetailPanel(Widget):
                     "#video-desc", "#video-playlists"):
             self.query_one(wid, Static).update("")
 
-    def update_entry(self, entry: dict) -> None:
-        """Update panel for a newly focused video entry.
+    # ── Public update API (called from MainScreen) ────────────────────────────
 
-        Split into two phases:
-          • Immediate — update tracking state; show loading indicator only for
-            uncached thumbnails so cached ones swap in without a flash.
-          • Deferred (80 ms) — rebuild all text widgets and launch background
-            workers. The timer is cancelled and restarted on every call, so the
-            expensive work only runs when the cursor actually rests.
+    def update_basic(self, entry: dict) -> None:
+        """Synchronously paint title / channel / stats / playlists from cached entry.
+
+        Called immediately on cursor move. Does not start any workers.
+        Description is left as 'Loading…' if not present in the entry; the
+        screen's focus worker fills it in later via set_description().
         """
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
-
-        # Immediately prime the thumbnail widget and kick off the render worker.
-        # The worker is exclusive — it auto-cancels the previous one on rapid
-        # scrolling — so cached thumbnails appear without any artificial delay.
-        thumb = self.query_one("#thumbnail", ThumbnailWidget)
-        thumb.set_video_id(vid)
-        if vid and not vid.startswith("__"):
-            from src.ui.thumbnail import _thumb_path
-            # Only flash the loading indicator when the image isn't already on
-            # disk. For cache hits the old thumbnail stays visible until the
-            # worker swaps in the new one, eliminating the brief loading flash.
-            if not _thumb_path(vid).exists():
-                thumb.set_loading()
-            self._render_thumbnail_bg(vid, entry)
-        else:
-            thumb.set_loading()
-
-        # Debounce only the text/metadata updates and background meta-fetch.
-        # This stops the Static widgets from thrashing during fast j/k scrolling.
-        if self._update_timer is not None:
-            self._update_timer.stop()
-        self._update_timer = self.set_timer(0.08, lambda: self._do_update(entry))
-
-    def _do_update(self, entry: dict) -> None:
-        """Deferred body of update_entry — runs after 80 ms of cursor rest."""
-        vid = entry.get("id", "")
-        # Guard: cursor may have moved again during the debounce window.
-        if vid != self._current_id:
-            return
-
-        # Track focus count for LRU suppression.
-        if vid and not vid.startswith("__") and hasattr(self.app, "cache") and hasattr(self.app.cache, "register_focus"):
-            self.app.cache.register_focus(vid)
 
         title = entry.get("title") or "Untitled"
         channel = entry.get("uploader") or entry.get("channel") or ""
@@ -174,7 +154,6 @@ class DetailPanel(Widget):
         self.query_one("#video-channel", Static).update(
             f"📺 {channel}" if channel else ""
         )
-
         stats_parts = [p for p in [duration, views, age] if p]
         self.query_one("#video-stats", Static).update(
             "  [dim]·[/dim]  ".join(stats_parts)
@@ -183,18 +162,26 @@ class DetailPanel(Widget):
         desc = entry.get("description", "")
         if desc:
             self._set_description(desc)
-        else:
+        elif vid and not vid.startswith("__"):
             self.query_one("#video-desc-header", Static).update(
                 "[dim]─── Description ──────────────────────────[/dim]"
             )
             self.query_one("#video-desc", Static).update("[dim]Loading…[/dim]")
+        else:
+            self.query_one("#video-desc-header", Static).update("")
+            self.query_one("#video-desc", Static).update("")
 
         self._update_playlists(vid)
-        if not desc and not vid.startswith("__"):
-            self._fetch_full_meta_bg(vid, entry)
+
+    def set_description(self, desc: str, *, vid: str | None = None) -> None:
+        """Set the description text. If vid is given and doesn't match current, no-op."""
+        if vid is not None and vid != self._current_id:
+            return
+        if desc:
+            self._set_description(desc)
 
     def refresh_metadata(self, entry: dict) -> None:
-        """Refresh channel/stats/description from an enriched entry."""
+        """Update channel/stats/description from a freshly enriched entry."""
         if entry.get("id") != self._current_id:
             return
         self._last_entry = entry
@@ -214,6 +201,25 @@ class DetailPanel(Widget):
         desc = entry.get("description", "")
         if desc:
             self._set_description(desc)
+
+    # ── Thumbnail proxy ───────────────────────────────────────────────────────
+
+    def set_thumbnail_video_id(self, vid: str) -> None:
+        self.query_one("#thumbnail", ThumbnailWidget).set_video_id(vid)
+
+    def set_thumbnail_loading(self) -> None:
+        self.query_one("#thumbnail", ThumbnailWidget).set_loading()
+
+    def set_thumbnail_placeholder(self) -> None:
+        self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
+
+    def set_thumbnail_image(self, vid: str, path: "Path") -> None:
+        self.query_one("#thumbnail", ThumbnailWidget).set_image_path(vid, path)
+
+    def set_thumbnail_ansi(self, vid: str, ansi: str) -> None:
+        self.query_one("#thumbnail", ThumbnailWidget).set_ansi(vid, ansi)
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _set_description(self, desc: str) -> None:
         desc = desc.strip()
@@ -239,70 +245,12 @@ class DetailPanel(Widget):
         except Exception:
             pass
 
+    # ── Re-render hooks ───────────────────────────────────────────────────────
+
     def on_screen_resume(self, _: ScreenResume) -> None:
-        """Re-render thumbnail when the main screen regains control."""
-        if self._current_id and self._last_entry:
-            self._render_thumbnail_bg(self._current_id, self._last_entry)
+        if self._last_entry:
+            self.post_message(self.RerenderRequested(self._last_entry))
 
     def on_resize(self, event: Resize) -> None:
-        if self._current_id and self._last_entry:
-            self._render_thumbnail_bg(self._current_id, self._last_entry)
-
-    # ── Background workers ────────────────────────────────────────────────────
-
-    @work(thread=True, exclusive=True, group="thumbnail")
-    def _render_thumbnail_bg(self, vid: str, entry: dict) -> None:
-        from src.ui import thumbnail as thumb_mod
-        from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
-
-        if _HAS_TEXTUAL_IMAGE:
-            local = thumb_mod._thumb_path(vid)
-            if not local.exists():
-                url = thumb_mod._best_thumb_url(entry)
-                if url:
-                    local = thumb_mod.download(vid, url) or None  # type: ignore[assignment]
-
-            if local and local.exists():
-                # Validate the JPEG fully in this worker thread before handing to
-                # textual-image. Avoids an OSError deep in PIL's render pipeline
-                # (broken data stream) and keeps the main thread unblocked.
-                try:
-                    from PIL import Image as _PILImage
-                    with _PILImage.open(local) as _pil_img:
-                        _pil_img.load()
-                except Exception:
-                    self.app.call_from_thread(
-                        self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
-                    )
-                    return
-                self.app.call_from_thread(
-                    self.query_one("#thumbnail", ThumbnailWidget).set_image_path, vid, local
-                )
-            else:
-                self.app.call_from_thread(
-                    self.query_one("#thumbnail", ThumbnailWidget).set_placeholder
-                )
-        else:
-            thumb_widget = self.query_one("#thumbnail", ThumbnailWidget)
-            cols = thumb_widget.size.width if thumb_widget.size.width > 0 else max(30, (self.size.width or 80) - 4)
-            rows = thumb_widget.size.height if thumb_widget.size.height > 0 else 25
-
-            config = getattr(self.app, "config", None)
-            ansi = thumb_mod.render(vid, entry, cols=cols, rows=rows, config=config)
-            self.app.call_from_thread(
-                self.query_one("#thumbnail", ThumbnailWidget).set_ansi, vid, ansi
-            )
-
-    @work(thread=True, exclusive=True, group="meta")
-    def _fetch_full_meta_bg(self, vid: str, entry: dict) -> None:
-        try:
-            import src.ytdlp as ytdlp
-            app = self.app  # type: ignore[attr-defined]
-            full = ytdlp.fetch_full(vid, app.config, app.cache)
-            if full and self._current_id == vid:
-                desc = full.get("description", "")
-                if desc:
-                    self.app.call_from_thread(self._set_description, desc)
-                self.app.call_from_thread(self._update_playlists, vid)
-        except Exception:
-            pass
+        if self._last_entry:
+            self.post_message(self.RerenderRequested(self._last_entry))

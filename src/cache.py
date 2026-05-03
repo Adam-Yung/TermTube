@@ -131,6 +131,20 @@ class Cache:
         """True if the feed cache exists and is within TTL."""
         return self.get_feed(key) is not None
 
+    def feed_age(self, key: str) -> float | None:
+        """Return age (seconds) of the cached feed file, or None if no cache exists."""
+        path = CACHE_DIR / f"feed_{key}.json"
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text())
+            cached_at = data.get("_cached_at", 0)
+            if not cached_at:
+                return None
+            return max(0.0, time.time() - cached_at)
+        except (json.JSONDecodeError, OSError):
+            return None
+
     def put_feed(self, key: str, ids: list[str]) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
         with _write_lock:
@@ -252,8 +266,8 @@ class Cache:
         """Delete video JSONs older than max_age_days, then enforce max_count cap.
 
         Uses the _cached_at timestamp stored inside the JSON rather than st_mtime.
-        st_mtime is reset by enrich_in_background on every enrichment write, which
-        would otherwise make every enriched file appear perpetually fresh.
+        st_mtime is reset on every enrichment write, which would otherwise make
+        every enriched file appear perpetually fresh.
         """
         now = time.time()
         cutoff = now - max_age_days * 86400

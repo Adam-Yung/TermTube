@@ -167,9 +167,13 @@ class VideoListPanel(Widget):
         super().__init__(**kwargs)
         self._buffer: list[dict] = []
         self._buffer_index: dict[str, int] = {}
+        # O(1) widget index for in-place updates; populated in _reveal_entry.
+        self._items_by_id: dict[str, VideoListItem] = {}
         self._visible: int = 0
         self._loading = False
         self._initial_batch_posted: bool = False
+        # Freshness suffix shown in the list header (set by the screen).
+        self._freshness: str = ""
         # Cached widget references — set in on_mount, avoids repeated DOM traversals.
         self._lv: ListView
         self._anim: LoadingIndicator
@@ -209,9 +213,11 @@ class VideoListPanel(Widget):
     def clear_and_set_loading(self) -> None:
         self._buffer = []
         self._buffer_index = {}
+        self._items_by_id = {}
         self._visible = 0
         self._loading = True
         self._initial_batch_posted = False
+        self._freshness = ""
 
         self._anim.display = True
         self._lv.display = False
@@ -220,6 +226,21 @@ class VideoListPanel(Widget):
         self._breadcrumb.update("")
         self._header.update("[dim]Loading…[/dim]")
         self._footer.update("")
+
+    def set_freshness(self, text: str) -> None:
+        """Set the freshness suffix shown in the list header (e.g. 'updated 4m ago · R to refresh')."""
+        self._freshness = text or ""
+        self._render_header()
+
+    def _render_header(self) -> None:
+        n_total = len(self._buffer)
+        if n_total == 0:
+            return
+        base = f"{n_total} {'video' if n_total == 1 else 'videos'}"
+        if self._freshness:
+            self._header.update(f"[dim]{base}  ·  {self._freshness}[/dim]")
+        else:
+            self._header.update(f"[dim]{base}[/dim]")
 
     def set_breadcrumb(self, text: str) -> None:
         self._breadcrumb.update(f"[dim]{text}[/dim]")
@@ -252,9 +273,7 @@ class VideoListPanel(Widget):
             if remaining <= PREFETCH_THRESHOLD:
                 self._reveal_next_batch()
 
-        self._header.update(
-            f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
-        )
+        self._render_header()
 
     def _reveal_entry(self, entry: dict) -> None:
         if self._anim.display:
@@ -262,6 +281,9 @@ class VideoListPanel(Widget):
             self._lv.display = True
 
         item = VideoListItem(entry)
+        vid = entry.get("id", "")
+        if vid:
+            self._items_by_id[vid] = item
         self._lv.append(item)
         self._visible += 1
         if self._visible == 1:
@@ -303,9 +325,7 @@ class VideoListPanel(Widget):
             self._header.update("[dim]No results[/dim]")
             self._footer.update("")
         else:
-            self._header.update(
-                f"[dim]{n_total} {'video' if n_total == 1 else 'videos'}[/dim]"
-            )
+            self._render_header()
             if n_hidden > 0:
                 self._footer.update(f"[dim]  ↓ scroll for {n_hidden} more[/dim]")
             else:
@@ -328,15 +348,31 @@ class VideoListPanel(Widget):
         idx = self._buffer_index.get(vid_id)
         if idx is not None and idx < len(self._buffer):
             self._buffer[idx] = entry
-        for item in self._lv.query(VideoListItem):
-            if item.entry.get("id") == vid_id:
-                item.entry = entry
-                try:
-                    item._cached_markup = item._build_markup()
-                    item.query_one(Static).update(item._cached_markup)
-                except Exception:
-                    pass
-                break
+        item = self._items_by_id.get(vid_id)
+        if item is None:
+            return
+        item.entry = entry
+        try:
+            item._cached_markup = item._build_markup()
+            item.query_one(Static).update(item._cached_markup)
+        except Exception:
+            pass
+
+    # ── Cursor neighbour lookup (for prefetch) ────────────────────────────────
+
+    def neighbor_id(self, vid_id: str, direction: int) -> str | None:
+        """Return the buffer ID at offset (direction = +1 or -1) from vid_id, or None."""
+        idx = self._buffer_index.get(vid_id)
+        if idx is None:
+            return None
+        target = idx + direction
+        if 0 <= target < len(self._buffer):
+            return self._buffer[target].get("id") or None
+        return None
+
+    def cursor_index(self) -> int | None:
+        """Return the currently-highlighted ListView index, or None."""
+        return self._lv.index
 
     def cursor_down(self) -> None:
         self._lv.action_cursor_down()

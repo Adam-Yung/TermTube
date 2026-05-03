@@ -5,7 +5,8 @@ Progressive streaming design:
                       otherwise fetches from yt-dlp and saves feed index.
   stream_search()  →  same, keyed by query hash.
   fetch_full()     →  fetches complete metadata for one video (slower).
-  enrich_in_background() → parallel background fetch for multiple videos.
+                      Accepts on_proc_started so the caller can cancel the
+                      subprocess if the user moves on before it completes.
 """
 
 from __future__ import annotations
@@ -15,8 +16,7 @@ import re
 import subprocess
 import sys
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Callable, Generator, Iterable
+from typing import Callable, Generator
 
 from src.cache import Cache
 from src import logger
@@ -114,11 +114,20 @@ def _normalise_entry(entry: dict) -> dict:
 
 # ── Low-level streaming ───────────────────────────────────────────────────────
 
-def _stream_json_lines(cmd: list[str], *, capture_stderr: bool = False) -> Generator[dict, None, None]:
+def _stream_json_lines(
+    cmd: list[str],
+    *,
+    capture_stderr: bool = False,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> Generator[dict, None, None]:
     """Run cmd, yield each stdout line parsed as JSON. Ignores non-JSON lines.
 
     The subprocess is registered in _active_procs so that kill_all_active()
     can terminate it immediately on quit, unblocking the worker thread.
+
+    on_proc_started: optional callback invoked with the Popen handle as soon
+    as the process is spawned. Lets callers (e.g. a focus dispatcher) cancel
+    the subprocess when the user moves on, instead of waiting for it to finish.
     """
     logger.debug("yt-dlp cmd: %s", " ".join(cmd))
     try:
@@ -132,6 +141,11 @@ def _stream_json_lines(cmd: list[str], *, capture_stderr: bool = False) -> Gener
         )
         with _active_procs_lock:
             _active_procs.add(proc)
+        if on_proc_started is not None:
+            try:
+                on_proc_started(proc)
+            except Exception:
+                pass
         try:
             for line in proc.stdout:  # type: ignore[union-attr]
                 line = line.strip()
@@ -294,8 +308,19 @@ def stream_search(
 
 # ── Full metadata (for video detail page) ────────────────────────────────────
 
-def fetch_full(video_id: str, config, cache: Cache) -> dict | None:
-    """Fetch complete metadata for a single video. Returns cached if fresh."""
+def fetch_full(
+    video_id: str,
+    config,
+    cache: Cache,
+    *,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> dict | None:
+    """Fetch complete metadata for a single video. Returns cached if fresh.
+
+    on_proc_started: optional callback that receives the underlying yt-dlp
+    Popen handle. Use this from the caller to support cancellation when the
+    user navigates away before the fetch completes.
+    """
     cached = cache.get_video(video_id)
     if cached and cached.get("description") is not None:
         logger.debug("fetch_full cache hit: %s", video_id)
@@ -313,7 +338,11 @@ def fetch_full(video_id: str, config, cache: Cache) -> dict | None:
         url,
     ]
     logger.debug("fetch_full fetching: %s", video_id)
-    results = list(_stream_json_lines(cmd, capture_stderr=logger.is_debug()))
+    results = list(_stream_json_lines(
+        cmd,
+        capture_stderr=logger.is_debug(),
+        on_proc_started=on_proc_started,
+    ))
     if not results:
         logger.warning("fetch_full got no data for %s — falling back to flat cache", video_id)
         return cache.get_video_raw(video_id)
@@ -321,47 +350,6 @@ def fetch_full(video_id: str, config, cache: Cache) -> dict | None:
     _normalise_entry(entry)
     cache.put_video(entry)
     return entry
-
-
-def enrich_in_background(
-    video_ids: Iterable[str],
-    config,
-    cache: Cache,
-    *,
-    max_workers: int = 2,
-    on_done: Callable[[str, dict], None] | None = None,
-) -> None:
-    """
-    Fetch full metadata for video IDs in parallel background threads.
-    Also pre-downloads thumbnails for enriched videos.
-    on_done(video_id, entry) called when each finishes. Fire-and-forget.
-    """
-    ids = list(video_ids)
-    if not ids:
-        return
-
-    logger.debug("enrich_in_background: %d videos, max_workers=%d", len(ids), max_workers)
-
-    def _worker() -> None:
-        from src.ui import thumbnail as _thumb
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = {pool.submit(fetch_full, vid, config, cache): vid for vid in ids}
-            for future in as_completed(futures):
-                vid = futures[future]
-                try:
-                    entry = future.result()
-                    if entry:
-                        # Pre-download thumbnail so preview is instant
-                        thumb_url = entry.get("thumbnail", "")
-                        if thumb_url and not _thumb._thumb_path(vid).exists():
-                            _thumb.download(vid, thumb_url)
-                        if on_done:
-                            on_done(vid, entry)
-                except Exception as exc:
-                    logger.debug("enrich_in_background error for %s: %s", vid, exc)
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
 
 
 # ── Download ──────────────────────────────────────────────────────────────────

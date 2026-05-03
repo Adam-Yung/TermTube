@@ -15,8 +15,32 @@ For **video** playback (full-screen), `app.suspend()` is used instead — this y
 ## Why `@work(thread=True, exclusive=True)` for network calls
 Textual's event loop is async but single-threaded for DOM updates. `yt-dlp` calls are synchronous and can block for seconds. Running them in threads via `@work(thread=True)` keeps the UI responsive. `exclusive=True` cancels any in-flight worker of the same type before starting a new one, preventing race conditions when users navigate quickly.
 
-## Why stale-while-revalidate for home feed
-Cold starts from a fresh yt-dlp fetch can take 3–8 seconds. The home feed is cached to disk. On launch, the cached data renders immediately. A background worker fetches a fresh feed and swaps it in when done. This gives a sub-100ms perceived startup time.
+## Why stale-while-revalidate for home feed (DEPRECATED — see HomeScreen v2 below)
+~~Cold starts from a fresh yt-dlp fetch can take 3–8 seconds. The home feed is cached to disk. On launch, the cached data renders immediately. A background worker fetches a fresh feed and swaps it in when done. This gives a sub-100ms perceived startup time.~~
+
+The "fetch a fresh feed in parallel while serving cache" race was removed in HomeScreen v2 (May 2026). It launched a yt-dlp subprocess on every cache hit, contributing to the 30 % CPU spike on home open. The cache is now the source of truth for the UI; refresh happens only on the explicit `R` keybind, on cold start (no cache), or on a 5-second dwell on a feed tab whose cache is older than 60 minutes.
+
+## HomeScreen v2 worker topology (May 2026)
+The original screen fanned out 3–5 concurrent subprocesses on home open:
+- 1 × `yt-dlp stream_flat` (initial feed)
+- 2 × `yt-dlp fetch_full` from a `ThreadPoolExecutor(max_workers=2)` triggered eagerly by `BatchRevealed(20 ids)`
+- 1 × silent `yt-dlp` background revalidate
+- 1 × `chafa --optimize=3 --color-space=din99d` per cursor keystroke (no kill of previous)
+Plus `set_interval(600, _scheduled_home_refresh)` and `set_interval(0.5, _poll_audio_ipc)`.
+
+The redesign collapses this to three screen-owned, exclusive workers:
+- `feed_loader` — only on cold start, explicit `R`, or stale-cache tab dwell
+- `focus` — fires after 200 ms cursor dwell; runs `fetch_full` for the focused video and (best-effort) one neighbour in the cursor's last direction
+- `thumb` — fires after 150 ms cursor dwell; checks RAM + disk chafa cache before spawning a chafa subprocess
+Each worker stores its `Popen` handle on the screen and `terminate()`s the previous one before dispatching a new request, so `@work(exclusive=True)`'s "swap the Python wrapper" is backed by an actual OS-level cancellation. Session counters guard against late callbacks racing with cancellation.
+
+Chafa flags moved from `--optimize=3 --color-space=din99d` to `--optimize=1` (the perceptual colour-space matrix conversion was the most expensive part and made no visible difference on thumbnails). Output is cached under `~/.cache/termtube/chafa/<vid>_<cols>x<rows>_<fmt>.ansi` so re-rendering at the same panel size is free.
+
+The 10-minute `_scheduled_home_refresh` `set_interval` was deleted outright — it fired regardless of which tab the user was on, contributing to "the spike happened while I wasn't even on home" reports. Freshness is now visible in the list-panel header (`updated 4m ago · R to refresh`), refreshed every 60 s by a single `Static.update`.
+
+DetailPanel became a passive view: the screen calls `update_basic`, `set_thumbnail_loading`, `set_thumbnail_image`, `set_thumbnail_ansi`, `set_thumbnail_placeholder`, `refresh_metadata`. Resize / screen-resume in the panel post a `RerenderRequested` message that the screen handles by re-kicking the thumb worker.
+
+Housekeeping moved out of `App.on_mount` into a 60-second `set_timer` plus an `on_unmount` backstop, so it stops competing with the home feed render at startup.
 
 ## Why LRU suppression for home feed
 YouTube's home feed is not strictly chronological — the same videos reappear across sessions. TermTube tracks videos that have been focused 3+ times or explicitly watched, and excludes them from future home feed renders. This makes the home feed feel "fresh" on every visit.
