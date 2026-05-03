@@ -32,3 +32,9 @@ XDG-compliant placement. The project root should be clean (no user-specific file
 
 ## Why fzf/gum were deprecated
 Both tools require shell subprocess spawning and don't integrate cleanly with Textual's reactive widget model. All UI is now native Textual widgets, enabling proper focus management, async data binding, and consistent theming.
+
+## Why `--debug` makes logging completely silent (not just suppressed)
+Without `--debug`, `logger.setup()` sets the logger level above `CRITICAL` and attaches no handlers. Python's logging machinery short-circuits in `Logger.isEnabledFor()` *before* any string formatting happens, so every `logger.debug(...)` call is essentially a single attribute lookup and integer comparison. No file is ever opened, no stderr output, nothing in the in-app debug window. This is both faster (no formatting cost) and more professional (no error noise leaks into a quiet TUI).
+
+## Why a custom `_TUIHandler` instead of routing logs through `MainScreen._log`
+A logging handler is the natural seam for "send every log record somewhere additional." It works for any module that imports `logger` (cache, ytdlp, player, widgets) without requiring those modules to know about Textual. The handler invokes a registered callback (`register_tui_sink`); the callback is responsible for marshalling to the UI thread (`app.call_from_thread`). The `_termtube_skip_tui` record attribute (set by `logger.file_only`) lets `MainScreen._log` write rich-markup directly to the RichLog and still persist a plain version to the file *without* duplicating the line in the TUI.

@@ -8,6 +8,8 @@ import threading
 import time
 from pathlib import Path
 
+from src import logger
+
 CACHE_DIR = Path.home() / ".cache" / "termtube"
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
@@ -85,6 +87,7 @@ class Cache:
         path = VIDEO_DIR / f"{vid}.json"
         with _write_lock:
             _atomic_write(path, json.dumps(slim, ensure_ascii=False))
+        logger.debug("cache.put_video %s (%d keys)", vid, len(slim))
 
     def get_video_raw(self, video_id: str) -> dict | None:
         """Get cached entry regardless of TTL (used by preview script)."""
@@ -132,6 +135,7 @@ class Cache:
         path = CACHE_DIR / f"feed_{key}.json"
         with _write_lock:
             _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
+        logger.debug("cache.put_feed %s (%d ids)", key, len(ids))
 
     # ── Thumbnails ────────────────────────────────────────────────────────────
 
@@ -187,6 +191,7 @@ class Cache:
         if count >= 3:
             self._suppressed.add(video_id)
             self._save_suppressed()  # only write when threshold is crossed
+            logger.debug("cache.register_focus suppressing %s after %d focuses", video_id, count)
 
     def suppress_video(self, video_id: str) -> None:
         """Immediately suppress a video (e.g. after listening to it)."""
@@ -194,6 +199,7 @@ class Cache:
         if video_id not in self._suppressed:
             self._suppressed.add(video_id)
             self._save_suppressed()
+            logger.debug("cache.suppress_video %s", video_id)
 
     def is_suppressed(self, video_id: str) -> bool:
         self._load_suppressed()
@@ -205,33 +211,42 @@ class Cache:
         path = CACHE_DIR / f"feed_{key}.json"
         if path.exists():
             path.unlink()
+            logger.debug("cache.clear_feed %s", key)
 
     def clear_all(self) -> None:
+        feeds = videos = thumbs = 0
         for f in CACHE_DIR.glob("feed_*.json"):
-            f.unlink(missing_ok=True)
+            f.unlink(missing_ok=True); feeds += 1
         for f in VIDEO_DIR.glob("*.json"):
-            f.unlink(missing_ok=True)
+            f.unlink(missing_ok=True); videos += 1
         for f in THUMB_DIR.glob("*.jpg"):
-            f.unlink(missing_ok=True)
+            f.unlink(missing_ok=True); thumbs += 1
+        logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
 
     def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
         """Delete thumbnails older than max_age_days, then enforce max_count cap."""
         cutoff = time.time() - max_age_days * 86400
         files: list[tuple[float, Path]] = []
+        deleted = 0
         for f in THUMB_DIR.glob("*.jpg"):
             try:
                 mtime = f.stat().st_mtime
                 if mtime < cutoff:
                     f.unlink(missing_ok=True)
+                    deleted += 1
                 else:
                     files.append((mtime, f))
             except OSError:
                 pass
         # Hard cap: evict oldest by access time if still over limit.
+        capped = 0
         if len(files) > max_count:
             files.sort()
             for _, f in files[: len(files) - max_count]:
                 f.unlink(missing_ok=True)
+                capped += 1
+        logger.debug("prune_old_thumbnails: %d expired, %d capped, %d kept",
+                     deleted, capped, max(0, len(files) - capped))
 
     def prune_old_videos(self, max_age_days: int = 3, max_count: int = 400) -> None:
         """Delete video JSONs older than max_age_days, then enforce max_count cap.
@@ -243,17 +258,23 @@ class Cache:
         now = time.time()
         cutoff = now - max_age_days * 86400
         files: list[tuple[float, Path]] = []
+        deleted = 0
         for f in VIDEO_DIR.glob("*.json"):
             try:
                 cached_at = json.loads(f.read_text()).get("_cached_at", 0)
                 if cached_at < cutoff:
                     f.unlink(missing_ok=True)
+                    deleted += 1
                 else:
                     files.append((cached_at, f))
             except (OSError, json.JSONDecodeError, ValueError):
                 pass
         # Hard cap: evict oldest by _cached_at if still over limit.
+        capped = 0
         if len(files) > max_count:
             files.sort()
             for _, f in files[: len(files) - max_count]:
                 f.unlink(missing_ok=True)
+                capped += 1
+        logger.debug("prune_old_videos: %d expired, %d capped, %d kept",
+                     deleted, capped, max(0, len(files) - capped))

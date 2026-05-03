@@ -36,6 +36,8 @@ def kill_all_active() -> None:
     with _active_procs_lock:
         procs = list(_active_procs)
         _active_procs.clear()
+    if procs:
+        logger.debug("kill_all_active: terminating %d yt-dlp procs", len(procs))
     for proc in procs:
         try:
             proc.kill()
@@ -436,6 +438,8 @@ def download_video_with_progress(
         q = config.preferred_quality
         fmt = "bestvideo+bestaudio/best" if q == "best" else f"bestvideo[height<={q}]+bestaudio/best"
 
+    logger.info("download_video %s (format=%s)", video_id, fmt)
+
     cmd = [
         "yt-dlp",
         "--format", fmt,
@@ -460,6 +464,7 @@ def download_audio_with_progress(
     """Download audio with live progress."""
     config.audio_dir.mkdir(parents=True, exist_ok=True)
     url = f"https://www.youtube.com/watch?v={video_id}"
+    logger.info("download_audio %s", video_id)
 
     cmd = [
         "yt-dlp",

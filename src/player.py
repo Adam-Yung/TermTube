@@ -68,6 +68,9 @@ def _vlc_path() -> str:
 
 def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
     """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
+    if logger.is_debug():
+        # Avoid building the JSON string in the hot path when not debugging.
+        logger.debug("mpv ipc → %s @ %s", cmd.get("command", cmd), socket_path)
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.settimeout(timeout)

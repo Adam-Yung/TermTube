@@ -9,6 +9,8 @@ from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
+from src import logger
+
 BATCH_SIZE = 20
 PREFETCH_THRESHOLD = 5
 
@@ -284,6 +286,8 @@ class VideoListPanel(Widget):
                 f"[dim]  ↓ {remaining} more buffered — scroll to load[/dim]"
             )
 
+        logger.debug("video_list: revealed batch %d..%d (visible=%d, buffer=%d)",
+                     start, end - 1, self._visible, len(self._buffer))
         self.post_message(self.BatchRevealed(revealed_entries))
 
     def finish_loading(self) -> None:

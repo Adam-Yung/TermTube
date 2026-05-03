@@ -20,13 +20,14 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr and ~/.cache/termtube/debug.log")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr, the in-app debug window (Ctrl+D), and $TMPDIR/TermTube/<timestamp>.log")
     parser.add_argument("--version", action="store_true", help="Show version")
     args = parser.parse_args()
 
     # Set up logging before anything else
     from src import logger
     logger.setup(debug=args.debug)
+    logger.info("TermTube starting (debug=%s)", args.debug)
 
     if args.version:
         print("TermTube 0.1.0")
@@ -39,16 +40,20 @@ def main() -> None:
 
     # Dependency check
     from src.deps import check_dependencies
+    logger.debug("Running dependency check")
     if not check_dependencies():
+        logger.error("Dependency check failed; exiting")
         sys.exit(1)
 
     # Load config
     from src.config import Config
     config = Config(args.config)
+    logger.debug("Config loaded from %s", getattr(config, "path", args.config or "default"))
 
     if args.clear_cache:
         from src.cache import Cache
         cache = Cache({})
+        logger.info("Clearing all cache")
         cache.clear_all()
         print("Cache cleared.")
         sys.exit(0)

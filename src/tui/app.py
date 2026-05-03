@@ -7,6 +7,7 @@ from pathlib import Path
 
 from textual.app import App, ComposeResult
 
+from src import logger
 from src.cache import Cache
 from src.config import Config
 
@@ -33,6 +34,7 @@ class TermTubeApp(App):
     def on_mount(self) -> None:
         # Apply colour theme as a CSS class on the App root
         theme = self.config.theme
+        logger.debug("App mounting (theme=%s)", theme)
         if theme in _VALID_THEMES and theme != "crimson":
             self.add_class(f"theme-{theme}")
 
@@ -46,7 +48,9 @@ class TermTubeApp(App):
     def _run_housekeeping(self) -> None:
         """Background task to prune stale files from the cache directories."""
         try:
+            logger.debug("Housekeeping: pruning thumbnails + video JSON cache")
             self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
             self.cache.prune_old_videos(max_age_days=3, max_count=400)
-        except Exception:
-            pass  # Fail silently so it never crashes the TUI
+        except Exception as exc:
+            logger.exception("Housekeeping failed: %s", exc)
+            # Fail silently so it never crashes the TUI

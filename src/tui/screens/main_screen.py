@@ -188,7 +188,12 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
-        self._log("[dim]TermTube ready[/dim]")
+        # Wire the global logger so messages from any module appear in the
+        # in-app debug window (Ctrl+D). Only fires when --debug is on.
+        if _logger.is_debug():
+            _logger.register_tui_sink(self._on_log_record)
+            _logger.info("MainScreen mounted; debug log wired to TUI sink")
+            self._log(f"[green]Debug logging active[/green] — file: [dim]{_logger.log_file()}[/dim]")
         self.set_interval(600.0, self._scheduled_home_refresh)
         self.set_timer(0.4, self._maybe_show_image_warning)
 
@@ -213,6 +218,7 @@ class MainScreen(Screen):
         if not event.tab or not event.tab.id:
             return
         tab_id = event.tab.id
+        _logger.info("page switch → %s", tab_id)
         if tab_id == "search":
             if self._current_tab == "search" and self._search_query:
                 pass
@@ -790,6 +796,7 @@ class MainScreen(Screen):
         if not entry or entry.get("_is_playlist"):
             return
 
+        _logger.info("user action: watch %s (%s)", entry.get("id", "?"), (entry.get("title") or "")[:60])
         # Open our new modal seamlessly
         from src.tui.screens.watch_modal import WatchModal
 
@@ -815,12 +822,14 @@ class MainScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
+        _logger.info("user action: download video %s", entry.get("id", "?"))
         self._open_download(entry, audio_only=False)
 
     def action_dl_audio(self) -> None:
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
+        _logger.info("user action: download audio %s", entry.get("id", "?"))
         self._open_download(entry, audio_only=True)
 
     def _open_download(self, entry: dict, *, audio_only: bool) -> None:
@@ -945,8 +954,10 @@ class MainScreen(Screen):
         def on_result(query: str | None) -> None:
             tabs = self.query_one("#nav-tabs", Tabs)
             if not query:
+                _logger.debug("search dialog cancelled")
                 tabs.active = self._current_tab
                 return
+            _logger.info("search query: %r", query)
             self._search_query = query
             self._current_tab = "search"
             self._nav_stack.clear()
@@ -993,14 +1004,17 @@ class MainScreen(Screen):
         self.query_one("#video-list-panel", VideoListPanel).cursor_up()
 
     def action_cursor_top(self) -> None:
+        _logger.debug("scroll: top")
         self.query_one("#video-list-panel", VideoListPanel).cursor_to_top()
 
     def action_cursor_bottom(self) -> None:
+        _logger.debug("scroll: bottom")
         self.query_one("#video-list-panel", VideoListPanel).cursor_to_bottom()
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
     def action_refresh(self) -> None:
+        _logger.info("user refresh (tab=%s)", self._current_tab)
         app = self.app  # type: ignore[attr-defined]
         if self._current_tab in ("home", "subscriptions"):
             app.cache.clear_feed(self._current_tab)
@@ -1023,17 +1037,62 @@ class MainScreen(Screen):
 
     def action_toggle_log(self) -> None:
         self._log_visible = not self._log_visible
-        self.query_one("#debug-log").display = self._log_visible
+        log = self.query_one("#debug-log", RichLog)
+        log.display = self._log_visible
         if self._log_visible:
+            if not _logger.is_debug():
+                # Show a one-time hint explaining how to enable real logging.
+                log.clear()
+                log.write("[yellow]Debug logging is disabled.[/yellow]")
+                log.write("[dim]Restart TermTube with the [bold]--debug[/bold] flag to enable logging:[/dim]")
+                log.write("[dim]    termtube --debug[/dim]")
+                log.write("[dim]Logs are written to $TMPDIR/TermTube/<timestamp>.log and mirrored here.[/dim]")
             self.notify("Debug log visible — Ctrl+D to hide", timeout=2)
 
+    # ── Logger sink ───────────────────────────────────────────────────────────
+
+    _LOG_LEVEL_STYLES = {
+        "DEBUG": "dim",
+        "INFO": "cyan",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "red bold",
+    }
+
+    def _on_log_record(self, level: str, msg: str) -> None:
+        """Logger callback. Invoked from arbitrary threads — must be safe."""
+        try:
+            self.app.call_from_thread(self._write_log_to_widget, level, msg)
+        except Exception:
+            # App may be shutting down; nothing we can do.
+            pass
+
+    def _write_log_to_widget(self, level: str, msg: str) -> None:
+        color = self._LOG_LEVEL_STYLES.get(level, "white")
+        try:
+            # Escape the level glyph so Rich treats it literally; the message
+            # itself may legitimately contain bracketed text — pass it raw.
+            self.query_one("#debug-log", RichLog).write(
+                f"[{color}]\\[{level[0]}][/{color}] {msg}"
+            )
+        except Exception:
+            pass
+
     def _log(self, msg: str) -> None:
+        """Write a Rich-markup status message to the debug log + log file.
+
+        No-op when --debug is off so we don't pay rendering cost.
+        """
+        if not _logger.is_debug():
+            return
         try:
             self.query_one("#debug-log", RichLog).write(msg)
         except Exception:
             pass
+        # Mirror plain text to the file/stderr handlers but skip the TUI sink
+        # (we've already drawn the markup version above).
         plain = re.sub(r"\[/?[^\]]*\]", "", msg)
-        _logger.debug("%s", plain)
+        _logger.file_only(plain)
 
     # ── Tab shortcuts ─────────────────────────────────────────────────────────
 
@@ -1080,6 +1139,7 @@ class MainScreen(Screen):
     def action_quit_app(self) -> None:
         import threading
 
+        _logger.info("user action: quit")
         self._stop_audio()
         try:
             import src.ytdlp as ytdlp
