@@ -46,4 +46,16 @@
    - `tui/widgets/video_list.py`: lazy batch reveals.
    - `main.py`: startup banner, dependency check, config load, clear cache.
 
+## Completed tasks (2026-05-03 — follow-ups)
+
+### Logging follow-ups & silent-mpv fix
+1. **`src/logger.py`**: stderr handler removed entirely — it was corrupting Textual's rendering. Only the file handler (`$TMPDIR/TermTube/<ts>.log`) and the TUI sink remain when `--debug` is on. `setup()` now takes a `level` arg.
+2. **`src/main.py`**: new `--level {ALL,DEBUG,INFO,WARNING,ERROR,CRITICAL}` flag (default `ALL`, alias for DEBUG). `--debug` help text updated to drop the stderr mention. `logger.setup(debug=…, level=…)` wired through.
+3. **`src/tui/screens/main_screen.py` `_launch_audio_worker`**:
+   - `--really-quiet`/`--msg-level=all=no` replaced with `--msg-level=all=error` so failures actually surface.
+   - mpv is now spawned with `stderr=subprocess.PIPE` and drained via `communicate()` (avoids pipe-buffer deadlock).
+   - Returncode is inspected: `0`/`4` ⇒ success (history + finished toast), `3` ⇒ user-stopped (silent), anything else ⇒ failure path.
+   - New `_on_audio_failed(entry, returncode, stderr)` method: does NOT add to history, logs the warning, and shows an error notification with mpv's first stderr line. Auto-skips to next queued track if any.
+4. **README.md**: new "Debugging" section documenting `--debug` and `--level`.
+
 ## No active in-progress work.

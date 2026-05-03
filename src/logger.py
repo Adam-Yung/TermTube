@@ -4,17 +4,19 @@ Behaviour:
   • Without --debug: the logger is set above CRITICAL — every logger.* call is a
     fast no-op (the level check happens before any formatting). No files are
     opened, no handlers attached, nothing is written.
-  • With --debug: writes to a timestamped file in $TMPDIR/TermTube/, mirrors to
-    stderr, and (if a TUI sink is registered via register_tui_sink) mirrors to
-    the in-app debug window.
+  • With --debug: writes to a timestamped file in $TMPDIR/TermTube/ and (if a
+    TUI sink is registered via register_tui_sink) mirrors to the in-app debug
+    window. Nothing is written to stderr — that interferes with Textual's
+    rendering.
 
 Public API:
-  setup(debug)            — call once at startup
+  setup(debug, level)     — call once at startup. level is one of
+                            "ALL"|"DEBUG"|"INFO"|"WARNING"|"ERROR"|"CRITICAL".
   is_debug()              — bool
   debug/info/warning/error/exception(msg, *args) — standard log calls
-  file_only(msg, *args)   — write to file/stderr only, skip TUI sink. Used by
-                            UI code that has already drawn a styled message
-                            into the debug window itself.
+  file_only(msg, *args)   — write to file only, skip TUI sink. Used by UI code
+                            that has already drawn a styled message into the
+                            debug window itself.
   register_tui_sink(cb)   — cb(level: str, formatted_msg: str) is invoked from
                             inside the logger thread for each emitted record.
                             The callback is responsible for thread-safety
@@ -25,10 +27,20 @@ Public API:
 from __future__ import annotations
 import logging
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
+
+# Accepted level names for the --level CLI flag. "ALL" is an alias for DEBUG.
+LEVEL_CHOICES = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+DEFAULT_LEVEL = "ALL"
+
+
+def _resolve_level(name: str) -> int:
+    upper = (name or "").upper()
+    if upper in ("", "ALL"):
+        return logging.DEBUG
+    return getattr(logging, upper, logging.DEBUG)
 
 _LOG_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "TermTube"
 _log = logging.getLogger("termtube")
@@ -59,8 +71,16 @@ class _TUIHandler(logging.Handler):
             pass
 
 
-def setup(debug: bool = False) -> None:
-    """Call once at startup."""
+def setup(debug: bool = False, level: str = DEFAULT_LEVEL) -> None:
+    """Call once at startup.
+
+    Args:
+        debug: master switch. When False, every logger call is a no-op and
+               nothing is opened or written.
+        level: minimum severity to emit when debug is True. One of
+               "ALL"|"DEBUG"|"INFO"|"WARNING"|"ERROR"|"CRITICAL". "ALL" is an
+               alias for "DEBUG" (everything kept).
+    """
     global _debug_enabled, _log_file
     _debug_enabled = debug
 
@@ -75,7 +95,8 @@ def setup(debug: bool = False) -> None:
         _log.setLevel(logging.CRITICAL + 1)
         return
 
-    _log.setLevel(logging.DEBUG)
+    log_level = _resolve_level(level)
+    _log.setLevel(log_level)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     _log_file = _LOG_DIR / f"{timestamp}.log"
@@ -83,7 +104,6 @@ def setup(debug: bool = False) -> None:
     fmt_file = logging.Formatter(
         "%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
     )
-    fmt_stderr = logging.Formatter("\033[90m[DBG] %(message)s\033[0m")
     # The TUI handler formats with just the message — the sink prepends its
     # own coloured level glyph.
     fmt_tui = logging.Formatter("%(message)s")
@@ -91,23 +111,25 @@ def setup(debug: bool = False) -> None:
     try:
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
         fh = logging.FileHandler(_log_file, mode="w", encoding="utf-8")
-        fh.setLevel(logging.DEBUG)
+        fh.setLevel(log_level)
         fh.setFormatter(fmt_file)
         _log.addHandler(fh)
     except OSError:
         pass
 
-    sh = logging.StreamHandler(sys.stderr)
-    sh.setLevel(logging.DEBUG)
-    sh.setFormatter(fmt_stderr)
-    _log.addHandler(sh)
+    # No stderr handler — Textual owns the terminal and stray writes corrupt
+    # its rendering. The file + in-app debug window are the only sinks.
 
     th = _TUIHandler()
-    th.setLevel(logging.DEBUG)
+    th.setLevel(log_level)
     th.setFormatter(fmt_tui)
     _log.addHandler(th)
 
-    _log.debug("Debug logging enabled. Log file: %s", _log_file)
+    _log.debug(
+        "Debug logging enabled (level=%s). Log file: %s",
+        logging.getLevelName(log_level),
+        _log_file,
+    )
 
 
 def is_debug() -> bool:
@@ -151,7 +173,7 @@ def exception(msg: str, *args) -> None:
 
 
 def file_only(msg: str, *args, level: int = logging.DEBUG) -> None:
-    """Log to file/stderr but skip the TUI sink.
+    """Log to file but skip the TUI sink.
 
     Use when the caller has already written a styled message to the debug
     window directly and only wants the plain version persisted.

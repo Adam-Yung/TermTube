@@ -20,14 +20,21 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging to stderr, the in-app debug window (Ctrl+D), and $TMPDIR/TermTube/<timestamp>.log")
+    parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and $TMPDIR/TermTube/<timestamp>.log. Nothing is written to stderr.")
+    parser.add_argument(
+        "--level",
+        metavar="LEVEL",
+        default="ALL",
+        choices=["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Minimum log severity to keep when --debug is set. One of ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL (everything).",
+    )
     parser.add_argument("--version", action="store_true", help="Show version")
     args = parser.parse_args()
 
     # Set up logging before anything else
     from src import logger
-    logger.setup(debug=args.debug)
-    logger.info("TermTube starting (debug=%s)", args.debug)
+    logger.setup(debug=args.debug, level=args.level)
+    logger.info("TermTube starting (debug=%s, level=%s)", args.debug, args.level)
 
     if args.version:
         print("TermTube 0.1.0")

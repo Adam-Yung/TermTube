@@ -100,6 +100,28 @@ Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
 **Option C — Browser session (no file):**
 Set `cookies_file: null` and `browser: chrome` in your config. TermTube will read cookies directly from the running browser. Safari is sandboxed on macOS and usually blocked.
 
+## Debugging
+
+TermTube is silent by default — no logs, no stderr noise. To investigate a
+problem, relaunch with `--debug`:
+
+```bash
+termtube --debug                   # everything (default level: ALL)
+termtube --debug --level WARNING   # only warnings, errors, criticals
+```
+
+When `--debug` is set, logs are written to:
+
+- `$TMPDIR/TermTube/<timestamp>.log` — a fresh file per run.
+- The in-app debug window — toggle with **Ctrl+D**.
+
+Nothing is ever written to stderr (it would corrupt Textual's rendering).
+Without `--debug`, the Ctrl+D window shows a hint to relaunch with the flag,
+and every `logger.*` call is a true zero-cost no-op.
+
+`--level` accepts `ALL` (default), `DEBUG`, `INFO`, `WARNING`, `ERROR`, or
+`CRITICAL`. `ALL` is an alias for `DEBUG` (everything kept).
+
 ## Architecture
 
 TermTube is a native Python application built on `Textual`. All network I/O runs in background threads — the UI never blocks. Feed data streams lazily from `yt-dlp`, and a stale-while-revalidate cache ensures cold starts are instant.

@@ -617,14 +617,16 @@ class MainScreen(Screen):
         cookie_args = self.app.config.cookie_args
 
         input_conf = player_mod._write_input_conf()
+        # Allow mpv to surface errors on stderr (we capture them via PIPE).
+        # We still suppress chatty status-line output by routing all categories
+        # to "error" — only error/fatal messages reach us.
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
             f"--input-ipc-server={_AUDIO_SOCKET}",
             "--no-video",
             "--no-terminal",
-            "--really-quiet",
-            "--msg-level=all=no",
+            "--msg-level=all=error",
             "--cache=yes",
             "--demuxer-max-bytes=150M",
             "--demuxer-readahead-secs=30",
@@ -638,11 +640,24 @@ class MainScreen(Screen):
             cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
 
+        _logger.debug("audio mpv cmd: %s", " ".join(cmd))
+
+        stderr_text = ""
+        returncode: int | None = None
         try:
             self._audio_proc = subprocess.Popen(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
             )
-            self._audio_proc.wait()
+            # communicate() drains stderr while waiting — avoids the pipe
+            # buffer filling up and deadlocking mpv if it spews errors.
+            try:
+                _out, stderr_text = self._audio_proc.communicate()
+            except Exception:
+                stderr_text = ""
+            returncode = self._audio_proc.returncode
         except FileNotFoundError:
             self.app.call_from_thread(
                 self._log, "[red]Error: mpv not found — install with: brew install mpv[/red]"
@@ -669,13 +684,38 @@ class MainScreen(Screen):
             except OSError:
                 pass
 
-        from src import history
+        stderr_text = (stderr_text or "").strip()
+        # Bail if a newer session has taken over while we were playing.
+        if self._audio_stopped or session != self._audio_session:
+            if stderr_text:
+                _logger.debug("audio mpv stderr (stale session): %s", stderr_text)
+            return
 
-        history.add(entry)
+        # mpv exit codes:
+        #   0 = clean EOF, 4 = quit by user (both successful from our POV)
+        #   1 = error initializing, 2 = error during playback,
+        #   3 = killed by signal (e.g. terminate from _stop_audio)
+        if returncode in (0, 4):
+            from src import history
 
-        # Only fire finished callback if this session is still the active one
-        if not self._audio_stopped and session == self._audio_session:
+            history.add(entry)
+            if stderr_text:
+                # mpv sometimes prints non-fatal warnings even on a clean exit
+                _logger.debug("audio mpv stderr (rc=%s): %s", returncode, stderr_text)
             self.app.call_from_thread(self._on_audio_finished, entry)
+        elif returncode == 3:
+            # We killed it via _stop_audio; nothing to report.
+            if stderr_text:
+                _logger.debug("audio mpv terminated (rc=3): %s", stderr_text)
+        else:
+            # Real failure — log everything and surface a notification.
+            _logger.warning(
+                "audio mpv failed (rc=%s) for %s: %s",
+                returncode,
+                vid,
+                stderr_text or "(no stderr output)",
+            )
+            self.app.call_from_thread(self._on_audio_failed, entry, returncode, stderr_text)
 
     def _on_audio_finished(self, entry: dict) -> None:
         self._log(f"[dim]Audio finished: {entry.get('title', '')[:60]}[/dim]")
@@ -694,6 +734,44 @@ class MainScreen(Screen):
             self._action_bar().set_actions_mode()
             if title:
                 self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+
+    def _on_audio_failed(
+        self, entry: dict, returncode: int | None, stderr_text: str
+    ) -> None:
+        """mpv exited with a non-zero/non-quit code — playback never succeeded.
+
+        We do NOT add to history (nothing was played) and we surface the actual
+        error to the user so they don't see a misleading "Finished" toast.
+        """
+        title = entry.get("title", "") or entry.get("id", "")
+        self._audio_proc = None
+        self._audio_entry = None
+        if self._audio_poll_timer:
+            self._audio_poll_timer.stop()
+            self._audio_poll_timer = None
+
+        # Pull the most useful one-line summary out of mpv's stderr.
+        first_err = ""
+        for line in (stderr_text or "").splitlines():
+            line = line.strip()
+            if line:
+                first_err = line
+                break
+        detail = first_err or f"exit code {returncode}"
+
+        self._log(f"[red]Audio failed: {title[:50]} — {detail}[/red]")
+        self.notify(
+            f"✗ Audio failed: {title[:40]} ({detail[:80]})",
+            severity="error",
+            timeout=8,
+        )
+
+        # Skip ahead to whatever the user queued next, if anything.
+        if self._audio_queue:
+            next_entry = self._audio_queue.pop(0)
+            self._start_audio(next_entry)
+        else:
+            self._action_bar().set_actions_mode()
 
     def _poll_audio_ipc(self) -> None:
         if not self._audio_playing:
