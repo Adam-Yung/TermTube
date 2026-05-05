@@ -279,6 +279,9 @@ class VideoListPanel(Widget):
         if self._anim.display:
             self._anim.display = False
             self._lv.display = True
+            # Reclaim focus from the loading indicator transition; Textual may
+            # have drifted focus to the Tabs widget while the animation was up.
+            self._lv.focus()
 
         item = VideoListItem(entry)
         vid = entry.get("id", "")
@@ -301,6 +304,11 @@ class VideoListPanel(Widget):
         revealed_entries = self._buffer[start:end]
         for entry in revealed_entries:
             self._reveal_entry(entry)
+
+        # Reassert focus on the ListView after appending items — Textual can
+        # drift focus to the Tabs widget during rapid DOM mutations, which
+        # causes spurious TabActivated events that trigger view reloads.
+        self._lv.focus()
 
         remaining = len(self._buffer) - self._visible
         if remaining > 0 and self._loading:

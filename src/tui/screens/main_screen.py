@@ -197,6 +197,10 @@ class MainScreen(Screen):
         self._search_query: str = ""
         self._nav_stack: list[str] = []
         self._log_visible = False
+        # Guard: True while we are programmatically activating the search tab
+        # from a confirmed search result (so on_tabs_tab_activated skips the
+        # modal re-open that would otherwise fire).
+        self._activating_search_programmatically: bool = False
         # ── Audio player state ────────────────────────────────────────────────
         self._audio_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._audio_entry: dict | None = None
@@ -286,7 +290,11 @@ class MainScreen(Screen):
             self._tab_activation_timer.stop()
             self._tab_activation_timer = None
         if tab_id == "search":
-            if self._current_tab == "search" and self._search_query:
+            if self._activating_search_programmatically:
+                # We set tabs.active = "search" ourselves after a confirmed
+                # query — don't re-open the modal.
+                self._activating_search_programmatically = False
+            elif self._current_tab == "search" and self._search_query:
                 pass
             else:
                 self._open_search_dialog()
@@ -1303,11 +1311,15 @@ class MainScreen(Screen):
         from src.tui.screens.search_modal import SearchModal
 
         def on_result(query: str | None) -> None:
-            tabs = self.query_one("#nav-tabs", Tabs)
             if not query:
                 _logger.debug("search dialog cancelled")
-                tabs.active = self._current_tab
+                # Do NOT touch tabs.active here — setting it programmatically
+                # fires on_tabs_tab_activated again for the current tab, which
+                # triggers a full _load_view reload and wipes the list.
+                # The tab bar is already showing the correct active tab visually;
+                # no action is needed on cancel.
                 return
+            tabs = self.query_one("#nav-tabs", Tabs)
             _logger.info("search query: %r", query)
             self._search_query = query
             self._current_tab = "search"
@@ -1316,6 +1328,7 @@ class MainScreen(Screen):
                 if tab.id == "search":
                     tab.label = f"🔍 {query[:20]}"
                     break
+            self._activating_search_programmatically = True
             tabs.active = "search"
             self._load_view("search")
 
