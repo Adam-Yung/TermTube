@@ -63,6 +63,10 @@
 
 ### Blockers before tagging 0.2.0
 
+** Setup Script **:
+- Add support for updates
+- Help message should be a HereDoc instead of multiple echo commands
+
 **Dead code to remove** (never called from any screen):
 - 📋 `src/tui/screens/now_playing.py` — `NowPlayingModal` is orphaned; audio moved to embedded ActionBar
 - 📋 `src/ytdlp.py` — `download_video()`, `download_audio()` (bare variants without progress), `get_stream_url()`, `subscribe_channel()`, `open_in_browser()`
