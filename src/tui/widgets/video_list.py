@@ -1,4 +1,4 @@
-"""VideoListPanel — scrollable video list with live-streaming and lazy loading."""
+"""VideoListPanel — scrollable video list with live-streaming and lazy reveal."""
 
 from __future__ import annotations
 
@@ -83,7 +83,6 @@ class VideoListItem(ListItem):
     def __init__(self, entry: dict) -> None:
         super().__init__()
         self.entry = entry
-        # Cached markup — computed once in compose(), reused by update_entry_by_id.
         self._cached_markup: str = ""
 
     def compose(self) -> ComposeResult:
@@ -148,33 +147,35 @@ class VideoListItem(ListItem):
 
 
 class VideoListPanel(Widget):
+    # ── Messages ──────────────────────────────────────────────────────────────
+
     class Selected(Message):
+        """Cursor moved to a new item."""
         def __init__(self, entry: dict) -> None:
             super().__init__()
             self.entry = entry
 
     class Activated(Message):
+        """User pressed Enter on an item."""
         def __init__(self, entry: dict) -> None:
             super().__init__()
             self.entry = entry
 
-    class BatchRevealed(Message):
-        def __init__(self, entries: list[dict]) -> None:
-            super().__init__()
-            self.entries = entries
+    # ── Init / compose / mount ────────────────────────────────────────────────
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._buffer: list[dict] = []
+        # O(1) dedup + neighbour lookup keyed by video ID → buffer index.
         self._buffer_index: dict[str, int] = {}
-        # O(1) widget index for in-place updates; populated in _reveal_entry.
+        # O(1) widget lookup for in-place text updates after enrichment.
         self._items_by_id: dict[str, VideoListItem] = {}
         self._visible: int = 0
-        self._loading = False
-        self._initial_batch_posted: bool = False
+        # True while an upstream worker is actively streaming entries.
+        self._loading: bool = False
         # Freshness suffix shown in the list header (set by the screen).
         self._freshness: str = ""
-        # Cached widget references — set in on_mount, avoids repeated DOM traversals.
+        # Cached widget references — populated in on_mount.
         self._lv: ListView
         self._anim: LoadingIndicator
         self._header: Static
@@ -189,14 +190,14 @@ class VideoListPanel(Widget):
         yield Static("", id="list-loading", markup=True)
 
     def on_mount(self) -> None:
-        # Cache all frequently-accessed child widgets once to avoid repeated
-        # DOM traversals during streaming (hundreds of calls per feed load).
         self._lv = self.query_one("#list-view", ListView)
         self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
         self._header = self.query_one("#list-header", Static)
         self._breadcrumb = self.query_one("#list-breadcrumb", Static)
         self._footer = self.query_one("#list-loading", Static)
         self._lv.focus()
+
+    # ── Public properties ─────────────────────────────────────────────────────
 
     @property
     def selected_entry(self) -> dict | None:
@@ -210,13 +211,23 @@ class VideoListPanel(Widget):
             pass
         return None
 
+    @property
+    def buffer_size(self) -> int:
+        return len(self._buffer)
+
+    @property
+    def visible_count(self) -> int:
+        return self._visible
+
+    # ── State management ──────────────────────────────────────────────────────
+
     def clear_and_set_loading(self) -> None:
+        """Full reset: wipe the list and show the loading indicator."""
         self._buffer = []
         self._buffer_index = {}
         self._items_by_id = {}
         self._visible = 0
         self._loading = True
-        self._initial_batch_posted = False
         self._freshness = ""
 
         self._anim.display = True
@@ -227,100 +238,8 @@ class VideoListPanel(Widget):
         self._header.update("[dim]Loading…[/dim]")
         self._footer.update("")
 
-    def set_freshness(self, text: str) -> None:
-        """Set the freshness suffix shown in the list header (e.g. 'updated 4m ago · R to refresh')."""
-        self._freshness = text or ""
-        self._render_header()
-
-    def _render_header(self) -> None:
-        n_total = len(self._buffer)
-        if n_total == 0:
-            return
-        base = f"{n_total} {'video' if n_total == 1 else 'videos'}"
-        if self._freshness:
-            self._header.update(f"[dim]{base}  ·  {self._freshness}[/dim]")
-        else:
-            self._header.update(f"[dim]{base}[/dim]")
-
-    def set_breadcrumb(self, text: str) -> None:
-        self._breadcrumb.update(f"[dim]{text}[/dim]")
-
-    def set_empty_message(self, msg: str) -> None:
-        self._loading = False
-        self._anim.display = False
-        self._lv.display = True
-        self._header.update(f"[dim]{msg}[/dim]")
-        self._footer.update("")
-
-    def set_error_message(self, msg: str) -> None:
-        self._loading = False
-        self._anim.display = False
-        self._lv.display = True
-        self._header.update(f"[#ff4444]{msg}[/#ff4444]")
-        self._footer.update("")
-
-    def append_entry(self, entry: dict) -> None:
-        vid = entry.get("id", "")
-        if vid:
-            self._buffer_index[vid] = len(self._buffer)
-        self._buffer.append(entry)
-        n_total = len(self._buffer)
-
-        if self._visible < BATCH_SIZE:
-            self._reveal_entry(entry)
-        elif self._lv.index is not None:
-            remaining = self._visible - 1 - self._lv.index
-            if remaining <= PREFETCH_THRESHOLD:
-                self._reveal_next_batch()
-
-        self._render_header()
-
-    def _reveal_entry(self, entry: dict) -> None:
-        if self._anim.display:
-            self._anim.display = False
-            self._lv.display = True
-            # Reclaim focus from the loading indicator transition; Textual may
-            # have drifted focus to the Tabs widget while the animation was up.
-            self._lv.focus()
-
-        item = VideoListItem(entry)
-        vid = entry.get("id", "")
-        if vid:
-            self._items_by_id[vid] = item
-        self._lv.append(item)
-        self._visible += 1
-        if self._visible == 1:
-            self._lv.index = 0
-        if self._visible == BATCH_SIZE and not self._initial_batch_posted:
-            self._initial_batch_posted = True
-            self.post_message(self.BatchRevealed(list(self._buffer[:BATCH_SIZE])))
-
-    def _reveal_next_batch(self) -> None:
-        start = self._visible
-        end = min(start + BATCH_SIZE, len(self._buffer))
-        if start >= end:
-            return
-
-        revealed_entries = self._buffer[start:end]
-        for entry in revealed_entries:
-            self._reveal_entry(entry)
-
-        # Reassert focus on the ListView after appending items — Textual can
-        # drift focus to the Tabs widget during rapid DOM mutations, which
-        # causes spurious TabActivated events that trigger view reloads.
-        self._lv.focus()
-
-        remaining = len(self._buffer) - self._visible
-        if remaining > 0 and self._loading:
-            self._footer.update(
-                f"[dim]  ↓ {remaining} more buffered — scroll to load[/dim]"
-            )
-
-        logger.debug("video_list: revealed batch %d..%d (visible=%d, buffer=%d)",
-                     start, end - 1, self._visible, len(self._buffer))
-        self.post_message(self.BatchRevealed(revealed_entries))
-
     def finish_loading(self) -> None:
+        """Mark streaming as done and update footer."""
         self._loading = False
         if self._anim.display:
             self._anim.display = False
@@ -339,20 +258,60 @@ class VideoListPanel(Widget):
             else:
                 self._footer.update("")
 
-        if self._visible > 0 and not self._initial_batch_posted:
-            self._initial_batch_posted = True
-            self.post_message(self.BatchRevealed(list(self._buffer[: self._visible])))
-
-    def _update_load_more_indicator(self) -> None:
-        remaining = len(self._buffer) - self._visible
-        if remaining > 0:
-            self._footer.update(
-                f"[dim]  ↓ scroll for {remaining} more[/dim]"
-            )
+    def set_fetching_more(self, active: bool) -> None:
+        """Toggle the 'fetching more…' footer hint (called from screen thread)."""
+        if active:
+            self._footer.update("[dim]  ↓ fetching more…[/dim]")
         else:
-            self._footer.update("")
+            self._update_footer()
+
+    def set_freshness(self, text: str) -> None:
+        self._freshness = text or ""
+        self._render_header()
+
+    def set_breadcrumb(self, text: str) -> None:
+        self._breadcrumb.update(f"[dim]{text}[/dim]")
+
+    def set_empty_message(self, msg: str) -> None:
+        self._loading = False
+        self._anim.display = False
+        self._lv.display = True
+        self._header.update(f"[dim]{msg}[/dim]")
+        self._footer.update("")
+
+    def set_error_message(self, msg: str) -> None:
+        self._loading = False
+        self._anim.display = False
+        self._lv.display = True
+        self._header.update(f"[#ff4444]{msg}[/#ff4444]")
+        self._footer.update("")
+
+    # ── Entry management ──────────────────────────────────────────────────────
+
+    def append_entry(self, entry: dict) -> None:
+        """Add one entry to the buffer, reveal immediately if below BATCH_SIZE."""
+        vid = entry.get("id", "")
+        # Dedup: silently skip entries already in the buffer.
+        if vid and vid in self._buffer_index:
+            return
+        if vid:
+            self._buffer_index[vid] = len(self._buffer)
+        self._buffer.append(entry)
+
+        # Reveal immediately for the first BATCH_SIZE items so the list
+        # appears quickly; otherwise only reveal when the cursor is near
+        # the bottom (handled by on_list_view_highlighted).
+        if self._visible < BATCH_SIZE:
+            self._reveal_entry(entry)
+        elif self._lv.index is not None:
+            gap = self._visible - 1 - self._lv.index
+            if gap <= PREFETCH_THRESHOLD:
+                self._reveal_next_batch()
+
+        self._render_header()
 
     def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
+        """In-place update of an already-visible list item (enrichment callback)."""
         idx = self._buffer_index.get(vid_id)
         if idx is not None and idx < len(self._buffer):
             self._buffer[idx] = entry
@@ -366,10 +325,10 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    # ── Cursor neighbour lookup (for prefetch) ────────────────────────────────
+    # ── Cursor helpers (used by MainScreen) ───────────────────────────────────
 
     def neighbor_id(self, vid_id: str, direction: int) -> str | None:
-        """Return the buffer ID at offset (direction = +1 or -1) from vid_id, or None."""
+        """Return the buffer ID at offset (direction = +1 or -1) from vid_id."""
         idx = self._buffer_index.get(vid_id)
         if idx is None:
             return None
@@ -379,7 +338,6 @@ class VideoListPanel(Widget):
         return None
 
     def cursor_index(self) -> int | None:
-        """Return the currently-highlighted ListView index, or None."""
         return self._lv.index
 
     def cursor_down(self) -> None:
@@ -396,15 +354,75 @@ class VideoListPanel(Widget):
         if self._visible > 0:
             self._lv.index = self._visible - 1
 
+    # ── Internal reveal logic ─────────────────────────────────────────────────
+
+    def _reveal_entry(self, entry: dict) -> None:
+        """Append one item to the ListView DOM."""
+        if self._anim.display:
+            self._anim.display = False
+            self._lv.display = True
+
+        # Anchor focus on the ListView BEFORE the DOM mutation.
+        # Textual can shift focus to the Tabs widget during ListView.append(),
+        # which would fire on_tabs_tab_activated and wipe the entire list.
+        # Calling focus() here keeps it anchored throughout the mutation.
+        self._lv.focus()
+
+        item = VideoListItem(entry)
+        vid = entry.get("id", "")
+        if vid:
+            self._items_by_id[vid] = item
+        self._lv.append(item)
+        self._visible += 1
+        if self._visible == 1:
+            self._lv.index = 0
+
+    def _reveal_next_batch(self) -> None:
+        """Reveal the next BATCH_SIZE entries from the buffer into the DOM."""
+        start = self._visible
+        end = min(start + BATCH_SIZE, len(self._buffer))
+        if start >= end:
+            return
+        for entry in self._buffer[start:end]:
+            self._reveal_entry(entry)
+        logger.debug(
+            "video_list: revealed %d..%d (visible=%d, buffer=%d)",
+            start, end - 1, self._visible, len(self._buffer),
+        )
+        self._update_footer()
+
+    def _render_header(self) -> None:
+        n_total = len(self._buffer)
+        if n_total == 0:
+            return
+        base = f"{n_total} {'video' if n_total == 1 else 'videos'}"
+        if self._freshness:
+            self._header.update(f"[dim]{base}  ·  {self._freshness}[/dim]")
+        else:
+            self._header.update(f"[dim]{base}[/dim]")
+
+    def _update_footer(self) -> None:
+        remaining = len(self._buffer) - self._visible
+        if remaining > 0:
+            self._footer.update(f"[dim]  ↓ scroll for {remaining} more[/dim]")
+        else:
+            self._footer.update("")
+
+    # ── Event handlers ────────────────────────────────────────────────────────
+
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        # Always post Selected so the detail panel updates immediately.
         if event.item and isinstance(event.item, VideoListItem):
             self.post_message(self.Selected(event.item.entry))
 
-        if self._lv.index is not None and self._visible < len(self._buffer):
-            remaining_visible = self._visible - 1 - self._lv.index
-            if remaining_visible <= PREFETCH_THRESHOLD:
-                self._reveal_next_batch()
-                self._update_load_more_indicator()
+        idx = self._lv.index
+        if idx is None:
+            return
+        # If the cursor is within PREFETCH_THRESHOLD of the visible bottom,
+        # reveal the next batch from the in-memory buffer (instant, no network).
+        gap = self._visible - 1 - idx
+        if gap <= PREFETCH_THRESHOLD and self._visible < len(self._buffer):
+            self._reveal_next_batch()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, VideoListItem):

@@ -24,6 +24,9 @@ from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
 
+# How many entries to fetch per home/subscriptions background load.
+_HOME_FETCH_COUNT = 100
+
 # ── Custom Header ─────────────────────────────────────────────────────────────
 
 
@@ -102,7 +105,6 @@ _TABS = [
     ("help", "📚 Help"),
 ]
 
-_MIN_FEED_COUNT = 15
 _AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
 
 # ── Dwell / freshness tuning ──────────────────────────────────────────────────
@@ -110,13 +112,9 @@ _AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
 _FOCUS_DWELL_S = 0.20
 # Cursor settles for this long before we kick the thumbnail render worker.
 _THUMB_DWELL_S = 0.15
-# Stale-feed threshold: only auto-refresh when the cached feed is older than this.
-_STALE_FEED_S = 60 * 60  # 60 min
 # Header freshness label refresh cadence (seconds).
 _FRESHNESS_REFRESH_S = 60.0
-# Dwell time on the home tab before a stale-cache refresh fires.
-_TAB_DWELL_REFRESH_S = 5.0
-# Tabs that show a streamed video feed with cache age semantics.
+# Tabs that show a streamed video feed.
 _FEED_TABS = ("home", "subscriptions")
 # Chafa RAM cache cap (entries).
 _CHAFA_RAM_CACHE_MAX = 64
@@ -209,13 +207,6 @@ class MainScreen(Screen):
         self._audio_queue: list[dict] = []
         self._audio_session: int = 0  # incremented per start; old workers bail if stale
         # ── Focus / thumbnail dwell-driven workers ────────────────────────────
-        # Each cursor move:
-        #   1. Updates the detail panel's basic meta synchronously.
-        #   2. Cancels any in-flight focus/thumb dwell timers.
-        #   3. Best-effort terminates the previous yt-dlp / chafa subprocess.
-        #   4. Schedules new dwell timers (200ms / 150ms) that fire workers.
-        # The session counters guard against race conditions when subprocess
-        # cancellation doesn't take effect before the worker tries to apply.
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
         self._focus_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
@@ -227,9 +218,16 @@ class MainScreen(Screen):
         self._last_cursor_dir: Literal["up", "down"] | None = None
         # In-RAM LRU of rendered chafa output keyed by (vid, cols, rows, fmt).
         self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
-        # Freshness label updater + tab-activation stale-cache refresh.
+        # ── Feed loading state ────────────────────────────────────────────────
+        # True while the home/subs background fetch worker is running.
+        # Used to suppress spurious TabActivated events that Textual fires
+        # during rapid ListView DOM mutations (DOM mutation can shift focus to
+        # the Tabs widget, which fires on_tabs_tab_activated, which would wipe
+        # the list). Guard: if the tab is already current and we are loading,
+        # the activation is spurious — discard it.
+        self._home_loading: bool = False
+        # Freshness label refresh timer.
         self._freshness_timer: Timer | None = None
-        self._tab_activation_timer: Timer | None = None
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -249,14 +247,11 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
-        # Wire the global logger so messages from any module appear in the
-        # in-app debug window (Ctrl+D). Only fires when --debug is on.
         if _logger.is_debug():
             _logger.register_tui_sink(self._on_log_record)
             _logger.info("MainScreen mounted; debug log wired to TUI sink")
             self._log(f"[green]Debug logging active[/green] — file: [dim]{_logger.log_file()}[/dim]")
-        # Periodic header label refresh ("updated 4m ago"). Cheap — single
-        # Static.update call, only when on a feed tab with a cached feed.
+        # Periodic freshness label refresh ("updated 4m ago").
         self._freshness_timer = self.set_interval(_FRESHNESS_REFRESH_S, self._update_freshness_label)
         self.set_timer(0.4, self._maybe_show_image_warning)
 
@@ -281,18 +276,17 @@ class MainScreen(Screen):
         if not event.tab or not event.tab.id:
             return
         tab_id = event.tab.id
+        # Guard: Textual fires spurious TabActivated events when ListView DOM
+        # mutations (appending new items) shift focus to the Tabs widget.
+        # If the activated tab is already the current one AND a feed worker
+        # is running, this is a false positive — discard it silently instead
+        # of wiping and reloading the list.
+        if tab_id == self._current_tab and self._home_loading:
+            return
         _logger.info("page switch → %s", tab_id)
-        # Switching tabs always invalidates pending dwell-based work — the user
-        # is no longer looking at whatever was focused.
         self._cancel_pending_focus_and_thumb()
-        # And cancel any scheduled stale-cache refresh from the previous tab.
-        if self._tab_activation_timer is not None:
-            self._tab_activation_timer.stop()
-            self._tab_activation_timer = None
         if tab_id == "search":
             if self._activating_search_programmatically:
-                # We set tabs.active = "search" ourselves after a confirmed
-                # query — don't re-open the modal.
                 self._activating_search_programmatically = False
             elif self._current_tab == "search" and self._search_query:
                 pass
@@ -312,41 +306,59 @@ class MainScreen(Screen):
                 _after_help,
             )
         else:
+            # Save stash when leaving a feed tab so next boot is instant.
+            if self._current_tab in _FEED_TABS:
+                self._save_feed_stash(self._current_tab)
             self._current_tab = tab_id
             self._nav_stack.clear()
             self._load_view(tab_id)
-            # Stale-cache dwell refresh: only home/subscriptions, only if cache
-            # exists but is older than the threshold. Fires after 5 s of dwell
-            # so flicking through tabs doesn't trigger a refetch.
-            if tab_id in _FEED_TABS:
-                self._maybe_schedule_stale_refresh(tab_id)
+
+    def _save_feed_stash(self, feed_key: str) -> None:
+        """Persist up to 12 unconsumed buffer entries to the quick-start stash.
+
+        Only applies to the home feed. Saves entries the user hasn't yet
+        scrolled past — those are the most likely to still be relevant on
+        the next boot.
+        """
+        if feed_key != "home":
+            return
+        try:
+            panel = self.query_one("#video-list-panel", VideoListPanel)
+            buf = panel._buffer
+            cursor = panel.cursor_index()
+            # Start saving from one past the current cursor position.
+            start = (cursor + 1) if cursor is not None else panel.visible_count
+            tail = buf[start:]
+            if tail:
+                self.app.cache.put_home_stash(tail)
+                _logger.debug("stash: saved %d entries (start=%d)", len(tail[:12]), start)
+        except Exception as exc:
+            _logger.debug("stash save error: %s", exc)
 
     def _load_view(self, view: str) -> None:
         self._log(f"[dim]Loading {view}…[/dim]")
         panel = self.query_one("#video-list-panel", VideoListPanel)
         panel.clear_and_set_loading()
         self.query_one("#detail-panel", DetailPanel).clear()
+        # Track whether a feed loader is running so the TabActivated guard works.
+        self._home_loading = (view in _FEED_TABS)
         self._stream_view(view)
 
     # ── Streaming workers ─────────────────────────────────────────────────────
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str) -> None:
+        """Background worker: dispatch streaming for any tab view."""
         panel = self.query_one("#video-list-panel", VideoListPanel)
+        config = self.app.config
+        cache = self.app.cache
 
-        self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
-
-        app = self.app
-        config = app.config
-        cache = app.cache
-
-        # sync_handled: True when the sub-method already called finish_loading
         sync_handled = False
         try:
-            if view in ("home", "subscriptions"):
+            if view in _FEED_TABS:
                 import src.ytdlp as ytdlp
-
                 self._stream_feed(view, panel, config, cache, ytdlp)
+                sync_handled = True  # _stream_feed owns finish_loading
             elif view == "search":
                 if not self._search_query:
                     self.app.call_from_thread(
@@ -355,75 +367,84 @@ class MainScreen(Screen):
                     self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
                     return
                 import src.ytdlp as ytdlp
-
                 for entry in ytdlp.stream_search(self._search_query, config, cache):
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "history":
                 from src import history as hist
-
                 for entry in hist.iter_entries():
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "library":
                 from src import library as lib
-
                 for entry in lib.all_entries(config.video_dir, config.audio_dir):
                     self.app.call_from_thread(panel.append_entry, entry)
             elif view == "playlists":
                 self._load_playlists_sync(panel)
                 sync_handled = True
             elif view.startswith("playlist:"):
-                self._load_playlist_videos_sync(view[len("playlist:") :], panel, cache)
+                self._load_playlist_videos_sync(view[len("playlist:"):], panel, cache)
                 sync_handled = True
         except Exception as exc:
             msg = str(exc)
             self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
             self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
             self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
+            self._home_loading = False
             return
 
-        self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
         if not sync_handled:
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
             self.app.call_from_thread(panel.finish_loading)
-        # Refresh the freshness label after streaming completes (covers both
-        # cache-hit and fresh-fetch paths).
         if view in _FEED_TABS:
             self.app.call_from_thread(self._update_freshness_label)
 
     def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp) -> None:
-        """Stream a home/subscriptions feed into panel from the disk cache.
+        """Home / subscriptions feed loader.
 
-        Cache is the source of truth: if a fresh cache exists we serve from it
-        and do nothing else (no parallel revalidation). If the cache is missing
-        or too small we do a single visible fetch from yt-dlp. The user-facing
-        refresh path is the explicit `R` keybind.
+        Boot sequence:
+          1. If a quick-start stash exists (from the previous session), load
+             those entries immediately — they appear before the spinner so
+             the user has something to look at right away.
+          2. Fetch up to _HOME_FETCH_COUNT fresh entries from yt-dlp,
+             appending each one as it arrives (no DOM wipe, no full reload).
+          3. Finish: hide spinner, update header count.
         """
         is_suppressed = cache.is_suppressed
 
-        cached_ids = cache.get_feed(feed_key) or cache.get_feed_stale(feed_key)
-
-        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
-            count = 0
-            for vid_id in cached_ids:
-                if feed_key == "home" and is_suppressed(vid_id):
-                    continue
-                entry = cache.get_video_raw(vid_id)
-                if entry:
+        # Step 1 — quick-start stash (home only).
+        if feed_key == "home":
+            stash = cache.get_home_stash()
+            if stash:
+                _logger.debug("feed %s: loading %d stash entries", feed_key, len(stash))
+                for entry in stash:
+                    vid = entry.get("id", "")
+                    if vid and is_suppressed(vid):
+                        continue
                     self.app.call_from_thread(panel.append_entry, entry)
-                    count += 1
 
-            if count >= _MIN_FEED_COUNT:
-                self._log(f"[dim]{feed_key}: {count} from cache (no background refetch)[/dim]")
-                return
+        # Step 2 — fresh yt-dlp fetch (spinner on).
+        self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
+        self.app.call_from_thread(panel.set_fetching_more, True)
 
-        cache.clear_feed(feed_key)
-        gen = ytdlp.stream_flat(
-            ytdlp.FEED_URLS[feed_key], config, cache, feed_key=feed_key
-        )
-        for entry in gen:
-            vid_id = entry.get("id")
-            if feed_key == "home" and vid_id and is_suppressed(vid_id):
-                continue
-            self.app.call_from_thread(panel.append_entry, entry)
+        try:
+            count = 0
+            for entry in ytdlp.stream_flat(
+                ytdlp.FEED_URLS[feed_key],
+                config,
+                cache,
+                feed_key=feed_key,
+                max_count=_HOME_FETCH_COUNT,
+            ):
+                vid = entry.get("id")
+                if feed_key == "home" and vid and is_suppressed(vid):
+                    continue
+                self.app.call_from_thread(panel.append_entry, entry)
+                count += 1
+            _logger.debug("feed %s: fetched %d entries", feed_key, count)
+        finally:
+            self._home_loading = False
+            self.app.call_from_thread(panel.set_fetching_more, False)
+            self.app.call_from_thread(panel.finish_loading)
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
 
     def _load_playlists_sync(self, panel) -> None:
         from src import playlist
@@ -471,16 +492,10 @@ class MainScreen(Screen):
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         vid = entry.get("id", "")
-        # 1. Paint cached title/channel/stats immediately. Synchronous.
         detail = self.query_one("#detail-panel", DetailPanel)
         detail.update_basic(entry)
-        # 2. Track cursor direction (used by neighbour prefetch in focus worker).
         self._update_cursor_direction(vid)
-        # 3. Cancel previously-scheduled dwell work and best-effort kill any
-        #    in-flight subprocesses for the previous selection.
         self._cancel_pending_focus_and_thumb()
-        # 4. Mark the thumbnail widget — placeholder only when we don't already
-        #    have the JPEG cached, so cache hits don't flash.
         if vid and not vid.startswith("__"):
             detail.set_thumbnail_video_id(vid)
             from src.ui.thumbnail import _thumb_path
@@ -489,8 +504,6 @@ class MainScreen(Screen):
         elif vid:
             detail.set_thumbnail_video_id(vid)
             detail.set_thumbnail_loading()
-        # 5. Schedule new dwell timers. If the user moves again before they
-        #    fire, the next on_video_list_panel_selected cancels them.
         if vid and not vid.startswith("__"):
             self._thumb_dwell_timer = self.set_timer(
                 _THUMB_DWELL_S, lambda: self._kick_thumb(vid, entry)
@@ -527,18 +540,6 @@ class MainScreen(Screen):
 
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
         self.action_activate()
-
-    # ── Batch Lazy Loading ────────────────────────────────────────────────────
-    # Previously this dispatched a 2-thread ThreadPoolExecutor that fired
-    # fetch_full() for every visible video on home open — the dominant CPU
-    # spike. Enrichment is now strictly focus-driven (see _focus_worker), so
-    # this handler is intentionally a no-op. The BatchRevealed message is still
-    # posted by VideoListPanel so other consumers (or future prefetch logic)
-    # can subscribe.
-    def on_video_list_panel_batch_revealed(
-        self, message: VideoListPanel.BatchRevealed
-    ) -> None:
-        pass
 
     # ── Focus / thumbnail dwell-driven workers ────────────────────────────────
 
@@ -761,29 +762,6 @@ class MainScreen(Screen):
             panel.set_freshness("R to refresh")
             return
         panel.set_freshness(f"updated {_fmt_age_seconds(age)} · R to refresh")
-
-    def _maybe_schedule_stale_refresh(self, tab_id: str) -> None:
-        """If cache for tab_id is older than _STALE_FEED_S, schedule a dwell-based refresh."""
-        try:
-            age = self.app.cache.feed_age(tab_id)
-        except Exception:
-            return
-        if age is None or age < _STALE_FEED_S:
-            return
-        # Capture tab_id for the closure so a tab switch invalidates it.
-        target_tab = tab_id
-
-        def _maybe_refresh() -> None:
-            self._tab_activation_timer = None
-            if self._current_tab != target_tab:
-                return
-            _logger.info("stale-feed refresh for %s (age=%ds)", target_tab, int(age))
-            self.app.cache.clear_feed(target_tab)
-            self._load_view(target_tab)
-
-        if self._tab_activation_timer is not None:
-            self._tab_activation_timer.stop()
-        self._tab_activation_timer = self.set_timer(_TAB_DWELL_REFRESH_S, _maybe_refresh)
 
     def action_activate(self) -> None:
         entry = self._selected_entry()
@@ -1379,9 +1357,10 @@ class MainScreen(Screen):
 
     def action_refresh(self) -> None:
         _logger.info("user refresh (tab=%s)", self._current_tab)
-        app = self.app  # type: ignore[attr-defined]
-        if self._current_tab in ("home", "subscriptions"):
-            app.cache.clear_feed(self._current_tab)
+        if self._current_tab in _FEED_TABS:
+            self.app.cache.clear_feed(self._current_tab)
+            if self._current_tab == "home":
+                self.app.cache.clear_home_stash()
         self._load_view(self._current_tab)
         self.notify(f"Refreshing {self._current_tab}…", timeout=2)
 
@@ -1504,6 +1483,9 @@ class MainScreen(Screen):
         import threading
 
         _logger.info("user action: quit")
+        # Save the quick-start stash so the next boot is instant.
+        if self._current_tab in _FEED_TABS:
+            self._save_feed_stash(self._current_tab)
         self._stop_audio()
         try:
             import src.ytdlp as ytdlp

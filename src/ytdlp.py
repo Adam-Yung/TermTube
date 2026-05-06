@@ -178,6 +178,7 @@ def stream_flat(
     *,
     feed_key: str | None = None,
     on_entry: Callable[[dict], None] | None = None,
+    max_count: int | None = None,
 ) -> Generator[dict, None, None]:
     """
     Stream basic video entries from a URL using --flat-playlist.
@@ -185,6 +186,9 @@ def stream_flat(
     Cache-first: if feed_key is given and the cache is fresh, entries are
     yielded instantly from disk (no network call). Otherwise, fetches from
     yt-dlp and saves the feed index for next time.
+
+    max_count: if set, stop yielding after this many entries have been produced.
+    Used by the home feed worker to cap fetches at 100 entries.
     """
     # Minimum number of entries to consider a feed cache valid.
     # If the previous fetch was interrupted early or auth failed, the cache
@@ -198,6 +202,8 @@ def stream_flat(
             logger.debug("stream_flat cache hit for feed '%s' (%d ids)", feed_key, len(cached_ids))
             count = 0
             for vid_id in cached_ids:
+                if max_count is not None and count >= max_count:
+                    return
                 entry = cache.get_video_raw(vid_id)
                 if entry:
                     if on_entry:
@@ -214,11 +220,14 @@ def stream_flat(
             cache.clear_feed(feed_key)
 
     # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
-    logger.debug("stream_flat fetching fresh: %s", url)
+    logger.debug("stream_flat fetching fresh: %s (max_count=%s)", url, max_count)
     cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
     seen_ids: list[str] = []
+    yielded = 0
 
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
+        if max_count is not None and yielded >= max_count:
+            break
         if not _is_playable_video(entry):
             logger.debug("stream_flat: skipping non-video entry id=%r type=%r",
                          entry.get("id"), entry.get("_type"))
@@ -231,6 +240,7 @@ def stream_flat(
         if on_entry:
             on_entry(entry)
         yield entry
+        yielded += 1
 
     # Only save feed index if we got a reasonable number of entries.
     # This prevents caching an incomplete result from an interrupted or

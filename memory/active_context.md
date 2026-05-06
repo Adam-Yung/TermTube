@@ -120,3 +120,23 @@ in `memory/HomeScreenv2.md` (status: implemented, smoke test pending).
 - Human smoke test of acceptance criteria in `memory/HomeScreenv2.md` §7.
 - Step 7 final: rewrite `src/player.py` to use mpv `observe_property` instead of any polling.
 - Optional: README mention of the `updated Nm ago · R to refresh` footer.
+
+## Completed tasks (2026-05-06 — Home Screen Ground-Up Rewrite)
+
+### Root causes fixed
+1. **Spurious TabActivated loop**: `ListView.append()` shifts Textual focus to the Tabs widget during DOM mutations. This fired `on_tabs_tab_activated`, which called `_load_view`, wiping the list. Fixed two ways:
+   - `VideoListPanel._reveal_entry()` now calls `self._lv.focus()` **before** `self._lv.append()` so focus is anchored throughout the mutation.
+   - `MainScreen.on_tabs_tab_activated()` now guards: if `tab_id == self._current_tab and self._home_loading`, the event is a false positive and is discarded.
+2. **j opens search modal**: With Tabs focused, printable keys fell through to Tabs' search-to-navigate handler. Fixed by the focus-before-append guard above.
+
+### New home feed boot model (3-state)
+- **State 1 — Quick-start stash**: On boot, up to 12 full entry dicts from the previous session are loaded and revealed immediately (no spinner). Written on tab-switch-away or quit from the home tab. Stored at `~/.cache/termtube/feed_home_stash.json`.
+- **State 2 — Background fetch**: `stream_flat()` fetches up to 100 entries from yt-dlp (or cache). Each entry is appended via `panel.append_entry()` — no DOM wipe. Spinner on during this phase.
+- **State 3 — Lazy reveal**: As user scrolls, `_reveal_next_batch()` reveals the next 20 buffered entries — instant, no network.
+- **R key**: Clears the stash, clears the feed index cache, triggers a clean full reload.
+
+### Files changed
+- `src/tui/widgets/video_list.py` — full rewrite.
+- `src/cache.py` — added `get_home_stash()`, `put_home_stash()`, `clear_home_stash()`.
+- `src/ytdlp.py` — `stream_flat()` gains `max_count` param; removed `stream_flat_page()`.
+- `src/tui/screens/main_screen.py` — new `_home_loading` flag, new `_stream_feed()` boot model, new `_save_feed_stash()`, cleaned up all dead state vars.

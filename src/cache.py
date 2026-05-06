@@ -221,6 +221,58 @@ class Cache:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
+    # ── Home-feed quick-start stash ───────────────────────────────────────────
+    # Up to _STASH_SIZE full entry dicts from the previous session's unconsumed
+    # buffer are saved here so the next boot can show something instantly while
+    # the fresh 100-entry background fetch is running.
+
+    _STASH_SIZE = 12
+
+    @property
+    def _stash_path(self) -> Path:
+        return CACHE_DIR / "feed_home_stash.json"
+
+    def get_home_stash(self) -> list[dict]:
+        """Return up to _STASH_SIZE stashed entries from the previous session.
+
+        Never raises; returns [] on any error or if no stash exists.
+        """
+        path = self._stash_path
+        if not path.exists():
+            return []
+        try:
+            data = json.loads(path.read_text())
+            entries = data.get("entries", [])
+            if not isinstance(entries, list):
+                return []
+            return entries[: self._STASH_SIZE]
+        except (json.JSONDecodeError, OSError):
+            return []
+
+    def put_home_stash(self, entries: list[dict]) -> None:
+        """Atomically write up to _STASH_SIZE entries to the stash file."""
+        slim = entries[: self._STASH_SIZE]
+        try:
+            with _write_lock:
+                _atomic_write(
+                    self._stash_path,
+                    json.dumps(
+                        {"_cached_at": time.time(), "entries": slim},
+                        ensure_ascii=False,
+                    ),
+                )
+            logger.debug("cache.put_home_stash: %d entries", len(slim))
+        except OSError:
+            pass
+
+    def clear_home_stash(self) -> None:
+        """Delete the stash file (used by R-refresh)."""
+        try:
+            self._stash_path.unlink(missing_ok=True)
+            logger.debug("cache.clear_home_stash")
+        except OSError:
+            pass
+
     def clear_feed(self, key: str) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
         if path.exists():
