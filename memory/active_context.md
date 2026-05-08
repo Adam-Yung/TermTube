@@ -10,7 +10,7 @@
 - [x] Phase 1 — Data layer (config, ytdlp, cache, player, cookies, sponsorblock, history, library, playlist, search_history, hidden, deps, logger, main)
 - [x] Phase 2 — TUI component library (app_header, mini_player, page_indicator, progress_bar, thumbnail, video_card, video_list_panel, detail_panel, theme.tcss)
 - [x] Phase 3 — MainScreen (5 feed tabs, workers, playback), ChannelScreen, all 9 modals (search, action, error, help, quality, download, playlist, cookies, settings)
-- [ ] Phase 4 — SponsorBlock auto-skip at player level, bookmark jump UI, notification bar
+- [x] Phase 4 — SponsorBlock auto-skip (PlayerSession.set_segments + _check_sponsorblock), BookmarkModal (jump/delete), NotificationBar (ephemeral toasts), l-key dual mode
 - [ ] Phase 5 — Tests (test_cache, test_player, test_ytdlp), CLAUDE.md update, README
 - [ ] Phase 6 — setup.sh / uninstall.sh cross-platform install scripts
 
