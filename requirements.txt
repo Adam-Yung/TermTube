@@ -1,22 +1,27 @@
-# TermTube — Python dependencies
+# TermTube v2 — Python dependencies
 # Install via:  bash setup.sh
 # Or manually:  pip install -r requirements.txt
 
 # Core
 PyYAML>=6.0
-requests>=2.31
+httpx>=0.27          # SponsorBlock API + async-ready HTTP
 
 # TUI framework
 textual>=0.68.0
 rich>=13.4.0
 
-# High-quality terminal image rendering (TGP / sixel / halfcell)
-# Gracefully optional — falls back to chafa symbol art if not installed.
-textual-image>=0.12.0
-Pillow>=10.3.0
+# yt-dlp as a Python library (metadata fetching in-process, no subprocess startup cost)
+yt-dlp>=2024.1.0
 
-# System tools expected on PATH (install via brew / apt, not pip):
-#   yt-dlp      brew install yt-dlp
-#   mpv         brew install mpv
-#   chafa       brew install chafa       (optional image fallback renderer)
-#   ffmpeg      brew install ffmpeg      (optional, improves format support)
+# Terminal image rendering (Kitty / Sixel graphics protocol)
+# Falls back to Python color-mosaic if terminal doesn't support graphics protocols.
+# chafa is NOT required — all fallback rendering is done in pure Python.
+textual-image>=0.12.0
+
+# System tools expected on PATH (installed automatically by setup.sh):
+#   mpv         brew install mpv  /  apt install mpv
+#   ffmpeg      brew install ffmpeg  (optional, improves format muxing)
+#
+# NOT required (removed in v2):
+#   chafa       (was optional image fallback — replaced by Python color-mosaic)
+#   Pillow      (was used by textual-image path — no longer a direct dependency)
