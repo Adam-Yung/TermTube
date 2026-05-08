@@ -1,926 +1,527 @@
-/* ── TermTube Textual Theme ─────────────────────────────────────────────── */
+/* TermTube v2 — theme.tcss
+   5 themes: crimson (default), amber, ocean, midnight, forest
+   Applied as app-level CSS classes: app.add_class("theme-amber") etc.
+   Crimson = no class (base).
+*/
 
-/* ── Global ──────────────────────────────────────────────────────────────── */
-App {
+/* ===== BASE LAYOUT ===== */
+
+Screen {
+    background: #0d0d0d;
+    color: #e0e0e0;
+    layers: base overlay;
+}
+
+/* Two-panel horizontal split */
+#main-columns {
+    layout: horizontal;
+    height: 1fr;
+}
+
+VideoListPanel {
+    width: 45%;
+    border-right: solid #2a2a2a;
+}
+
+DetailPanel {
+    width: 55%;
+}
+
+/* Narrow terminal: collapse detail panel */
+Screen.-narrow DetailPanel {
+    display: none;
+}
+Screen.-narrow VideoListPanel {
+    width: 100%;
+    border-right: none;
+}
+
+/* ===== APP HEADER ===== */
+
+AppHeader {
+    height: 1;
+    background: #1a0a0a;
+    border-bottom: solid #ff4444;
+    padding: 0 1;
+    color: #e0e0e0;
+}
+
+/* ===== TABS ===== */
+
+Tabs {
+    height: 2;
+    background: #111111;
+    border-bottom: solid #1a1a1a;
+}
+
+Tab {
+    padding: 0 2;
+    color: #888888;
+    background: #111111;
+}
+
+Tab.-active {
+    color: #ff4444;
+    background: #1a0a0a;
+    border-bottom: solid #ff4444;
+    text-style: bold;
+}
+
+Tab:hover {
+    color: #ff6666;
+    background: #1a0a0a;
+}
+
+/* ===== VIDEO LIST ===== */
+
+#list-header {
+    background: #141414;
+    color: #666666;
+    padding: 0 1;
+}
+
+ListView {
+    background: #0d0d0d;
+    border: none;
+    padding: 0;
+}
+
+ListItem {
+    background: #0d0d0d;
+    padding: 0 0;
+    margin: 0;
+    border-bottom: solid #141414;
+}
+
+ListItem:hover {
+    background: #141414;
+}
+
+ListItem.-highlight {
+    background: #1a0a0a;
+    border-left: solid #ff4444;
+}
+
+/* ===== DETAIL PANEL ===== */
+
+DetailPanel {
+    padding: 0 1;
+}
+
+#dp-title {
+    color: #ffffff;
+    text-style: bold;
+    margin-bottom: 0;
+}
+
+#dp-channel {
+    margin-bottom: 1;
+}
+
+#dp-stats {
+    color: #666666;
+    margin-bottom: 1;
+}
+
+#dp-desc {
+    color: #888888;
+    margin-bottom: 1;
+}
+
+#dp-bookmarks {
+    margin-bottom: 1;
+}
+
+ScrollableContainer {
+    background: transparent;
+    border: none;
+    scrollbar-color: #333333;
+    scrollbar-color-hover: #ff4444;
+}
+
+/* ===== MINI PLAYER ===== */
+
+MiniPlayer {
+    dock: bottom;
+    height: 2;
+    border-top: solid #ff4444;
+    background: #0a0a0a;
+    padding: 0 1;
+}
+
+MiniPlayer.--playing {
+    height: 8;
+}
+
+#mp-idle {
+    color: #444444;
+    content-align: center middle;
+}
+
+#mp-hints {
+    color: #333333;
+}
+
+/* ===== PAGE INDICATOR ===== */
+
+PageIndicator {
+    height: 1;
+    background: #111111;
+    content-align: center middle;
+}
+
+/* ===== LOADING INDICATOR ===== */
+
+LoadingIndicator {
+    color: #ff4444;
+    background: transparent;
+}
+
+/* ===== FOOTER ===== */
+
+Footer {
+    background: #111111;
+    color: #555555;
+}
+
+FooterKey {
+    background: #1a0a0a;
+}
+
+.footer-key--key {
+    color: #ff4444;
+    background: #1a0a0a;
+}
+
+/* ===== MODALS ===== */
+
+ModalScreen {
+    background: rgba(0, 0, 0, 0.85);
+    align: center middle;
+}
+
+/* Generic modal container */
+.modal-container {
+    background: #141414;
+    border: solid #ff4444;
+    padding: 1 2;
+    min-width: 60;
+    max-width: 80;
+    max-height: 80%;
+}
+
+.modal-title {
+    color: #ff4444;
+    text-style: bold;
+    border-bottom: solid #2a2a2a;
+    padding-bottom: 1;
+    margin-bottom: 1;
+}
+
+/* ===== SETTINGS MODAL ===== */
+
+#settings-list {
+    background: #0d0d0d;
+    border: solid #2a2a2a;
+}
+
+#settings-list .option-list--option-highlighted {
+    background: #1a0a0a;
+    color: #ff4444;
+}
+
+/* ===== SEARCH MODAL ===== */
+
+#search-input {
+    border: solid #ff4444;
     background: #0d0d0d;
     color: #e0e0e0;
 }
 
-/* ── Custom AppHeader ────────────────────────────────────────────────────── */
-AppHeader {
-    height: 1;
-    dock: top;
-    background: #1a0000;
-}
-
-AppHeader #header-layout {
-    layout: horizontal;
-    width: 100%;
-}
-
-AppHeader #header-clock {
-    width: 25%;
-    color: #888888;
-    padding-left: 1;
-    content-align: left middle;
-}
-
-AppHeader #header-title {
-    width: 50%;
-    text-style: bold;
-    color: #ff4444;
-    content-align: center middle;
-}
-
-AppHeader #header-status {
-    width: 25%;
-    padding-right: 2;
-    content-align: right middle;
-}
-
-/* ── Nav Tabs ─────────────────────────────────────────────────────────────── */
-Tabs {
-    background: #141414;
-    height: 3;
-    border-bottom: solid #2a2a2a;
-}
-
-Tab {
-    padding: 0 3;
-    color: #555555;
-}
-
-Tab.-active {
-    color: #ff6666;
-    background: #1e1e1e;
-    text-style: bold underline;
-}
-
-Tab:hover {
-    color: #cccccc;
-    background: #1a1a1a;
-}
-
-/* ── Main content split ──────────────────────────────────────────────────── */
-#main-content {
-    height: 1fr;
-}
-
-/* ── Video List Panel ────────────────────────────────────────────────────── */
-VideoListPanel {
-    width: 45%;
-    border-right: solid #2a2a2a;
-    background: #0f0f0f;
-}
-
-#list-header {
-    height: 1;
-    background: #1a1a1a;
-    color: #666666;
-    padding: 0 1;
-    border-bottom: solid #2a2a2a;
-}
-
-/* New animated loader layout config */
-#list-loading-anim {
-    height: 1fr;
-    content-align: center middle;
-    color: #ff6666;
-    display: none;
-}
-
-#list-view {
-    height: 1fr;
-    background: #0f0f0f;
-    scrollbar-color: #ff4444;
-    scrollbar-background: #1a1a1a;
-    scrollbar-color-hover: #ff6666;
-}
-
-VideoListItem {
-    padding: 1 2;
-    height: auto;
-    border-left: thick #0f0f0f;
-}
-
-VideoListItem:hover {
-    background: #191924;
-    border-left: thick #555555;
-}
-
-#list-view > VideoListItem.-highlight {
-    background: #16162a;
-    border-left: thick #ff4444;
-    color: #ffffff;
-}
-
-VideoListItem > Static {
-    background: transparent;
-}
-
-#list-loading {
-    height: 1;
-    background: #0f0f0f;
-    color: #444444;
-    padding: 0 2;
-    display: block;
-}
-
-#list-loading.hidden {
-    display: none;
-}
-
-/* ── Detail Panel ────────────────────────────────────────────────────────── */
-DetailPanel {
-    width: 55%;
-    background: #0a0a0a;
-}
-
-#thumbnail-area {
-    height: 25;
-    background: #050505;
-    border-bottom: solid #2a2a2a;
-    align: center middle;
-    overflow: hidden;
-}
-
-ThumbnailWidget {
-    width: 100%;
-    height: 100%;
-    background: #050505;
-    content-align: center middle;
-    align: center middle;
-}
-
-ThumbnailWidget > #thumb-image {
-    width: auto;
-    height: 100%;
-}
-
-#thumb-status {
-    width: 100%;
-    height: 100%;
-    content-align: center middle;
-    color: #444444;
-}
-
-#video-info {
-    height: 1fr;
-    overflow-y: auto;
-    padding: 1 2;
-    scrollbar-color: #ff4444;
-    scrollbar-background: #0a0a0a;
-    scrollbar-color-hover: #ff6666;
-}
-
-#video-title {
-    color: #ffffff;
-    text-style: bold;
-    padding: 0 0 0 0;
-    margin-bottom: 1;
-    width: 100%;
-}
-
-#video-channel {
-    color: #ff6666;
-    text-style: bold;
-}
-
-#video-stats {
-    color: #888888;
-    margin-bottom: 1;
-}
-
-#video-desc-header {
-    color: #444444;
-    margin-top: 1;
-}
-
-#video-desc {
-    color: #777777;
-    margin-bottom: 1;
-}
-
-#video-playlists {
-    color: #6699cc;
-}
-
-/* ── Action Bar (ActionBar widget — height set dynamically by widget) ─────── */
-ActionBar {
-    background: #0d0d14;
-    border: solid #2a2a2a;
-    border-title-color: #555555;
-    border-title-style: dim;
-    margin: 0 1 1 1;
-    padding: 0 1;
-}
-
-ActionBar #ab-row1 { height: 1;
-    margin-top: 1; color: #cccccc; }
-ActionBar #ab-row2 { height: 1; color: #888888; }
-
-ActionBar #np-title-line { height: 1; margin-top: 1; color: #ffffff;
-}
-
-ActionBar #np-time-line { height: 1; color: #666666; }
-ActionBar #np-keys     { height: 1; color: #888888;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────── */
-Footer {
-    background: #141414;
-    color: #555555;
-    height: 1;
-}
-
-FooterKey .footer-key--key {
-    color: #ff4444;
-    background: #200000;
-}
-
-FooterKey .footer-key--description {
-    color: #888888;
-}
-
-/* ── Search Modal ────────────────────────────────────────────────────────── */
-SearchModal {
-    align: center middle;
-}
-
-#search-dialog {
-    width: 60%;
-    height: auto;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#search-title {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#search-input {
-    background: #0d0d0d;
-    border: solid #444444;
-    color: #ffffff;
-    margin-bottom: 1;
-}
-
 #search-input:focus {
-    border: solid #ff4444;
+    border: solid #ff6666;
 }
 
-#search-hint {
-    color: #555555;
-}
-
-/* ── Download Modal ──────────────────────────────────────────────────────── */
-DownloadModal {
-    align: center middle;
-}
-
-#download-dialog {
-    width: 70%;
-    height: auto;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
+/* ===== DOWNLOAD MODAL ===== */
 
 #download-title {
     color: #ff4444;
     text-style: bold;
-    margin-bottom: 1;
 }
 
-#download-status {
-    color: #aaaaaa;
-    height: 2;
-    margin-bottom: 1;
-}
-
-ProgressBar {
-    margin-bottom: 1;
-}
-
-ProgressBar .bar--bar {
+ProgressBar.download-bar {
     color: #ff4444;
 }
 
-ProgressBar .bar--complete {
-    color: #ff4444;
-}
+/* ===== HELP SCREEN ===== */
 
-App.theme-amber ProgressBar .bar--bar, App.theme-amber ProgressBar .bar--complete { color: #e8820c; }
-App.theme-ocean ProgressBar .bar--bar, App.theme-ocean ProgressBar .bar--complete { color: #0ea5e9; }
-App.theme-midnight ProgressBar .bar--bar, App.theme-midnight ProgressBar .bar--complete { color: #a855f7; }
-
-/* ── Playlist Modal ──────────────────────────────────────────────────────── */
-PlaylistModal {
-    align: center middle;
-}
-
-#playlist-dialog {
-    width: 50%;
-    height: auto;
-    max-height: 60%;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#playlist-title {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#playlist-list {
-    height: auto;
-    max-height: 20;
-    background: #0d0d0d;
-    border: solid #333333;
-    margin-bottom: 1;
-}
-
-#playlist-list > ListItem {
-    padding: 0 1;
-    color: #888888;
-    border-left: thick #0d0d0d;
-}
-
-#playlist-list > ListItem > Static {
-    background: transparent;
-}
-
-#playlist-list > ListItem.-highlight {
-    background: #1e0a0a;
-    border-left: thick #ff4444;
-    color: #ffffff;
-}
-
-#playlist-list > ListItem.-highlight > Static {
-    color: #ffffff;
-}
-
-#playlist-hint {
-    color: #555555;
-}
-
-/* ── Quality Modal ───────────────────────────────────────────────────────── */
-QualityModal {
-    align: center middle;
-}
-
-#quality-dialog {
-    width: 55%;
-    height: auto;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#quality-title {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#quality-list {
-    height: auto;
-    max-height: 16;
-    background: #0d0d0d;
-    border: solid #333333;
-    margin-bottom: 1;
-}
-
-#quality-list > ListItem {
-    padding: 0 1;
-    color: #888888;
-    border-left: thick #0d0d0d;
-}
-
-#quality-list > ListItem > Static {
-    background: transparent;
-}
-
-#quality-list > ListItem.-highlight {
-    background: #1e0a0a;
-    border-left: thick #ff4444;
-    color: #ffffff;
-}
-
-#quality-list > ListItem.-highlight > Static {
-    color: #ffffff;
-}
-
-#quality-hint {
-    color: #555555;
-}
-
-/* ── Watch Modal (video in external mpv window) ──────────────────────────── */
-WatchModal {
-    align: center middle;
-}
-
-#watch-dialog {
-    width: 65%;
-    height: auto;
-    background: #0d0d0d;
+#help-container {
     border: solid #ff4444;
-    padding: 1 2;
-}
-
-#watch-dialog #np-header {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#watch-dialog ProgressBar {
-    margin-top: 1;
-    margin-bottom: 0;
-}
-
-#watch-dialog ProgressBar .bar--bar, #watch-dialog ProgressBar .bar--complete {
-    color: #ff4444;
-}
-
-/* ── Shared np-* widget styles (WatchModal) ──────────────────────────────── */
-#np-title {
-    color: #ffffff;
-    text-style: bold;
-    margin-bottom: 0;
-}
-
-#np-channel {
-    color: #ff6666;
-    margin-bottom: 1;
-}
-
-#np-time {
-    color: #aaaaaa;
-    margin-bottom: 1;
-}
-
-#np-hint {
-    color: #555555;
-    margin-top: 1;
-}
-
-/* ── Image Warning Modal ─────────────────────────────────────────────────── */
-ImageWarningModal {
-    align: center middle;
-}
-
-#imgwarn-dialog {
-    width: 56;
-    height: auto;
-    background: #1a1a1a;
-    border: solid #888800;
-    padding: 1 2;
-}
-
-#imgwarn-title {
-    color: #dddd00;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#imgwarn-body {
-    color: #aaaaaa;
-    margin-bottom: 1;
-}
-
-#imgwarn-list {
-    height: auto;
     background: #0d0d0d;
+    padding: 1 2;
+}
+
+#help-filter {
     border: solid #333333;
+    background: #0d0d0d;
+    margin-bottom: 1;
 }
 
-#imgwarn-list > ListItem {
-    padding: 0 1;
-    color: #888888;
-    border-left: thick #0d0d0d;
-    height: 1;
-}
+/* ===== COOKIES MODAL ===== */
 
-#imgwarn-list > ListItem > Static { background: transparent; }
-
-#imgwarn-list > ListItem.-highlight {
-    background: #1e1e00;
-    border-left: thick #dddd00;
-    color: #ffffff;
-}
-
-#imgwarn-list > ListItem.-highlight > Static { color: #ffffff;
-}
-
-/* ── Debug log panel ─────────────────────────────────────────────────────── */
-#debug-log {
-    height: 12;
-    background: #050505;
-    border-top: solid #333333;
-    border-bottom: solid #333333;
-    color: #888888;
-    padding: 0 1;
-}
-
-/* ── Breadcrumb (playlist drill-down hint) ────────────────────────────────── */
-#list-breadcrumb {
-    height: 1;
-    background: #1a1a1a;
-    color: #6699cc;
-    padding: 0 1;
-    border-bottom: solid #2a2a2a;
-}
-
-/* ── Playlist View Screen ────────────────────────────────────────────────── */
-#playlist-view-header {
-    height: 1;
-    background: #1a0000;
-    color: #ff8888;
-    padding: 0 1;
-    text-style: bold;
-}
-
-/* ── Help Screen ─────────────────────────────────────────────────────────── */
-HelpScreen {
-    align: center middle;
-}
-
-#help-outer {
-    width: 80%;
-    height: 90%;
-    max-width: 100;
-    background: #0f0f18;
+#cookies-container {
     border: solid #ff4444;
-}
-
-#help-scroll {
-    width: 100%;
-    height: 1fr;
-    padding: 1 3;
-    overflow-y: auto;
-}
-
-#help-content {
-    width: 100%;
-}
-
-/* ── Nav Picker Modal ────────────────────────────────────────────────────── */
-NavModal {
-    align: center middle;
-}
-
-#nav-dialog {
-    width: 36;
-    height: auto;
     background: #141414;
-    border: solid #ff4444;
-    padding: 1 2;
 }
 
-#nav-title {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-    text-align: center;
-    height: 1;
+/* ===== ERROR MODAL ===== */
+
+#error-container {
+    border: solid #ef4444;
+    background: #1a0000;
 }
 
-.nav-row {
+/* ===== NOTIFICATION BAR ===== */
+
+#notification-bar {
+    dock: bottom;
     height: 1;
-    color: #cccccc;
+    background: #1a0a0a;
+    color: #e0e0e0;
     padding: 0 1;
 }
 
-.nav-row:hover {
-    background: #2a2a2a;
-    color: #ffffff;
-}
-
-#nav-hint {
-    color: #555555;
-    margin-top: 1;
-    text-align: center;
-    height: 1;
-}
-
-/* ── Video Action Modal ──────────────────────────────────────────────────── */
-VideoActionModal {
-    align: center middle;
-}
-
-#vaction-dialog {
-    width: 52;
-    height: auto;
-    max-height: 80%;
-    background: #111118;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#vaction-title {
-    color: #ffffff;
-    text-style: bold;
-    margin-bottom: 0;
-}
-
-#vaction-channel {
-    color: #666666;
-    margin-bottom: 1;
-}
-
-#vaction-list {
-    height: auto;
-    max-height: 18;
-    background: #0a0a12;
-    border: solid #2a2a2a;
-    margin-bottom: 1;
-}
-
-#vaction-list > ListItem {
-    padding: 0 1;
-    color: #888888;
-    border-left: thick #0a0a12;
-    height: 1;
-}
-
-#vaction-list > ListItem > Static {
-    background: transparent;
-}
-
-#vaction-list > ListItem.-highlight {
-    background: #1e0a0a;
-    border-left: thick #ff4444;
-    color: #ffffff;
-}
-
-#vaction-list > ListItem.-highlight > Static {
-    color: #ffffff;
-}
-
-#vaction-hint {
-    color: #555555;
-}
-
-/* ── Settings Modal ──────────────────────────────────────────────────────── */
-SettingsModal {
-    align: center middle;
-}
-
-#settings-dialog {
-    width: 60%;
-    height: 80%;
-    background: #111118;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#settings-title {
-    color: #ff4444;
-    text-style: bold;
-    margin-bottom: 1;
-}
-
-#settings-scroll {
-    height: 1fr;
-    overflow-y: auto;
-}
-
-#s-theme-head, #s-quality-head, #s-thumb-head, #s-browser-head, #s-auth-head {
-    margin-top: 1;
-    margin-bottom: 0;
-}
-
-#theme-list, #quality-list-s, #thumb-list, #browser-list, #auth-list {
-    height: auto;
-    max-height: 8;
-    background: #0a0a12;
-    border: solid #2a2a2a;
-    margin-bottom: 1;
-}
-
-#theme-list > ListItem,
-#quality-list-s > ListItem,
-#thumb-list > ListItem,
-#browser-list > ListItem,
-#auth-list > ListItem {
-    padding: 0 1;
-    color: #888888;
-    border-left: thick #0a0a12;
-    height: 1;
-}
-
-#theme-list > ListItem > Static,
-#quality-list-s > ListItem > Static,
-#thumb-list > ListItem > Static,
-#browser-list > ListItem > Static,
-#auth-list > ListItem > Static {
-    background: transparent;
-}
-
-#theme-list > ListItem.-highlight,
-#quality-list-s > ListItem.-highlight,
-#thumb-list > ListItem.-highlight,
-#browser-list > ListItem.-highlight,
-#auth-list > ListItem.-highlight {
-    background: #1e0a0a;
-    border-left: thick #ff4444;
-    color: #ffffff;
-}
-
-#theme-list > ListItem.-highlight > Static,
-#quality-list-s > ListItem.-highlight > Static,
-#thumb-list > ListItem.-highlight > Static,
-#browser-list > ListItem.-highlight > Static,
-#auth-list > ListItem.-highlight > Static {
-    color: #ffffff;
-}
-
-#settings-hint {
-    color: #555555;
-    margin-top: 1;
-}
-
-/* ════════════════════════════════════════════════════════════════════════════
-   COLOUR THEMES
-   Applied via App-level class: app.add_class("theme-amber") etc.
-   Default (crimson) needs no class — it's the base CSS above.
-════════════════════════════════════════════════════════════════════════════ */
-
-/* ── Amber — warm orange ─────────────────────────────────────────────────── */
-App.theme-amber AppHeader { background: #1a0d00; color: #e8820c; }
-App.theme-amber #header-title { color: #e8820c;
-}
-App.theme-amber Tab.-active { color: #e8820c; background: #1e1800; text-style: bold underline; }
-App.theme-amber Tab:hover { background: #181200;
-}
-App.theme-amber #list-view > VideoListItem.-highlight { background: #1a1200; border-left: thick #e8820c; }
-App.theme-amber VideoListItem:hover { background: #141000;
-}
-App.theme-amber #quality-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #quality-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-amber #playlist-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #playlist-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-amber #vaction-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
-App.theme-amber #vaction-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-amber #theme-list > ListItem.-highlight,
-App.theme-amber #quality-list-s > ListItem.-highlight,
-App.theme-amber #thumb-list > ListItem.-highlight,
-App.theme-amber #browser-list > ListItem.-highlight,
-App.theme-amber #auth-list > ListItem.-highlight { background: #1a0e00;
-border-left: thick #e8820c; }
-App.theme-amber #list-view, App.theme-amber #video-info { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
-App.theme-amber #list-loading-anim { color: #e8820c;
-}
-App.theme-amber #search-input:focus { border: solid #e8820c; }
-App.theme-amber #search-title { color: #e8820c; }
-App.theme-amber #download-title { color: #e8820c;
-}
-App.theme-amber #quality-title { color: #e8820c; }
-App.theme-amber #playlist-title { color: #e8820c; }
-App.theme-amber #settings-title { color: #e8820c;
-}
-App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
-App.theme-amber #help-outer { border: solid #e8820c; }
-App.theme-amber #nav-dialog { border: solid #e8820c;
-}
-App.theme-amber #nav-title { color: #e8820c; }
-App.theme-amber #video-channel { color: #e8820c; }
-App.theme-amber #watch-dialog { background: #1a0d00; border: solid #e8820c;
-}
-App.theme-amber #watch-dialog #np-header { color: #e8820c; }
-App.theme-amber #watch-dialog ProgressBar .bar--bar, App.theme-amber #watch-dialog ProgressBar .bar--complete { color: #e8820c;
-}
-
-/* ── Ocean — cool teal ───────────────────────────────────────────────────── */
-App.theme-ocean AppHeader { background: #001622; color: #0ea5e9; }
-App.theme-ocean #header-title { color: #0ea5e9;
-}
-App.theme-ocean Tab.-active { color: #0ea5e9; background: #001520; text-style: bold underline; }
-App.theme-ocean Tab:hover { background: #001020;
-}
-App.theme-ocean #list-view > VideoListItem.-highlight { background: #001a24; border-left: thick #0ea5e9; }
-App.theme-ocean VideoListItem:hover { background: #00141c;
-}
-App.theme-ocean #quality-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #quality-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-ocean #playlist-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #playlist-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-ocean #vaction-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
-App.theme-ocean #vaction-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-ocean #theme-list > ListItem.-highlight,
-App.theme-ocean #quality-list-s > ListItem.-highlight,
-App.theme-ocean #thumb-list > ListItem.-highlight,
-App.theme-ocean #browser-list > ListItem.-highlight,
-App.theme-ocean #auth-list > ListItem.-highlight { background: #001525;
-border-left: thick #0ea5e9; }
-App.theme-ocean #list-view, App.theme-ocean #video-info { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
-App.theme-ocean #list-loading-anim { color: #0ea5e9;
-}
-App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
-App.theme-ocean #search-title { color: #0ea5e9; }
-App.theme-ocean #download-title { color: #0ea5e9;
-}
-App.theme-ocean #quality-title { color: #0ea5e9; }
-App.theme-ocean #playlist-title { color: #0ea5e9; }
-App.theme-ocean #settings-title { color: #0ea5e9;
-}
-App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
-App.theme-ocean #help-outer { border: solid #0ea5e9; }
-App.theme-ocean #nav-dialog { border: solid #0ea5e9;
-}
-App.theme-ocean #nav-title { color: #0ea5e9; }
-App.theme-ocean #video-channel { color: #0ea5e9; }
-App.theme-ocean #watch-dialog { background: #001622; border: solid #0ea5e9;
-}
-App.theme-ocean #watch-dialog #np-header { color: #0ea5e9; }
-App.theme-ocean #watch-dialog ProgressBar .bar--bar, App.theme-ocean #watch-dialog ProgressBar .bar--complete { color: #0ea5e9;
-}
-
-/* ── Midnight — soft purple ──────────────────────────────────────────────── */
-App.theme-midnight AppHeader { background: #0d0018; color: #a855f7; }
-App.theme-midnight #header-title { color: #a855f7;
-}
-App.theme-midnight Tab.-active { color: #a855f7; background: #0e0020; text-style: bold underline; }
-App.theme-midnight Tab:hover { background: #0a0018;
-}
-App.theme-midnight #list-view > VideoListItem.-highlight { background: #160a28; border-left: thick #a855f7; }
-App.theme-midnight VideoListItem:hover { background: #100820;
-}
-App.theme-midnight #quality-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #quality-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-midnight #playlist-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #playlist-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-midnight #vaction-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
-App.theme-midnight #vaction-list > ListItem.-highlight > Static { color: #ffffff;
-}
-App.theme-midnight #theme-list > ListItem.-highlight,
-App.theme-midnight #quality-list-s > ListItem.-highlight,
-App.theme-midnight #thumb-list > ListItem.-highlight,
-App.theme-midnight #browser-list > ListItem.-highlight,
-App.theme-midnight #auth-list > ListItem.-highlight { background: #130a22;
-border-left: thick #a855f7; }
-App.theme-midnight #list-view, App.theme-midnight #video-info { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
-App.theme-midnight #list-loading-anim { color: #a855f7;
-}
-App.theme-midnight #search-input:focus { border: solid #a855f7; }
-App.theme-midnight #search-title { color: #a855f7; }
-App.theme-midnight #download-title { color: #a855f7;
-}
-App.theme-midnight #quality-title { color: #a855f7; }
-App.theme-midnight #playlist-title { color: #a855f7; }
-App.theme-midnight #settings-title { color: #a855f7;
-}
-App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
-App.theme-midnight #help-outer { border: solid #a855f7; }
-App.theme-midnight #nav-dialog { border: solid #a855f7;
-}
-App.theme-midnight #nav-title { color: #a855f7; }
-App.theme-midnight #video-channel { color: #a855f7; }
-App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7;
-}
-App.theme-midnight #watch-dialog #np-header { color: #a855f7; }
-App.theme-midnight #watch-dialog ProgressBar .bar--bar, App.theme-midnight #watch-dialog ProgressBar .bar--complete { color: #a855f7;
-}
-
-/* ── Spinner / AppHeader ─────────────────────────────────────────────────── */
-AppHeader #header-status {
+#notification-bar.--error {
+    background: #2a0000;
     color: #ff6666;
-    width: 25%;
-    padding-right: 2;
-    content-align: right middle;
+    border-top: solid #ef4444;
 }
 
-App.theme-amber AppHeader #header-status { color: #e8820c; }
-App.theme-ocean AppHeader #header-status { color: #0ea5e9;
-}
-App.theme-midnight AppHeader #header-status { color: #a855f7; }
-
-/* ── Scrollbars ──────────────────────────────────────────────────────────── */
-Scrollbar > .scrollbar--thumb { background: #ff4444;
-}
-Scrollbar > .scrollbar--thumb:hover { background: #ff6666; }
-
-App.theme-amber Scrollbar > .scrollbar--thumb { background: #e8820c; }
-App.theme-amber Scrollbar > .scrollbar--thumb:hover { background: #ffb84d;
+#notification-bar.--info {
+    background: #0a1a0a;
+    color: #aaaaaa;
 }
 
-App.theme-ocean Scrollbar > .scrollbar--thumb { background: #0ea5e9; }
-App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8;
+/* =====================================================================
+   THEME: AMBER   (app.add_class("theme-amber"))
+   ===================================================================== */
+
+.theme-amber AppHeader {
+    background: #1a1000;
+    border-bottom: solid #e8820c;
 }
 
-App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
-App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
+.theme-amber Tab.-active {
+    color: #e8820c;
+    background: #1a1000;
+    border-bottom: solid #e8820c;
+}
+
+.theme-amber Tab:hover {
+    color: #f09030;
+}
+
+.theme-amber ListItem.-highlight {
+    background: #1a1000;
+    border-left: solid #e8820c;
+}
+
+.theme-amber MiniPlayer {
+    border-top: solid #e8820c;
+}
+
+.theme-amber Footer FooterKey {
+    background: #1a1000;
+}
+
+.theme-amber .footer-key--key {
+    color: #e8820c;
+    background: #1a1000;
+}
+
+.theme-amber LoadingIndicator {
+    color: #e8820c;
+}
+
+.theme-amber PageIndicator {
+    background: #111111;
+}
+
+.theme-amber .modal-container {
+    border: solid #e8820c;
+}
+
+.theme-amber .modal-title {
+    color: #e8820c;
+}
+
+.theme-amber #search-input {
+    border: solid #e8820c;
+}
+
+.theme-amber #help-container {
+    border: solid #e8820c;
+}
+
+.theme-amber #cookies-container {
+    border: solid #e8820c;
+}
+
+/* =====================================================================
+   THEME: OCEAN   (app.add_class("theme-ocean"))
+   ===================================================================== */
+
+.theme-ocean AppHeader {
+    background: #000d1a;
+    border-bottom: solid #0ea5e9;
+}
+
+.theme-ocean Tab.-active {
+    color: #0ea5e9;
+    background: #000d1a;
+    border-bottom: solid #0ea5e9;
+}
+
+.theme-ocean Tab:hover {
+    color: #38bdf8;
+}
+
+.theme-ocean ListItem.-highlight {
+    background: #000d1a;
+    border-left: solid #0ea5e9;
+}
+
+.theme-ocean MiniPlayer {
+    border-top: solid #0ea5e9;
+}
+
+.theme-ocean .footer-key--key {
+    color: #0ea5e9;
+    background: #000d1a;
+}
+
+.theme-ocean LoadingIndicator {
+    color: #0ea5e9;
+}
+
+.theme-ocean .modal-container {
+    border: solid #0ea5e9;
+}
+
+.theme-ocean .modal-title {
+    color: #0ea5e9;
+}
+
+.theme-ocean #search-input {
+    border: solid #0ea5e9;
+}
+
+.theme-ocean #help-container {
+    border: solid #0ea5e9;
+}
+
+/* =====================================================================
+   THEME: MIDNIGHT   (app.add_class("theme-midnight"))
+   ===================================================================== */
+
+.theme-midnight AppHeader {
+    background: #0d0017;
+    border-bottom: solid #a855f7;
+}
+
+.theme-midnight Tab.-active {
+    color: #a855f7;
+    background: #0d0017;
+    border-bottom: solid #a855f7;
+}
+
+.theme-midnight Tab:hover {
+    color: #c084fc;
+}
+
+.theme-midnight ListItem.-highlight {
+    background: #0d0017;
+    border-left: solid #a855f7;
+}
+
+.theme-midnight MiniPlayer {
+    border-top: solid #a855f7;
+}
+
+.theme-midnight .footer-key--key {
+    color: #a855f7;
+    background: #0d0017;
+}
+
+.theme-midnight LoadingIndicator {
+    color: #a855f7;
+}
+
+.theme-midnight .modal-container {
+    border: solid #a855f7;
+}
+
+.theme-midnight .modal-title {
+    color: #a855f7;
+}
+
+.theme-midnight #search-input {
+    border: solid #a855f7;
+}
+
+.theme-midnight #help-container {
+    border: solid #a855f7;
+}
+
+/* =====================================================================
+   THEME: FOREST   (app.add_class("theme-forest"))
+   ===================================================================== */
+
+.theme-forest AppHeader {
+    background: #001a06;
+    border-bottom: solid #22c55e;
+}
+
+.theme-forest Tab.-active {
+    color: #22c55e;
+    background: #001a06;
+    border-bottom: solid #22c55e;
+}
+
+.theme-forest Tab:hover {
+    color: #4ade80;
+}
+
+.theme-forest ListItem.-highlight {
+    background: #001a06;
+    border-left: solid #22c55e;
+}
+
+.theme-forest MiniPlayer {
+    border-top: solid #22c55e;
+}
+
+.theme-forest .footer-key--key {
+    color: #22c55e;
+    background: #001a06;
+}
+
+.theme-forest LoadingIndicator {
+    color: #22c55e;
+}
+
+.theme-forest .modal-container {
+    border: solid #22c55e;
+}
+
+.theme-forest .modal-title {
+    color: #22c55e;
+}
+
+.theme-forest #search-input {
+    border: solid #22c55e;
+}
+
+.theme-forest #help-container {
+    border: solid #22c55e;
+}
