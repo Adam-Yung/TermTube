@@ -29,16 +29,16 @@ _HELP_TEXT = """\
 ## Playback
 | Key | Action |
 |-----|--------|
-| l | Play audio (listen) |
+| l | Play audio (listen) — or seek +5s while already playing |
 | w | Play video (mpv window) |
 | Space | Pause / resume audio |
 | h | Seek −5s |
 | H | Seek −30s |
-| l (while playing) | Seek +5s |
 | L | Seek +30s |
 | [ / ] | Volume down / up |
 | s | Stop playback |
 | m | Add bookmark at current position |
+| B | Jump to bookmark (list dialog) |
 
 ## Actions
 | Key | Action |

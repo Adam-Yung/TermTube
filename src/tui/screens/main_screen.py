@@ -40,6 +40,7 @@ from config import Config
 from player import PlayMode, get_session
 from tui.components.app_header import AppHeader
 from tui.components.mini_player import MiniPlayer
+from tui.components.notification_bar import NotificationBar
 from tui.panels.detail_panel import DetailPanel
 from tui.panels.video_list_panel import VideoListPanel
 
@@ -70,7 +71,7 @@ class MainScreen(Screen):
         Binding("4", "tab_library", "Library", show=False),
         Binding("5", "tab_history", "History", show=False),
         Binding("enter", "action_menu", "Actions"),
-        Binding("l", "play_audio", "Listen"),
+        Binding("l", "play_or_seek_fwd", "Listen / +5s"),
         Binding("w", "play_video", "Watch"),
         Binding("d", "download_video", "Download video", show=False),
         Binding("a", "download_audio", "Download audio", show=False),
@@ -87,6 +88,7 @@ class MainScreen(Screen):
         Binding("]", "vol_up", "Vol+", show=False),
         Binding("S", "stop_playback", "Stop", show=False),
         Binding("m", "add_bookmark", "Bookmark", show=False),
+        Binding("B", "jump_bookmark", "Jump to bookmark", show=False),
         Binding("g", "cursor_top", "Top", show=False),
         Binding("G", "cursor_bottom", "Bottom", show=False),
         Binding("j", "cursor_down", "Down", show=False),
@@ -146,6 +148,7 @@ class MainScreen(Screen):
         with Horizontal(id="main-columns"):
             yield VideoListPanel(theme=self._theme, id="video-list")
             yield DetailPanel(theme=self._theme, id="detail-panel")
+        yield NotificationBar(id="notify-bar")
         yield MiniPlayer(theme=self._theme, id="mini-player")
         yield Footer()
 
@@ -394,6 +397,7 @@ class MainScreen(Screen):
         sess.on_property(self._on_player_property)
         sess.on_end(self._on_player_end)
         sess.on_error(self._on_player_error)
+        sess.on_skip(self._on_sponsorblock_skip)
 
     def _on_player_property(self, event) -> None:
         """Called from mpv IPC reader thread."""
@@ -423,6 +427,14 @@ class MainScreen(Screen):
         )
         self.app.call_from_thread(self._show_error, "Playback error", message)
 
+    def _on_sponsorblock_skip(self, segment: dict) -> None:
+        """Called from sb-skip thread when a segment is auto-skipped."""
+        cat = segment.get("category", "segment")
+        label = cat.replace("_", " ").capitalize()
+        self.app.call_from_thread(
+            self._notify, f"Skipped: {label}", "skip"
+        )
+
     @work(thread=True, group="audio")
     def _start_audio(self, entry: dict) -> None:
         vid = entry.get("id", "")
@@ -446,6 +458,13 @@ class MainScreen(Screen):
 
         self._now_playing_id = vid
         self._now_playing_mode = "AUDIO"
+
+        # Load segments into PlayerSession BEFORE play_audio blocks
+        self._player.set_segments(
+            segments,
+            enabled=self._config.sponsorblock_enabled and bool(segments),
+        )
+
         self.app.call_from_thread(
             self.query_one("#mini-player", MiniPlayer).set_playing,
             mode="AUDIO",
@@ -634,6 +653,15 @@ class MainScreen(Screen):
         if entry:
             self._start_audio(entry)
 
+    def action_play_or_seek_fwd(self) -> None:
+        """l key: seek +5s while playing, otherwise start audio."""
+        if self._player.is_playing:
+            self._player.seek(5)
+        else:
+            entry = self._get_focused_entry()
+            if entry:
+                self._start_audio(entry)
+
     def action_play_video(self) -> None:
         entry = self._get_focused_entry()
         if entry:
@@ -752,7 +780,32 @@ class MainScreen(Screen):
             return
         pos = self._player.state.position
         _history.add_bookmark(self._now_playing_id, pos)
-        self._show_notification(f"Bookmark added at {int(pos)}s")
+        # Refresh MiniPlayer bookmark ticks
+        bms = _history.get_bookmarks(self._now_playing_id)
+        bookmark_positions = [b["position"] for b in bms]
+        try:
+            from tui.components.progress_bar import _fmt_time
+            self.query_one("#mini-player", MiniPlayer).set_playing(
+                mode=self._now_playing_mode or "AUDIO",
+                title=self._player.state.title,
+                channel="",
+                volume=self._player.state.volume,
+                bookmarks=bookmark_positions,
+            )
+        except Exception:
+            pass
+        self._notify(f"Bookmark at {_fmt_time(pos)}", "success")
+
+    def action_jump_bookmark(self) -> None:
+        if not self._now_playing_id:
+            return
+        from tui.modals.bookmark_modal import BookmarkModal
+
+        def on_result(pos: float | None) -> None:
+            if pos is not None and self._player.is_playing:
+                self._player.seek(pos - self._player.state.position)
+
+        self.app.push_screen(BookmarkModal(self._now_playing_id), on_result)
 
     # Cursor
     def action_cursor_top(self) -> None:
@@ -782,5 +835,12 @@ class MainScreen(Screen):
         from tui.modals.error_modal import ErrorModal
         self.app.push_screen(ErrorModal(title, message))
 
+    def _notify(self, text: str, kind: str = "info") -> None:
+        """Show an ephemeral notification in the NotificationBar."""
+        try:
+            self.query_one("#notify-bar", NotificationBar).show(text, kind=kind)
+        except Exception:
+            pass
+
     def _show_notification(self, text: str) -> None:
-        self.app.notify(text)
+        self._notify(text)

@@ -74,10 +74,17 @@ class PlayerSession:
         self._state_lock = threading.Lock()
         self._observe_id = 1
 
+        # SponsorBlock auto-skip
+        self._sb_segments: list[dict] = []   # [{start, end, category}, ...]
+        self._sb_lock = threading.Lock()
+        self._sb_skipped: set[int] = set()   # indices of already-skipped segments
+        self._sb_enabled = False
+
         # Callbacks (set by UI layer)
         self._on_property_cbs: list[Callable[[PropertyEvent], None]] = []
         self._on_end_cbs: list[Callable[[int], None]] = []  # returncode
         self._on_error_cbs: list[Callable[[str], None]] = []
+        self._on_skip_cbs: list[Callable[[dict], None]] = []  # segment dict
 
     # ------------------------------------------------------------------
     # Public callback registration
@@ -92,10 +99,37 @@ class PlayerSession:
     def on_error(self, cb: Callable[[str], None]) -> None:
         self._on_error_cbs.append(cb)
 
+    def on_skip(self, cb: Callable[[dict], None]) -> None:
+        """Register callback fired when a SponsorBlock segment is auto-skipped."""
+        self._on_skip_cbs.append(cb)
+
     def clear_callbacks(self) -> None:
         self._on_property_cbs.clear()
         self._on_end_cbs.clear()
         self._on_error_cbs.clear()
+        self._on_skip_cbs.clear()
+
+    # ------------------------------------------------------------------
+    # SponsorBlock
+    # ------------------------------------------------------------------
+
+    def set_segments(self, segments: list[dict], *, enabled: bool = True) -> None:
+        """Load SponsorBlock segments for the current track.
+
+        Must be called before or shortly after playback starts.
+        Segments are dicts with keys: start (float), end (float), category (str).
+        """
+        with self._sb_lock:
+            self._sb_segments = list(segments)
+            self._sb_skipped = set()
+            self._sb_enabled = enabled
+        logger.debug("SponsorBlock: loaded %d segments (enabled=%s)", len(segments), enabled)
+
+    def clear_segments(self) -> None:
+        with self._sb_lock:
+            self._sb_segments = []
+            self._sb_skipped = set()
+            self._sb_enabled = False
 
     # ------------------------------------------------------------------
     # State
@@ -176,6 +210,10 @@ class PlayerSession:
 
         sock_path.unlink(missing_ok=True)
         self._sock_path = sock_path
+
+        # Reset SponsorBlock skip tracking for the new track
+        with self._sb_lock:
+            self._sb_skipped = set()
 
         # Build ytdl-raw-options from cookie_args
         ytdl_raw: list[str] = []
@@ -336,10 +374,52 @@ class PlayerSession:
             elif name == "media-title" and isinstance(value, str):
                 self._state.title = value
 
+        # SponsorBlock auto-skip — runs on every time-pos tick
+        if name == "time-pos" and isinstance(value, (int, float)):
+            self._check_sponsorblock(float(value))
+
         event = PropertyEvent(name=name, value=value)
         for cb in list(self._on_property_cbs):
             try:
                 cb(event)
+            except Exception:
+                pass
+
+    def _check_sponsorblock(self, position: float) -> None:
+        """If position falls inside a SponsorBlock segment, seek past it."""
+        with self._sb_lock:
+            if not self._sb_enabled or not self._sb_segments:
+                return
+            for idx, seg in enumerate(self._sb_segments):
+                if idx in self._sb_skipped:
+                    continue
+                start: float = seg.get("start", -1)
+                end: float = seg.get("end", -1)
+                # Trigger when we enter the segment (within 0.5s of start)
+                if start <= position < end and position >= start - 0.5:
+                    self._sb_skipped.add(idx)
+                    skip_to = end + 0.1
+                    logger.debug(
+                        "SponsorBlock: skipping %s [%.1f → %.1f]",
+                        seg.get("category", "?"), start, end,
+                    )
+                    # Schedule the seek on a tiny thread to avoid deadlock
+                    # (we're inside the socket reader thread here)
+                    threading.Thread(
+                        target=self._sb_seek,
+                        args=(skip_to, seg),
+                        daemon=True,
+                        name="sb-skip",
+                    ).start()
+                    break
+
+    def _sb_seek(self, skip_to: float, segment: dict) -> None:
+        """Seek past a SponsorBlock segment and fire on_skip callbacks."""
+        time.sleep(0.05)  # tiny buffer so mpv is ready for the seek
+        self._send(["seek", skip_to, "absolute"])
+        for cb in list(self._on_skip_cbs):
+            try:
+                cb(segment)
             except Exception:
                 pass
 
@@ -408,6 +488,8 @@ class PlayerSession:
         with self._state_lock:
             self._state.idle = True
             self._state.mode = None
+        with self._sb_lock:
+            self._sb_skipped = set()
 
 
 # Module-level singleton — created once, reused across audio/video plays

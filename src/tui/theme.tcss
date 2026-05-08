@@ -283,6 +283,19 @@ ProgressBar.download-bar {
 
 /* ===== NOTIFICATION BAR ===== */
 
+NotificationBar {
+    height: 1;
+    padding: 0 1;
+    background: $surface-darken-1;
+    color: $text-muted;
+    display: none;
+}
+
+NotificationBar.--visible {
+    display: block;
+}
+
+/* Legacy id-based selector kept for compatibility */
 #notification-bar {
     dock: bottom;
     height: 1;
