@@ -1,395 +1,328 @@
-"""yt-dlp interface — all yt-dlp subprocess calls live here.
+"""TermTube v2 — yt-dlp wrapper.
 
-Progressive streaming design:
-  stream_flat()    →  cache-first: yields from disk cache instantly if fresh,
-                      otherwise fetches from yt-dlp and saves feed index.
-  stream_search()  →  same, keyed by query hash.
-  fetch_full()     →  fetches complete metadata for one video (slower).
-                      Accepts on_proc_started so the caller can cancel the
-                      subprocess if the user moves on before it completes.
+Uses the yt-dlp Python API (yt_dlp.YoutubeDL) for all metadata operations.
+Subprocesses are used only for actual downloads where --newline progress
+parsing is simpler than hooking the Python API download loop.
+
+Cancellation pattern
+--------------------
+Any long-running extract_info call accepts a `cancel_event: threading.Event`.
+A progress_hook is registered that raises yt_dlp.utils.DownloadCancelled
+when the event is set.  Callers set the event from any thread; yt-dlp
+raises on the next progress tick (at most a few hundred ms later).
+
+Threading
+---------
+All public functions MUST be called from a worker thread, never from the
+Textual main thread.  They are synchronous and may block for several seconds.
 """
-
 from __future__ import annotations
+
 import hashlib
-import json
-import re
 import subprocess
-import sys
 import threading
-from typing import Callable, Generator
+import time
+from typing import Any, Callable, Iterator
 
-from src.cache import Cache
-from src import logger
+import yt_dlp
+import yt_dlp.utils
 
-# ── Active process registry (for clean shutdown) ──────────────────────────────
+import cache as _cache
+from config import Config
+import logger
 
-_active_procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
-_active_procs_lock = threading.Lock()
-
-
-def kill_all_active() -> None:
-    """Kill every yt-dlp subprocess that is currently streaming.
-
-    Called by the TUI before exit so that worker threads blocked on subprocess
-    stdout unblock immediately, preventing the app from hanging on quit.
-    """
-    with _active_procs_lock:
-        procs = list(_active_procs)
-        _active_procs.clear()
-    if procs:
-        logger.debug("kill_all_active: terminating %d yt-dlp procs", len(procs))
-    for proc in procs:
-        try:
-            proc.kill()
-        except Exception:
-            pass
-
-
-# ── Feed URLs ─────────────────────────────────────────────────────────────────
-
-FEED_URLS = {
-    "home":          "https://www.youtube.com/feed/recommended",
+# Feed URLs
+FEED_URLS: dict[str, str] = {
+    "home": "https://www.youtube.com/feed/recommended",
     "subscriptions": "https://www.youtube.com/feed/subscriptions",
 }
 
-# ── Flags that make flat-playlist fetches fast ────────────────────────────────
-_FAST_FLAGS = [
-    "--flat-playlist",
-    "--dump-json",
-    "--no-warnings",
-    "--quiet",
-    "--extractor-args", "youtube:skip=dash,hls",
-    "--no-playlist-reverse",
+QUALITY_CHOICES = [
+    ("Best available",         "bestvideo+bestaudio/best"),
+    ("1080p",                  "bestvideo[height<=1080]+bestaudio/best[height<=1080]"),
+    ("720p",                   "bestvideo[height<=720]+bestaudio/best[height<=720]"),
+    ("480p",                   "bestvideo[height<=480]+bestaudio/best[height<=480]"),
+    ("360p",                   "bestvideo[height<=360]+bestaudio/best[height<=360]"),
+    ("Audio only (best)",      "bestaudio/best"),
+]
+
+AUDIO_QUALITY_CHOICES = [
+    ("Best audio",   "bestaudio/best"),
+    ("Medium audio", "bestaudio[abr<=128]/best"),
 ]
 
 
-# ── Cookie helper ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
-def cookie_args(config) -> list[str]:
-    """Return yt-dlp --cookies or --cookies-from-browser flags."""
-    return config.cookie_args
-
-
-# ── Entry normalisation ───────────────────────────────────────────────────────
-
-def _best_thumb_url(entry: dict) -> str:
-    """Pick the best thumbnail URL from a yt-dlp entry dict."""
-    thumbs = entry.get("thumbnails") or []
-    if thumbs:
-        jpg = [t for t in thumbs if "jpg" in t.get("url", "")]
-        best = (jpg or thumbs)[-1]
-        return best.get("url", "")
-    return entry.get("thumbnail", "")
+def _base_opts(config: Config) -> dict[str, Any]:
+    """Base yt-dlp options shared by all calls."""
+    opts: dict[str, Any] = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": False,
+        **config.ydl_cookie_opts,
+    }
+    return opts
 
 
-_VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
+def _cancel_hook(cancel_event: threading.Event) -> Callable[[dict], None]:
+    """Return a progress_hook that raises DownloadCancelled when event is set."""
+    def hook(d: dict) -> None:
+        if cancel_event.is_set():
+            raise yt_dlp.utils.DownloadCancelled()
+    return hook
 
 
-def _is_playable_video(entry: dict) -> bool:
-    """
-    Return True only for proper YouTube video entries.
-    Filters out playlists, channels, YouTube Mix (RD...), and other non-video results
-    that yt-dlp --flat-playlist sometimes includes.
-    """
-    vid = entry.get("id", "")
-    # Standard YouTube video IDs are exactly 11 URL-safe base64 chars
-    if not _VIDEO_ID_RE.match(vid):
-        return False
-    # Explicit type field
-    etype = entry.get("_type", "video")
-    if etype in ("playlist", "channel"):
-        return False
-    return True
+def _search_key(query: str) -> str:
+    return hashlib.md5(query.encode()).hexdigest()[:16]
 
 
-def _normalise_entry(entry: dict) -> dict:
-    """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
-    entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
-    if not entry.get("thumbnail"):
-        url = _best_thumb_url(entry)
-        if url:
-            entry["thumbnail"] = url
-    return entry
+# ---------------------------------------------------------------------------
+# Paged feed / search
+# ---------------------------------------------------------------------------
 
-
-# ── Low-level streaming ───────────────────────────────────────────────────────
-
-def _stream_json_lines(
-    cmd: list[str],
+def fetch_page(
+    source: str,
+    page: int,
+    config: Config,
     *,
-    capture_stderr: bool = False,
-    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
-) -> Generator[dict, None, None]:
-    """Run cmd, yield each stdout line parsed as JSON. Ignores non-JSON lines.
+    page_size: int | None = None,
+    cancel_event: threading.Event | None = None,
+) -> tuple[list[dict], bool]:
+    """Fetch one page of results.
 
-    The subprocess is registered in _active_procs so that kill_all_active()
-    can terminate it immediately on quit, unblocking the worker thread.
-
-    on_proc_started: optional callback invoked with the Popen handle as soon
-    as the process is spawned. Lets callers (e.g. a focus dispatcher) cancel
-    the subprocess when the user moves on, instead of waiting for it to finish.
+    source: a FEED_URLS key ("home", "subscriptions"), a search query string,
+            or a channel URL.
+    page:   1-based page number.
+    Returns (entries, has_more).
+    Checks cache first; fetches from network only on cache miss or stale.
     """
-    logger.debug("yt-dlp cmd: %s", " ".join(cmd))
+    ps = page_size or config.page_size
+    ttl = config.ttl("search") if source not in FEED_URLS else config.ttl("home")
+
+    if source in FEED_URLS:
+        feed_key = source
+    else:
+        feed_key = f"search_{_search_key(source)}"
+
+    cached = _cache.get_page(feed_key, page, ttl)
+    if cached is not None:
+        logger.debug("cache hit page %s/%d", feed_key, page)
+        has_more = _cache.get_page_stale(feed_key, page + 1) is not None or True
+        return cached, has_more
+
+    logger.debug("fetching page %s/%d from network", feed_key, page)
+
+    if source in FEED_URLS:
+        url = FEED_URLS[source]
+        opts = {
+            **_base_opts(config),
+            "extract_flat": "in_playlist",
+            "playliststart": (page - 1) * ps + 1,
+            "playlistend": page * ps,
+        }
+    else:
+        start = (page - 1) * ps + 1
+        url = f"ytsearch{page * ps}:{source}"
+        opts = {
+            **_base_opts(config),
+            "extract_flat": True,
+            "playliststart": start,
+            "playlistend": page * ps,
+        }
+
+    if cancel_event:
+        opts["progress_hooks"] = [_cancel_hook(cancel_event)]
+
+    entries: list[dict] = []
     try:
-        stderr_dest = subprocess.PIPE if capture_stderr else subprocess.DEVNULL
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=stderr_dest,
-            text=True,
-            bufsize=1,
-        )
-        with _active_procs_lock:
-            _active_procs.add(proc)
-        if on_proc_started is not None:
-            try:
-                on_proc_started(proc)
-            except Exception:
-                pass
-        try:
-            for line in proc.stdout:  # type: ignore[union-attr]
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    yield json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-            proc.wait()
-            if capture_stderr and proc.stderr:
-                err = proc.stderr.read()
-                if err.strip():
-                    logger.debug("yt-dlp stderr: %s", err.strip())
-                if proc.returncode != 0:
-                    logger.warning("yt-dlp exited %d: %s", proc.returncode, err.strip())
-        finally:
-            with _active_procs_lock:
-                _active_procs.discard(proc)
-    except FileNotFoundError:
-        raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            result = ydl.extract_info(url, download=False)
+            if result and "entries" in result:
+                raw = [e for e in result["entries"] if e]
+                for e in raw:
+                    _cache.put_video(e)
+                entries = raw
+    except yt_dlp.utils.DownloadCancelled:
+        logger.debug("fetch_page cancelled: %s/%d", feed_key, page)
+        return [], False
+    except Exception as exc:
+        logger.warning("fetch_page error: %s", exc)
+        stale = _cache.get_page_stale(feed_key, page)
+        return stale or [], False
+
+    if entries:
+        _cache.put_page(feed_key, page, entries)
+
+    has_more = len(entries) >= ps
+    return entries, has_more
 
 
-# ── Public streaming API ──────────────────────────────────────────────────────
-
-def stream_flat(
-    url: str,
-    config,
-    cache: Cache,
+def stream_home(
+    config: Config,
     *,
-    feed_key: str | None = None,
-    on_entry: Callable[[dict], None] | None = None,
-    max_count: int | None = None,
-) -> Generator[dict, None, None]:
+    on_entry: Callable[[dict], None],
+    cancel_event: threading.Event | None = None,
+    max_count: int = 100,
+) -> None:
+    """Stream home/subscriptions feed entries one-by-one via on_entry callback.
+
+    Used for the home feed where streaming feels more responsive than waiting
+    for a full page. The caller still writes to the paged cache.
     """
-    Stream basic video entries from a URL using --flat-playlist.
+    url = FEED_URLS["home"]
+    opts = {
+        **_base_opts(config),
+        "extract_flat": "in_playlist",
+        "playlistend": max_count,
+    }
 
-    Cache-first: if feed_key is given and the cache is fresh, entries are
-    yielded instantly from disk (no network call). Otherwise, fetches from
-    yt-dlp and saves the feed index for next time.
+    count = 0
+    entries: list[dict] = []
 
-    max_count: if set, stop yielding after this many entries have been produced.
-    Used by the home feed worker to cap fetches at 100 entries.
-    """
-    # Minimum number of entries to consider a feed cache valid.
-    # If the previous fetch was interrupted early or auth failed, the cache
-    # would have too few entries — treat that as a miss and refetch.
-    _MIN_FEED_COUNT = 15
+    def _hook(d: dict) -> None:
+        if cancel_event and cancel_event.is_set():
+            raise yt_dlp.utils.DownloadCancelled()
 
-    # ── Serve from cache ──────────────────────────────────────────────────────
-    if feed_key:
-        cached_ids = cache.get_feed(feed_key)
-        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
-            logger.debug("stream_flat cache hit for feed '%s' (%d ids)", feed_key, len(cached_ids))
-            count = 0
-            for vid_id in cached_ids:
-                if max_count is not None and count >= max_count:
-                    return
-                entry = cache.get_video_raw(vid_id)
-                if entry:
-                    if on_entry:
-                        on_entry(entry)
-                    yield entry
+    opts["progress_hooks"] = [_hook]
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            result = ydl.extract_info(url, download=False)
+            if result and "entries" in result:
+                for e in result["entries"]:
+                    if not e:
+                        continue
+                    if cancel_event and cancel_event.is_set():
+                        break
+                    _cache.put_video(e)
+                    entries.append(e)
+                    on_entry(e)
                     count += 1
-            if count >= _MIN_FEED_COUNT:
-                return  # Served entirely from cache
-            # Too few video JSONs present — fall through to fresh fetch
-            logger.debug("stream_flat: only %d/%d video JSONs found, refetching", count, len(cached_ids))
-        elif cached_ids:
-            logger.debug("stream_flat: cached feed '%s' too small (%d ids < %d), refetching",
-                         feed_key, len(cached_ids), _MIN_FEED_COUNT)
-            cache.clear_feed(feed_key)
+                    if count >= max_count:
+                        break
+    except yt_dlp.utils.DownloadCancelled:
+        logger.debug("stream_home cancelled after %d entries", count)
+    except Exception as exc:
+        logger.warning("stream_home error: %s", exc)
 
-    # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
-    logger.debug("stream_flat fetching fresh: %s (max_count=%s)", url, max_count)
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
-    seen_ids: list[str] = []
-    yielded = 0
-
-    for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
-        if max_count is not None and yielded >= max_count:
-            break
-        if not _is_playable_video(entry):
-            logger.debug("stream_flat: skipping non-video entry id=%r type=%r",
-                         entry.get("id"), entry.get("_type"))
-            continue
-        _normalise_entry(entry)
-        cache.put_video(entry)
-        vid = entry.get("id", "")
-        if vid:
-            seen_ids.append(vid)
-        if on_entry:
-            on_entry(entry)
-        yield entry
-        yielded += 1
-
-    # Only save feed index if we got a reasonable number of entries.
-    # This prevents caching an incomplete result from an interrupted or
-    # unauthenticated fetch.
-    if feed_key and len(seen_ids) >= _MIN_FEED_COUNT:
-        cache.put_feed(feed_key, seen_ids)
-        logger.debug("Saved feed index '%s' with %d ids", feed_key, len(seen_ids))
-    elif feed_key and seen_ids:
-        logger.debug("stream_flat: only %d results, not caching feed '%s'", len(seen_ids), feed_key)
+    # Cache page 1 from what we got
+    ps = config.page_size
+    if entries:
+        pages = [entries[i:i + ps] for i in range(0, len(entries), ps)]
+        for i, pg in enumerate(pages, start=1):
+            _cache.put_page("home", i, pg)
 
 
-def stream_search(
-    query: str,
-    config,
-    cache: Cache,
-    *,
-    count: int = 50,
-) -> Generator[dict, None, None]:
-    """
-    Stream search results for query.
-    Results are cached by query hash; repeat searches are instant.
-    """
-    # Cache key = short hash of the query string
-    cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
-    _MIN_SEARCH_COUNT = 5  # Searches can legitimately have few results
-
-    # ── Serve from cache ──────────────────────────────────────────────────────
-    cached_ids = cache.get_feed(cache_key)
-    if cached_ids and len(cached_ids) >= _MIN_SEARCH_COUNT:
-        logger.debug("stream_search cache hit for '%s' (%d ids)", query, len(cached_ids))
-        count_served = 0
-        for vid_id in cached_ids:
-            entry = cache.get_video_raw(vid_id)
-            if entry:
-                yield entry
-                count_served += 1
-        if count_served >= _MIN_SEARCH_COUNT:
-            return
-        logger.debug("stream_search: only %d/%d video JSONs found for '%s', refetching",
-                     count_served, len(cached_ids), query)
-    elif cached_ids:
-        logger.debug("stream_search: stale small cache (%d ids) for '%s', refetching",
-                     len(cached_ids), query)
-        cache.clear_feed(cache_key)
-
-    # ── Fresh fetch ───────────────────────────────────────────────────────────
-    url = f"ytsearch{count}:{query}"
-    cmd = [
-        "yt-dlp",
-        "--dump-json",
-        "--no-warnings",
-        "--quiet",
-        "--flat-playlist",
-        "--extractor-args", "youtube:skip=dash,hls",
-        *cookie_args(config),
-        url,
-    ]
-    seen_ids: list[str] = []
-
-    for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
-        if not _is_playable_video(entry):
-            continue
-        _normalise_entry(entry)
-        cache.put_video(entry)
-        vid = entry.get("id", "")
-        if vid:
-            seen_ids.append(vid)
-        yield entry
-
-    if len(seen_ids) >= _MIN_SEARCH_COUNT:
-        cache.put_feed(cache_key, seen_ids)
-    elif seen_ids:
-        logger.debug("stream_search: only %d results for '%s', not caching", len(seen_ids), query)
-
-
-# ── Full metadata (for video detail page) ────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Full metadata fetch (focus worker)
+# ---------------------------------------------------------------------------
 
 def fetch_full(
     video_id: str,
-    config,
-    cache: Cache,
+    config: Config,
     *,
-    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+    cancel_event: threading.Event | None = None,
 ) -> dict | None:
-    """Fetch complete metadata for a single video. Returns cached if fresh.
+    """Fetch complete metadata for a single video.
 
-    on_proc_started: optional callback that receives the underlying yt-dlp
-    Popen handle. Use this from the caller to support cancellation when the
-    user navigates away before the fetch completes.
+    Checks cache first (returns immediately on hit with description present).
+    On cache miss, fetches via yt-dlp Python API.
     """
-    cached = cache.get_video(video_id)
+    cached = _cache.get_video(video_id, ttl=config.ttl("metadata"))
     if cached and cached.get("description") is not None:
-        logger.debug("fetch_full cache hit: %s", video_id)
+        logger.debug("cache hit metadata %s", video_id)
         return cached
 
     url = f"https://www.youtube.com/watch?v={video_id}"
+    opts = {
+        **_base_opts(config),
+        "skip_download": True,
+    }
+    if cancel_event:
+        opts["progress_hooks"] = [_cancel_hook(cancel_event)]
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            entry = ydl.extract_info(url, download=False)
+        if entry:
+            _cache.put_video(entry)
+            return entry
+    except yt_dlp.utils.DownloadCancelled:
+        logger.debug("fetch_full cancelled: %s", video_id)
+    except Exception as exc:
+        logger.warning("fetch_full error %s: %s", video_id, exc)
+        return _cache.get_video_raw(video_id)
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Downloads (subprocess — progress line parsing)
+# ---------------------------------------------------------------------------
+
+def download_video(
+    video_id: str,
+    config: Config,
+    *,
+    quality_format: str | None = None,
+    on_progress: Callable[[dict], None] | None = None,
+) -> bool:
+    """Download video to config.video_dir.  Returns True on success."""
+    fmt = quality_format or config.preferred_quality
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    out_dir = config.video_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     cmd = [
         "yt-dlp",
-        "--dump-json",
-        "--no-warnings",
-        "--quiet",
-        "--skip-download",
-        "--extractor-args", "youtube:skip=dash,hls",
-        *cookie_args(config),
+        "--format", fmt,
+        "--merge-output-format", "mp4",
+        "--write-info-json",
+        "--write-thumbnail",
+        "--newline",
+        "--output", str(out_dir / config.video_format),
+        *config.cookie_args,
         url,
     ]
-    logger.debug("fetch_full fetching: %s", video_id)
-    results = list(_stream_json_lines(
-        cmd,
-        capture_stderr=logger.is_debug(),
-        on_proc_started=on_proc_started,
-    ))
-    if not results:
-        logger.warning("fetch_full got no data for %s — falling back to flat cache", video_id)
-        return cache.get_video_raw(video_id)
-    entry = results[0]
-    _normalise_entry(entry)
-    cache.put_video(entry)
-    return entry
+
+    return _run_download(cmd, on_progress)
 
 
-# ── Download ──────────────────────────────────────────────────────────────────
-
-# ── Quality helpers ───────────────────────────────────────────────────────────
-
-# (label, yt-dlp format string)
-QUALITY_CHOICES: list[tuple[str, str]] = [
-    ("best  (highest available)",          "bestvideo+bestaudio/best"),
-    ("1080p (Full HD)",                    "bestvideo[height<=1080]+bestaudio/best"),
-    ("720p  (HD)",                         "bestvideo[height<=720]+bestaudio/best"),
-    ("480p  (SD)",                         "bestvideo[height<=480]+bestaudio/best"),
-    ("360p  (low)",                        "bestvideo[height<=360]+bestaudio/best"),
-    ("Audio only (best quality)",          "bestaudio/best"),
-]
-
-AUDIO_QUALITY_CHOICES: list[tuple[str, str]] = [
-    ("best audio",   "bestaudio/best"),
-    ("medium audio", "bestaudio[abr<=128]/bestaudio/best"),
-]
-
-_PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%')
-
-
-def _run_download_with_progress(
-    cmd: list[str],
-    on_progress: Callable[[str, float], None] | None = None,
+def download_audio(
+    video_id: str,
+    config: Config,
+    *,
+    quality_format: str | None = None,
+    on_progress: Callable[[dict], None] | None = None,
 ) -> bool:
-    """Run a yt-dlp download command, streaming progress. Returns True on success."""
-    logger.debug("download cmd: %s", " ".join(cmd))
+    """Download audio to config.audio_dir.  Returns True on success."""
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    out_dir = config.audio_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "yt-dlp",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", "0",
+        "--write-info-json",
+        "--write-thumbnail",
+        "--newline",
+        "--output", str(out_dir / config.audio_format),
+        *config.cookie_args,
+        url,
+    ]
+
+    return _run_download(cmd, on_progress)
+
+
+def _run_download(
+    cmd: list[str],
+    on_progress: Callable[[dict], None] | None,
+) -> bool:
     try:
         proc = subprocess.Popen(
             cmd,
@@ -398,86 +331,54 @@ def _run_download_with_progress(
             text=True,
             bufsize=1,
         )
-        for line in proc.stdout:  # type: ignore[union-attr]
+        assert proc.stdout is not None
+        for line in proc.stdout:
             line = line.rstrip()
-            m = _PROGRESS_RE.search(line)
-            pct = float(m.group(1)) if m else -1.0
+            if not line:
+                continue
             if on_progress:
-                on_progress(line, pct)
-            elif pct >= 0:
-                # Default: simple progress bar to stderr
-                filled = int(pct / 2)
-                bar = "█" * filled + "░" * (50 - filled)
-                sys.stderr.write(f"\r  [{bar}] {pct:5.1f}%")
-                sys.stderr.flush()
-        if on_progress is None:
-            sys.stderr.write("\r\033[K")
-            sys.stderr.flush()
+                d = _parse_progress_line(line)
+                if d:
+                    on_progress(d)
         proc.wait()
         return proc.returncode == 0
-    except FileNotFoundError:
-        raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+    except Exception as exc:
+        logger.warning("download error: %s", exc)
+        return False
 
 
-def download_video_with_progress(
-    video_id: str,
-    config,
-    *,
-    quality_format: str = "",
-    on_progress: Callable[[str, float], None] | None = None,
-) -> bool:
-    """Download video with live progress. quality_format overrides preferred_quality."""
-    config.video_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    if quality_format:
-        fmt = quality_format
-    else:
-        q = config.preferred_quality
-        fmt = "bestvideo+bestaudio/best" if q == "best" else f"bestvideo[height<={q}]+bestaudio/best"
-
-    logger.info("download_video %s (format=%s)", video_id, fmt)
-
-    cmd = [
-        "yt-dlp",
-        "--format", fmt,
-        "--merge-output-format", "mp4",
-        "--output", str(config.video_dir / config.video_format),
-        "--write-info-json",
-        "--write-thumbnail",
-        "--newline",
-        "--no-warnings",
-        *cookie_args(config),
-        url,
-    ]
-    return _run_download_with_progress(cmd, on_progress)
+def _parse_progress_line(line: str) -> dict | None:
+    """Parse yt-dlp --newline progress into a dict."""
+    if "[download]" not in line:
+        return None
+    d: dict[str, Any] = {"raw": line}
+    import re
+    pct = re.search(r"(\d+\.?\d*)%", line)
+    if pct:
+        d["percent"] = float(pct.group(1))
+    speed = re.search(r"at\s+([\d.]+\s*\w+/s)", line)
+    if speed:
+        d["speed"] = speed.group(1)
+    eta = re.search(r"ETA\s+([\d:]+)", line)
+    if eta:
+        d["eta"] = eta.group(1)
+    return d
 
 
-def download_audio_with_progress(
-    video_id: str,
-    config,
-    *,
-    on_progress: Callable[[str, float], None] | None = None,
-) -> bool:
-    """Download audio with live progress."""
-    config.audio_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    logger.info("download_audio %s", video_id)
+# ---------------------------------------------------------------------------
+# Thumbnail download
+# ---------------------------------------------------------------------------
 
-    cmd = [
-        "yt-dlp",
-        "--format", "bestaudio/best",
-        "--extract-audio",
-        "--audio-format", "mp3",
-        "--audio-quality", "0",
-        "--output", str(config.audio_dir / config.audio_format),
-        "--write-info-json",
-        "--write-thumbnail",
-        "--newline",
-        "--no-warnings",
-        *cookie_args(config),
-        url,
-    ]
-    return _run_download_with_progress(cmd, on_progress)
-
-
+def download_thumb(video_id: str, url: str) -> bool:
+    """Download thumbnail JPEG to cache.  Returns True on success."""
+    import urllib.request
+    dest = _cache.thumb_path(video_id)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(url, timeout=8) as resp:
+            data = resp.read()
+        dest.write_bytes(data)
+        return True
+    except Exception as exc:
+        logger.debug("thumb download failed %s: %s", video_id, exc)
+        return False

@@ -1,115 +1,136 @@
-"""Configuration management for TermTube."""
+"""TermTube v2 — configuration manager.
 
+Reads/writes ~/.config/TermTube/config.yaml.
+Auto-created with defaults on first run.
+Backward-compatible with v1 config files.
+"""
 from __future__ import annotations
+
+import os
 from pathlib import Path
+from typing import Any
+
 import yaml
 
-_CONFIG_DIR = Path.home() / ".config" / "TermTube"
-_DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
+CONFIG_DIR = Path("~/.config/TermTube").expanduser()
+CONFIG_PATH = CONFIG_DIR / "config.yaml"
+COOKIES_PATH = CONFIG_DIR / "cookies.txt"
+HISTORY_PATH = CONFIG_DIR / "history.json"
+PLAYLISTS_PATH = CONFIG_DIR / "playlists.json"
+HIDDEN_PATH = CONFIG_DIR / "hidden.json"
+SEARCH_HISTORY_PATH = CONFIG_DIR / "search_history.json"
 
-DEFAULT_CONFIG: dict = {
-    "cookies_file": str(_CONFIG_DIR / "cookies.txt"),
+DEFAULT_CONFIG: dict[str, Any] = {
+    # Paths
+    "cookies_file": str(COOKIES_PATH),
+    "video_dir": str(Path("~/Documents/TermTube/Video").expanduser()),
+    "audio_dir": str(Path("~/Documents/TermTube/Audio").expanduser()),
+    # Cookies
     "browser": "chrome",
-    "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
-    "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
+    "cookie_max_age_days": 7,
+    # Downloads
     "video_format": "%(title)s_%(uploader)s.%(ext)s",
     "audio_format": "%(title)s_%(uploader)s.%(ext)s",
-    "preferred_quality": "best",
-    "preferred_player": "mpv",
+    # Playback — best quality always as default
+    "preferred_quality": "bestvideo+bestaudio/best",
+    "preferred_audio_quality": "bestaudio/best",
+    "volume_step": 5,
+    # Paging
+    "page_size": 20,
+    # Thumbnails
+    "thumbnail_cols": 38,
+    "thumbnail_rows": 20,
+    "thumbnail_in_list": True,
+    # UI
+    "theme": "crimson",
+    "show_watched_indicator": True,
+    # Search history
+    "search_history_count": 20,
+    # SponsorBlock
+    "sponsorblock_enabled": False,
+    "sponsorblock_categories": ["sponsor", "selfpromo"],
+    # Cache TTLs (seconds)
     "cache_ttl": {
         "home": 3600,
         "subscriptions": 3600,
         "search": 1800,
         "metadata": 86400,
+        "sponsorblock": 3600,
     },
-    "thumbnail_cols": 38,
-    "thumbnail_rows": 20,
-    # thumbnail_format: how chafa renders thumbnails in the Textual TUI.
-    # "auto"    (default) = high-quality Unicode block/sextant art (best Textual-compatible mode).
-    # "symbols"           = same as auto.
-    # "ascii"             = restrict to ASCII-only symbols (most compatible fallback).
-    # Note: sixel/kitty graphics protocols are incompatible with Textual's
-    # cell-based renderer and are silently mapped to "symbols".
-    "thumbnail_format": "auto",
-    # theme: UI color theme. Options: crimson | amber | ocean | midnight
-    "theme": "crimson",
-    # thumbnail_warning_dismissed: set to true after user clicks "Never show again"
+    # Internal flags (not shown in settings UI)
     "thumbnail_warning_dismissed": False,
 }
 
 
-class Config:
-    def __init__(self, path: str | None = None) -> None:
-        self._data: dict = dict(DEFAULT_CONFIG)
-        self._data["cache_ttl"] = dict(DEFAULT_CONFIG["cache_ttl"])
-
-        if path:
-            self.path = Path(path)
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge *override* into a copy of *base*."""
+    result = dict(base)
+    for key, val in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(val, dict):
+            result[key] = _deep_merge(result[key], val)
         else:
-            self.path = self._find_config()
+            result[key] = val
+    return result
 
-        self._load()
-        if not self.path.exists():
+
+class Config:
+    """Thin wrapper around the YAML config file."""
+
+    def __init__(self) -> None:
+        self._data: dict[str, Any] = dict(DEFAULT_CONFIG)
+        self._data["cache_ttl"] = dict(DEFAULT_CONFIG["cache_ttl"])
+        self._loaded = False
+
+    # ------------------------------------------------------------------
+    # Load / save
+    # ------------------------------------------------------------------
+
+    def load(self) -> None:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        if CONFIG_PATH.exists():
+            with CONFIG_PATH.open("r", encoding="utf-8") as fh:
+                user = yaml.safe_load(fh) or {}
+            self._data = _deep_merge(DEFAULT_CONFIG, user)
+        else:
             self.save()
+        self._loaded = True
 
-    # ── Discovery ────────────────────────────────────────────────────────────
+    def save(self) -> None:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        # Only write user-visible keys (omit internal flags that have been
+        # merged in from DEFAULT_CONFIG but were never set by the user).
+        out: dict[str, Any] = {
+            k: v for k, v in self._data.items()
+            if k != "thumbnail_warning_dismissed"
+        }
+        with CONFIG_PATH.open("w", encoding="utf-8") as fh:
+            yaml.safe_dump(out, fh, default_flow_style=False, allow_unicode=True)
 
-    def _find_config(self) -> Path:
-        return _DEFAULT_CONFIG_PATH
+    # ------------------------------------------------------------------
+    # Property access
+    # ------------------------------------------------------------------
 
-    def _load(self) -> None:
-        if not self.path.exists():
-            return
-        with open(self.path) as f:
-            loaded = yaml.safe_load(f) or {}
-        # Deep merge cache_ttl
-        if "cache_ttl" in loaded and isinstance(loaded["cache_ttl"], dict):
-            self._data["cache_ttl"].update(loaded["cache_ttl"])
-            loaded.pop("cache_ttl")
-        self._data.update(loaded)
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
 
-    # ── Cookie resolution (priority: file → browser) ─────────────────────────
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = value
 
-    @property
-    def cookie_args(self) -> list[str]:
-        """Return yt-dlp cookie flags based on config priority."""
-        cf = self.cookies_file
-        if cf and cf.exists():
-            return ["--cookies", str(cf)]
-        if self._data.get("browser"):
-            return ["--cookies-from-browser", self._data["browser"]]
-        return []
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        try:
+            return self._data[name]
+        except KeyError:
+            raise AttributeError(f"Config has no key {name!r}")
 
-    @property
-    def cookies_file(self) -> Path | None:
-        raw = self._data.get("cookies_file")
-        if not raw:
-            return None
-        p = Path(raw).expanduser()
-        return p if p.exists() else None
+    # ------------------------------------------------------------------
+    # Derived properties
+    # ------------------------------------------------------------------
 
     @property
-    def cookies_file_path(self) -> Path | None:
-        """Configured path even if it doesn't exist yet (for display)."""
-        raw = self._data.get("cookies_file")
-        return Path(raw).expanduser() if raw else None
-
-    @property
-    def cookie_source(self) -> str:
-        """Human-readable description of the active cookie source."""
-        cf = self.cookies_file
-        if cf:
-            return f"cookies.txt ({cf})"
-        browser = self._data.get("browser")
-        if browser:
-            return f"{browser} browser"
-        return "none (unauthenticated)"
-
-    # ── Convenience properties ────────────────────────────────────────────────
-
-    @property
-    def browser(self) -> str:
-        return self._data.get("browser", "chrome")
+    def cookies_file(self) -> Path:
+        return Path(self._data["cookies_file"]).expanduser()
 
     @property
     def video_dir(self) -> Path:
@@ -120,62 +141,55 @@ class Config:
         return Path(self._data["audio_dir"]).expanduser()
 
     @property
-    def video_format(self) -> str:
-        return self._data["video_format"]
+    def cookie_args(self) -> list[str]:
+        """Return yt-dlp cookie CLI args, preferring cookies.txt file."""
+        p = self.cookies_file
+        if p.exists():
+            return ["--cookies", str(p)]
+        browser = self._data.get("browser", "chrome")
+        if browser:
+            return ["--cookies-from-browser", browser]
+        return []
 
     @property
-    def audio_format(self) -> str:
-        return self._data["audio_format"]
+    def ydl_cookie_opts(self) -> dict[str, Any]:
+        """Return yt-dlp Python API cookie opts dict."""
+        p = self.cookies_file
+        if p.exists():
+            return {"cookiefile": str(p)}
+        browser = self._data.get("browser", "chrome")
+        if browser:
+            return {"cookiesfrombrowser": (browser,)}
+        return {}
 
     @property
-    def preferred_quality(self) -> str:
-        return str(self._data.get("preferred_quality", "best"))
+    def page_size(self) -> int:
+        return int(self._data.get("page_size", 20))
 
     @property
-    def preferred_player(self) -> str:
-        return self._data.get("preferred_player", "mpv")
+    def volume_step(self) -> int:
+        return int(self._data.get("volume_step", 5))
 
     @property
-    def thumbnail_cols(self) -> int:
-        return int(self._data.get("thumbnail_cols", 38))
+    def cookie_max_age_days(self) -> int:
+        return int(self._data.get("cookie_max_age_days", 7))
 
     @property
-    def thumbnail_rows(self) -> int:
-        return int(self._data.get("thumbnail_rows", 20))
+    def sponsorblock_enabled(self) -> bool:
+        return bool(self._data.get("sponsorblock_enabled", False))
 
     @property
-    def thumbnail_format(self) -> str:
-        fmt = self._data.get("thumbnail_format", "auto")
-        return fmt if fmt in ("auto", "symbols", "sixel", "ascii") else "auto"
+    def sponsorblock_categories(self) -> list[str]:
+        return list(self._data.get("sponsorblock_categories", ["sponsor", "selfpromo"]))
 
     @property
-    def theme(self) -> str:
-        t = self._data.get("theme", "crimson")
-        return t if t in ("crimson", "amber", "ocean", "midnight") else "crimson"
+    def cache_ttl(self) -> dict[str, int]:
+        return dict(self._data.get("cache_ttl", DEFAULT_CONFIG["cache_ttl"]))
 
-    def save(self) -> None:
-        """Persist current config back to disk (only user-visible keys)."""
-        try:
-            existing: dict = {}
-            if self.path.exists():
-                import yaml
-                with open(self.path) as f:
-                    existing = yaml.safe_load(f) or {}
-            existing.update({k: v for k, v in self._data.items()
-                             if k not in ("cache_ttl",)})
-            existing["cache_ttl"] = self._data["cache_ttl"]
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.path, "w") as f:
-                import yaml
-                yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
-        except Exception:
-            pass
+    def ttl(self, key: str) -> int:
+        return int(self.cache_ttl.get(key, 3600))
 
-    def cache_ttl(self, key: str) -> int:
-        return int(self._data["cache_ttl"].get(key, 3600))
-
-    def __getitem__(self, key: str):
-        return self._data[key]
-
-    def get(self, key: str, default=None):
-        return self._data.get(key, default)
+    def persist_browser(self, browser: str) -> None:
+        """Save browser choice immediately (called after successful cookie refresh)."""
+        self._data["browser"] = browser
+        self.save()

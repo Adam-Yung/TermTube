@@ -1,90 +1,87 @@
-#!/usr/bin/env python3
-"""TermTube entry point."""
-
+"""TermTube v2 — application entry point."""
 from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
 
-# Ensure project root is on sys.path
-_ROOT = Path(__file__).parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        prog="termtube",
+        description="TermTube v2 — YouTube in your terminal",
+    )
+    p.add_argument("--version", action="version", version="TermTube v2.0.0")
+    p.add_argument("--debug", action="store_true", help="Enable debug logging")
+    p.add_argument(
+        "--level",
+        default="ALL",
+        choices=["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Log level (only applies with --debug)",
+    )
+    p.add_argument("--config", metavar="PATH", help="Path to config file (overrides default)")
+    p.add_argument("--clear-cache", action="store_true", help="Clear all cached data and exit")
+    p.add_argument("--setup-cookies", nargs="?", const="auto", metavar="BROWSER",
+                   help="Run cookie setup wizard (optionally specify browser)")
+    p.add_argument("--cookies-help", action="store_true", help="Show cookie setup instructions")
+    return p.parse_args()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        prog="termtube",
-        description="TermTube — YouTube TUI powered by yt-dlp + Textual",
-    )
-    parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
-    parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
-    parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and $TMPDIR/TermTube/<timestamp>.log. Nothing is written to stderr.")
-    parser.add_argument(
-        "--level",
-        metavar="LEVEL",
-        default="ALL",
-        choices=["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Minimum log severity to keep when --debug is set. One of ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL (everything).",
-    )
-    parser.add_argument("--version", action="store_true", help="Show version")
-    args = parser.parse_args()
+    args = _parse_args()
 
-    # Set up logging before anything else
-    from src import logger
-    logger.setup(debug=args.debug, level=args.level)
-    logger.info("TermTube starting (debug=%s, level=%s)", args.debug, args.level)
-
-    if args.version:
-        print("TermTube 0.1.0")
-        sys.exit(0)
+    import logger as _logger
+    _logger.setup(debug=args.debug, level=args.level)
 
     if args.cookies_help:
-        from src.deps import print_cookies_help
+        from deps import print_cookies_help
         print_cookies_help()
-        sys.exit(0)
+        return
 
-    # Dependency check
-    from src.deps import check_dependencies
-    logger.debug("Running dependency check")
-    if not check_dependencies():
-        logger.error("Dependency check failed; exiting")
-        sys.exit(1)
-
-    # Load config
-    from src.config import Config
-    config = Config(args.config)
-    logger.debug("Config loaded from %s", getattr(config, "path", args.config or "default"))
+    from config import Config, CONFIG_PATH
+    config = Config()
+    if args.config:
+        from config import CONFIG_PATH as _cp
+        import config as _cfg_mod
+        _cfg_mod.CONFIG_PATH = Path(args.config)
+    config.load()
 
     if args.clear_cache:
-        from src.cache import Cache
-        cache = Cache({})
-        logger.info("Clearing all cache")
-        cache.clear_all()
+        import cache as _cache
+        _cache.clear_all()
         print("Cache cleared.")
-        sys.exit(0)
+        return
 
-    # Warn if no cookie source is configured
-    if not config.cookie_args:
-        print("\033[33m⚠ No cookie source configured. Home feed and subscriptions require authentication.\033[0m")
-        print("  Run: termtube --cookies-help  for setup instructions.\n")
+    if args.setup_cookies:
+        from cookies import CookieManager
+        mgr = CookieManager(config)
+        browser = None if args.setup_cookies == "auto" else args.setup_cookies
+        ok = mgr.auto_refresh(browser)
+        if ok:
+            print(f"Cookies refreshed successfully → {config.cookies_file}")
+        else:
+            from deps import print_cookies_help
+            print("Automatic cookie fetch failed.")
+            print_cookies_help()
+        return
 
-    # Import textual_image.widget BEFORE launching Textual — the library queries the
-    # terminal for sixel/TGP support and cell dimensions at import time, and those
-    # queries stop working once Textual's I/O threads are running.
+    from deps import check_all, assert_required
+    assert_required(check_all())
+
+    # Validate Python version
+    if sys.version_info < (3, 11):
+        print("TermTube requires Python 3.11+", file=sys.stderr)
+        sys.exit(1)
+
+    # Import textual_image early (terminal detection at import time)
     try:
-        import textual_image.widget  # noqa: F401 — side-effect import for detection
+        import textual_image.widget  # noqa: F401
     except ImportError:
         pass
 
-    # Launch Textual TUI
-    from src.tui.app import TermTubeApp
+    from tui.app import TermTubeApp
     app = TermTubeApp(config)
-    try:
-        app.run()
-    except KeyboardInterrupt:
-        pass
+    app.run()
 
 
 if __name__ == "__main__":

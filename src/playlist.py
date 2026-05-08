@@ -1,90 +1,85 @@
-"""Playlist management — stored as JSON at ~/.local/share/termtube/playlists.json."""
+"""TermTube v2 — local playlists.
 
+Stores playlists in ~/.config/TermTube/playlists.json as:
+  { "Playlist Name": ["video_id_1", "video_id_2", ...], ... }
+"""
 from __future__ import annotations
+
 import json
+import os
+import threading
 from pathlib import Path
 
-_PLAYLISTS_PATH = Path.home() / ".config" / "TermTube" / "playlists.json"
+from config import PLAYLISTS_PATH
+
+_lock = threading.Lock()
 
 
-def _load() -> dict[str, list[str]]:
-    if _PLAYLISTS_PATH.exists():
-        try:
-            return json.loads(_PLAYLISTS_PATH.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {}
+def _read() -> dict[str, list[str]]:
+    try:
+        return json.loads(PLAYLISTS_PATH.read_bytes())
+    except Exception:
+        return {}
 
 
-def _save(data: dict[str, list[str]]) -> None:
-    _PLAYLISTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _PLAYLISTS_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+def _write(data: dict[str, list[str]]) -> None:
+    PLAYLISTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = PLAYLISTS_PATH.with_suffix(".tmp")
+    tmp.write_bytes(json.dumps(data, ensure_ascii=False, indent=2).encode())
+    os.replace(tmp, PLAYLISTS_PATH)
 
 
 def list_names() -> list[str]:
-    """Return all playlist names in creation order."""
-    return list(_load().keys())
+    return list(_read().keys())
 
 
 def get_playlist(name: str) -> list[str]:
-    """Return list of video IDs in the named playlist."""
-    return list(_load().get(name, []))
+    return _read().get(name, [])
 
 
-def create(name: str, video_ids: list[str] | None = None) -> None:
-    """Create a playlist (or reset existing) with the given video IDs."""
-    data = _load()
-    data[name] = list(video_ids or [])
-    _save(data)
+def create(name: str, ids: list[str] | None = None) -> None:
+    with _lock:
+        data = _read()
+        if name not in data:
+            data[name] = ids or []
+            _write(data)
 
 
-def delete(name: str) -> bool:
-    """Delete a playlist. Returns False if it didn't exist."""
-    data = _load()
-    if name not in data:
-        return False
-    del data[name]
-    _save(data)
-    return True
+def delete(name: str) -> None:
+    with _lock:
+        data = _read()
+        data.pop(name, None)
+        _write(data)
 
 
-def add_video(name: str, video_id: str) -> bool:
-    """Add video_id to playlist, creating it if needed. Returns False if already present."""
-    data = _load()
-    if name not in data:
-        data[name] = []
-    if video_id in data[name]:
-        return False
-    data[name].append(video_id)
-    _save(data)
-    return True
+def rename(old: str, new: str) -> None:
+    with _lock:
+        data = _read()
+        if old in data:
+            data[new] = data.pop(old)
+            _write(data)
 
 
-def remove_video(name: str, video_id: str) -> bool:
-    """Remove video_id from playlist. Returns False if not found."""
-    data = _load()
-    if name not in data or video_id not in data[name]:
-        return False
-    data[name].remove(video_id)
-    _save(data)
-    return True
+def add_video(name: str, video_id: str) -> None:
+    with _lock:
+        data = _read()
+        lst = data.setdefault(name, [])
+        if video_id not in lst:
+            lst.append(video_id)
+            _write(data)
 
 
-def rename(old_name: str, new_name: str) -> bool:
-    """Rename a playlist. Returns False if old_name doesn't exist."""
-    data = _load()
-    if old_name not in data:
-        return False
-    # Preserve insertion order by rebuilding
-    new_data = {(new_name if k == old_name else k): v for k, v in data.items()}
-    _save(new_data)
-    return True
+def remove_video(name: str, video_id: str) -> None:
+    with _lock:
+        data = _read()
+        if name in data:
+            data[name] = [v for v in data[name] if v != video_id]
+            _write(data)
 
 
 def is_in_playlist(name: str, video_id: str) -> bool:
-    return video_id in _load().get(name, [])
+    return video_id in _read().get(name, [])
 
 
 def video_playlists(video_id: str) -> list[str]:
-    """Return names of all playlists containing video_id."""
-    return [name for name, ids in _load().items() if video_id in ids]
+    return [name for name, ids in _read().items() if video_id in ids]

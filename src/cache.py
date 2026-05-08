@@ -1,5 +1,18 @@
-"""Disk-based cache with per-key TTL."""
+"""TermTube v2 — disk + RAM cache.
 
+Layout under ~/.cache/termtube/:
+  videos/{id}.json          full metadata per video (TTL-managed)
+  feed_{key}_p{n}.json      paged feed index (list of entry dicts)
+  feed_{key}_stash.json     page-1 stash from last session (instant load)
+  thumbs/{id}.jpg           JPEG thumbnails
+  sb/{id}.json              SponsorBlock segments per video
+  quality/{id}_{mode}.txt   last quality choice per (video, mode)
+
+Design rules:
+  - All writes are atomic (tmp + os.replace).
+  - No suppression subsystem — removed in v2.
+  - Paged keys allow backward navigation with zero re-fetch.
+"""
 from __future__ import annotations
 
 import json
@@ -7,340 +20,237 @@ import os
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
-from src import logger
+CACHE_DIR = Path("~/.cache/termtube").expanduser()
 
-CACHE_DIR = Path.home() / ".cache" / "termtube"
-THUMB_DIR = CACHE_DIR / "thumbs"
-VIDEO_DIR = CACHE_DIR / "videos"
-
-_SUPPRESSED_PATH = CACHE_DIR / "suppressed.json"
-
-# Lock protecting all cache file writes so concurrent enrichment threads don't
-# interleave partial writes on the same file.
 _write_lock = threading.Lock()
 
-
-def _ensure_dirs() -> None:
-    THUMB_DIR.mkdir(parents=True, exist_ok=True)
-    VIDEO_DIR.mkdir(parents=True, exist_ok=True)
-
-
-_ensure_dirs()
+# Fields stripped from full metadata when caching (saves ~60% disk per entry)
+_FAT_FIELDS = frozenset(
+    ["formats", "requested_formats", "subtitles", "automatic_captions",
+     "captions", "heatmap", "fragments", "downloader_options"]
+)
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    """Write text to path atomically via a tmp file + os.replace()."""
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _atomic_write(path: Path, data: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+
+def _read_json(path: Path) -> Any | None:
     try:
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, path)
-    except OSError:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
+        return json.loads(path.read_bytes())
+    except Exception:
+        return None
 
 
-class Cache:
-    def __init__(self, ttl_map: dict[str, int]) -> None:
-        self._ttl = ttl_map  # e.g. {"home": 3600, "metadata": 86400}
-        self._suppressed: set[str] = set()
-        self._focus_counts: dict[str, int] = {}
-        self._suppression_loaded = False
-        self._suppression_lock = threading.Lock()
+def _write_json(path: Path, obj: Any) -> None:
+    with _write_lock:
+        _atomic_write(path, json.dumps(obj, ensure_ascii=False).encode())
 
-    # ── Video metadata ────────────────────────────────────────────────────────
 
-    def get_video(self, video_id: str) -> dict | None:
-        path = VIDEO_DIR / f"{video_id}.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-            age = time.time() - data.get("_cached_at", 0)
-            ttl = self._ttl.get("metadata", 86400)
-            if age > ttl:
-                return None
-            return data
-        except (json.JSONDecodeError, OSError):
-            return None
+# ---------------------------------------------------------------------------
+# Video metadata cache
+# ---------------------------------------------------------------------------
 
-    # Fields from a full yt-dlp fetch that are large and never read back from
-    # cache.  Stripping them cuts average JSON size from ~48 KB to ~2 KB.
-    _FAT_FIELDS = frozenset({
-        "formats",
-        "requested_formats",
-        "requested_downloads",
-        "automatic_captions",
-        "subtitles",
-        "heatmap",
-        "fragments",
-    })
+def _video_path(video_id: str) -> Path:
+    return CACHE_DIR / "videos" / f"{video_id}.json"
 
-    def put_video(self, entry: dict) -> None:
-        vid = entry.get("id") or entry.get("webpage_url_basename")
-        if not vid:
-            return
-        slim = {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
-        slim["_cached_at"] = time.time()
-        path = VIDEO_DIR / f"{vid}.json"
-        with _write_lock:
-            _atomic_write(path, json.dumps(slim, ensure_ascii=False))
-        logger.debug("cache.put_video %s (%d keys)", vid, len(slim))
 
-    def get_video_raw(self, video_id: str) -> dict | None:
-        """Get cached entry regardless of TTL (used by preview script)."""
-        path = VIDEO_DIR / f"{video_id}.json"
-        if not path.exists():
-            return None
-        try:
-            return json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
-            return None
+def get_video(video_id: str, ttl: int = 86400) -> dict | None:
+    path = _video_path(video_id)
+    data = _read_json(path)
+    if data is None:
+        return None
+    age = time.time() - data.get("_cached_at", 0)
+    if age > ttl:
+        return None
+    return data
 
-    # ── Feed lists ────────────────────────────────────────────────────────────
 
-    def get_feed(self, key: str) -> list[str] | None:
-        """Returns list of video IDs for a feed, or None if stale/missing."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-            age = time.time() - data.get("_cached_at", 0)
-            if age > self._ttl.get(key, 3600):
-                return None
-            return data.get("ids", [])
-        except (json.JSONDecodeError, OSError):
-            return None
+def get_video_raw(video_id: str) -> dict | None:
+    """Return cached metadata ignoring TTL (stale-while-revalidate use)."""
+    return _read_json(_video_path(video_id))
 
-    def get_feed_stale(self, key: str) -> list[str] | None:
-        """Return cached feed IDs even if TTL has expired (stale-while-revalidate).
-        Returns None only if no cache file exists at all."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-            return data.get("ids") or None
-        except (json.JSONDecodeError, OSError):
-            return None
 
-    def is_feed_fresh(self, key: str) -> bool:
-        """True if the feed cache exists and is within TTL."""
-        return self.get_feed(key) is not None
+def put_video(entry: dict) -> None:
+    slim = {k: v for k, v in entry.items() if k not in _FAT_FIELDS}
+    slim["_cached_at"] = time.time()
+    _write_json(_video_path(slim.get("id", slim.get("webpage_url_basename", "unknown"))), slim)
 
-    def feed_age(self, key: str) -> float | None:
-        """Return age (seconds) of the cached feed file, or None if no cache exists."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-            cached_at = data.get("_cached_at", 0)
-            if not cached_at:
-                return None
-            return max(0.0, time.time() - cached_at)
-        except (json.JSONDecodeError, OSError):
-            return None
 
-    def put_feed(self, key: str, ids: list[str]) -> None:
-        path = CACHE_DIR / f"feed_{key}.json"
-        with _write_lock:
-            _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
-        logger.debug("cache.put_feed %s (%d ids)", key, len(ids))
+# ---------------------------------------------------------------------------
+# Paged feed cache
+# ---------------------------------------------------------------------------
 
-    # ── Thumbnails ────────────────────────────────────────────────────────────
+def _page_path(feed_key: str, page: int) -> Path:
+    return CACHE_DIR / f"feed_{feed_key}_p{page}.json"
 
-    def thumb_path(self, video_id: str) -> Path:
-        return THUMB_DIR / f"{video_id}.jpg"
 
-    def has_thumb(self, video_id: str) -> bool:
-        return self.thumb_path(video_id).exists()
+def _stash_path(feed_key: str) -> Path:
+    return CACHE_DIR / f"feed_{feed_key}_stash.json"
 
-    # ── Home feed suppression ─────────────────────────────────────────────────
 
-    def _load_suppressed(self) -> None:
-        """Load suppression set from disk (once per process)."""
-        with self._suppression_lock:
-            if self._suppression_loaded:
-                return
-            self._suppression_loaded = True
-            if not _SUPPRESSED_PATH.exists():
-                return
-            try:
-                data = json.loads(_SUPPRESSED_PATH.read_text())
-                self._suppressed = set(data.get("ids", []))
-                self._focus_counts = {
-                    k: v for k, v in data.get("focus_counts", {}).items()
-                }
-            except (json.JSONDecodeError, OSError):
-                pass
+def has_page(feed_key: str, page: int, ttl: int = 3600) -> bool:
+    path = _page_path(feed_key, page)
+    data = _read_json(path)
+    if not data:
+        return False
+    age = time.time() - data.get("_cached_at", 0)
+    return age <= ttl
 
-    def _save_suppressed(self) -> None:
-        with _write_lock:
-            _atomic_write(
-                _SUPPRESSED_PATH,
-                json.dumps(
-                    {
-                        "ids": list(self._suppressed),
-                        "focus_counts": self._focus_counts,
-                    },
-                    ensure_ascii=False,
-                ),
-            )
 
-    def register_focus(self, video_id: str) -> None:
-        """Increment focus count for a video; suppress after 3 focuses.
+def get_page(feed_key: str, page: int, ttl: int = 3600) -> list[dict] | None:
+    path = _page_path(feed_key, page)
+    data = _read_json(path)
+    if not data:
+        return None
+    age = time.time() - data.get("_cached_at", 0)
+    if age > ttl:
+        return None
+    return data.get("entries", [])
 
-        Counts are accumulated in memory and only flushed to disk when the
-        suppression threshold is crossed — no disk I/O on every cursor move.
-        """
-        self._load_suppressed()
-        if video_id in self._suppressed:
-            return
-        count = self._focus_counts.get(video_id, 0) + 1
-        self._focus_counts[video_id] = count
-        if count >= 3:
-            self._suppressed.add(video_id)
-            self._save_suppressed()  # only write when threshold is crossed
-            logger.debug("cache.register_focus suppressing %s after %d focuses", video_id, count)
 
-    def suppress_video(self, video_id: str) -> None:
-        """Immediately suppress a video (e.g. after listening to it)."""
-        self._load_suppressed()
-        if video_id not in self._suppressed:
-            self._suppressed.add(video_id)
-            self._save_suppressed()
-            logger.debug("cache.suppress_video %s", video_id)
+def get_page_stale(feed_key: str, page: int) -> list[dict] | None:
+    """Return cached page ignoring TTL."""
+    data = _read_json(_page_path(feed_key, page))
+    return data.get("entries", []) if data else None
 
-    def is_suppressed(self, video_id: str) -> bool:
-        self._load_suppressed()
-        return video_id in self._suppressed
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
+def put_page(feed_key: str, page: int, entries: list[dict]) -> None:
+    _write_json(_page_path(feed_key, page), {"_cached_at": time.time(), "entries": entries})
 
-    # ── Home-feed quick-start stash ───────────────────────────────────────────
-    # Up to _STASH_SIZE full entry dicts from the previous session's unconsumed
-    # buffer are saved here so the next boot can show something instantly while
-    # the fresh 100-entry background fetch is running.
 
-    _STASH_SIZE = 12
+def page_age(feed_key: str, page: int) -> float | None:
+    """Return seconds since page was cached, or None if not cached."""
+    data = _read_json(_page_path(feed_key, page))
+    if not data:
+        return None
+    return time.time() - data.get("_cached_at", 0)
 
-    @property
-    def _stash_path(self) -> Path:
-        return CACHE_DIR / "feed_home_stash.json"
 
-    def get_home_stash(self) -> list[dict]:
-        """Return up to _STASH_SIZE stashed entries from the previous session.
+def invalidate_feed(feed_key: str) -> None:
+    """Remove all pages + stash for a feed key."""
+    with _write_lock:
+        for f in CACHE_DIR.glob(f"feed_{feed_key}_p*.json"):
+            f.unlink(missing_ok=True)
+        _stash_path(feed_key).unlink(missing_ok=True)
 
-        Never raises; returns [] on any error or if no stash exists.
-        """
-        path = self._stash_path
-        if not path.exists():
-            return []
-        try:
-            data = json.loads(path.read_text())
-            entries = data.get("entries", [])
-            if not isinstance(entries, list):
-                return []
-            return entries[: self._STASH_SIZE]
-        except (json.JSONDecodeError, OSError):
-            return []
 
-    def put_home_stash(self, entries: list[dict]) -> None:
-        """Atomically write up to _STASH_SIZE entries to the stash file."""
-        slim = entries[: self._STASH_SIZE]
-        try:
-            with _write_lock:
-                _atomic_write(
-                    self._stash_path,
-                    json.dumps(
-                        {"_cached_at": time.time(), "entries": slim},
-                        ensure_ascii=False,
-                    ),
-                )
-            logger.debug("cache.put_home_stash: %d entries", len(slim))
-        except OSError:
-            pass
+def invalidate_page(feed_key: str, page: int) -> None:
+    _page_path(feed_key, page).unlink(missing_ok=True)
 
-    def clear_home_stash(self) -> None:
-        """Delete the stash file (used by R-refresh)."""
-        try:
-            self._stash_path.unlink(missing_ok=True)
-            logger.debug("cache.clear_home_stash")
-        except OSError:
-            pass
 
-    def clear_feed(self, key: str) -> None:
-        path = CACHE_DIR / f"feed_{key}.json"
-        if path.exists():
-            path.unlink()
-            logger.debug("cache.clear_feed %s", key)
+# ---------------------------------------------------------------------------
+# Page-1 stash (instant cold-start load)
+# ---------------------------------------------------------------------------
 
-    def clear_all(self) -> None:
-        feeds = videos = thumbs = 0
-        for f in CACHE_DIR.glob("feed_*.json"):
-            f.unlink(missing_ok=True); feeds += 1
-        for f in VIDEO_DIR.glob("*.json"):
-            f.unlink(missing_ok=True); videos += 1
-        for f in THUMB_DIR.glob("*.jpg"):
-            f.unlink(missing_ok=True); thumbs += 1
-        logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
+def get_stash(feed_key: str) -> list[dict]:
+    data = _read_json(_stash_path(feed_key))
+    return data if isinstance(data, list) else []
 
-    def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
-        """Delete thumbnails older than max_age_days, then enforce max_count cap."""
-        cutoff = time.time() - max_age_days * 86400
-        files: list[tuple[float, Path]] = []
-        deleted = 0
-        for f in THUMB_DIR.glob("*.jpg"):
-            try:
-                mtime = f.stat().st_mtime
-                if mtime < cutoff:
-                    f.unlink(missing_ok=True)
-                    deleted += 1
-                else:
-                    files.append((mtime, f))
-            except OSError:
-                pass
-        # Hard cap: evict oldest by access time if still over limit.
-        capped = 0
-        if len(files) > max_count:
-            files.sort()
-            for _, f in files[: len(files) - max_count]:
-                f.unlink(missing_ok=True)
-                capped += 1
-        logger.debug("prune_old_thumbnails: %d expired, %d capped, %d kept",
-                     deleted, capped, max(0, len(files) - capped))
 
-    def prune_old_videos(self, max_age_days: int = 3, max_count: int = 400) -> None:
-        """Delete video JSONs older than max_age_days, then enforce max_count cap.
+def put_stash(feed_key: str, entries: list[dict]) -> None:
+    _write_json(_stash_path(feed_key), entries[:12])
 
-        Uses the _cached_at timestamp stored inside the JSON rather than st_mtime.
-        st_mtime is reset on every enrichment write, which would otherwise make
-        every enriched file appear perpetually fresh.
-        """
-        now = time.time()
-        cutoff = now - max_age_days * 86400
-        files: list[tuple[float, Path]] = []
-        deleted = 0
-        for f in VIDEO_DIR.glob("*.json"):
-            try:
-                cached_at = json.loads(f.read_text()).get("_cached_at", 0)
-                if cached_at < cutoff:
-                    f.unlink(missing_ok=True)
-                    deleted += 1
-                else:
-                    files.append((cached_at, f))
-            except (OSError, json.JSONDecodeError, ValueError):
-                pass
-        # Hard cap: evict oldest by _cached_at if still over limit.
-        capped = 0
-        if len(files) > max_count:
-            files.sort()
-            for _, f in files[: len(files) - max_count]:
-                f.unlink(missing_ok=True)
-                capped += 1
-        logger.debug("prune_old_videos: %d expired, %d capped, %d kept",
-                     deleted, capped, max(0, len(files) - capped))
+
+def clear_stash(feed_key: str) -> None:
+    _stash_path(feed_key).unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Thumbnail cache
+# ---------------------------------------------------------------------------
+
+def thumb_path(video_id: str) -> Path:
+    return CACHE_DIR / "thumbs" / f"{video_id}.jpg"
+
+
+def has_thumb(video_id: str) -> bool:
+    return thumb_path(video_id).exists()
+
+
+# ---------------------------------------------------------------------------
+# SponsorBlock segment cache
+# ---------------------------------------------------------------------------
+
+def _sb_path(video_id: str) -> Path:
+    return CACHE_DIR / "sb" / f"{video_id}.json"
+
+
+def get_sb(video_id: str, ttl: int = 3600) -> list[dict] | None:
+    data = _read_json(_sb_path(video_id))
+    if data is None:
+        return None
+    age = time.time() - data.get("_cached_at", 0)
+    if age > ttl:
+        return None
+    return data.get("segments", [])
+
+
+def put_sb(video_id: str, segments: list[dict]) -> None:
+    _write_json(_sb_path(video_id), {"_cached_at": time.time(), "segments": segments})
+
+
+# ---------------------------------------------------------------------------
+# Quality negotiation memory
+# ---------------------------------------------------------------------------
+
+def _quality_path(video_id: str, mode: str) -> Path:
+    return CACHE_DIR / "quality" / f"{video_id}_{mode}.txt"
+
+
+def get_last_quality(video_id: str, mode: str) -> str | None:
+    try:
+        return _quality_path(video_id, mode).read_text(encoding="utf-8").strip() or None
+    except FileNotFoundError:
+        return None
+
+
+def set_last_quality(video_id: str, mode: str, fmt: str) -> None:
+    path = _quality_path(video_id, mode)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(fmt, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Housekeeping
+# ---------------------------------------------------------------------------
+
+def prune_old_thumbnails(max_age_days: int = 7, max_count: int = 300) -> None:
+    _prune_dir(CACHE_DIR / "thumbs", max_age_days * 86400, max_count)
+
+
+def prune_old_videos(max_age_days: int = 3, max_count: int = 400) -> None:
+    _prune_dir(CACHE_DIR / "videos", max_age_days * 86400, max_count)
+
+
+def prune_old_sb(max_age_days: int = 1) -> None:
+    _prune_dir(CACHE_DIR / "sb", max_age_days * 86400, 10000)
+
+
+def _prune_dir(directory: Path, max_age_secs: float, max_count: int) -> None:
+    if not directory.exists():
+        return
+    files = sorted(directory.glob("*.json"), key=lambda p: p.stat().st_mtime)
+    now = time.time()
+    for f in files:
+        if now - f.stat().st_mtime > max_age_secs:
+            f.unlink(missing_ok=True)
+    files = [f for f in files if f.exists()]
+    for f in files[:-max_count]:
+        f.unlink(missing_ok=True)
+
+
+def clear_all() -> None:
+    """Wipe entire cache directory.  Used by --clear-cache CLI flag."""
+    import shutil
+    if CACHE_DIR.exists():
+        shutil.rmtree(CACHE_DIR)

@@ -1,357 +1,421 @@
-"""mpv player interface with custom seek bindings and IPC support."""
+"""TermTube v2 — mpv IPC controller.
 
+PlayerSession
+-------------
+Owns a single mpv process and a Unix socket IPC reader thread.
+Uses observe_property to receive push events — zero polling.
+
+Both audio and video playback go through the same PlayerSession:
+  - Audio: mpv runs headlessly (--no-video --no-terminal).
+  - Video: mpv opens a GUI window; the TUI stays live.
+
+The socket reader thread is a daemon thread that feeds a queue.
+Textual workers consume the queue and call call_from_thread to update UI.
+
+Thread safety
+-------------
+All public methods are thread-safe and may be called from any thread.
+Internal socket operations are serialised by _cmd_lock.
+"""
 from __future__ import annotations
+
 import json
 import os
-import shutil
+import queue
 import socket
 import subprocess
 import tempfile
+import threading
+import time
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from src import logger
+import logger
 
-# Custom mpv input.conf — loaded for every playback session
-_INPUT_CONF = """\
-# TermTube seek bindings
-0 seek 0 absolute-percent
-1 seek 10 absolute-percent
-2 seek 20 absolute-percent
-3 seek 30 absolute-percent
-4 seek 40 absolute-percent
-5 seek 50 absolute-percent
-6 seek 60 absolute-percent
-7 seek 70 absolute-percent
-8 seek 80 absolute-percent
-9 seek 90 absolute-percent
-h seek -5
-l seek +5
-H seek -10
-L seek +10
-LEFT seek -5
-RIGHT seek +5
-Ctrl+LEFT seek -10
-Ctrl+RIGHT seek +10
-q quit
-"""
-
-IPC_SOCKET = "/tmp/termtube-mpv.sock"
+AUDIO_SOCK = Path("/tmp/termtube-mpv-audio.sock")
+VIDEO_SOCK = Path("/tmp/termtube-mpv-video.sock")
 
 
-def _write_input_conf() -> str:
-    """Write input.conf to a temp file and return its path."""
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False, prefix="termtube-mpv-")
-    f.write(_INPUT_CONF)
-    f.flush()
-    f.close()
-    return f.name
+class PlayMode(Enum):
+    AUDIO = auto()
+    VIDEO = auto()
 
 
-def _mpv_available() -> bool:
-    return shutil.which("mpv") is not None
+@dataclass
+class PlayerState:
+    mode: PlayMode | None = None
+    position: float = 0.0       # seconds
+    duration: float = 0.0       # seconds
+    paused: bool = False
+    volume: int = 100
+    idle: bool = True
+    title: str = ""
 
 
-def _vlc_available() -> bool:
-    return shutil.which("vlc") is not None or Path("/Applications/VLC.app/Contents/MacOS/VLC").exists()
+@dataclass
+class PropertyEvent:
+    name: str
+    value: Any
 
 
-def _vlc_path() -> str:
-    if shutil.which("vlc"):
-        return "vlc"
-    return "/Applications/VLC.app/Contents/MacOS/VLC"
+class PlayerSession:
+    """Single mpv session that handles both audio and video."""
 
+    def __init__(self) -> None:
+        self._proc: subprocess.Popen | None = None
+        self._sock_path: Path = AUDIO_SOCK
+        self._cmd_lock = threading.Lock()
+        self._reader_thread: threading.Thread | None = None
+        self._reader_stop = threading.Event()
+        self._event_queue: queue.Queue[PropertyEvent] = queue.Queue()
+        self._state = PlayerState()
+        self._state_lock = threading.Lock()
+        self._observe_id = 1
 
-# ── Public API ────────────────────────────────────────────────────────────────
+        # Callbacks (set by UI layer)
+        self._on_property_cbs: list[Callable[[PropertyEvent], None]] = []
+        self._on_end_cbs: list[Callable[[int], None]] = []  # returncode
+        self._on_error_cbs: list[Callable[[str], None]] = []
 
-# ── IPC helpers ───────────────────────────────────────────────────────────────
+    # ------------------------------------------------------------------
+    # Public callback registration
+    # ------------------------------------------------------------------
 
-def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
-    """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
-    if logger.is_debug():
-        # Avoid building the JSON string in the hot path when not debugging.
-        logger.debug("mpv ipc → %s @ %s", cmd.get("command", cmd), socket_path)
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(timeout)
-        s.connect(socket_path)
-        s.sendall((json.dumps(cmd) + "\n").encode())
-        data = b""
-        try:
-            while True:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                data += chunk
-                if b"\n" in data:
-                    break
-        except socket.timeout:
-            pass
-        s.close()
-        for line in data.decode(errors="replace").splitlines():
-            line = line.strip()
-            if line:
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-    except (OSError, ConnectionRefusedError, FileNotFoundError):
-        pass
-    return None
+    def on_property(self, cb: Callable[[PropertyEvent], None]) -> None:
+        self._on_property_cbs.append(cb)
 
+    def on_end(self, cb: Callable[[int], None]) -> None:
+        self._on_end_cbs.append(cb)
 
-def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
-    """Get an mpv property via IPC socket. Returns the value or None."""
-    resp = send_ipc_command({"command": ["get_property", prop]}, socket_path=socket_path)
-    if resp and resp.get("error") == "success":
-        return resp.get("data")
-    return None
+    def on_error(self, cb: Callable[[str], None]) -> None:
+        self._on_error_cbs.append(cb)
 
+    def clear_callbacks(self) -> None:
+        self._on_property_cbs.clear()
+        self._on_end_cbs.clear()
+        self._on_error_cbs.clear()
 
-def poll_audio_properties(
-    *, socket_path: str = IPC_SOCKET
-) -> tuple[float | None, float | None, bool]:
-    """Return (time_pos, duration, is_paused) in a single socket connection.
+    # ------------------------------------------------------------------
+    # State
+    # ------------------------------------------------------------------
 
-    Batches all three get_property requests into one Unix socket lifecycle,
-    reducing overhead from 3 connect/send/recv/close cycles to one.
-    """
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        s.connect(socket_path)
-        for i, prop in enumerate(("time-pos", "duration", "pause")):
-            s.sendall(
-                (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
+    @property
+    def state(self) -> PlayerState:
+        with self._state_lock:
+            return PlayerState(
+                mode=self._state.mode,
+                position=self._state.position,
+                duration=self._state.duration,
+                paused=self._state.paused,
+                volume=self._state.volume,
+                idle=self._state.idle,
+                title=self._state.title,
             )
-        data = b""
-        results: dict[int, dict] = {}
-        try:
-            while len(results) < 3:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                data += chunk
-                *complete_lines, data = data.split(b"\n")
-                for raw in complete_lines:
-                    raw = raw.strip()
-                    if not raw:
-                        continue
-                    try:
-                        resp = json.loads(raw)
-                        rid = resp.get("request_id")
-                        if rid is not None:
-                            results[rid] = resp
-                    except json.JSONDecodeError:
-                        pass
-        except socket.timeout:
-            pass
-        s.close()
 
-        def _val(rid: int) -> Any:
-            r = results.get(rid, {})
-            return r.get("data") if r.get("error") == "success" else None
+    @property
+    def is_playing(self) -> bool:
+        with self._state_lock:
+            return not self._state.idle and self._proc is not None
 
-        pos = _val(0)
-        dur = _val(1)
-        paused = _val(2)
-        return (
-            float(pos) if pos is not None else None,
-            float(dur) if dur is not None else None,
-            paused is True,
+    # ------------------------------------------------------------------
+    # Playback
+    # ------------------------------------------------------------------
+
+    def play_audio(
+        self,
+        url: str,
+        *,
+        title: str = "",
+        cookie_args: list[str] | None = None,
+        ytdl_format: str = "bestaudio/best",
+    ) -> None:
+        """Start headless audio playback.  Blocks until mpv exits."""
+        self._launch(
+            url,
+            mode=PlayMode.AUDIO,
+            title=title,
+            cookie_args=cookie_args or [],
+            ytdl_format=ytdl_format,
+            extra_args=["--no-video", "--no-terminal", "--msg-level=all=error"],
+            sock_path=AUDIO_SOCK,
         )
-    except (OSError, ConnectionRefusedError, FileNotFoundError):
-        return None, None, False
 
+    def play_video(
+        self,
+        url: str,
+        *,
+        title: str = "",
+        cookie_args: list[str] | None = None,
+        ytdl_format: str = "bestvideo+bestaudio/best",
+    ) -> None:
+        """Start video playback in a separate mpv window.  Blocks until mpv exits."""
+        self._launch(
+            url,
+            mode=PlayMode.VIDEO,
+            title=title,
+            cookie_args=cookie_args or [],
+            ytdl_format=ytdl_format,
+            extra_args=["--really-quiet"],
+            sock_path=VIDEO_SOCK,
+        )
 
-def is_playing(*, socket_path: str = IPC_SOCKET) -> bool:
-    """Return True if mpv is active and not paused."""
-    paused = get_ipc_property("pause", socket_path=socket_path)
-    return paused is False
+    def _launch(
+        self,
+        url: str,
+        *,
+        mode: PlayMode,
+        title: str,
+        cookie_args: list[str],
+        ytdl_format: str,
+        extra_args: list[str],
+        sock_path: Path,
+    ) -> None:
+        self.stop()
 
+        sock_path.unlink(missing_ok=True)
+        self._sock_path = sock_path
 
-def pause_toggle(*, socket_path: str = IPC_SOCKET) -> None:
-    """Toggle pause in a running mpv instance."""
-    send_ipc_command({"command": ["cycle", "pause"]}, socket_path=socket_path)
+        # Build ytdl-raw-options from cookie_args
+        ytdl_raw: list[str] = []
+        i = 0
+        while i < len(cookie_args):
+            if cookie_args[i] == "--cookies" and i + 1 < len(cookie_args):
+                ytdl_raw.append(f"--ytdl-raw-options=cookies={cookie_args[i+1]}")
+                i += 2
+            elif cookie_args[i] == "--cookies-from-browser" and i + 1 < len(cookie_args):
+                ytdl_raw.append(f"--ytdl-raw-options=cookies-from-browser={cookie_args[i+1]}")
+                i += 2
+            else:
+                i += 1
 
-
-def seek_to(seconds: float, *, socket_path: str = IPC_SOCKET) -> None:
-    """Seek to an absolute position in seconds."""
-    send_ipc_command({"command": ["seek", seconds, "absolute"]}, socket_path=socket_path)
-
-
-def set_volume(vol: int, *, socket_path: str = IPC_SOCKET) -> None:
-    """Set playback volume (0–130)."""
-    send_ipc_command({"command": ["set_property", "volume", vol]}, socket_path=socket_path)
-
-
-def playlist_append(url: str, *, socket_path: str = IPC_SOCKET) -> None:
-    """Append a URL to mpv's internal playlist without interrupting current playback."""
-    send_ipc_command({"command": ["loadfile", url, "append"]}, socket_path=socket_path)
-
-
-def playlist_next(*, socket_path: str = IPC_SOCKET) -> None:
-    """Skip to the next item in mpv's playlist."""
-    send_ipc_command({"command": ["playlist-next"]}, socket_path=socket_path)
-
-
-def playlist_prev(*, socket_path: str = IPC_SOCKET) -> None:
-    """Skip to the previous item in mpv's playlist."""
-    send_ipc_command({"command": ["playlist-prev"]}, socket_path=socket_path)
-
-
-def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
-    """
-    Convert yt-dlp cookie flags to mpv --ytdl-raw-options format.
-    e.g. ['--cookies', '/path/to/cookies.txt']  →  'cookies=/path/to/cookies.txt'
-         ['--cookies-from-browser', 'chrome']    →  'cookies-from-browser=chrome'
-    """
-    opts: list[str] = []
-    i = 0
-    while i < len(cookie_args):
-        arg = cookie_args[i]
-        if arg.startswith("--") and i + 1 < len(cookie_args) and not cookie_args[i + 1].startswith("--"):
-            key = arg[2:]          # strip leading '--'
-            val = cookie_args[i + 1]
-            opts.append(f"{key}={val}")
-            i += 2
-        else:
-            i += 1
-    return ",".join(opts)
-
-
-def play_playlist(
-    urls: list[str],
-    *,
-    audio_only: bool = False,
-    title: str = "",
-    ytdl_format: str = "",
-    cookie_args: list[str] | None = None,
-) -> None:
-    """Play multiple URLs sequentially as an mpv playlist. Blocks until done."""
-    if not urls:
-        return
-    if not _mpv_available():
-        raise RuntimeError("No supported player found. Install mpv: brew install mpv")
-    input_conf = _write_input_conf()
-    try:
         cmd = [
             "mpv",
-            f"--input-conf={input_conf}",
-            f"--input-ipc-server={IPC_SOCKET}",
+            f"--input-ipc-server={sock_path}",
+            f"--ytdl-format={ytdl_format}",
+            *ytdl_raw,
+            *extra_args,
+            url,
         ]
-        if audio_only:
-            cmd += ["--no-video", "--term-osd-bar"]
-        if title:
-            cmd += [f"--title={title}"]
-        if ytdl_format:
-            cmd += [f"--ytdl-format={ytdl_format}"]
-        ytdl_raw = _cookie_args_to_ytdl_raw(cookie_args or [])
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-        cmd += ["--"] + urls
-        logger.debug("mpv playlist cmd: %s [+%d urls]", " ".join(cmd[:6]), len(urls))
-        result = subprocess.run(cmd)
-        if result.returncode not in (0, 4):
-            logger.warning("mpv exited with code %d", result.returncode)
-    finally:
-        for path in (input_conf, IPC_SOCKET):
+
+        logger.debug("mpv launch: %s", " ".join(cmd))
+
+        with self._state_lock:
+            self._state.mode = mode
+            self._state.idle = False
+            self._state.title = title
+            self._state.position = 0.0
+            self._state.duration = 0.0
+            self._state.paused = False
+
+        self._proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
+
+        # Wait for socket to appear (up to 5s)
+        for _ in range(50):
+            if sock_path.exists():
+                break
+            time.sleep(0.1)
+
+        # Start the observe_property reader thread
+        self._reader_stop.clear()
+        self._reader_thread = threading.Thread(
+            target=self._socket_reader,
+            daemon=True,
+            name="mpv-ipc-reader",
+        )
+        self._reader_thread.start()
+
+        # Block until mpv exits
+        _, stderr_bytes = self._proc.communicate()
+        returncode = self._proc.returncode
+
+        # Teardown
+        self._reader_stop.set()
+        with self._state_lock:
+            self._state.idle = True
+            self._state.mode = None
+
+        stderr_text = (stderr_bytes or b"").decode(errors="replace").strip()
+        if returncode == 0 or returncode == 4:
+            for cb in list(self._on_end_cbs):
+                try:
+                    cb(returncode)
+                except Exception:
+                    pass
+        elif returncode == 3:
+            # User quit mpv deliberately — silent
+            for cb in list(self._on_end_cbs):
+                try:
+                    cb(returncode)
+                except Exception:
+                    pass
+        else:
+            first_line = stderr_text.splitlines()[0] if stderr_text else "unknown error"
+            logger.warning("mpv exited %d: %s", returncode, first_line)
+            for cb in list(self._on_error_cbs):
+                try:
+                    cb(first_line)
+                except Exception:
+                    pass
+
+    # ------------------------------------------------------------------
+    # IPC socket reader (observe_property push events)
+    # ------------------------------------------------------------------
+
+    def _socket_reader(self) -> None:
+        """Daemon thread: open IPC socket, register observers, read events."""
+        # Give mpv a moment to bind the socket
+        for _ in range(30):
+            if self._sock_path.exists():
+                break
+            time.sleep(0.1)
+            if self._reader_stop.is_set():
+                return
+
+        try:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.connect(str(self._sock_path))
+            sock.settimeout(0.5)
+        except Exception as exc:
+            logger.debug("IPC connect failed: %s", exc)
+            return
+
+        # Register observers
+        for prop in ("time-pos", "duration", "pause", "volume", "media-title"):
+            msg = json.dumps({"command": ["observe_property", self._observe_id, prop]}) + "\n"
+            self._observe_id += 1
             try:
-                os.unlink(path)
-            except OSError:
+                sock.sendall(msg.encode())
+            except Exception:
+                break
+
+        buf = b""
+        while not self._reader_stop.is_set():
+            try:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf += chunk
+                while b"\n" in buf:
+                    line, buf = buf.split(b"\n", 1)
+                    self._handle_ipc_line(line)
+            except socket.timeout:
+                continue
+            except Exception:
+                break
+
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+    def _handle_ipc_line(self, line: bytes) -> None:
+        try:
+            msg = json.loads(line)
+        except Exception:
+            return
+        if msg.get("event") != "property-change":
+            return
+        name = msg.get("name", "")
+        value = msg.get("data")
+
+        with self._state_lock:
+            if name == "time-pos" and isinstance(value, (int, float)):
+                self._state.position = float(value)
+            elif name == "duration" and isinstance(value, (int, float)):
+                self._state.duration = float(value)
+            elif name == "pause" and isinstance(value, bool):
+                self._state.paused = value
+            elif name == "volume" and isinstance(value, (int, float)):
+                self._state.volume = int(value)
+            elif name == "media-title" and isinstance(value, str):
+                self._state.title = value
+
+        event = PropertyEvent(name=name, value=value)
+        for cb in list(self._on_property_cbs):
+            try:
+                cb(event)
+            except Exception:
                 pass
 
+    # ------------------------------------------------------------------
+    # IPC commands
+    # ------------------------------------------------------------------
 
-def play(
-    url: str,
-    *,
-    audio_only: bool = False,
-    player: str = "mpv",
-    title: str = "",
-    ytdl_format: str = "",
-    cookie_args: list[str] | None = None,
-) -> None:
-    """
-    Stream video/audio URL with the configured player.
-    Blocks until playback ends.
-    cookie_args: yt-dlp cookie flags (e.g. config.cookie_args) passed to mpv's
-                 internal yt-dlp via --ytdl-raw-options so YouTube auth works.
-    """
-    if player == "vlc" and _vlc_available():
-        _play_vlc(url, audio_only=audio_only)
-    elif _mpv_available():
-        _play_mpv(url, audio_only=audio_only, title=title, ytdl_format=ytdl_format,
-                  cookie_args=cookie_args)
-    else:
-        raise RuntimeError("No supported player found. Install mpv: brew install mpv")
-
-
-def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", title: str = "") -> None:
-    """Play a local file."""
-    play(path, audio_only=audio_only, player=player, title=title)
-
-
-# ── mpv ───────────────────────────────────────────────────────────────────────
-
-def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "",
-              cookie_args: list[str] | None = None) -> None:
-    input_conf = _write_input_conf()
-    try:
-        cmd = [
-            "mpv",
-            f"--input-conf={input_conf}",
-            f"--input-ipc-server={IPC_SOCKET}",
-        ]
-
-        if audio_only:
-            cmd += [
-                "--no-video",
-                "--term-osd-bar",
-                "--term-osd-bar-chars=[=  ]",
-                "--term-playing-msg="
-                    "\\n  \033[1m${media-title}\033[0m"
-                    "\\n  \033[36m${time-pos} / ${duration}\033[0m"
-                    "  [\033[33m${percent-pos}%\033[0m]"
-                    "  \033[90mh/l ±5s  H/L ±10s  0-9 jump%  q quit\033[0m\\n",
-            ]
-        # Video mode: mpv opens its own window. Silence terminal output so
-        # nothing bleeds into the Textual TUI running in the background.
-        if not audio_only:
-            cmd += ["--really-quiet", "--no-terminal"]
-
-        if title:
-            cmd += [f"--title={title}"]
-
-        if ytdl_format:
-            cmd += [f"--ytdl-format={ytdl_format}"]
-
-        ytdl_raw = _cookie_args_to_ytdl_raw(cookie_args or [])
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-
-        cmd += ["--", url]
-
-        logger.debug("mpv cmd: %s", " ".join(cmd))
-        result = subprocess.run(cmd)
-        if result.returncode not in (0, 4):  # 4 = quit by user
-            logger.warning("mpv exited with code %d", result.returncode)
-    finally:
+    def _send(self, command: list) -> dict | None:
+        """Send a JSON command over the IPC socket.  Thread-safe."""
+        if not self._sock_path.exists():
+            return None
         try:
-            os.unlink(input_conf)
-        except OSError:
-            pass
-        try:
-            os.unlink(IPC_SOCKET)
-        except OSError:
-            pass
+            with self._cmd_lock:
+                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                sock.settimeout(1.0)
+                sock.connect(str(self._sock_path))
+                msg = json.dumps({"command": command}) + "\n"
+                sock.sendall(msg.encode())
+                resp = b""
+                while True:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    resp += chunk
+                    if b"\n" in resp:
+                        break
+                sock.close()
+            return json.loads(resp.split(b"\n")[0])
+        except Exception as exc:
+            logger.debug("IPC send failed: %s", exc)
+            return None
+
+    def pause_toggle(self) -> None:
+        self._send(["cycle", "pause"])
+
+    def seek(self, secs: float) -> None:
+        self._send(["seek", secs, "relative"])
+
+    def seek_percent(self, pct: float) -> None:
+        self._send(["seek", pct, "absolute-percent"])
+
+    def set_volume(self, vol: int) -> None:
+        vol = max(0, min(200, vol))
+        self._send(["set_property", "volume", vol])
+
+    def volume_up(self, step: int = 5) -> None:
+        with self._state_lock:
+            current = self._state.volume
+        self.set_volume(current + step)
+
+    def volume_down(self, step: int = 5) -> None:
+        with self._state_lock:
+            current = self._state.volume
+        self.set_volume(max(0, current - step))
+
+    def stop(self) -> None:
+        """Stop playback and clean up."""
+        if self._proc is not None:
+            self._reader_stop.set()
+            self._send(["quit"])
+            try:
+                self._proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+            self._proc = None
+        with self._state_lock:
+            self._state.idle = True
+            self._state.mode = None
 
 
-# ── VLC ───────────────────────────────────────────────────────────────────────
+# Module-level singleton — created once, reused across audio/video plays
+_session: PlayerSession | None = None
 
-def _play_vlc(url: str, *, audio_only: bool = False) -> None:
-    cmd = [_vlc_path()]
-    if audio_only:
-        cmd += ["--no-video"]
-    cmd += [url]
-    logger.debug("vlc cmd: %s", " ".join(cmd))
-    subprocess.run(cmd)
+
+def get_session() -> PlayerSession:
+    global _session
+    if _session is None:
+        _session = PlayerSession()
+    return _session
