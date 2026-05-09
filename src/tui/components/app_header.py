@@ -53,6 +53,9 @@ class AppHeader(Widget):
     def on_mount(self) -> None:
         self.set_interval(1.0, self.refresh)
 
+    def set_loading(self, loading: bool) -> None:
+        self.loading = loading
+
     def set_theme(self, theme: str) -> None:
         self._theme = theme
         self._theme_color = THEME_COLORS.get(theme, "#ff4444")

@@ -138,8 +138,8 @@ class SettingsModal(ModalScreen[None]):
                     classes="settings-input",
                 )
 
-            # --- Cookies ---
-            yield Static("Cookies", classes="settings-section")
+            # --- Authentication ---
+            yield Static("Authentication", classes="settings-section")
             with Static(classes="settings-row"):
                 yield Label("Default browser:", classes="settings-label")
                 yield Select(
@@ -147,6 +147,30 @@ class SettingsModal(ModalScreen[None]):
                     value=cfg.get("browser", "chrome"),
                     id="set-browser",
                     classes="settings-input",
+                )
+
+            # --- Advanced ---
+            yield Static("Advanced", classes="settings-section")
+            with Static(classes="settings-row"):
+                yield Label("Page size:", classes="settings-label")
+                yield Input(
+                    value=str(cfg.get("page_size", 20)),
+                    id="set-page-size",
+                    classes="settings-input",
+                )
+            with Static(classes="settings-row"):
+                yield Label("Cache TTL (home, sec):", classes="settings-label")
+                yield Input(
+                    value=str(cfg.cache_ttl.get("home", 3600)),
+                    id="set-cache-ttl",
+                    classes="settings-input",
+                )
+            with Static(classes="settings-row"):
+                yield Label("Debug mode:", classes="settings-label")
+                yield Checkbox(
+                    "",
+                    value=bool(cfg.get("debug", False)),
+                    id="set-debug",
                 )
 
             yield Button("Save & Close", variant="primary", id="settings-close")
@@ -215,5 +239,26 @@ class SettingsModal(ModalScreen[None]):
 
         browser = _get_select("set-browser", cfg.get("browser", "chrome"))
         cfg.set("browser", browser)
+
+        page_size_raw = _get_input("set-page-size", str(cfg.get("page_size", 20)))
+        try:
+            ps = int(page_size_raw)
+            if 5 <= ps <= 100:
+                cfg.set("page_size", ps)
+        except ValueError:
+            pass
+
+        cache_ttl_raw = _get_input("set-cache-ttl", str(cfg.cache_ttl.get("home", 3600)))
+        try:
+            ttl_val = int(cache_ttl_raw)
+            if ttl_val >= 60:
+                ttls = cfg.cache_ttl
+                ttls["home"] = ttl_val
+                ttls["subscriptions"] = ttl_val
+                cfg.set("cache_ttl", ttls)
+        except ValueError:
+            pass
+
+        cfg.set("debug", _get_checkbox("set-debug"))
 
         cfg.save()

@@ -94,3 +94,25 @@ yt-dlp's YouTube home feed can return hundreds of entries. At 100 entries the bu
 
 ### R key behaviour
 `action_refresh` now clears both the feed index cache AND the stash file, then calls `_load_view`. This gives a completely fresh experience identical to a cold first boot.
+
+## v2 — Why video playback uses a separate mpv window (not app.suspend)
+
+In v1, `app.suspend()` yielded the entire terminal to mpv. This broke TUI state, made playback controls impossible from the TUI, and required platform-specific hacks. In v2, video playback opens mpv as a separate window (`subprocess.Popen` without `--no-video`), controlled over the same IPC socket as audio. The TUI stays fully live — the MiniPlayer shows progress, volume, and SponsorBlock skips for both audio and video simultaneously. The only difference between modes is that video also has a visible mpv window.
+
+## v2 — Format negotiation memory
+
+`cache.py` stores the last quality format string chosen for each `(video_id, mode)` pair at `~/.cache/termtube/quality/{id}_{mode}.txt`. On next play of the same video, the saved format is used instead of the default. The `W` and `L` bindings always force the quality picker, and a successful picker choice updates the stored format. This avoids repeated picker interactions for videos the user watches regularly.
+
+## v2 — Playback queue
+
+MainScreen owns a `_queue: list[dict]` of entries. `e` enqueues the focused entry while something is playing. `>` skips to the next queued item. When a track ends naturally (`_on_player_end`), the queue auto-advances. `s` (stop) clears the queue. The MiniPlayer shows queue length. The queue is in-memory only and not persisted.
+
+## v2 — NotificationBar persistent vs ephemeral
+
+The `NotificationBar` widget supports two modes:
+- **Ephemeral** (info/success/skip): auto-dismiss after 3s (configurable).
+- **Persistent** (error): stays visible until Esc is pressed. Pressing E while a persistent error is shown posts an `OpenErrorRequested` message, which the screen handles by opening the ErrorModal with full details.
+
+## v2 — Local channel subscriptions
+
+Channel subscriptions are stored locally in `~/.config/TermTube/subscriptions.json` as a flat list of `{url, name}` objects. The `f` key in ChannelScreen toggles subscription. This is a local-only feature — it does not interact with YouTube's subscription system.

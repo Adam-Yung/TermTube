@@ -61,15 +61,25 @@ class MainScreen(Screen):
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("?", "help", "Help"),
-        Binding("s", "settings", "Settings"),
-        Binding("K", "cookies", "Cookies"),
+        Binding("comma", "settings", "Settings"),
         Binding("/", "search", "Search"),
         Binding("r", "refresh", "Refresh"),
-        Binding("1", "tab_home", "Home", show=False),
-        Binding("2", "tab_subs", "Subscriptions", show=False),
-        Binding("3", "tab_search", "Search", show=False),
-        Binding("4", "tab_library", "Library", show=False),
-        Binding("5", "tab_history", "History", show=False),
+        Binding("R", "hard_refresh", "Hard refresh", show=False),
+        Binding("f1", "tab_home", "Home", show=False),
+        Binding("f2", "tab_subs", "Subscriptions", show=False),
+        Binding("f3", "tab_search", "Search", show=False),
+        Binding("f4", "tab_library", "Library", show=False),
+        Binding("f5", "tab_history", "History", show=False),
+        Binding("0", "seek_pct_0", show=False),
+        Binding("1", "seek_pct_10", show=False),
+        Binding("2", "seek_pct_20", show=False),
+        Binding("3", "seek_pct_30", show=False),
+        Binding("4", "seek_pct_40", show=False),
+        Binding("5", "seek_pct_50", show=False),
+        Binding("6", "seek_pct_60", show=False),
+        Binding("7", "seek_pct_70", show=False),
+        Binding("8", "seek_pct_80", show=False),
+        Binding("9", "seek_pct_90", show=False),
         Binding("enter", "action_menu", "Actions"),
         Binding("l", "play_or_seek_fwd", "Listen / +5s"),
         Binding("w", "play_video", "Watch"),
@@ -77,22 +87,28 @@ class MainScreen(Screen):
         Binding("a", "download_audio", "Download audio", show=False),
         Binding("p", "add_playlist", "Playlist", show=False),
         Binding("x", "hide_video", "Hide", show=False),
-        Binding("c", "copy_url", "Copy URL", show=False),
-        Binding("o", "open_browser", "Browser", show=False),
-        Binding("C", "go_channel", "Channel", show=False),
+        Binding("y", "copy_url", "Copy URL", show=False),
+        Binding("b", "open_browser", "Browser", show=False),
+        Binding("c", "go_channel", "Channel", show=False),
+        Binding("e", "enqueue", "Enqueue", show=False),
+        Binding("greater_than", "skip_next", "Next in queue", show=False),
         Binding("space", "pause_toggle", "Pause", show=False),
         Binding("h", "seek_back_small", "−5s", show=False),
         Binding("H", "seek_back_large", "−30s", show=False),
         Binding("L", "seek_fwd_large", "+30s", show=False),
+        Binding("W", "play_video_quality", "Watch (quality)", show=False),
         Binding("[", "vol_down", "Vol−", show=False),
         Binding("]", "vol_up", "Vol+", show=False),
-        Binding("S", "stop_playback", "Stop", show=False),
+        Binding("s", "stop_playback", "Stop", show=False),
         Binding("m", "add_bookmark", "Bookmark", show=False),
         Binding("B", "jump_bookmark", "Jump to bookmark", show=False),
+        Binding("J", "page_next", "Next page", show=False),
+        Binding("K", "page_prev", "Prev page", show=False),
         Binding("g", "cursor_top", "Top", show=False),
         Binding("G", "cursor_bottom", "Bottom", show=False),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
+        Binding("ctrl+d", "toggle_debug", "Debug", show=False),
     ]
 
     DEFAULT_CSS = """
@@ -130,6 +146,7 @@ class MainScreen(Screen):
         self._player = get_session()
         self._now_playing_id: str | None = None
         self._now_playing_mode: str = ""
+        self._queue: list[dict] = []  # entries awaiting playback
 
     # ------------------------------------------------------------------
     # Compose
@@ -157,6 +174,31 @@ class MainScreen(Screen):
         vl.set_dirs(self._config.video_dir, self._config.audio_dir)
         self._register_player_callbacks()
         self._load_tab(TAB_HOME)
+        self._check_cookies()
+
+    @work(thread=True, group="cookies")
+    def _check_cookies(self) -> None:
+        """Check cookie freshness on mount and update the AppHeader dot."""
+        from cookies import CookieManager
+        mgr = CookieManager(self._config)
+        status = mgr.status()
+        self.app.call_from_thread(
+            self._set_cookie_status, status
+        )
+        if status in ("stale", "missing"):
+            browser = self._config.get("browser", "")
+            if browser:
+                ok = mgr.auto_refresh(browser)
+                new_status = "ok" if ok else status
+                self.app.call_from_thread(
+                    self._set_cookie_status, new_status
+                )
+
+    def _set_cookie_status(self, status: str) -> None:
+        try:
+            self.query_one("#app-header", AppHeader).cookie_status = status
+        except Exception:
+            pass
 
 
     # ------------------------------------------------------------------
@@ -413,11 +455,23 @@ class MainScreen(Screen):
             )
 
     def _on_player_end(self, returncode: int) -> None:
+        last_mode = self._now_playing_mode
         self._now_playing_id = None
         self._now_playing_mode = ""
-        self.app.call_from_thread(
-            self.query_one("#mini-player", MiniPlayer).set_idle
-        )
+        if self._queue:
+            next_entry = self._queue.pop(0)
+            self.app.call_from_thread(
+                self.query_one("#mini-player", MiniPlayer).update_queue,
+                len(self._queue),
+            )
+            if last_mode == "VIDEO":
+                self.app.call_from_thread(self._start_video, next_entry)
+            else:
+                self.app.call_from_thread(self._start_audio, next_entry)
+        else:
+            self.app.call_from_thread(
+                self.query_one("#mini-player", MiniPlayer).set_idle
+            )
 
     def _on_player_error(self, message: str) -> None:
         self._now_playing_id = None
@@ -425,7 +479,9 @@ class MainScreen(Screen):
         self.app.call_from_thread(
             self.query_one("#mini-player", MiniPlayer).set_idle
         )
-        self.app.call_from_thread(self._show_error, "Playback error", message)
+        self.app.call_from_thread(
+            self._notify_error, "Playback error", message
+        )
 
     def _on_sponsorblock_skip(self, segment: dict) -> None:
         """Called from sb-skip thread when a segment is auto-skipped."""
@@ -436,11 +492,20 @@ class MainScreen(Screen):
         )
 
     @work(thread=True, group="audio")
-    def _start_audio(self, entry: dict) -> None:
+    def _start_audio(self, entry: dict, *, force_format: str | None = None) -> None:
         vid = entry.get("id", "")
         title = entry.get("title", "")
         channel = entry.get("channel") or entry.get("uploader", "")
         url = f"https://www.youtube.com/watch?v={vid}"
+
+        # Format negotiation memory
+        ytdl_format = force_format
+        if not ytdl_format and vid:
+            ytdl_format = _cache.get_last_quality(vid, "audio")
+        if not ytdl_format:
+            ytdl_format = self._config.preferred_audio_quality
+        if vid and ytdl_format != self._config.preferred_audio_quality:
+            _cache.set_last_quality(vid, "audio", ytdl_format)
 
         segments: list[dict] = []
         bookmarks: list[float] = []
@@ -459,7 +524,6 @@ class MainScreen(Screen):
         self._now_playing_id = vid
         self._now_playing_mode = "AUDIO"
 
-        # Load segments into PlayerSession BEFORE play_audio blocks
         self._player.set_segments(
             segments,
             enabled=self._config.sponsorblock_enabled and bool(segments),
@@ -481,24 +545,66 @@ class MainScreen(Screen):
             url,
             title=title,
             cookie_args=self._config.cookie_args,
-            ytdl_format=self._config.preferred_audio_quality,
+            ytdl_format=ytdl_format,
         )
 
-    def _start_video(self, entry: dict) -> None:
-        """Launch video in suspended mpv window."""
+    @work(thread=True, group="video")
+    def _start_video(self, entry: dict, *, force_format: str | None = None) -> None:
+        """Launch video in a separate mpv window — TUI stays fully live."""
         vid = entry.get("id", "")
         title = entry.get("title", "")
+        channel = entry.get("channel") or entry.get("uploader", "")
         url = f"https://www.youtube.com/watch?v={vid}"
+
+        # Format negotiation memory
+        ytdl_format = force_format
+        if not ytdl_format and vid:
+            ytdl_format = _cache.get_last_quality(vid, "video")
+        if not ytdl_format:
+            ytdl_format = self._config.preferred_quality
+        if vid and ytdl_format != self._config.preferred_quality:
+            _cache.set_last_quality(vid, "video", ytdl_format)
+
+        segments: list[dict] = []
+        bookmarks: list[float] = []
+        if self._config.sponsorblock_enabled:
+            try:
+                segs = _sb.fetch_segments(vid, self._config.sponsorblock_categories, self._config.ttl("sponsorblock"))
+                segments = list(segs)
+            except Exception:
+                pass
+        try:
+            bms = _history.get_bookmarks(vid)
+            bookmarks = [b["position"] for b in bms]
+        except Exception:
+            pass
+
+        self._now_playing_id = vid
+        self._now_playing_mode = "VIDEO"
+
+        self._player.set_segments(
+            segments,
+            enabled=self._config.sponsorblock_enabled and bool(segments),
+        )
+
+        self.app.call_from_thread(
+            self.query_one("#mini-player", MiniPlayer).set_playing,
+            mode="VIDEO",
+            title=title,
+            channel=channel,
+            volume=self._player.state.volume,
+            segments=segments,
+            bookmarks=bookmarks,
+        )
 
         _history.add(entry)
 
-        with self.app.suspend():
-            self._player.play_video(
-                url,
-                title=title,
-                cookie_args=self._config.cookie_args,
-                ytdl_format=self._config.preferred_quality,
-            )
+        self._player.play_video(
+            url,
+            title=title,
+            cookie_args=self._config.cookie_args,
+            ytdl_format=ytdl_format,
+        )
 
     # MiniPlayer events
     def on_mini_player_seek_requested(self, event: MiniPlayer.SeekRequested) -> None:
@@ -592,8 +698,19 @@ class MainScreen(Screen):
         self.app.push_screen(SearchModal(recent), on_result)
 
     def action_refresh(self) -> None:
+        """r: Refresh current feed (re-fetch current page, uses cache for speed)."""
         tab = self._active_tab
-        _cache.invalidate_feed(self._feed_source_for_tab(tab))
+        page = self._current_page.get(tab, 1)
+        self._fetch_feed(tab, page)
+
+    def action_hard_refresh(self) -> None:
+        """R: Hard refresh — clear page cache, stash, and re-fetch from scratch."""
+        tab = self._active_tab
+        source = self._feed_source_for_tab(tab)
+        _cache.invalidate_feed(source)
+        _cache.clear_stash(source)
+        self._current_page[tab] = 1
+        self._total_pages[tab] = 1
         self._fetch_feed(tab, 1)
 
     def action_tab_home(self) -> None:
@@ -662,10 +779,43 @@ class MainScreen(Screen):
             if entry:
                 self._start_audio(entry)
 
+    def action_seek_fwd_large(self) -> None:
+        """L key: seek +30s while playing, otherwise start audio with quality picker."""
+        if self._player.is_playing:
+            self._player.seek(30)
+        else:
+            entry = self._get_focused_entry()
+            if not entry:
+                return
+            from tui.modals.quality_modal import QualityModal
+
+            def on_quality(result: tuple[str, str] | None) -> None:
+                fmt = result[1] if result else None
+                if fmt and entry.get("id"):
+                    _cache.set_last_quality(entry["id"], "audio", fmt)
+                self._start_audio(entry, force_format=fmt)
+
+            self.app.push_screen(QualityModal("audio"), on_quality)
+
     def action_play_video(self) -> None:
         entry = self._get_focused_entry()
         if entry:
             self._start_video(entry)
+
+    def action_play_video_quality(self) -> None:
+        """W key: always show the quality picker for video."""
+        entry = self._get_focused_entry()
+        if not entry:
+            return
+        from tui.modals.quality_modal import QualityModal
+
+        def on_quality(result: tuple[str, str] | None) -> None:
+            fmt = result[1] if result else None
+            if fmt and entry.get("id"):
+                _cache.set_last_quality(entry["id"], "video", fmt)
+            self._start_video(entry, force_format=fmt)
+
+        self.app.push_screen(QualityModal("video"), on_quality)
 
     def action_download_video(self) -> None:
         entry = self._get_focused_entry()
@@ -759,10 +909,6 @@ class MainScreen(Screen):
         if self._player.is_playing:
             self._player.seek(-30)
 
-    def action_seek_fwd_large(self) -> None:
-        if self._player.is_playing:
-            self._player.seek(30)
-
     def action_vol_down(self) -> None:
         if self._player.is_playing:
             self._player.volume_down(self._config.volume_step)
@@ -771,9 +917,71 @@ class MainScreen(Screen):
         if self._player.is_playing:
             self._player.volume_up(self._config.volume_step)
 
+    def _seek_pct(self, pct: int) -> None:
+        if self._player.is_playing:
+            self._player.seek_percent(pct)
+
+    def action_seek_pct_0(self) -> None:
+        self._seek_pct(0)
+
+    def action_seek_pct_10(self) -> None:
+        self._seek_pct(10)
+
+    def action_seek_pct_20(self) -> None:
+        self._seek_pct(20)
+
+    def action_seek_pct_30(self) -> None:
+        self._seek_pct(30)
+
+    def action_seek_pct_40(self) -> None:
+        self._seek_pct(40)
+
+    def action_seek_pct_50(self) -> None:
+        self._seek_pct(50)
+
+    def action_seek_pct_60(self) -> None:
+        self._seek_pct(60)
+
+    def action_seek_pct_70(self) -> None:
+        self._seek_pct(70)
+
+    def action_seek_pct_80(self) -> None:
+        self._seek_pct(80)
+
+    def action_seek_pct_90(self) -> None:
+        self._seek_pct(90)
+
     def action_stop_playback(self) -> None:
         self._player.stop()
+        self._queue.clear()
         self.query_one("#mini-player", MiniPlayer).set_idle()
+
+    def action_enqueue(self) -> None:
+        """Add focused entry to the playback queue."""
+        if not self._player.is_playing:
+            return
+        entry = self._get_focused_entry()
+        if not entry:
+            return
+        # Don't enqueue the currently playing video
+        if entry.get("id") == self._now_playing_id:
+            return
+        self._queue.append(entry)
+        self.query_one("#mini-player", MiniPlayer).update_queue(len(self._queue))
+        title = entry.get("title", "?")
+        self._notify(f"Queued: {title[:40]}")
+
+    def action_skip_next(self) -> None:
+        """Skip to the next entry in the queue."""
+        if not self._queue:
+            self._notify("Queue is empty", "warning")
+            return
+        next_entry = self._queue.pop(0)
+        self.query_one("#mini-player", MiniPlayer).update_queue(len(self._queue))
+        if self._now_playing_mode == "VIDEO":
+            self._start_video(next_entry)
+        else:
+            self._start_audio(next_entry)
 
     def action_add_bookmark(self) -> None:
         if not self._now_playing_id or not self._player.is_playing:
@@ -820,6 +1028,29 @@ class MainScreen(Screen):
     def action_cursor_up(self) -> None:
         self.query_one("#video-list", VideoListPanel).cursor_up()
 
+    def action_page_next(self) -> None:
+        """J: Next page."""
+        tab = self._active_tab
+        page = self._current_page.get(tab, 1) + 1
+        total = self._total_pages.get(tab, 1)
+        if page <= total:
+            self._fetch_feed(tab, page)
+
+    def action_page_prev(self) -> None:
+        """K: Previous page."""
+        tab = self._active_tab
+        page = self._current_page.get(tab, 1) - 1
+        if page >= 1:
+            self._fetch_feed(tab, page)
+
+    def action_toggle_debug(self) -> None:
+        """Ctrl+D: Toggle debug log panel."""
+        try:
+            import logger as _logger
+            _logger.toggle_debug()
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -835,10 +1066,20 @@ class MainScreen(Screen):
         from tui.modals.error_modal import ErrorModal
         self.app.push_screen(ErrorModal(title, message))
 
+    def on_notification_bar_open_error_requested(self, event: NotificationBar.OpenErrorRequested) -> None:
+        self._show_error(event.title, event.detail)
+
     def _notify(self, text: str, kind: str = "info") -> None:
         """Show an ephemeral notification in the NotificationBar."""
         try:
             self.query_one("#notify-bar", NotificationBar).show(text, kind=kind)
+        except Exception:
+            pass
+
+    def _notify_error(self, text: str, detail: str = "") -> None:
+        """Show a persistent error notification."""
+        try:
+            self.query_one("#notify-bar", NotificationBar).show_error(text, detail)
         except Exception:
             pass
 

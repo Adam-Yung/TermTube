@@ -67,6 +67,17 @@ def is_debug() -> bool:
     return _debug_enabled
 
 
+def toggle_debug() -> None:
+    """Toggle debug mode on/off at runtime."""
+    global _debug_enabled
+    if _debug_enabled:
+        _debug_enabled = False
+        _logger.setLevel(logging.CRITICAL + 1)
+        _logger.handlers.clear()
+    else:
+        setup(debug=True)
+
+
 def log_file() -> Path | None:
     return _log_file
 
