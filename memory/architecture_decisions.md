@@ -72,25 +72,22 @@ Textual owns stdout/stderr while the app is running; any stray write corrupts th
 ## Why a custom `_TUIHandler` instead of routing logs through `MainScreen._log`
 A logging handler is the natural seam for "send every log record somewhere additional." It works for any module that imports `logger` (cache, ytdlp, player, widgets) without requiring those modules to know about Textual. The handler invokes a registered callback (`register_tui_sink`); the callback is responsible for marshalling to the UI thread (`app.call_from_thread`). The `_termtube_skip_tui` record attribute (set by `logger.file_only`) lets `MainScreen._log` write rich-markup directly to the RichLog and still persist a plain version to the file *without* duplicating the line in the TUI.
 
-## Home feed 3-state boot model (May 2026)
+## Home feed 3-state boot model (May 2026) — SUPERSEDED
 
-Replaces all prior incremental-append attempts. The home/subscriptions feed now has three clean states:
+**Superseded by the Paged System (May 2026).** See below.
 
-1. **Quick-start stash**: Up to 12 full entry dicts from the previous session, written to `~/.cache/termtube/feed_home_stash.json` on tab-switch-away or quit. Loaded and revealed instantly on next boot before the spinner appears.
-2. **Background fetch**: `stream_flat(max_count=100)` fetches up to 100 entries from yt-dlp (or disk cache). Each entry is appended via `panel.append_entry()` as it arrives — no `clear_and_set_loading()`, no DOM wipe. Spinner on during this phase.
-3. **Lazy reveal**: Buffer holds all fetched entries. As the user scrolls near the bottom, `_reveal_next_batch()` reveals the next 20 from the in-memory buffer — instant, zero network.
+The old 3-state model (stash → background append → lazy reveal) has been replaced by:
+1. **Stash = first unseen page**: On exit, the first page the user hasn't navigated to is saved (backfilled to exactly 20 entries). On next boot, this becomes page 1 — always fresh content.
+2. **Batch fetch**: A single yt-dlp call fetches 80 entries (4 pages), split into pages of 20 in memory.
+3. **Fixed pages**: No infinite scroll. The user navigates with `]`/`[` keys. Page N+1 must be ready before `]` is allowed (no-op otherwise).
 
-### Fix for spurious TabActivated / j-opens-search bug
-Two compounding bugs caused `j` (cursor down) to sometimes wipe the list and open the search modal:
-- `ListView.append()` mutates the DOM, which can shift Textual focus to the Tabs widget, firing `on_tabs_tab_activated`, which called `_load_view` and wiped the list.
-- With Tabs focused, `j` fell through to Tabs' search-to-navigate input.
+## Paged System Architecture (May 2026)
 
-Fixed with two guards:
-1. `VideoListPanel._reveal_entry()` calls `self._lv.focus()` **before** every `self._lv.append()` call, so focus is anchored throughout the DOM mutation.
-2. `MainScreen.on_tabs_tab_activated()` discards the event silently if `tab_id == self._current_tab and self._home_loading` (i.e., the tab didn't actually change — it's a false positive from DOM mutation focus drift).
-
-### Why max_count=100 instead of unlimited
-yt-dlp's YouTube home feed can return hundreds of entries. At 100 entries the buffer is large enough that real users will almost never exhaust it in one session, while keeping yt-dlp subprocess time bounded. The stash mechanism means the next boot is instant regardless.
-
-### R key behaviour
-`action_refresh` now clears both the feed index cache AND the stash file, then calls `_load_view`. This gives a completely fresh experience identical to a cold first boot.
+Key design decisions:
+- **20 entries per page, 80 entries per yt-dlp batch** — balances freshness with API efficiency.
+- **Strict 2-worker ceiling** — at most 1 feed fetch worker + 1 metadata worker. Feed fetch is exclusive (never stacked). Metadata worker uses cancel-before-start (session counter + proc.terminate()).
+- **`]` key is a no-op when next page isn't ready** — prevents rapid presses from bogging the system. The page indicator shows "loading next…" as visual feedback.
+- **100ms focus debounce** — reduced from 200ms for snappier metadata. No neighbour prefetch (removed to honour the 2-worker limit).
+- **Stash backfill guarantee** — if fewer than 20 unseen entries exist at exit, backfill from earlier pages so the user always sees a full first page on boot.
+- **Active workers reference counter** — `_active_workers: int` incremented/decremented around workers. Spinner shows when > 0, hides when == 0. Honest to the user.
+- **Search is paged too** — up to 50 results split into pages of 20. Same `[`/`]` navigation.
