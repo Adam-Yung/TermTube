@@ -521,7 +521,7 @@ class MainScreen(Screen):
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _fetch_more_pages(self) -> None:
-        """Fetch the next batch of pages when user reaches the last page."""
+        """Fetch the next batch of pages when user navigates to a non-existent page."""
         import src.ytdlp as ytdlp
 
         panel = self.query_one("#video-list-panel", VideoListPanel)
@@ -573,6 +573,57 @@ class MainScreen(Screen):
         except Exception as exc:
             _logger.debug("fetch_more_pages error: %s", exc)
             self.app.call_from_thread(panel.finish_loading)
+        finally:
+            self._worker_end()
+
+    @work(thread=True, exclusive=True, group="feed_loader")
+    def _prefetch_more_pages(self) -> None:
+        """Proactively fetch next batch when user lands on the last page."""
+        import src.ytdlp as ytdlp
+
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        config = self.app.config
+        cache = self.app.cache
+
+        tab = self._current_tab
+        if tab not in _PAGED_TABS:
+            return
+
+        self._worker_start()
+        try:
+            skip_ids = set(panel._seen_ids)
+            start_page = panel.total_pages + 1
+
+            if tab in _FEED_TABS:
+                url = ytdlp.FEED_URLS[tab]
+                entries = ytdlp.fetch_page_batch(
+                    url, config, cache,
+                    skip_ids=skip_ids,
+                    count=_BATCH_FETCH_COUNT,
+                    feed_key=None,
+                )
+                if tab == "home":
+                    is_suppressed = cache.is_suppressed
+                    entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
+            elif tab == "search" and self._search_query:
+                entries = ytdlp.fetch_search_batch(
+                    self._search_query, config, cache,
+                    skip_ids=skip_ids,
+                    count=50,
+                )
+            else:
+                return
+
+            if not entries:
+                return
+
+            for i in range(0, len(entries), _PAGE_SIZE):
+                page_num = start_page + (i // _PAGE_SIZE)
+                page_entries = entries[i:i + _PAGE_SIZE]
+                self.app.call_from_thread(panel.add_page, page_num, page_entries)
+
+        except Exception as exc:
+            _logger.debug("prefetch_more_pages error: %s", exc)
         finally:
             self._worker_end()
 
@@ -1488,6 +1539,9 @@ class MainScreen(Screen):
         if panel.can_go_next():
             panel.load_page(panel.current_page + 1)
             self._on_page_loaded(panel)
+            # Proactive: if we just landed on the last page, start fetching more
+            if not panel.can_go_next() and self._current_tab in _PAGED_TABS:
+                self._prefetch_more_pages()
         elif self._current_tab in _PAGED_TABS:
             self._fetch_more_pages()
 
