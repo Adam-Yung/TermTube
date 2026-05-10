@@ -725,7 +725,21 @@ def fetch_channel_playlists(
 ) -> list[dict]:
     """Fetch playlist entries from a channel."""
     url = channel_url.rstrip("/") + "/playlists"
-    return fetch_page_batch(url, config, cache, count=count, on_proc_started=on_proc_started)
+    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    results: list[dict] = []
+    for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug(), on_proc_started=on_proc_started):
+        if len(results) >= count:
+            break
+        etype = entry.get("_type", "")
+        if etype not in ("playlist", "url") and not entry.get("id"):
+            continue
+        _normalise_entry(entry)
+        pid = entry.get("id", "")
+        if pid:
+            entry.setdefault("_is_playlist", True)
+            entry.setdefault("_playlist_name", entry.get("title", pid))
+        results.append(entry)
+    return results
 
 
 def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> list[dict]:

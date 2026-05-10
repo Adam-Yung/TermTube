@@ -11,6 +11,7 @@ from textual.widgets import Footer, Static, Tab, Tabs
 
 from src import logger as _logger
 from src.tui.widgets.video_list import VideoListPanel
+from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 _PAGE_SIZE = 20
 
@@ -25,6 +26,7 @@ def _fmt_subs(n) -> str:
 
 class ChannelInfoPanel(Vertical):
     def compose(self) -> ComposeResult:
+        yield ThumbnailWidget(id="ch-thumbnail")
         yield Static("", id="ch-name", markup=True)
         yield Static("", id="ch-subs", markup=True)
         yield Static("", id="ch-url", markup=True)
@@ -35,6 +37,15 @@ class ChannelInfoPanel(Vertical):
 
     def show_loading(self) -> None:
         self.query_one("#ch-name", Static).update("Loading...")
+        self.query_one("#ch-thumbnail", ThumbnailWidget).set_loading()
+
+    def set_thumbnail_image(self, ch_id: str, path) -> None:
+        tw = self.query_one("#ch-thumbnail", ThumbnailWidget)
+        tw.set_image_path(ch_id, path)
+
+    def set_thumbnail_ansi(self, ch_id: str, ansi: str) -> None:
+        tw = self.query_one("#ch-thumbnail", ThumbnailWidget)
+        tw.set_ansi(ch_id, ansi)
 
     def update_info(self, info: dict) -> None:
         name = info.get("channel", "") or info.get("uploader", "")
@@ -74,7 +85,7 @@ class ChannelScreen(Screen):
         Binding("right_square_bracket", "page_next", show=False),
         Binding("g", "page_first", show=False),
         Binding("G", "page_last", show=False),
-        Binding("s", "toggle_sort", "Sort", show=False),
+        Binding("s", "toggle_sort", "Sort", show=True),
         Binding("r", "reload", "Reload", show=False),
     ]
 
@@ -88,6 +99,7 @@ class ChannelScreen(Screen):
         self._content_proc: subprocess.Popen | None = None
         self._active_workers: int = 0
         self._video_panel: VideoListPanel | None = None
+        self._thumb_session: int = 0
 
     def compose(self) -> ComposeResult:
         name = self._channel_name or "Channel"
@@ -176,6 +188,48 @@ class ChannelScreen(Screen):
             panel.update_sort_hint(self._sort, self._current_tab)
         except Exception:
             pass
+        thumb_url = info.get("thumbnail", "")
+        ch_id = "ch:" + (info.get("channel_id") or info.get("channel_url", ""))[:40]
+        if thumb_url and ch_id:
+            try:
+                tw = self.query_one("#ch-info-panel #ch-thumbnail", ThumbnailWidget)
+                tw.set_video_id(ch_id)
+                tw.set_loading()
+            except Exception:
+                pass
+            self._thumb_session += 1
+            self._fetch_channel_thumb(ch_id, thumb_url, self._thumb_session)
+
+    @work(thread=True, exclusive=True, group="ch_thumb")
+    def _fetch_channel_thumb(self, ch_id: str, url: str, session: int) -> None:
+        from src.ui import thumbnail as thumb_mod
+        from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+        if _HAS_TEXTUAL_IMAGE:
+            local = thumb_mod._thumb_path(ch_id)
+            if not local.exists():
+                local = thumb_mod.download(ch_id, url) or local
+            if session != self._thumb_session:
+                return
+            if local and local.exists():
+                try:
+                    from PIL import Image as _PILImage
+                    with _PILImage.open(local) as _img:
+                        _img.load()
+                except Exception:
+                    return
+                if session != self._thumb_session:
+                    return
+                self.app.call_from_thread(
+                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_image(ch_id, local)
+                )
+        else:
+            if session != self._thumb_session:
+                return
+            ansi = thumb_mod.render_url(url) or ""
+            if ansi and session == self._thumb_session:
+                self.app.call_from_thread(
+                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_ansi(ch_id, ansi)
+                )
 
     def _show_info_error(self) -> None:
         try:
