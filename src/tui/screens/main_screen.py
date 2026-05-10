@@ -16,7 +16,7 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.timer import Timer
 from textual.widget import Widget
-from textual.widgets import Footer, RichLog, Static, Tab, Tabs
+from textual.widgets import Footer, ListView, RichLog, Static, Tab, Tabs
 
 from src import logger as _logger
 from src.tui.widgets.action_bar import ActionBar
@@ -189,7 +189,7 @@ class MainScreen(Screen):
 
     def __init__(self) -> None:
         super().__init__()
-        self._current_tab = "home"
+        self._current_tab = ""
         self._search_query: str = ""
         self._nav_stack: list[str] = []
         self._log_visible = False
@@ -235,6 +235,11 @@ class MainScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#debug-log").display = False
+        # Prevent the Tabs widget from stealing focus during DOM mutations.
+        tabs = self.query_one("#nav-tabs", Tabs)
+        tabs.can_focus = False
+        for tab in tabs.query(Tab):
+            tab.can_focus = False
         if _logger.is_debug():
             _logger.register_tui_sink(self._on_log_record)
             _logger.info("MainScreen mounted; debug log wired to TUI sink")
@@ -258,6 +263,22 @@ class MainScreen(Screen):
 
         self.app.push_screen(ImageWarningModal(), _on_done)
 
+    # ── Focus guard ───────────────────────────────────────────────────────────
+
+    def on_key(self) -> None:
+        """Ensure focus stays on the video list during normal browsing.
+
+        Textual can drift focus to the Tabs widget when the ListView DOM is
+        mutated (clear/append). If focus has escaped to anything other than the
+        list, reclaim it so keystrokes work as expected.
+        """
+        focused = self.app.focused
+        if focused is None or not isinstance(focused, ListView):
+            try:
+                self.query_one("#video-list-panel", VideoListPanel)._lv.focus()
+            except Exception:
+                pass
+
     # ── Tab switching ─────────────────────────────────────────────────────────
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
@@ -266,10 +287,10 @@ class MainScreen(Screen):
         tab_id = event.tab.id
         # Guard: Textual fires spurious TabActivated events when ListView DOM
         # mutations (appending new items) shift focus to the Tabs widget.
-        # If the activated tab is already the current one AND a feed worker
-        # is running, this is a false positive — discard it silently instead
-        # of wiping and reloading the list.
-        if tab_id == self._current_tab and self._home_loading:
+        # If the activated tab is already the current one, this is always a
+        # false positive — discard it silently. Genuine tab switches always
+        # produce a different tab_id from the current one.
+        if tab_id == self._current_tab:
             return
         _logger.info("page switch → %s", tab_id)
         self._cancel_pending_focus_and_thumb()
@@ -400,19 +421,20 @@ class MainScreen(Screen):
 
         # Step 1 — stash (home only): show instantly as page 1
         stash_loaded = False
+        stash_ids: set[str] = set()
         if feed_key == "home":
             stash = cache.get_home_stash()
             if stash:
                 filtered = [e for e in stash if not is_suppressed(e.get("id", ""))]
                 if filtered:
+                    stash_ids = {e.get("id", "") for e in filtered if e.get("id")}
                     self.app.call_from_thread(panel.add_page, 1, filtered)
                     self.app.call_from_thread(panel.load_page, 1)
-                    self.app.call_from_thread(panel.set_prefetching, True)
                     stash_loaded = True
                     _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
 
-        # Step 2 — fresh fetch
-        skip_ids = set(panel._seen_ids) if stash_loaded else set()
+        # Step 2 — fresh fetch (skip stash IDs to avoid duplicates)
+        skip_ids = stash_ids if stash_loaded else set()
         entries = ytdlp.fetch_page_batch(
             ytdlp.FEED_URLS[feed_key],
             config,
@@ -426,7 +448,7 @@ class MainScreen(Screen):
         if feed_key == "home":
             entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
 
-        # Step 3 — split into pages
+        # Step 3 — split into pages (don't touch page 1 if stash is showing)
         start_page = 2 if stash_loaded else 1
         for i in range(0, len(entries), _PAGE_SIZE):
             page_num = start_page + (i // _PAGE_SIZE)
@@ -438,7 +460,6 @@ class MainScreen(Screen):
             self.app.call_from_thread(panel.load_page, 1)
 
         self.app.call_from_thread(panel.finish_loading)
-        self.app.call_from_thread(panel.set_prefetching, False)
 
         # Step 4 — schedule prefetch on the focus worker (keeps feed_loader clean)
         self.app.call_from_thread(self._schedule_prefetch)

@@ -274,7 +274,6 @@ class VideoListPanel(Widget):
             self._anim.display = False
             self._lv.display = True
 
-        self._lv.focus()
         for entry in entries:
             item = VideoListItem(entry)
             vid = entry.get("id", "")
@@ -284,7 +283,9 @@ class VideoListPanel(Widget):
 
         if entries:
             self._lv.index = 0
+            self.post_message(self.Selected(entries[0]))
 
+        self._lv.focus()
         self._render_header()
         self._update_page_indicator()
         return True
@@ -352,6 +353,7 @@ class VideoListPanel(Widget):
         if self._anim.display:
             self._anim.display = False
             self._lv.display = True
+            self._lv.focus()
 
         if not self._pages:
             self._header.update("[dim]No results[/dim]")
@@ -461,10 +463,12 @@ class VideoListPanel(Widget):
 
     def _update_page_indicator(self) -> None:
         try:
+            current = max(self._current_page, 1)
+            total = max(self.total_pages, current)
             next_ready = (self._current_page + 1) in self._pages
             self._page_indicator.update_state(
-                current=max(self._current_page, 1),
-                total=self.total_pages,
+                current=current,
+                total=total,
                 next_ready=next_ready,
                 prefetching=self._prefetching,
             )
