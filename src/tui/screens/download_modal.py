@@ -17,11 +17,12 @@ class DownloadModal(ModalScreen[bool]):
         Binding("escape", "cancel_download", "Cancel", show=True),
     ]
 
-    def __init__(self, video_id: str, entry: dict, audio_only: bool = False) -> None:
+    def __init__(self, video_id: str, entry: dict, audio_only: bool = False, fmt: str = "") -> None:
         super().__init__()
         self._video_id = video_id
         self._entry = entry
         self._audio_only = audio_only
+        self._fmt = fmt
         self._cancelled = False
 
     def compose(self) -> ComposeResult:
@@ -68,6 +69,7 @@ class DownloadModal(ModalScreen[bool]):
             success = ytdlp.download_video_with_progress(
                 self._video_id,
                 app.config,
+                quality_format=self._fmt,
                 on_progress=on_progress,
             )
 

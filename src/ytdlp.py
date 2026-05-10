@@ -642,3 +642,131 @@ def download_audio_with_progress(
     return _run_download_with_progress(cmd, on_progress)
 
 
+
+# -- Channel browsing --------------------------------------------------------
+
+def fetch_channel_info(
+    channel_url: str,
+    config,
+    cache: Cache,
+    *,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> dict | None:
+    """Fetch basic channel metadata (name, description, subscriber count)."""
+    cache_key = "ch:info:" + hashlib.md5(channel_url.encode()).hexdigest()[:12]
+    cached = cache.get_video(cache_key)
+    if cached:
+        return cached
+    cmd = [
+        "yt-dlp",
+        "--dump-single-json",
+        "--flat-playlist",
+        "--playlist-items", "0",
+        "--no-warnings",
+        *cookie_args(config),
+        channel_url,
+    ]
+    try:
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True,
+        )
+        with _active_procs_lock: _active_procs.add(proc)
+        if on_proc_started: on_proc_started(proc)
+        try:
+            stdout, _ = proc.communicate(timeout=30)
+        finally:
+            with _active_procs_lock: _active_procs.discard(proc)
+        if proc.returncode != 0 or not stdout.strip():
+            return None
+        data = json.loads(stdout)
+        info = {
+            "_cache_key": cache_key,
+            "channel_url": channel_url,
+            "channel": data.get("channel") or data.get("uploader") or data.get("title", ""),
+            "channel_id": data.get("channel_id") or data.get("uploader_id", ""),
+            "description": data.get("description", ""),
+            "subscriber_count": data.get("channel_follower_count"),
+            "thumbnail": data.get("thumbnail", ""),
+            "uploader_url": data.get("uploader_url", ""),
+        }
+        cache.put_video(info)
+        return info
+    except Exception as exc:
+        logger.debug("fetch_channel_info error: %s", exc)
+        return None
+
+
+def fetch_channel_videos(
+    channel_url: str,
+    config,
+    cache: Cache,
+    *,
+    sort: str = "date",
+    count: int = 80,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> list[dict]:
+    """Fetch video entries from a channel. sort: date | views."""
+    base_url = channel_url.rstrip("/")
+    if sort == "views":
+        url = base_url + "/videos?sort=p"
+    else:
+        url = base_url + "/videos"
+    return fetch_page_batch(url, config, cache, count=count, on_proc_started=on_proc_started)
+
+
+def fetch_channel_playlists(
+    channel_url: str,
+    config,
+    cache: Cache,
+    *,
+    count: int = 80,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> list[dict]:
+    """Fetch playlist entries from a channel."""
+    url = channel_url.rstrip("/") + "/playlists"
+    return fetch_page_batch(url, config, cache, count=count, on_proc_started=on_proc_started)
+
+
+def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> list[dict]:
+    """Fetch subscribed channels."""
+    url = "https://www.youtube.com/feed/channels"
+    cache_key = "subs:channels"
+    cached = cache.get_feed(cache_key)
+    if cached:
+        entries = [e for cid in cached for e in [cache.get_video_raw(cid)] if e]
+        if entries:
+            for e in entries: e["_is_channel"] = True
+            return entries
+    flat = "--flat-playlist"
+    cmd = ["yt-dlp", flat, "--dump-json", "--no-warnings", "--quiet", *cookie_args(config), url]
+    results: list[dict] = []
+    seen: list[str] = []
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        with _active_procs_lock: _active_procs.add(proc)
+        if on_proc_started: on_proc_started(proc)
+        try:
+            for raw_line in proc.stdout:
+                line = raw_line.strip()
+                if not line: continue
+                try:
+                    data = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                cid = data.get("id") or data.get("channel_id") or ""
+                if not cid: continue
+                name = data.get("title") or data.get("channel") or data.get("uploader") or cid
+                ch_url = data.get("url") or data.get("channel_url") or ""
+                subs = data.get("channel_follower_count")
+                vcnt = data.get("playlist_count")
+                entry = {"id": cid, "title": name, "channel": name, "channel_url": ch_url, "channel_id": cid, "uploader": name, "uploader_url": ch_url, "subscriber_count": subs, "video_count": vcnt, "thumbnail": data.get("thumbnail") or "", "description": data.get("description") or "", "_is_channel": True}
+                cache.put_video(entry)
+                results.append(entry)
+                seen.append(cid)
+        finally:
+            with _active_procs_lock: _active_procs.discard(proc)
+    except Exception as exc:
+        logger.debug("subs ch exc: %s", exc)
+    if seen: cache.put_feed(cache_key, seen)
+    return results

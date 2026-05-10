@@ -111,8 +111,9 @@ _AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
 _FOCUS_DWELL_S = 0.10
 _THUMB_DWELL_S = 0.15
 _FRESHNESS_REFRESH_S = 60.0
-_FEED_TABS = ("home", "subscriptions")
-_PAGED_TABS = ("home", "subscriptions", "search")
+_FEED_TABS = ("home",)
+_PAGED_TABS = ("home", "search")
+_CHANNEL_TABS = ("subscriptions",)
 _CHAFA_RAM_CACHE_MAX = 64
 
 
@@ -158,8 +159,8 @@ class MainScreen(Screen):
         Binding("8", "audio_pct_80", show=False),
         Binding("9", "audio_pct_90", show=False),
         # Download
-        Binding("d", "dl_video", "DL Video", show=False),
-        Binding("a", "dl_audio", "DL Audio", show=False),
+        Binding("d", "download", "Download", show=False),
+        Binding("c", "channel", "Channel", show=False),
         # Queue
         Binding("e", "queue_audio", "Queue", show=False),
         Binding(">", "audio_skip", "Skip", show=False),
@@ -362,6 +363,10 @@ class MainScreen(Screen):
         panel = self.query_one("#video-list-panel", VideoListPanel)
         panel.clear_and_set_loading()
         self.query_one("#detail-panel", DetailPanel).clear()
+        if view not in _CHANNEL_TABS:
+            try:
+                self.query_one("#detail-panel", DetailPanel).set_video_mode()
+            except Exception: pass
         # Track whether a feed loader is running so the TabActivated guard works.
         self._home_loading = (view in _FEED_TABS)
         self._stream_view(view)
@@ -379,6 +384,8 @@ class MainScreen(Screen):
         try:
             if view in _FEED_TABS:
                 self._load_feed_paged(view, panel, config, cache)
+            elif view in _CHANNEL_TABS:
+                self._load_subscriptions_channels(panel, config, cache)
             elif view == "search":
                 if not self._search_query:
                     self.app.call_from_thread(
@@ -473,6 +480,27 @@ class MainScreen(Screen):
             cache.prune_video_cache_fifo(100)
         except Exception:
             pass
+
+    def _load_subscriptions_channels(self, panel, config, cache) -> None:
+        import src.ytdlp as ytdlp
+        entries = ytdlp.fetch_subscribed_channels(config, cache)
+        if not entries:
+            self.app.call_from_thread(panel.set_empty_message, "No subscriptions found.")
+            return
+        self.app.call_from_thread(self._apply_channel_mode_to_detail)
+        for i in range(0, len(entries), _PAGE_SIZE):
+            page_num = 1 + int(i / _PAGE_SIZE)
+            page_entries = entries[i:i + _PAGE_SIZE]
+            self.app.call_from_thread(panel.add_page, page_num, page_entries)
+        self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(self._on_page_loaded, panel)
+        self.app.call_from_thread(panel.finish_loading)
+
+    def _apply_channel_mode_to_detail(self) -> None:
+        try:
+            dp = self.query_one("#detail-panel", DetailPanel)
+            dp.set_channel_mode()
+        except Exception: pass
 
     def _load_search_paged(self, panel, config, cache) -> None:
         """Paged search results loader."""
@@ -684,6 +712,12 @@ class MainScreen(Screen):
         entry = message.entry
         vid = entry.get("id", "")
         detail = self.query_one("#detail-panel", DetailPanel)
+        if entry.get("_is_channel"):
+            detail.update_channel_entry(entry)
+            self._cancel_pending_focus_and_thumb()
+            self._last_focus_id = vid
+            self._kick_channel_info(vid, entry)
+            return
         detail.update_basic(entry)
         self._cancel_pending_focus_and_thumb()
         self._last_focus_id = vid
@@ -777,6 +811,36 @@ class MainScreen(Screen):
         self._focus_session += 1
         session = self._focus_session
         self._focus_worker(vid, entry, session)
+
+    def _kick_channel_info(self, vid: str, entry: dict) -> None:
+        if not vid or not entry.get("_is_channel"):
+            return
+        if not entry.get("description"):
+            self._channel_info_worker(vid, entry)
+
+    @work(thread=True, exclusive=True, group="ch_focus")
+    def _channel_info_worker(self, vid: str, entry: dict) -> None:
+        import src.ytdlp as ytdlp
+        self._worker_start()
+        try:
+            url = entry.get("channel_url") or entry.get("uploader_url") or ""
+            if not url: return
+            info = ytdlp.fetch_channel_info(url, self.app.config, self.app.cache)
+            if info and info.get("id") == vid or True:
+                self.app.call_from_thread(self._apply_ch_info_to_detail, vid, info)
+        except Exception as exc:
+            _logger.debug("ch_info_worker exc: %s", exc)
+        finally:
+            self._worker_end()
+
+    def _apply_ch_info_to_detail(self, vid: str, info: dict | None) -> None:
+        if info is None: return
+        try:
+            dp = self.query_one("#detail-panel", DetailPanel)
+            if dp.current_id != vid: return
+            merged = {**dp.last_entry, **info} if dp.last_entry else info
+            dp.update_channel_entry(merged)
+        except Exception: pass
 
     @work(thread=True, exclusive=True, group="focus")
     def _focus_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -944,6 +1008,9 @@ class MainScreen(Screen):
         if entry.get("_is_playlist"):
             self._open_playlist(entry.get("_playlist_name", ""))
             return
+        if entry.get("_is_channel"):
+            self._open_channel(entry)
+            return
         self._open_video_action_menu(entry)
 
     def _open_video_action_menu(self, entry: dict) -> None:
@@ -966,10 +1033,9 @@ class MainScreen(Screen):
                 "listen": lambda: self._start_audio(entry),
                 "listen_quality": lambda: self._listen_quality(entry),
                 "queue": self.action_queue_audio,
-                "dl_video": self.action_dl_video,
-                "dl_audio": self.action_dl_audio,
+                "download": lambda: self.action_download(),
+                "channel": lambda: self.action_channel(),
                 "copy_url": lambda: self._copy_video_url(entry),
-                "subscribe": self.action_subscribe_entry,
                 "playlist": self.action_playlist,
                 "browser": self.action_browser,
             }
@@ -1359,21 +1425,23 @@ class MainScreen(Screen):
 
     # ── Download ──────────────────────────────────────────────────────────────
 
-    def action_dl_video(self) -> None:
+    def action_download(self) -> None:
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        _logger.info("user action: download video %s", entry.get("id", "?"))
-        self._open_download(entry, audio_only=False)
+        title = entry.get("title", entry.get("id", ""))
+        from src.tui.screens.download_picker_modal import DownloadPickerModal
 
-    def action_dl_audio(self) -> None:
-        entry = self._selected_entry()
-        if not entry or entry.get("_is_playlist"):
-            return
-        _logger.info("user action: download audio %s", entry.get("id", "?"))
-        self._open_download(entry, audio_only=True)
+        def on_pick(result) -> None:
+            if result is None:
+                return
+            dl_type, fmt = result
+            audio_only = (dl_type == "audio")
+            self._open_download(entry, audio_only=audio_only, fmt=fmt)
 
-    def _open_download(self, entry: dict, *, audio_only: bool) -> None:
+        self.app.push_screen(DownloadPickerModal(title=title), on_pick)
+
+    def _open_download(self, entry: dict, *, audio_only: bool, fmt: str = "") -> None:
         from src.tui.screens.download_modal import DownloadModal
 
         vid = entry.get("id", "")
@@ -1382,13 +1450,32 @@ class MainScreen(Screen):
 
         def on_done(success: bool | None) -> None:
             if success:
-                self.notify(f"✓ Downloaded {mode}: {title[:40]}", timeout=5)
+                self.notify(chr(10003) + " Downloaded " + mode + ": " + title[:40], timeout=5)
             else:
                 self.notify(
-                    "✗ Download failed or cancelled", severity="warning", timeout=4
+                    chr(10007) + " Download failed or cancelled", severity="warning", timeout=4
                 )
 
-        self.app.push_screen(DownloadModal(vid, entry, audio_only=audio_only), on_done)
+        self.app.push_screen(DownloadModal(vid, entry, audio_only=audio_only, fmt=fmt), on_done)
+
+    def action_channel(self) -> None:
+        entry = self._selected_entry()
+        if not entry:
+            return
+        self._open_channel(entry)
+
+    def _open_channel(self, entry: dict) -> None:
+        from src.tui.screens.channel_screen import ChannelScreen
+        url = entry.get("channel_url") or entry.get("uploader_url")
+        if not url:
+            uid = entry.get("uploader_id") or entry.get("channel_id")
+            if uid:
+                url = "https://www.youtube.com/" + uid if uid.startswith("@") else "https://www.youtube.com/channel/" + uid
+        if not url:
+            self.notify("No channel URL found.", severity="warning")
+            return
+        name = entry.get("uploader") or entry.get("channel") or "Channel"
+        self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name))
 
     # ── Subscribe / Playlist / Browser ────────────────────────────────────────
 

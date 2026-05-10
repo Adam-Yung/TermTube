@@ -131,8 +131,8 @@ class ActionBar(Widget):
             r1("⏎", "Video actions"),
             r1("w", "Watch"),
             r1("l", "Listen"),
-            r1("d", "DL Video"),
-            r1("a", "DL Audio"),
+            r1("d", "Download"),
+            r1("c", "Channel"),
         )
         table.add_row(
             r2("y", "Copy URL"),

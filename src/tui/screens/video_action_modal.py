@@ -16,10 +16,9 @@ _ACTIONS = [
     ("listen",        "♪",  "Listen (audio only)"),
     ("listen_quality","♪·", "Listen — choose quality…"),
     ("queue",         "♪+", "Add to queue  [dim](e)[/dim]"),
-    ("dl_video",      "↓",  "Download video"),
-    ("dl_audio",      "↓♪", "Download audio (MP3)"),
+    ("download",      "↓",  "Download…  [dim](d)[/dim]"),
+    ("channel",       "📺", "Browse channel  [dim](c)[/dim]"),
     ("copy_url",      "⎘",  "Copy video URL  [dim](y)[/dim]"),
-    ("subscribe",     "@",  "Open channel in browser"),
     ("playlist",      "+",  "Add to playlist"),
     ("browser",       "🌐", "Open in browser"),
 ]
