@@ -17,8 +17,9 @@ _HELP_CONTENT = """\
 
   [{COLOR}]j / ↓[/{COLOR}]          Move cursor down
   [{COLOR}]k / ↑[/{COLOR}]          Move cursor up
-  [{COLOR}]g[/{COLOR}]              Jump to top of list
-  [{COLOR}]G[/{COLOR}]              Jump to bottom of list
+  [{COLOR}]] / [[/{COLOR}]          Next page / previous page
+  [{COLOR}]g[/{COLOR}]              Jump to first page
+  [{COLOR}]G[/{COLOR}]              Jump to last page
   [{COLOR}]Backspace[/{COLOR}]      Go back (e.g. from playlist drill-down)
   [{COLOR}]Enter[/{COLOR}]          Open video action menu (Watch / Listen / Download / …)
 

@@ -8,7 +8,6 @@ import subprocess
 import threading
 from collections import OrderedDict
 from datetime import datetime
-from typing import Literal
 
 from textual import work
 from textual.app import ComposeResult
@@ -24,8 +23,9 @@ from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
 
-# How many entries to fetch per home/subscriptions background load.
-_HOME_FETCH_COUNT = 100
+# How many entries to fetch per batch (4 pages of 20).
+_BATCH_FETCH_COUNT = 80
+_PAGE_SIZE = 20
 
 # ── Custom Header ─────────────────────────────────────────────────────────────
 
@@ -108,15 +108,11 @@ _TABS = [
 _AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
 
 # ── Dwell / freshness tuning ──────────────────────────────────────────────────
-# Cursor settles for this long before we kick the focus (yt-dlp) worker.
-_FOCUS_DWELL_S = 0.20
-# Cursor settles for this long before we kick the thumbnail render worker.
+_FOCUS_DWELL_S = 0.10
 _THUMB_DWELL_S = 0.15
-# Header freshness label refresh cadence (seconds).
 _FRESHNESS_REFRESH_S = 60.0
-# Tabs that show a streamed video feed.
 _FEED_TABS = ("home", "subscriptions")
-# Chafa RAM cache cap (entries).
+_PAGED_TABS = ("home", "subscriptions", "search")
 _CHAFA_RAM_CACHE_MAX = 64
 
 
@@ -133,8 +129,10 @@ class MainScreen(Screen):
         # List navigation
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
-        Binding("g", "cursor_top", "Top", show=False),
-        Binding("G", "cursor_bottom", "Bottom", show=False),
+        Binding("g", "page_first", "First Page", show=False),
+        Binding("G", "page_last", "Last Page", show=False),
+        Binding("left_square_bracket", "page_prev", "Prev Page", show=False),
+        Binding("right_square_bracket", "page_next", "Next Page", show=False),
         Binding("backspace", "nav_back", "Back", show=False),
         # Enter → video action menu
         Binding("enter", "activate", "Actions", show=False),
@@ -195,9 +193,6 @@ class MainScreen(Screen):
         self._search_query: str = ""
         self._nav_stack: list[str] = []
         self._log_visible = False
-        # Guard: True while we are programmatically activating the search tab
-        # from a confirmed search result (so on_tabs_tab_activated skips the
-        # modal re-open that would otherwise fire).
         self._activating_search_programmatically: bool = False
         # ── Audio player state ────────────────────────────────────────────────
         self._audio_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
@@ -205,7 +200,7 @@ class MainScreen(Screen):
         self._audio_stopped = False
         self._audio_poll_timer = None
         self._audio_queue: list[dict] = []
-        self._audio_session: int = 0  # incremented per start; old workers bail if stale
+        self._audio_session: int = 0
         # ── Focus / thumbnail dwell-driven workers ────────────────────────────
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
@@ -213,21 +208,14 @@ class MainScreen(Screen):
         self._thumb_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._focus_session: int = 0
         self._thumb_session: int = 0
-        # Cursor direction tracking for one-neighbour prefetch.
         self._last_focus_id: str = ""
-        self._last_cursor_dir: Literal["up", "down"] | None = None
         # In-RAM LRU of rendered chafa output keyed by (vid, cols, rows, fmt).
         self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
-        # ── Feed loading state ────────────────────────────────────────────────
-        # True while the home/subs background fetch worker is running.
-        # Used to suppress spurious TabActivated events that Textual fires
-        # during rapid ListView DOM mutations (DOM mutation can shift focus to
-        # the Tabs widget, which fires on_tabs_tab_activated, which would wipe
-        # the list). Guard: if the tab is already current and we are loading,
-        # the activation is spurious — discard it.
+        # ── Feed loading state (paged) ────────────────────────────────────────
         self._home_loading: bool = False
-        # Freshness label refresh timer.
         self._freshness_timer: Timer | None = None
+        # Active workers reference counter for honest header spinner.
+        self._active_workers: int = 0
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -314,24 +302,35 @@ class MainScreen(Screen):
             self._load_view(tab_id)
 
     def _save_feed_stash(self, feed_key: str) -> None:
-        """Persist up to 12 unconsumed buffer entries to the quick-start stash.
+        """Persist the first unseen page (up to 20 entries) to disk.
 
-        Only applies to the home feed. Saves entries the user hasn't yet
-        scrolled past — those are the most likely to still be relevant on
-        the next boot.
+        Saves entries from pages the user hasn't navigated to. If fewer than
+        PAGE_SIZE entries are unseen, backfills from earlier pages so the stash
+        is always exactly 20 entries (the user never sees a partial first page).
         """
         if feed_key != "home":
             return
         try:
             panel = self.query_one("#video-list-panel", VideoListPanel)
-            buf = panel._buffer
-            cursor = panel.cursor_index()
-            # Start saving from one past the current cursor position.
-            start = (cursor + 1) if cursor is not None else panel.visible_count
-            tail = buf[start:]
-            if tail:
-                self.app.cache.put_home_stash(tail)
-                _logger.debug("stash: saved %d entries (start=%d)", len(tail[:12]), start)
+            unseen = panel.all_unseen_entries()
+            if len(unseen) < _PAGE_SIZE:
+                # Backfill: grab from earlier pages the user HAS visited (tail end)
+                all_entries: list[dict] = []
+                for pn in sorted(panel._pages.keys()):
+                    all_entries.extend(panel._pages[pn])
+                needed = _PAGE_SIZE - len(unseen)
+                backfill = all_entries[-(needed):] if len(all_entries) >= needed else all_entries
+                # Deduplicate: unseen entries take priority
+                seen_ids = {e.get("id") for e in unseen}
+                for e in backfill:
+                    if e.get("id") not in seen_ids:
+                        unseen.append(e)
+                    if len(unseen) >= _PAGE_SIZE:
+                        break
+            stash_entries = unseen[:_PAGE_SIZE]
+            if stash_entries:
+                self.app.cache.put_home_stash(stash_entries)
+                _logger.debug("stash: saved %d entries", len(stash_entries))
         except Exception as exc:
             _logger.debug("stash save error: %s", exc)
 
@@ -344,107 +343,157 @@ class MainScreen(Screen):
         self._home_loading = (view in _FEED_TABS)
         self._stream_view(view)
 
-    # ── Streaming workers ─────────────────────────────────────────────────────
+    # ── Paged feed workers ──────────────────────────────────────────────────────
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str) -> None:
-        """Background worker: dispatch streaming for any tab view."""
+        """Background worker: dispatch loading for any tab view."""
         panel = self.query_one("#video-list-panel", VideoListPanel)
         config = self.app.config
         cache = self.app.cache
 
-        sync_handled = False
+        self._worker_start()
         try:
             if view in _FEED_TABS:
-                import src.ytdlp as ytdlp
-                self._stream_feed(view, panel, config, cache, ytdlp)
-                sync_handled = True  # _stream_feed owns finish_loading
+                self._load_feed_paged(view, panel, config, cache)
             elif view == "search":
                 if not self._search_query:
                     self.app.call_from_thread(
                         panel.set_empty_message, "Press / to search"
                     )
-                    self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
                     return
-                import src.ytdlp as ytdlp
-                for entry in ytdlp.stream_search(self._search_query, config, cache):
-                    self.app.call_from_thread(panel.append_entry, entry)
+                self._load_search_paged(panel, config, cache)
             elif view == "history":
                 from src import history as hist
-                for entry in hist.iter_entries():
-                    self.app.call_from_thread(panel.append_entry, entry)
+                entries = list(hist.iter_entries())
+                self._load_simple_list(panel, entries)
             elif view == "library":
                 from src import library as lib
-                for entry in lib.all_entries(config.video_dir, config.audio_dir):
-                    self.app.call_from_thread(panel.append_entry, entry)
+                entries = list(lib.all_entries(config.video_dir, config.audio_dir))
+                self._load_simple_list(panel, entries)
             elif view == "playlists":
                 self._load_playlists_sync(panel)
-                sync_handled = True
             elif view.startswith("playlist:"):
                 self._load_playlist_videos_sync(view[len("playlist:"):], panel, cache)
-                sync_handled = True
         except Exception as exc:
             msg = str(exc)
             self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
             self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
-            self.app.call_from_thread(self.query_one(AppHeader).set_status_error)
+        finally:
             self._home_loading = False
-            return
+            self._worker_end()
+            if view in _FEED_TABS:
+                self.app.call_from_thread(self._update_freshness_label)
 
-        if not sync_handled:
-            self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
-            self.app.call_from_thread(panel.finish_loading)
-        if view in _FEED_TABS:
-            self.app.call_from_thread(self._update_freshness_label)
-
-    def _stream_feed(self, feed_key: str, panel, config, cache, ytdlp) -> None:
-        """Home / subscriptions feed loader.
+    def _load_feed_paged(self, feed_key: str, panel, config, cache) -> None:
+        """Home / subscriptions paged feed loader.
 
         Boot sequence:
-          1. If a quick-start stash exists (from the previous session), load
-             those entries immediately — they appear before the spinner so
-             the user has something to look at right away.
-          2. Fetch up to _HOME_FETCH_COUNT fresh entries from yt-dlp,
-             appending each one as it arrives (no DOM wipe, no full reload).
-          3. Finish: hide spinner, update header count.
+          1. If a stash exists, show it as page 1 instantly.
+          2. Fetch _BATCH_FETCH_COUNT fresh entries from yt-dlp.
+          3. Split into pages of _PAGE_SIZE and store them.
+          4. Prefetch metadata for the first entry of page 2.
         """
+        import src.ytdlp as ytdlp
+
         is_suppressed = cache.is_suppressed
 
-        # Step 1 — quick-start stash (home only).
+        # Step 1 — stash (home only): show instantly as page 1
+        stash_loaded = False
         if feed_key == "home":
             stash = cache.get_home_stash()
             if stash:
-                _logger.debug("feed %s: loading %d stash entries", feed_key, len(stash))
-                for entry in stash:
-                    vid = entry.get("id", "")
-                    if vid and is_suppressed(vid):
-                        continue
-                    self.app.call_from_thread(panel.append_entry, entry)
+                filtered = [e for e in stash if not is_suppressed(e.get("id", ""))]
+                if filtered:
+                    self.app.call_from_thread(panel.add_page, 1, filtered)
+                    self.app.call_from_thread(panel.load_page, 1)
+                    self.app.call_from_thread(panel.set_prefetching, True)
+                    stash_loaded = True
+                    _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
 
-        # Step 2 — fresh yt-dlp fetch (spinner on).
-        self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
-        self.app.call_from_thread(panel.set_fetching_more, True)
+        # Step 2 — fresh fetch
+        skip_ids = set(panel._seen_ids) if stash_loaded else set()
+        entries = ytdlp.fetch_page_batch(
+            ytdlp.FEED_URLS[feed_key],
+            config,
+            cache,
+            skip_ids=skip_ids,
+            count=_BATCH_FETCH_COUNT,
+            feed_key=feed_key,
+        )
 
+        # Filter suppressed
+        if feed_key == "home":
+            entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
+
+        # Step 3 — split into pages
+        start_page = 2 if stash_loaded else 1
+        for i in range(0, len(entries), _PAGE_SIZE):
+            page_num = start_page + (i // _PAGE_SIZE)
+            page_entries = entries[i:i + _PAGE_SIZE]
+            self.app.call_from_thread(panel.add_page, page_num, page_entries)
+
+        # Show page 1 if we didn't have a stash
+        if not stash_loaded:
+            self.app.call_from_thread(panel.load_page, 1)
+
+        self.app.call_from_thread(panel.finish_loading)
+        self.app.call_from_thread(panel.set_prefetching, False)
+
+        # Step 4 — prefetch metadata for first entry of page 2
+        self._prefetch_next_page_meta(panel, cache, config)
+
+        # Prune cache to cap
         try:
-            count = 0
-            for entry in ytdlp.stream_flat(
-                ytdlp.FEED_URLS[feed_key],
-                config,
-                cache,
-                feed_key=feed_key,
-                max_count=_HOME_FETCH_COUNT,
-            ):
-                vid = entry.get("id")
-                if feed_key == "home" and vid and is_suppressed(vid):
-                    continue
-                self.app.call_from_thread(panel.append_entry, entry)
-                count += 1
-            _logger.debug("feed %s: fetched %d entries", feed_key, count)
-        finally:
-            self._home_loading = False
-            self.app.call_from_thread(panel.set_fetching_more, False)
-            self.app.call_from_thread(panel.finish_loading)
-            self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
+            cache.prune_video_cache_fifo(100)
+        except Exception:
+            pass
+
+    def _load_search_paged(self, panel, config, cache) -> None:
+        """Paged search results loader."""
+        import src.ytdlp as ytdlp
+
+        entries = ytdlp.fetch_search_batch(
+            self._search_query, config, cache, count=50
+        )
+
+        # Split into pages of _PAGE_SIZE
+        for i in range(0, len(entries), _PAGE_SIZE):
+            page_num = 1 + (i // _PAGE_SIZE)
+            page_entries = entries[i:i + _PAGE_SIZE]
+            self.app.call_from_thread(panel.add_page, page_num, page_entries)
+
+        self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(panel.finish_loading)
+
+    def _load_simple_list(self, panel, entries: list[dict]) -> None:
+        """Load a simple (non-paged) list for history/library tabs."""
+        if not entries:
+            self.app.call_from_thread(panel.set_empty_message, "No items")
+            return
+        # Put all entries into page 1 (no pagination for local data)
+        self.app.call_from_thread(panel.add_page, 1, entries)
+        self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(panel.finish_loading)
+
+    def _prefetch_next_page_meta(self, panel, cache, config) -> None:
+        """Prefetch full metadata for the first entry of the next unseen page."""
+        try:
+            next_page = panel.current_page + 1
+            entries = panel.page_entries(next_page)
+            if not entries:
+                return
+            first_entry = entries[0]
+            vid = first_entry.get("id", "")
+            if not vid or vid.startswith("__"):
+                return
+            cached = cache.get_video(vid)
+            if cached and cached.get("description") is not None:
+                return
+            import src.ytdlp as ytdlp
+            ytdlp.fetch_full(vid, config, cache)
+        except Exception as exc:
+            _logger.debug("prefetch_next_page_meta error: %s", exc)
 
     def _load_playlists_sync(self, panel) -> None:
         from src import playlist
@@ -455,6 +504,7 @@ class MainScreen(Screen):
                 panel.set_empty_message, "No playlists. Select a video and press p."
             )
             return
+        entries = []
         for name in names:
             ids = playlist.get_playlist(name)
             entry = {
@@ -466,7 +516,9 @@ class MainScreen(Screen):
                 "_is_playlist": True,
                 "_playlist_name": name,
             }
-            self.app.call_from_thread(panel.append_entry, entry)
+            entries.append(entry)
+        self.app.call_from_thread(panel.add_page, 1, entries)
+        self.app.call_from_thread(panel.load_page, 1)
         self.app.call_from_thread(panel.finish_loading)
 
     def _load_playlist_videos_sync(self, name: str, panel, cache) -> None:
@@ -478,13 +530,16 @@ class MainScreen(Screen):
                 panel.set_empty_message, f'Playlist "{name}" is empty.'
             )
             return
+        entries = []
         for vid_id in ids:
             entry = cache.get_video_raw(vid_id) or {
                 "id": vid_id,
                 "title": vid_id,
                 "uploader": "",
             }
-            self.app.call_from_thread(panel.append_entry, entry)
+            entries.append(entry)
+        self.app.call_from_thread(panel.add_page, 1, entries)
+        self.app.call_from_thread(panel.load_page, 1)
         self.app.call_from_thread(panel.finish_loading)
 
     # ── Detail panel events ───────────────────────────────────────────────────
@@ -494,8 +549,8 @@ class MainScreen(Screen):
         vid = entry.get("id", "")
         detail = self.query_one("#detail-panel", DetailPanel)
         detail.update_basic(entry)
-        self._update_cursor_direction(vid)
         self._cancel_pending_focus_and_thumb()
+        self._last_focus_id = vid
         if vid and not vid.startswith("__"):
             detail.set_thumbnail_video_id(vid)
             from src.ui.thumbnail import _thumb_path
@@ -554,7 +609,7 @@ class MainScreen(Screen):
         # Bump session counters so any worker that already started bails on apply.
         self._focus_session += 1
         self._thumb_session += 1
-        # Best-effort kill of any subprocess still running. Safe even after exit.
+        # Best-effort kill of any subprocess still running.
         for attr in ("_focus_proc", "_thumb_proc"):
             proc = getattr(self, attr, None)
             if proc is None:
@@ -565,21 +620,6 @@ class MainScreen(Screen):
             except Exception:
                 pass
             setattr(self, attr, None)
-
-    def _update_cursor_direction(self, vid: str) -> None:
-        """Update _last_cursor_dir based on buffer index movement."""
-        if not vid or not self._last_focus_id or vid == self._last_focus_id:
-            self._last_focus_id = vid
-            return
-        try:
-            panel = self.query_one("#video-list-panel", VideoListPanel)
-            old_idx = panel._buffer_index.get(self._last_focus_id)
-            new_idx = panel._buffer_index.get(vid)
-            if old_idx is not None and new_idx is not None:
-                self._last_cursor_dir = "down" if new_idx > old_idx else "up"
-        except Exception:
-            pass
-        self._last_focus_id = vid
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         """Dwell timer fired — actually start the thumbnail render worker."""
@@ -604,8 +644,13 @@ class MainScreen(Screen):
 
     @work(thread=True, exclusive=True, group="focus")
     def _focus_worker(self, vid: str, entry: dict, session: int) -> None:
-        """Fetch full metadata for vid and apply to UI. Latest-wins via session."""
+        """Fetch full metadata for vid and apply to UI. Latest-wins via session.
+        Cancel-before-start: the session counter + proc.terminate() ensures
+        only 1 metadata worker exists at any time.
+        """
         import src.ytdlp as ytdlp
+
+        self._worker_start()
 
         def _on_proc(p: subprocess.Popen) -> None:
             self._focus_proc = p
@@ -619,11 +664,10 @@ class MainScreen(Screen):
             return
         finally:
             self._focus_proc = None
+            self._worker_end()
 
         if full is None or session != self._focus_session:
             return
-        # Apply to UI via call_from_thread; refresh_metadata also guards on
-        # current_id internally so a late callback can't paint the wrong video.
         try:
             panel = self.query_one("#video-list-panel", VideoListPanel)
             self.app.call_from_thread(panel.update_entry_by_id, vid, full)
@@ -632,31 +676,6 @@ class MainScreen(Screen):
             )
         except Exception:
             pass
-
-        # Cheap one-neighbour prefetch — populates cache so the next cursor
-        # step is instant. Bounded: at most one extra fetch per focus dispatch.
-        # Bails immediately if the user has moved on.
-        if session != self._focus_session or self._last_cursor_dir is None:
-            return
-        try:
-            panel = self.query_one("#video-list-panel", VideoListPanel)
-        except Exception:
-            return
-        offset = 1 if self._last_cursor_dir == "down" else -1
-        neighbor = panel.neighbor_id(vid, offset)
-        if not neighbor or neighbor.startswith("__"):
-            return
-        cached = self.app.cache.get_video(neighbor)
-        if cached and cached.get("description") is not None:
-            return  # already enriched
-        try:
-            ytdlp.fetch_full(
-                neighbor, self.app.config, self.app.cache, on_proc_started=_on_proc
-            )
-        except Exception as exc:
-            _logger.debug("neighbour prefetch error for %s: %s", neighbor, exc)
-        finally:
-            self._focus_proc = None
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -739,6 +758,25 @@ class MainScreen(Screen):
             self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
         else:
             self.app.call_from_thread(detail.set_thumbnail_placeholder)
+
+    # ── Worker reference counter (honest spinner) ──────────────────────────────
+
+    def _worker_start(self) -> None:
+        """Increment active worker count and show spinner."""
+        self._active_workers += 1
+        try:
+            self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
+        except Exception:
+            pass
+
+    def _worker_end(self) -> None:
+        """Decrement active worker count; hide spinner when all done."""
+        self._active_workers = max(0, self._active_workers - 1)
+        if self._active_workers == 0:
+            try:
+                self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
+            except Exception:
+                pass
 
     # ── Freshness label / stale-cache refresh ─────────────────────────────────
 
@@ -1345,13 +1383,41 @@ class MainScreen(Screen):
     def action_cursor_up(self) -> None:
         self.query_one("#video-list-panel", VideoListPanel).cursor_up()
 
-    def action_cursor_top(self) -> None:
-        _logger.debug("scroll: top")
-        self.query_one("#video-list-panel", VideoListPanel).cursor_to_top()
+    # ── Page navigation ───────────────────────────────────────────────────────
 
-    def action_cursor_bottom(self) -> None:
-        _logger.debug("scroll: bottom")
-        self.query_one("#video-list-panel", VideoListPanel).cursor_to_bottom()
+    def action_page_next(self) -> None:
+        """Switch to next page. No-op if next page isn't ready."""
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        if panel.can_go_next():
+            panel.load_page(panel.current_page + 1)
+
+    def action_page_prev(self) -> None:
+        """Switch to previous page. No-op if already on page 1."""
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        if panel.can_go_prev():
+            panel.load_page(panel.current_page - 1)
+
+    def action_page_first(self) -> None:
+        """Jump to the first page."""
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        if panel.current_page != 1 and 1 in panel._pages:
+            panel.load_page(1)
+
+    def action_page_last(self) -> None:
+        """Jump to the last fetched page."""
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        last = panel.total_pages
+        if panel.current_page != last and last in panel._pages:
+            panel.load_page(last)
+
+    def on_video_list_panel_page_change_requested(
+        self, message: VideoListPanel.PageChangeRequested
+    ) -> None:
+        """Handle page change from PageIndicator button clicks."""
+        if message.direction > 0:
+            self.action_page_next()
+        else:
+            self.action_page_prev()
 
     # ── Refresh ───────────────────────────────────────────────────────────────
 
@@ -1413,10 +1479,9 @@ class MainScreen(Screen):
     def _write_log_to_widget(self, level: str, msg: str) -> None:
         color = self._LOG_LEVEL_STYLES.get(level, "white")
         try:
-            # Escape the level glyph so Rich treats it literally; the message
-            # itself may legitimately contain bracketed text — pass it raw.
+            safe_msg = msg.replace("[", "\\[") if msg else ""
             self.query_one("#debug-log", RichLog).write(
-                f"[{color}]\\[{level[0]}][/{color}] {msg}"
+                f"[{color}]\\[{level[0]}][/{color}] {safe_msg}"
             )
         except Exception:
             pass

@@ -226,7 +226,7 @@ class Cache:
     # buffer are saved here so the next boot can show something instantly while
     # the fresh 100-entry background fetch is running.
 
-    _STASH_SIZE = 12
+    _STASH_SIZE = 20
 
     @property
     def _stash_path(self) -> Path:
@@ -235,7 +235,8 @@ class Cache:
     def get_home_stash(self) -> list[dict]:
         """Return up to _STASH_SIZE stashed entries from the previous session.
 
-        Never raises; returns [] on any error or if no stash exists.
+        These represent the first unseen page from last session, ensuring fresh
+        content on every boot. Never raises; returns [] on any error.
         """
         path = self._stash_path
         if not path.exists():
@@ -250,7 +251,12 @@ class Cache:
             return []
 
     def put_home_stash(self, entries: list[dict]) -> None:
-        """Atomically write up to _STASH_SIZE entries to the stash file."""
+        """Atomically write up to _STASH_SIZE entries to the stash file.
+
+        Called on exit with the first unseen page's entries. If fewer than
+        _STASH_SIZE entries are provided, the caller should backfill so the
+        user always gets a full page on next boot.
+        """
         slim = entries[: self._STASH_SIZE]
         try:
             with _write_lock:
@@ -289,6 +295,28 @@ class Cache:
             f.unlink(missing_ok=True); thumbs += 1
         logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
 
+    def prune_video_cache_fifo(self, max_count: int = 100) -> None:
+        """Enforce a hard cap on video metadata cache entries (FIFO by _cached_at).
+
+        Evicts the oldest entries by their _cached_at timestamp until
+        only max_count remain. Called after batch fetches to keep the
+        cache lean.
+        """
+        files: list[tuple[float, Path]] = []
+        for f in VIDEO_DIR.glob("*.json"):
+            try:
+                cached_at = json.loads(f.read_text()).get("_cached_at", 0)
+                files.append((cached_at, f))
+            except (OSError, json.JSONDecodeError, ValueError):
+                pass
+        if len(files) <= max_count:
+            return
+        files.sort()
+        evict_count = len(files) - max_count
+        for _, f in files[:evict_count]:
+            f.unlink(missing_ok=True)
+        logger.debug("prune_video_cache_fifo: evicted %d, kept %d", evict_count, max_count)
+
     def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
         """Delete thumbnails older than max_age_days, then enforce max_count cap."""
         cutoff = time.time() - max_age_days * 86400
@@ -314,7 +342,7 @@ class Cache:
         logger.debug("prune_old_thumbnails: %d expired, %d capped, %d kept",
                      deleted, capped, max(0, len(files) - capped))
 
-    def prune_old_videos(self, max_age_days: int = 3, max_count: int = 400) -> None:
+    def prune_old_videos(self, max_age_days: int = 3, max_count: int = 100) -> None:
         """Delete video JSONs older than max_age_days, then enforce max_count cap.
 
         Uses the _cached_at timestamp stored inside the JSON rather than st_mtime.
