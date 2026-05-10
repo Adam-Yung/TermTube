@@ -357,7 +357,13 @@ class MainScreen(Screen):
         vid = entry.get("id", "")
         if vid:
             self._fetch_metadata(vid)
-            self._fetch_thumb(vid, entry.get("thumbnail") or entry.get("thumbnails", [{}])[-1].get("url", "") if entry.get("thumbnails") else entry.get("thumbnail", ""))
+            # Extract best thumbnail URL
+            thumb_url = entry.get("thumbnail", "")
+            if not thumb_url:
+                thumbs = entry.get("thumbnails") or []
+                if thumbs:
+                    thumb_url = thumbs[-1].get("url", "")
+            self._fetch_thumb(vid, thumb_url)
 
     def on_video_list_panel_selected(self, event: VideoListPanel.Selected) -> None:
         self._on_entry_focused(event.entry)
@@ -396,6 +402,15 @@ class MainScreen(Screen):
                 self.query_one("#video-list", VideoListPanel).update_entry_by_id,
                 video_id, entry,
             )
+            # If thumbnail wasn't available before, try downloading it now
+            if not _cache.has_thumb(video_id):
+                thumb_url = entry.get("thumbnail", "")
+                if not thumb_url:
+                    thumbs = entry.get("thumbnails") or []
+                    if thumbs:
+                        thumb_url = thumbs[-1].get("url", "")
+                if thumb_url:
+                    self._fetch_thumb(video_id, thumb_url)
 
     @work(thread=True, exclusive=True, group="thumb")
     def _fetch_thumb(self, video_id: str, thumb_url: str) -> None:

@@ -141,7 +141,7 @@ class VideoListPanel(Widget):
 
         compact = (self.size.width or 80) < 80
 
-        for entry in entries:
+        for idx, entry in enumerate(entries):
             vid = entry.get("id", "")
             card = VideoCard(
                 entry,
@@ -150,7 +150,7 @@ class VideoListPanel(Widget):
                 has_video=(vid in has_video_ids),
                 has_audio=(vid in has_audio_ids),
                 compact=compact,
-                id=f"card-{vid}",
+                id=f"card-{page}-{idx}",
             )
             lv.append(card)
 
@@ -180,7 +180,8 @@ class VideoListPanel(Widget):
             return
         self._entries[idx] = entry
         try:
-            card = self.query_one(f"#card-{video_id}", VideoCard)
+            card_id = f"card-{self._current_page}-{idx}"
+            card = self.query_one(f"#{card_id}", VideoCard)
             card.update_entry(entry)
         except Exception:
             pass

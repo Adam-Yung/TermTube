@@ -40,9 +40,10 @@ def _fmt_views(n: int | None) -> str:
     return f"{n} views"
 
 
-def _fmt_duration(secs: int | None) -> str:
+def _fmt_duration(secs: int | float | None) -> str:
     if not secs:
         return ""
+    secs = int(secs)
     h, rem = divmod(secs, 3600)
     m, s = divmod(rem, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"

@@ -29,7 +29,7 @@ class DetailPanel(Widget):
         padding: 0 1;
     }
     ThumbnailWidget {
-        height: 12;
+        height: 16;
         margin-bottom: 1;
     }
     #dp-title {
