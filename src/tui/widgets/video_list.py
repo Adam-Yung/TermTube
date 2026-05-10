@@ -1,4 +1,12 @@
-"""VideoListPanel — scrollable video list with live-streaming and lazy reveal."""
+"""VideoListPanel — paged video list with fixed 20-entry pages.
+
+Architecture:
+- Holds all fetched pages in `_pages` dict (page_num → list of entries).
+- Displays one page at a time via `load_page()`.
+- PageIndicator at the bottom for ◀ / ▶ navigation.
+- Page switches are only allowed when the target page is ready.
+- Deduplication across all pages via `_seen_ids` set.
+"""
 
 from __future__ import annotations
 
@@ -10,9 +18,9 @@ from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 from src import logger
+from src.tui.widgets.page_indicator import PageIndicator
 
-BATCH_SIZE = 20
-PREFETCH_THRESHOLD = 5
+PAGE_SIZE = 20
 
 
 def _fmt_duration(secs: int | float | None) -> str:
@@ -147,6 +155,8 @@ class VideoListItem(ListItem):
 
 
 class VideoListPanel(Widget):
+    """Paged video list panel. Shows PAGE_SIZE entries at a time."""
+
     # ── Messages ──────────────────────────────────────────────────────────────
 
     class Selected(Message):
@@ -161,40 +171,43 @@ class VideoListPanel(Widget):
             super().__init__()
             self.entry = entry
 
+    class PageChangeRequested(Message):
+        """User wants to switch page. direction: +1 or -1."""
+        def __init__(self, direction: int) -> None:
+            super().__init__()
+            self.direction = direction
+
     # ── Init / compose / mount ────────────────────────────────────────────────
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._buffer: list[dict] = []
-        # O(1) dedup + neighbour lookup keyed by video ID → buffer index.
-        self._buffer_index: dict[str, int] = {}
-        # O(1) widget lookup for in-place text updates after enrichment.
-        self._items_by_id: dict[str, VideoListItem] = {}
-        self._visible: int = 0
-        # True while an upstream worker is actively streaming entries.
-        self._loading: bool = False
-        # Freshness suffix shown in the list header (set by the screen).
+        self._pages: dict[int, list[dict]] = {}
+        self._seen_ids: set[str] = set()
+        self._current_page: int = 0
+        self._max_visited_page: int = 0
+        self._is_loading: bool = False
+        self._prefetching: bool = False
         self._freshness: str = ""
-        # Cached widget references — populated in on_mount.
+        self._items_by_id: dict[str, VideoListItem] = {}
         self._lv: ListView
         self._anim: LoadingIndicator
         self._header: Static
         self._breadcrumb: Static
-        self._footer: Static
+        self._page_indicator: PageIndicator
 
     def compose(self) -> ComposeResult:
         yield Static("", id="list-breadcrumb", markup=True)
         yield Static("", id="list-header", markup=True)
         yield LoadingIndicator(id="list-loading-anim")
         yield ListView(id="list-view")
-        yield Static("", id="list-loading", markup=True)
+        yield PageIndicator(id="list-page-indicator")
 
     def on_mount(self) -> None:
         self._lv = self.query_one("#list-view", ListView)
         self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
         self._header = self.query_one("#list-header", Static)
         self._breadcrumb = self.query_one("#list-breadcrumb", Static)
-        self._footer = self.query_one("#list-loading", Static)
+        self._page_indicator = self.query_one("#list-page-indicator", PageIndicator)
         self._lv.focus()
 
     # ── Public properties ─────────────────────────────────────────────────────
@@ -212,22 +225,106 @@ class VideoListPanel(Widget):
         return None
 
     @property
-    def buffer_size(self) -> int:
-        return len(self._buffer)
+    def current_page(self) -> int:
+        return self._current_page
 
     @property
-    def visible_count(self) -> int:
-        return self._visible
+    def max_visited_page(self) -> int:
+        return self._max_visited_page
+
+    @property
+    def total_pages(self) -> int:
+        return max(len(self._pages), 1)
+
+    @property
+    def is_loading(self) -> bool:
+        return self._is_loading
+
+    # ── Page management ───────────────────────────────────────────────────────
+
+    def add_page(self, page_num: int, entries: list[dict]) -> None:
+        """Store a fetched page. Deduplicates by video ID across all pages."""
+        deduped: list[dict] = []
+        for entry in entries:
+            vid = entry.get("id", "")
+            if vid and vid in self._seen_ids:
+                continue
+            if vid:
+                self._seen_ids.add(vid)
+            deduped.append(entry)
+        self._pages[page_num] = deduped
+        self._update_page_indicator()
+        logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
+
+    def load_page(self, page_num: int) -> bool:
+        """Display a specific page. Returns False if page not available."""
+        if page_num not in self._pages:
+            return False
+        if self._is_loading:
+            return False
+
+        entries = self._pages[page_num]
+        self._current_page = page_num
+        if page_num > self._max_visited_page:
+            self._max_visited_page = page_num
+
+        self._items_by_id.clear()
+        self._lv.clear()
+
+        if self._anim.display:
+            self._anim.display = False
+            self._lv.display = True
+
+        self._lv.focus()
+        for entry in entries:
+            item = VideoListItem(entry)
+            vid = entry.get("id", "")
+            if vid:
+                self._items_by_id[vid] = item
+            self._lv.append(item)
+
+        if entries:
+            self._lv.index = 0
+
+        self._render_header()
+        self._update_page_indicator()
+        return True
+
+    def can_go_next(self) -> bool:
+        """True if the next page exists and we're not loading."""
+        if self._is_loading:
+            return False
+        return (self._current_page + 1) in self._pages
+
+    def can_go_prev(self) -> bool:
+        """True if previous page exists and we're not loading."""
+        if self._is_loading:
+            return False
+        return self._current_page > 1 and (self._current_page - 1) in self._pages
+
+    def page_entries(self, page_num: int) -> list[dict]:
+        """Return entries for a given page number, or empty list."""
+        return self._pages.get(page_num, [])
+
+    def all_unseen_entries(self) -> list[dict]:
+        """Return entries from pages the user hasn't visited, for stashing."""
+        entries: list[dict] = []
+        for pn in sorted(self._pages.keys()):
+            if pn > self._max_visited_page:
+                entries.extend(self._pages[pn])
+        return entries
 
     # ── State management ──────────────────────────────────────────────────────
 
     def clear_and_set_loading(self) -> None:
-        """Full reset: wipe the list and show the loading indicator."""
-        self._buffer = []
-        self._buffer_index = {}
-        self._items_by_id = {}
-        self._visible = 0
-        self._loading = True
+        """Full reset: wipe all pages and show loading indicator."""
+        self._pages.clear()
+        self._seen_ids.clear()
+        self._items_by_id.clear()
+        self._current_page = 0
+        self._max_visited_page = 0
+        self._is_loading = True
+        self._prefetching = False
         self._freshness = ""
 
         self._anim.display = True
@@ -236,34 +333,37 @@ class VideoListPanel(Widget):
 
         self._breadcrumb.update("")
         self._header.update("[dim]Loading…[/dim]")
-        self._footer.update("")
+        self._update_page_indicator()
+
+    def set_loading(self, loading: bool) -> None:
+        """Set the loading state (blocks page switching while True)."""
+        self._is_loading = loading
+        if loading:
+            self._anim.display = True
+            self._lv.display = False
+        else:
+            if self._anim.display:
+                self._anim.display = False
+                self._lv.display = True
+        self._update_page_indicator()
 
     def finish_loading(self) -> None:
-        """Mark streaming as done and update footer."""
-        self._loading = False
+        """Mark loading as done."""
+        self._is_loading = False
         if self._anim.display:
             self._anim.display = False
             self._lv.display = True
 
-        n_total = len(self._buffer)
-        n_hidden = n_total - self._visible
-
-        if n_total == 0:
+        if not self._pages:
             self._header.update("[dim]No results[/dim]")
-            self._footer.update("")
         else:
             self._render_header()
-            if n_hidden > 0:
-                self._footer.update(f"[dim]  ↓ scroll for {n_hidden} more[/dim]")
-            else:
-                self._footer.update("")
+        self._update_page_indicator()
 
-    def set_fetching_more(self, active: bool) -> None:
-        """Toggle the 'fetching more…' footer hint (called from screen thread)."""
-        if active:
-            self._footer.update("[dim]  ↓ fetching more…[/dim]")
-        else:
-            self._update_footer()
+    def set_prefetching(self, active: bool) -> None:
+        """Toggle the prefetch indicator on the page bar."""
+        self._prefetching = active
+        self._update_page_indicator()
 
     def set_freshness(self, text: str) -> None:
         self._freshness = text or ""
@@ -273,48 +373,27 @@ class VideoListPanel(Widget):
         self._breadcrumb.update(f"[dim]{text}[/dim]")
 
     def set_empty_message(self, msg: str) -> None:
-        self._loading = False
+        self._is_loading = False
         self._anim.display = False
         self._lv.display = True
         self._header.update(f"[dim]{msg}[/dim]")
-        self._footer.update("")
 
     def set_error_message(self, msg: str) -> None:
-        self._loading = False
+        self._is_loading = False
         self._anim.display = False
         self._lv.display = True
         self._header.update(f"[#ff4444]{msg}[/#ff4444]")
-        self._footer.update("")
 
     # ── Entry management ──────────────────────────────────────────────────────
 
-    def append_entry(self, entry: dict) -> None:
-        """Add one entry to the buffer, reveal immediately if below BATCH_SIZE."""
-        vid = entry.get("id", "")
-        # Dedup: silently skip entries already in the buffer.
-        if vid and vid in self._buffer_index:
-            return
-        if vid:
-            self._buffer_index[vid] = len(self._buffer)
-        self._buffer.append(entry)
-
-        # Reveal immediately for the first BATCH_SIZE items so the list
-        # appears quickly; otherwise only reveal when the cursor is near
-        # the bottom (handled by on_list_view_highlighted).
-        if self._visible < BATCH_SIZE:
-            self._reveal_entry(entry)
-        elif self._lv.index is not None:
-            gap = self._visible - 1 - self._lv.index
-            if gap <= PREFETCH_THRESHOLD:
-                self._reveal_next_batch()
-
-        self._render_header()
-
     def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
         """In-place update of an already-visible list item (enrichment callback)."""
-        idx = self._buffer_index.get(vid_id)
-        if idx is not None and idx < len(self._buffer):
-            self._buffer[idx] = entry
+        for pn, page_entries in self._pages.items():
+            for i, e in enumerate(page_entries):
+                if e.get("id") == vid_id:
+                    self._pages[pn][i] = entry
+                    break
+
         item = self._items_by_id.get(vid_id)
         if item is None:
             return
@@ -325,17 +404,20 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    # ── Cursor helpers (used by MainScreen) ───────────────────────────────────
-
     def neighbor_id(self, vid_id: str, direction: int) -> str | None:
-        """Return the buffer ID at offset (direction = +1 or -1) from vid_id."""
-        idx = self._buffer_index.get(vid_id)
-        if idx is None:
+        """Return the ID of the entry at offset direction from vid_id on current page."""
+        if self._current_page not in self._pages:
             return None
-        target = idx + direction
-        if 0 <= target < len(self._buffer):
-            return self._buffer[target].get("id") or None
+        entries = self._pages[self._current_page]
+        for i, e in enumerate(entries):
+            if e.get("id") == vid_id:
+                target = i + direction
+                if 0 <= target < len(entries):
+                    return entries[target].get("id") or None
+                return None
         return None
+
+    # ── Cursor helpers (used by MainScreen) ───────────────────────────────────
 
     def cursor_index(self) -> int | None:
         return self._lv.index
@@ -347,83 +429,54 @@ class VideoListPanel(Widget):
         self._lv.action_cursor_up()
 
     def cursor_to_top(self) -> None:
-        if self._visible > 0:
+        if self._lv._nodes:
             self._lv.index = 0
 
     def cursor_to_bottom(self) -> None:
-        if self._visible > 0:
-            self._lv.index = self._visible - 1
+        count = len(self._lv._nodes)
+        if count > 0:
+            self._lv.index = count - 1
 
-    # ── Internal reveal logic ─────────────────────────────────────────────────
-
-    def _reveal_entry(self, entry: dict) -> None:
-        """Append one item to the ListView DOM."""
-        if self._anim.display:
-            self._anim.display = False
-            self._lv.display = True
-
-        # Anchor focus on the ListView BEFORE the DOM mutation.
-        # Textual can shift focus to the Tabs widget during ListView.append(),
-        # which would fire on_tabs_tab_activated and wipe the entire list.
-        # Calling focus() here keeps it anchored throughout the mutation.
-        self._lv.focus()
-
-        item = VideoListItem(entry)
-        vid = entry.get("id", "")
-        if vid:
-            self._items_by_id[vid] = item
-        self._lv.append(item)
-        self._visible += 1
-        if self._visible == 1:
-            self._lv.index = 0
-
-    def _reveal_next_batch(self) -> None:
-        """Reveal the next BATCH_SIZE entries from the buffer into the DOM."""
-        start = self._visible
-        end = min(start + BATCH_SIZE, len(self._buffer))
-        if start >= end:
-            return
-        for entry in self._buffer[start:end]:
-            self._reveal_entry(entry)
-        logger.debug(
-            "video_list: revealed %d..%d (visible=%d, buffer=%d)",
-            start, end - 1, self._visible, len(self._buffer),
-        )
-        self._update_footer()
+    # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _render_header(self) -> None:
-        n_total = len(self._buffer)
-        if n_total == 0:
+        if not self._pages:
             return
-        base = f"{n_total} {'video' if n_total == 1 else 'videos'}"
+        n = len(self._pages.get(self._current_page, []))
+        base = f"{n} {'video' if n == 1 else 'videos'}"
         if self._freshness:
             self._header.update(f"[dim]{base}  ·  {self._freshness}[/dim]")
         else:
             self._header.update(f"[dim]{base}[/dim]")
 
-    def _update_footer(self) -> None:
-        remaining = len(self._buffer) - self._visible
-        if remaining > 0:
-            self._footer.update(f"[dim]  ↓ scroll for {remaining} more[/dim]")
-        else:
-            self._footer.update("")
+    def _update_page_indicator(self) -> None:
+        try:
+            next_ready = (self._current_page + 1) in self._pages
+            self._page_indicator.update_state(
+                current=max(self._current_page, 1),
+                total=self.total_pages,
+                next_ready=next_ready,
+                prefetching=self._prefetching,
+            )
+        except Exception:
+            pass
 
     # ── Event handlers ────────────────────────────────────────────────────────
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        # Always post Selected so the detail panel updates immediately.
         if event.item and isinstance(event.item, VideoListItem):
             self.post_message(self.Selected(event.item.entry))
-
-        idx = self._lv.index
-        if idx is None:
-            return
-        # If the cursor is within PREFETCH_THRESHOLD of the visible bottom,
-        # reveal the next batch from the in-memory buffer (instant, no network).
-        gap = self._visible - 1 - idx
-        if gap <= PREFETCH_THRESHOLD and self._visible < len(self._buffer):
-            self._reveal_next_batch()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, VideoListItem):
             self.post_message(self.Activated(event.item.entry))
+
+    def on_page_indicator_prev_page(self, event: PageIndicator.PrevPage) -> None:
+        event.stop()
+        if self.can_go_prev():
+            self.post_message(self.PageChangeRequested(-1))
+
+    def on_page_indicator_next_page(self, event: PageIndicator.NextPage) -> None:
+        event.stop()
+        if self.can_go_next():
+            self.post_message(self.PageChangeRequested(+1))

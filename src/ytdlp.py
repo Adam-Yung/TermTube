@@ -316,6 +316,139 @@ def stream_search(
         logger.debug("stream_search: only %d results for '%s', not caching", len(seen_ids), query)
 
 
+# ── Paged batch fetch ─────────────────────────────────────────────────────────
+
+def fetch_page_batch(
+    url: str,
+    config,
+    cache: Cache,
+    *,
+    skip_ids: set[str] | None = None,
+    count: int = 80,
+    feed_key: str | None = None,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> list[dict]:
+    """Fetch up to `count` entries from a URL, skipping IDs in skip_ids.
+
+    Used by the paged feed system. Returns a flat list of entry dicts.
+    Caches each entry individually. Optionally saves the feed index.
+
+    This is a blocking call meant to run in a background thread.
+    """
+    if skip_ids is None:
+        skip_ids = set()
+
+    # Try cache first if feed_key given
+    _MIN_FEED_COUNT = 15
+    if feed_key:
+        cached_ids = cache.get_feed(feed_key)
+        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
+            logger.debug("fetch_page_batch cache hit for '%s' (%d ids)", feed_key, len(cached_ids))
+            results: list[dict] = []
+            for vid_id in cached_ids:
+                if vid_id in skip_ids:
+                    continue
+                if len(results) >= count:
+                    break
+                entry = cache.get_video_raw(vid_id)
+                if entry:
+                    results.append(entry)
+            if len(results) >= _MIN_FEED_COUNT:
+                return results
+            logger.debug("fetch_page_batch: only %d cached entries usable, refetching", len(results))
+
+    # Fresh fetch
+    logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
+    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    results: list[dict] = []
+    all_ids: list[str] = []
+
+    for entry in _stream_json_lines(
+        cmd,
+        capture_stderr=logger.is_debug(),
+        on_proc_started=on_proc_started,
+    ):
+        if len(results) >= count:
+            break
+        if not _is_playable_video(entry):
+            continue
+        _normalise_entry(entry)
+        vid = entry.get("id", "")
+        if vid and vid in skip_ids:
+            continue
+        cache.put_video(entry)
+        if vid:
+            all_ids.append(vid)
+        results.append(entry)
+
+    if feed_key and len(all_ids) >= _MIN_FEED_COUNT:
+        cache.put_feed(feed_key, all_ids)
+        logger.debug("fetch_page_batch: saved feed '%s' (%d ids)", feed_key, len(all_ids))
+
+    return results
+
+
+def fetch_search_batch(
+    query: str,
+    config,
+    cache: Cache,
+    *,
+    skip_ids: set[str] | None = None,
+    count: int = 50,
+) -> list[dict]:
+    """Fetch search results as a batch (for paged search). Returns list of dicts."""
+    if skip_ids is None:
+        skip_ids = set()
+
+    cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
+    _MIN_SEARCH_COUNT = 5
+
+    # Cache check
+    cached_ids = cache.get_feed(cache_key)
+    if cached_ids and len(cached_ids) >= _MIN_SEARCH_COUNT:
+        logger.debug("fetch_search_batch cache hit for '%s' (%d ids)", query, len(cached_ids))
+        results: list[dict] = []
+        for vid_id in cached_ids:
+            if vid_id in skip_ids:
+                continue
+            entry = cache.get_video_raw(vid_id)
+            if entry:
+                results.append(entry)
+        if len(results) >= _MIN_SEARCH_COUNT:
+            return results
+
+    # Fresh fetch
+    url = f"ytsearch{count}:{query}"
+    cmd = [
+        "yt-dlp",
+        "--dump-json",
+        "--no-warnings",
+        "--quiet",
+        "--flat-playlist",
+        "--extractor-args", "youtube:skip=dash,hls",
+        *cookie_args(config),
+        url,
+    ]
+    results: list[dict] = []
+    all_ids: list[str] = []
+
+    for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
+        if not _is_playable_video(entry):
+            continue
+        _normalise_entry(entry)
+        vid = entry.get("id", "")
+        if vid and vid in skip_ids:
+            continue
+        cache.put_video(entry)
+        if vid:
+            all_ids.append(vid)
+        results.append(entry)
+
+    if len(all_ids) >= _MIN_SEARCH_COUNT:
+        cache.put_feed(cache_key, all_ids)
+    return results
+
+
 # ── Full metadata (for video detail page) ────────────────────────────────────
 
 def fetch_full(
