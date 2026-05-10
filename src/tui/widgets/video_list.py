@@ -191,13 +191,11 @@ class VideoListPanel(Widget):
         self._items_by_id: dict[str, VideoListItem] = {}
         self._lv: ListView
         self._anim: LoadingIndicator
-        self._header: Static
         self._breadcrumb: Static
         self._page_indicator: PageIndicator
 
     def compose(self) -> ComposeResult:
         yield Static("", id="list-breadcrumb", markup=True)
-        yield Static("", id="list-header", markup=True)
         yield LoadingIndicator(id="list-loading-anim")
         yield ListView(id="list-view")
         yield PageIndicator(id="list-page-indicator")
@@ -205,7 +203,6 @@ class VideoListPanel(Widget):
     def on_mount(self) -> None:
         self._lv = self.query_one("#list-view", ListView)
         self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
-        self._header = self.query_one("#list-header", Static)
         self._breadcrumb = self.query_one("#list-breadcrumb", Static)
         self._page_indicator = self.query_one("#list-page-indicator", PageIndicator)
         self._lv.focus()
@@ -283,10 +280,8 @@ class VideoListPanel(Widget):
 
         if entries:
             self._lv.index = 0
-            self.post_message(self.Selected(entries[0]))
 
         self._lv.focus()
-        self._render_header()
         self._update_page_indicator()
         return True
 
@@ -332,7 +327,6 @@ class VideoListPanel(Widget):
         self._lv.clear()
 
         self._breadcrumb.update("")
-        self._header.update("[dim]Loading…[/dim]")
         self._update_page_indicator()
 
     def set_loading(self, loading: bool) -> None:
@@ -354,11 +348,6 @@ class VideoListPanel(Widget):
             self._anim.display = False
             self._lv.display = True
             self._lv.focus()
-
-        if not self._pages:
-            self._header.update("[dim]No results[/dim]")
-        else:
-            self._render_header()
         self._update_page_indicator()
 
     def set_prefetching(self, active: bool) -> None:
@@ -374,12 +363,10 @@ class VideoListPanel(Widget):
         self._lv.clear()
         self._anim.display = True
         self._lv.display = False
-        self._header.update("[dim]Loading…[/dim]")
         self._update_page_indicator()
 
     def set_freshness(self, text: str) -> None:
         self._freshness = text or ""
-        self._render_header()
 
     def set_breadcrumb(self, text: str) -> None:
         self._breadcrumb.update(f"[dim]{text}[/dim]")
@@ -388,13 +375,13 @@ class VideoListPanel(Widget):
         self._is_loading = False
         self._anim.display = False
         self._lv.display = True
-        self._header.update(f"[dim]{msg}[/dim]")
+        self._breadcrumb.update(f"[dim]{msg}[/dim]")
 
     def set_error_message(self, msg: str) -> None:
         self._is_loading = False
         self._anim.display = False
         self._lv.display = True
-        self._header.update(f"[#ff4444]{msg}[/#ff4444]")
+        self._breadcrumb.update(f"[#ff4444]{msg}[/#ff4444]")
 
     # ── Entry management ──────────────────────────────────────────────────────
 
@@ -450,16 +437,6 @@ class VideoListPanel(Widget):
             self._lv.index = count - 1
 
     # ── Internal helpers ──────────────────────────────────────────────────────
-
-    def _render_header(self) -> None:
-        if not self._pages:
-            return
-        n = len(self._pages.get(self._current_page, []))
-        base = f"{n} {'video' if n == 1 else 'videos'}"
-        if self._freshness:
-            self._header.update(f"[dim]{base}  ·  {self._freshness}[/dim]")
-        else:
-            self._header.update(f"[dim]{base}[/dim]")
 
     def _update_page_indicator(self) -> None:
         try:

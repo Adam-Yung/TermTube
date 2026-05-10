@@ -430,6 +430,7 @@ class MainScreen(Screen):
                     stash_ids = {e.get("id", "") for e in filtered if e.get("id")}
                     self.app.call_from_thread(panel.add_page, 1, filtered)
                     self.app.call_from_thread(panel.load_page, 1)
+                    self.app.call_from_thread(self._on_page_loaded, panel)
                     stash_loaded = True
                     _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
 
@@ -458,6 +459,7 @@ class MainScreen(Screen):
         # Show page 1 if we didn't have a stash
         if not stash_loaded:
             self.app.call_from_thread(panel.load_page, 1)
+            self.app.call_from_thread(self._on_page_loaded, panel)
 
         self.app.call_from_thread(panel.finish_loading)
 
@@ -485,6 +487,7 @@ class MainScreen(Screen):
             self.app.call_from_thread(panel.add_page, page_num, page_entries)
 
         self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(self._on_page_loaded, panel)
         self.app.call_from_thread(panel.finish_loading)
 
     def _load_simple_list(self, panel, entries: list[dict]) -> None:
@@ -495,6 +498,7 @@ class MainScreen(Screen):
         # Put all entries into page 1 (no pagination for local data)
         self.app.call_from_thread(panel.add_page, 1, entries)
         self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(self._on_page_loaded, panel)
         self.app.call_from_thread(panel.finish_loading)
 
     def _schedule_prefetch(self) -> None:
@@ -564,6 +568,7 @@ class MainScreen(Screen):
                 self.app.call_from_thread(panel.add_page, page_num, page_entries)
 
             self.app.call_from_thread(panel.load_page, start_page)
+            self.app.call_from_thread(self._on_page_loaded, panel)
 
         except Exception as exc:
             _logger.debug("fetch_more_pages error: %s", exc)
@@ -595,6 +600,7 @@ class MainScreen(Screen):
             entries.append(entry)
         self.app.call_from_thread(panel.add_page, 1, entries)
         self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(self._on_page_loaded, panel)
         self.app.call_from_thread(panel.finish_loading)
 
     def _load_playlist_videos_sync(self, name: str, panel, cache) -> None:
@@ -616,6 +622,7 @@ class MainScreen(Screen):
             entries.append(entry)
         self.app.call_from_thread(panel.add_page, 1, entries)
         self.app.call_from_thread(panel.load_page, 1)
+        self.app.call_from_thread(self._on_page_loaded, panel)
         self.app.call_from_thread(panel.finish_loading)
 
     # ── Detail panel events ───────────────────────────────────────────────────
@@ -1461,6 +1468,18 @@ class MainScreen(Screen):
 
     # ── Page navigation ───────────────────────────────────────────────────────
 
+    def _on_page_loaded(self, panel: VideoListPanel) -> None:
+        """After a page switch, focus the first entry in the detail panel.
+
+        Uses a short timer to let Textual finish rendering the new ListView
+        items before triggering the detail panel update.
+        """
+        def _fire() -> None:
+            entries = panel.page_entries(panel.current_page)
+            if entries:
+                self.on_video_list_panel_selected(VideoListPanel.Selected(entries[0]))
+        self.set_timer(0.05, _fire)
+
     def action_page_next(self) -> None:
         """Switch to next page. Auto-fetches more if on the last page of a feed."""
         panel = self.query_one("#video-list-panel", VideoListPanel)
@@ -1468,6 +1487,7 @@ class MainScreen(Screen):
             return
         if panel.can_go_next():
             panel.load_page(panel.current_page + 1)
+            self._on_page_loaded(panel)
         elif self._current_tab in _PAGED_TABS:
             self._fetch_more_pages()
 
@@ -1476,12 +1496,14 @@ class MainScreen(Screen):
         panel = self.query_one("#video-list-panel", VideoListPanel)
         if panel.can_go_prev():
             panel.load_page(panel.current_page - 1)
+            self._on_page_loaded(panel)
 
     def action_page_first(self) -> None:
         """Jump to the first page."""
         panel = self.query_one("#video-list-panel", VideoListPanel)
         if panel.current_page != 1 and 1 in panel._pages:
             panel.load_page(1)
+            self._on_page_loaded(panel)
 
     def action_page_last(self) -> None:
         """Jump to the last fetched page."""
@@ -1489,6 +1511,7 @@ class MainScreen(Screen):
         last = panel.total_pages
         if panel.current_page != last and last in panel._pages:
             panel.load_page(last)
+            self._on_page_loaded(panel)
 
     def on_video_list_panel_page_change_requested(
         self, message: VideoListPanel.PageChangeRequested
