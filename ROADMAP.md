@@ -61,6 +61,12 @@
 
 ## v0.2 — Polish Release (📋 In progress)
 
+### Recently completed
+- ✅ **Paged video list** — replaced infinite scroll with a fixed 20-entry page system. `]`/`[` to navigate pages, `g`/`G` for first/last page. Background pre-fetches next 80 entries. Exit stash ensures instant boot with fresh content.
+- ✅ **Leaner cache** — metadata capped at 100 entries (FIFO), stash holds exactly 20 entries for next boot.
+- ✅ **Honest loading indicator** — header spinner animates whenever any worker is active (reference counted).
+- ✅ **100ms metadata debounce** — snappy detail panel updates with cancel-before-start.
+
 ### Blockers before tagging 0.2.0
 
 ** Setup Script **:
@@ -106,7 +112,18 @@
 - 💡 **Subtitle picker** — choose subtitle language before watching
 - 💡 **Comments preview** — show top comments in detail panel (yt-dlp can fetch these)
 - 💡 **Related videos** — show related/recommended videos in detail panel
-- 💡 **SponsorBlock** — integrate SponsorBlock API to auto-skip sponsored segments
 - 💡 **System notifications** — macOS/Linux notification when a download completes
 - 💡 **Video playlist queue** — queue multiple videos and play sequentially (audio queue already works; video is harder due to app.suspend())
-- 💡 **Background search pre-warm** — pre-fetch next page of results while user reads current
+
+---
+
+## v0.4 — Platform & Integrations (📋 Planned)
+
+- 📋 **SponsorBlock integration** — highlight sponsor segments in green on the progress bar (both video and audio playback). Configurable: enabled by default, auto-skip toggle, skip self-promotion toggle. Segments are visually marked on the progress bar so the user understands why a section is skipped.
+- 📋 **Search in Library/History** — a pressable/enterable search field at the top of the video list in Library and History tabs. Filters locally through saved/watched videos without network calls.
+- 📋 **Channel browsing** — dedicated channel view: channel info + description on the left panel, channel's videos on the right panel with sub-tabs for "Videos" and "Playlists", sortable by latest/most popular.
+- 📋 **Remove header gap** — eliminate the horizontal gap between the Tabs header bar and the video list / detail panels; consolidate into a seamless, space-efficient layout.
+- 📋 **Robust install/uninstall scripts** — cross-platform dependency installation (brew, apt, pacman, winget), prompt user for sync mode during install, complete and secure uninstallation that removes all traces.
+- 📋 **Best quality as default** — ensure `preferred_quality: "best"` is the documented and enforced default for both video and audio playback.
+- 📋 **Code audit** — thorough audit of the entire codebase for performance bottlenecks, security issues (cookie handling, subprocess injection), and stability (error recovery, graceful degradation).
+- 📋 **Windows support** — full Windows compatibility via winget for dependency installation. Windows Terminal supports Sixel/images natively. Handle path separators, socket paths (`\\.\pipe\` instead of Unix sockets), and process management differences.
