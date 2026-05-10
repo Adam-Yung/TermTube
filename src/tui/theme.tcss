@@ -1013,7 +1013,7 @@ ChannelInfoPanel {
 #ch-tabs { height: auto; }
 #ch-video-list { height: 1fr; }
 
-#video-channel { cursor: pointer; }
+#video-channel { }
 
 App.theme-amber #dlpick-header { color: #e8820c; }
 App.theme-amber #dlpick-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
