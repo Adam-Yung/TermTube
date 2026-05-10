@@ -87,6 +87,7 @@ class ChannelScreen(Screen):
         self._info_proc: subprocess.Popen | None = None
         self._content_proc: subprocess.Popen | None = None
         self._active_workers: int = 0
+        self._video_panel: VideoListPanel | None = None
 
     def compose(self) -> ComposeResult:
         name = self._channel_name or "Channel"
@@ -102,8 +103,8 @@ class ChannelScreen(Screen):
     def on_mount(self) -> None:
         info_panel = self.query_one("#ch-info-panel", ChannelInfoPanel)
         info_panel.show_loading()
-        panel = self.query_one("#ch-video-list", VideoListPanel)
-        panel.clear_and_set_loading()
+        self._video_panel = self.query_one("#ch-video-list", VideoListPanel)
+        self._video_panel.clear_and_set_loading()
         self._load_channel_info()
         self._load_content()
 
@@ -138,7 +139,7 @@ class ChannelScreen(Screen):
     def _load_content(self) -> None:
         import src.ytdlp as ytdlp
         self._worker_start()
-        panel = self.query_one("#ch-video-list", VideoListPanel)
+        panel = self._video_panel
         self.app.call_from_thread(panel.clear_and_set_loading)
         try:
             def _on_proc(p: subprocess.Popen) -> None:
@@ -258,4 +259,11 @@ class ChannelScreen(Screen):
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         pass
+
+    def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
+        entry = message.entry
+        if not entry:
+            return
+        from src.tui.screens.video_action_modal import VideoActionModal
+        self.app.push_screen(VideoActionModal(entry))
 

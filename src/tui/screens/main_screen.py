@@ -491,7 +491,6 @@ class MainScreen(Screen):
             page_entries = entries[i:i + _PAGE_SIZE]
             self.app.call_from_thread(panel.add_page, page_num, page_entries)
         self.app.call_from_thread(panel.load_page, 1)
-        self.app.call_from_thread(self._on_page_loaded, panel)
         self.app.call_from_thread(panel.finish_loading)
 
     def _apply_channel_mode_to_detail(self) -> None:
@@ -1418,7 +1417,7 @@ class MainScreen(Screen):
 
     def action_download(self) -> None:
         entry = self._selected_entry()
-        if not entry or entry.get("_is_playlist"):
+        if not entry or entry.get("_is_playlist") or entry.get("_is_channel"):
             return
         title = entry.get("title", entry.get("id", ""))
         from src.tui.screens.download_picker_modal import DownloadPickerModal
