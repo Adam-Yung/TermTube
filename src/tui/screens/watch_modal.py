@@ -151,6 +151,9 @@ class WatchModal(ModalScreen[bool]):
             self.app.call_from_thread(self.dismiss, False)
             return
 
+        from src import history
+        history.add(self._entry)
+
         try:
             self._proc.wait()
         finally:
@@ -159,10 +162,6 @@ class WatchModal(ModalScreen[bool]):
                     os.unlink(path)
                 except OSError:
                     pass
-
-        # Write history only after successful playback ends
-        from src import history
-        history.add(self._entry)
 
         if not self._stopped:
             self.app.call_from_thread(self.dismiss, True)

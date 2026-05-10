@@ -279,7 +279,7 @@ class VideoListPanel(Widget):
             self._lv.append(item)
 
         if entries:
-            self._lv.index = 0
+            self._lv.call_after_refresh(lambda: setattr(self._lv, "index", 0))
 
         self._lv.focus()
         self._update_page_indicator()
