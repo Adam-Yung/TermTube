@@ -121,6 +121,27 @@ class VideoListItem(ListItem):
         local_type = entry.get("_local_type", "")
         has_audio = entry.get("_has_audio", False)
         is_playlist = entry.get("_is_playlist", False)
+        is_channel = entry.get("_is_channel", False)
+
+        if is_channel:
+            ch_name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"
+            if len(ch_name) > 50: ch_name = ch_name[:47] + "..."
+            subs = entry.get("subscriber_count")
+            vcnt = entry.get("video_count")
+            subs_s = ""
+            if subs is not None:
+                if subs >= 1000000: subs_s = str(round(subs * 1e-6, 1)) + "M"
+                elif subs >= 1000: subs_s = str(int(subs * 0.001)) + "K"
+                else: subs_s = str(subs)
+                subs_s += " subs"
+            vcnt_s = str(vcnt) + " videos" if vcnt else ""
+            parts = [p for p in [subs_s, vcnt_s] if p]
+            sep = "  [dim]·[/dim]  "
+            line2 = sep.join("[dim]" + p + "[/dim]" for p in parts)
+            ch_badge = " [" + theme_color + "]📺[/" + theme_color + "]"
+            line1 = "[bold white]" + ch_name + "[/bold white]" + ch_badge
+            return (line1 + chr(10) + line2) if line2 else line1
+
 
         if is_playlist:
             badge = " [#6b9eff]▶ PLAYLIST[/]"

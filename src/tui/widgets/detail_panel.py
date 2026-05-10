@@ -83,10 +83,16 @@ class DetailPanel(Widget):
             super().__init__()
             self.entry = entry
 
+    class ChannelClicked(Message):
+        def __init__(self, entry: dict) -> None:
+            super().__init__()
+            self.entry = entry
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._current_id: str = ""
         self._last_entry: dict | None = None
+        self._channel_mode: bool = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="thumbnail-area"):
@@ -152,7 +158,7 @@ class DetailPanel(Widget):
             f"[bold white]{title}[/bold white]"
         )
         self.query_one("#video-channel", Static).update(
-            f"📺 {channel}" if channel else ""
+            ("[@click='channel']📺 " + channel + "[/@click]") if channel else ""
         )
         stats_parts = [p for p in [duration, views, age] if p]
         self.query_one("#video-stats", Static).update(
@@ -192,7 +198,7 @@ class DetailPanel(Widget):
         age = _fmt_age(entry.get("upload_date"))
 
         self.query_one("#video-channel", Static).update(
-            f"📺 {channel}" if channel else ""
+            ("[@click='channel']📺 " + channel + "[/@click]") if channel else ""
         )
         stats_parts = [p for p in [duration, views, age] if p]
         self.query_one("#video-stats", Static).update(
@@ -254,3 +260,47 @@ class DetailPanel(Widget):
     def on_resize(self, event: Resize) -> None:
         if self._last_entry:
             self.post_message(self.RerenderRequested(self._last_entry))
+
+    def set_channel_mode(self) -> None:
+        self._channel_mode = True
+        try:
+            ab = self.query_one("#action-bar", ActionBar)
+            ab.display = False
+        except Exception: pass
+        for wid in ("#video-stats", "#video-playlists"):
+            try: self.query_one(wid, Static).update("")
+            except Exception: pass
+
+    def set_video_mode(self) -> None:
+        self._channel_mode = False
+        try:
+            ab = self.query_one("#action-bar", ActionBar)
+            ab.display = True
+        except Exception: pass
+
+    def update_channel_entry(self, entry: dict) -> None:
+        self._current_id = entry.get("id", "")
+        self._last_entry = entry
+        name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"
+        subs = entry.get("subscriber_count")
+        vcnt = entry.get("video_count")
+        url = entry.get("channel_url") or entry.get("uploader_url") or ""
+        desc = entry.get("description") or ""
+        subs_s = ""
+        if subs is not None:
+            if subs >= 1000000: subs_s = str(round(subs * 1e-6, 1)) + "M subscribers"
+            elif subs >= 1000: subs_s = str(int(subs * 0.001)) + "K subscribers"
+            else: subs_s = str(subs) + " subscribers"
+        vcnt_s = str(vcnt) + " videos" if vcnt else ""
+        try:
+            self.query_one("#video-title", Static).update("[bold white]" + name + "[/bold white]")
+            stats_p = [p for p in [subs_s, vcnt_s] if p]
+            sep = "  ·  "
+            stats_str = sep.join("[dim]" + p + "[/dim]" for p in stats_p) if stats_p else ""
+            self.query_one("#video-stats", Static).update(stats_str)
+            self.query_one("#video-channel", Static).update("[dim]" + url[:60] + "[/dim]") if url else self.query_one("#video-channel", Static).update("")
+            self.query_one("#video-desc-header", Static).update("[dim]About[/dim]") if desc else self.query_one("#video-desc-header", Static).update("")
+            self.query_one("#video-desc", Static).update(desc[:1500] if desc else "")
+            self.query_one("#video-playlists", Static).update("")
+        except Exception: pass
+
