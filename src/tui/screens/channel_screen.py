@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 
 from textual import work
@@ -14,6 +15,14 @@ from src.tui.widgets.video_list import VideoListPanel
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 _PAGE_SIZE = 20
+_SAFE_ID_RE = re.compile(r"[^A-Za-z0-9_\-]")
+
+
+def _safe_ch_id(info: dict) -> str:
+    raw = info.get("channel_id") or info.get("uploader_id") or ""
+    if not raw:
+        raw = _SAFE_ID_RE.sub("_", info.get("channel_url", "")[:60])
+    return "ch_" + raw[:50]
 
 
 def _fmt_subs(n) -> str:
@@ -81,12 +90,12 @@ class ChannelScreen(Screen):
         Binding("backspace", "go_back", "Back", show=False),
         Binding("j", "cursor_down", show=False),
         Binding("k", "cursor_up", show=False),
-        Binding("left_square_bracket", "page_prev", show=False),
-        Binding("right_square_bracket", "page_next", show=False),
+        Binding("left_square_bracket", "page_prev", "Prev", show=False),
+        Binding("right_square_bracket", "page_next", "Next", show=False),
         Binding("g", "page_first", show=False),
         Binding("G", "page_last", show=False),
         Binding("s", "toggle_sort", "Sort", show=True),
-        Binding("r", "reload", "Reload", show=False),
+        Binding("r", "reload", "Reload", show=True),
     ]
 
     def __init__(self, channel_url: str, channel_name: str = "") -> None:
@@ -100,6 +109,8 @@ class ChannelScreen(Screen):
         self._active_workers: int = 0
         self._video_panel: VideoListPanel | None = None
         self._thumb_session: int = 0
+        self._content_session: int = 0
+        self._initial_load_done: bool = False
 
     def compose(self) -> ComposeResult:
         name = self._channel_name or "Channel"
@@ -113,12 +124,24 @@ class ChannelScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        info_panel = self.query_one("#ch-info-panel", ChannelInfoPanel)
-        info_panel.show_loading()
         self._video_panel = self.query_one("#ch-video-list", VideoListPanel)
+        self.query_one("#ch-info-panel", ChannelInfoPanel).show_loading()
         self._video_panel.clear_and_set_loading()
+        self._video_panel.focus()
         self._load_channel_info()
-        self._load_content()
+        self.set_timer(0.15, self._ensure_content_loaded)
+
+    def _ensure_content_loaded(self) -> None:
+        if not self._initial_load_done:
+            self._start_content_load()
+
+    def _start_content_load(self) -> None:
+        self._initial_load_done = True
+        if self._video_panel is None:
+            return
+        self._content_session += 1
+        self._video_panel.clear_and_set_loading()
+        self._load_content(self._current_tab, self._sort, self._content_session)
 
     def _worker_start(self) -> None:
         self._active_workers += 1
@@ -147,16 +170,16 @@ class ChannelScreen(Screen):
         finally:
             self._worker_end()
 
-    @work(thread=True, exclusive=True, group="ch_content")
-    def _load_content(self) -> None:
+    @work(thread=True, group="ch_content")
+    def _load_content(self, tab: str, sort: str, session: int) -> None:
         import src.ytdlp as ytdlp
-        self._worker_start()
         panel = self._video_panel
-        self.app.call_from_thread(panel.clear_and_set_loading)
+        if panel is None:
+            return
         try:
             def _on_proc(p: subprocess.Popen) -> None:
                 self._content_proc = p
-            if self._current_tab == "playlists":
+            if tab == "playlists":
                 entries = ytdlp.fetch_channel_playlists(
                     self._channel_url, self.app.config, self.app.cache,
                     on_proc_started=_on_proc,
@@ -164,22 +187,30 @@ class ChannelScreen(Screen):
             else:
                 entries = ytdlp.fetch_channel_videos(
                     self._channel_url, self.app.config, self.app.cache,
-                    sort=self._sort, on_proc_started=_on_proc,
+                    sort=sort, on_proc_started=_on_proc,
                 )
+            _logger.debug("channel tab=%s entries=%d", tab, len(entries))
+            if session != self._content_session:
+                return
             if not entries:
                 self.app.call_from_thread(panel.set_empty_message, "No content found.")
                 return
-            for i in range(0, len(entries), _PAGE_SIZE):
-                page_num = 1 + (i // _PAGE_SIZE)
-                page = entries[i:i + _PAGE_SIZE]
-                self.app.call_from_thread(panel.add_page, page_num, page)
+            page_sz = _PAGE_SIZE
+            idx2 = 0
+            pnum = 1
+            while idx2 < len(entries):
+                chunk = entries[idx2:idx2 + page_sz]
+                self.app.call_from_thread(panel.add_page, pnum, chunk)
+                idx2 += page_sz
+                pnum += 1
+            if session != self._content_session:
+                return
             self.app.call_from_thread(panel.load_page, 1)
             self.app.call_from_thread(panel.finish_loading)
         except Exception as exc:
             _logger.debug("channel content error: %s", exc)
-            self.app.call_from_thread(panel.set_error_message, "Error loading content.")
-        finally:
-            self._worker_end()
+            if session == self._content_session:
+                self.app.call_from_thread(panel.set_error_message, str(exc))
 
     def _apply_info(self, info: dict) -> None:
         try:
@@ -189,7 +220,7 @@ class ChannelScreen(Screen):
         except Exception:
             pass
         thumb_url = info.get("thumbnail", "")
-        ch_id = "ch:" + (info.get("channel_id") or info.get("channel_url", ""))[:40]
+        ch_id = _safe_ch_id(info)
         if thumb_url and ch_id:
             try:
                 tw = self.query_one("#ch-info-panel #ch-thumbnail", ThumbnailWidget)
@@ -216,6 +247,7 @@ class ChannelScreen(Screen):
                     with _PILImage.open(local) as _img:
                         _img.load()
                 except Exception:
+                    self.app.call_from_thread(_set_placeholder)
                     return
                 if session != self._thumb_session:
                     return
@@ -223,13 +255,24 @@ class ChannelScreen(Screen):
                     lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_image(ch_id, local)
                 )
         else:
+            local = thumb_mod._thumb_path(ch_id)
+            if not local.exists():
+                local = thumb_mod.download(ch_id, url) or local
             if session != self._thumb_session:
                 return
-            ansi = thumb_mod.render_url(url) or ""
-            if ansi and session == self._thumb_session:
+            if not (local and local.exists()):
+                self.app.call_from_thread(_set_placeholder)
+                return
+            ansi = thumb_mod.render(ch_id, {"id": ch_id, "thumbnail": url}) or ""
+            if session != self._thumb_session:
+                return
+            if ansi:
+                _id2, _ansi = ch_id, ansi
                 self.app.call_from_thread(
-                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_ansi(ch_id, ansi)
+                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_ansi(_id2, _ansi)
                 )
+            else:
+                self.app.call_from_thread(_set_placeholder)
 
     def _show_info_error(self) -> None:
         try:
@@ -240,16 +283,20 @@ class ChannelScreen(Screen):
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         tab_id = event.tab.id if event.tab else None
-        if not tab_id or tab_id == self._current_tab:
+        if not tab_id:
             return
+        prev_tab = self._current_tab
         self._current_tab = tab_id
         try:
-            panel = self.query_one("#ch-info-panel", ChannelInfoPanel)
-            panel.update_sort_hint(self._sort, self._current_tab)
+            self.query_one("#ch-info-panel", ChannelInfoPanel).update_sort_hint(
+                self._sort, self._current_tab
+            )
         except Exception:
             pass
+        if tab_id == prev_tab and self._initial_load_done:
+            return
         self._cancel_content_proc()
-        self._load_content()
+        self._start_content_load()
 
     def _cancel_content_proc(self) -> None:
         if self._content_proc and self._content_proc.poll() is None:
@@ -295,13 +342,12 @@ class ChannelScreen(Screen):
             panel.update_sort_hint(self._sort, self._current_tab)
         except Exception: pass
         self._cancel_content_proc()
-        self._load_content()
+        self._start_content_load()
 
     def action_reload(self) -> None:
-        panel = self.query_one("#ch-video-list", VideoListPanel)
-        panel.clear_and_set_loading()
         self._cancel_content_proc()
-        self._load_content()
+        self._load_channel_info()
+        self._start_content_load()
 
     def on_video_list_panel_page_change_requested(
         self, message: VideoListPanel.PageChangeRequested
