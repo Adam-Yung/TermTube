@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import threading
 from pathlib import Path
 
@@ -35,6 +36,7 @@ class TermTubeApp(App):
         self.config = config
         self.cache = Cache(config._data.get("cache_ttl", {}))
         self._housekeeping_done = False
+        atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:
         # Apply colour theme as a CSS class on the App root
@@ -53,6 +55,12 @@ class TermTubeApp(App):
         self.push_screen(MainScreen())
 
     def on_unmount(self) -> None:
+        # Kill all active yt-dlp subprocesses so they don't orphan on exit.
+        try:
+            import src.ytdlp as ytdlp
+            ytdlp.kill_all_active()
+        except Exception:
+            pass
         # Backstop: if the user quits before the 60 s timer fires, still prune
         # before exit. Synchronous run is fine — process is exiting anyway.
         if not self._housekeeping_done:
@@ -80,3 +88,12 @@ class TermTubeApp(App):
         except Exception as exc:
             logger.exception("Housekeeping failed: %s", exc)
             # Fail silently so it never crashes the TUI
+
+    @staticmethod
+    def _atexit_cleanup() -> None:
+        """Last-resort cleanup: kill any orphaned yt-dlp subprocesses on exit."""
+        try:
+            import src.ytdlp as ytdlp
+            ytdlp.kill_all_active()
+        except Exception:
+            pass

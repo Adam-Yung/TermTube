@@ -55,10 +55,9 @@ class PageIndicator(Widget):
     def render(self) -> Text:
         prev_arrow = "◀" if self._current > 1 else "·"
         next_arrow = "▶" if self._next_ready else "·"
-        status = "  loading next…" if (self._prefetching and not self._next_ready) else ""
 
         return Text.from_markup(
-            f"[dim]{prev_arrow}  Page {self._current} / {self._total}{status}  {next_arrow}[/dim]"
+            f"[dim]{prev_arrow}  Page {self._current} / {self._total}  {next_arrow}[/dim]"
         )
 
     def on_click(self, event: Click) -> None:

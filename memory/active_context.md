@@ -1,24 +1,15 @@
 # Active Context
 
 ## Current Task: COMPLETED
-Paged System Overhaul — replaced infinite scroll with a fixed 20-entry page system.
+Performance and stability audit — implemented 4 priority fixes.
 
 ## What Was Done
-- Rewrote `src/tui/widgets/video_list.py` with a paged model (`_pages` dict, `load_page()`, page locking)
-- Created `src/tui/widgets/page_indicator.py` — footer widget with prev/next navigation
-- Rewrote feed loading in `src/tui/screens/main_screen.py` — batch fetch (80 entries), page management, strict 2-worker limit
-- Added `fetch_page_batch()` and `fetch_search_batch()` to `src/ytdlp.py`
-- Updated cache: stash=20, metadata cap=100 FIFO, `prune_video_cache_fifo()`
-- Keybindings: `[`/`]` for page nav, `g`/`G` for first/last page
-- Active workers reference counter for honest spinner
-- 100ms focus debounce with cancel-before-start (no neighbour prefetch)
-- Hardened verbose logging to never crash (escape brackets)
-- Rewrote README as user-facing guide
-- Updated ROADMAP with SponsorBlock, search-in-library, channel browsing, header gap fix, install scripts, audit, Windows support
+1. **Moved `_prefetch_next_page_meta` out of `feed_loader` worker** — it now schedules a `_focus_worker` call via `call_from_thread(self._schedule_prefetch)` so the feed_loader thread exits cleanly after fetching pages. Enforces the strict "one thread for pages, one thread for video info" model.
+2. **Added process cleanup on exit** — `on_unmount` now calls `ytdlp.kill_all_active()` before housekeeping, and an `atexit` handler provides last-resort cleanup if `on_unmount` doesn't fire.
+3. **Added 30s read timeout to yt-dlp streaming** — uses `select.select()` + `os.read()` instead of blocking `for line in proc.stdout`. If no data arrives within 30s, the subprocess is killed and the worker unblocks.
+4. **Registered download subprocess in `_active_procs`** — `_run_download_with_progress` now adds/removes its proc to the global registry so `kill_all_active()` terminates downloads on quit.
 
 ## Key Design Decisions in This Session
-- Pages are 20 entries each; fetched in batches of 80 (4 pages)
-- `]` is a no-op when next page isn't ready (prevents system overload)
-- Stash saves the first *unseen* page on exit, backfilled to exactly 20 entries
-- Maximum 2 background workers: 1 feed fetch + 1 metadata fetch
-- Metadata debounce reduced from 200ms to 100ms for snappiness
+- `_schedule_prefetch` runs on the main thread (via `call_from_thread`) and dispatches to the existing `_focus_worker` — this reuses the session counter + exclusive group for correct cancellation.
+- The read timeout uses `os.read(fd, 65536)` directly (not `proc.stdout.read()`) to guarantee non-blocking behavior after `select` returns.
+- `atexit` handler is a static method to avoid preventing GC of the App instance.

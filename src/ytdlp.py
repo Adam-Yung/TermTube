@@ -12,7 +12,9 @@ Progressive streaming design:
 from __future__ import annotations
 import hashlib
 import json
+import os
 import re
+import select
 import subprocess
 import sys
 import threading
@@ -114,6 +116,11 @@ def _normalise_entry(entry: dict) -> dict:
 
 # ── Low-level streaming ───────────────────────────────────────────────────────
 
+# Timeout (seconds) for waiting on yt-dlp stdout. If no data arrives within
+# this window, we assume the process is hung and kill it.
+_STREAM_READ_TIMEOUT_S = 30
+
+
 def _stream_json_lines(
     cmd: list[str],
     *,
@@ -128,6 +135,9 @@ def _stream_json_lines(
     on_proc_started: optional callback invoked with the Popen handle as soon
     as the process is spawned. Lets callers (e.g. a focus dispatcher) cancel
     the subprocess when the user moves on, instead of waiting for it to finish.
+
+    A read timeout (_STREAM_READ_TIMEOUT_S) prevents hangs: if yt-dlp produces
+    no output for 30 s, the subprocess is killed and iteration stops.
     """
     logger.debug("yt-dlp cmd: %s", " ".join(cmd))
     try:
@@ -136,8 +146,8 @@ def _stream_json_lines(
             cmd,
             stdout=subprocess.PIPE,
             stderr=stderr_dest,
-            text=True,
-            bufsize=1,
+            text=False,
+            bufsize=0,
         )
         with _active_procs_lock:
             _active_procs.add(proc)
@@ -147,17 +157,30 @@ def _stream_json_lines(
             except Exception:
                 pass
         try:
-            for line in proc.stdout:  # type: ignore[union-attr]
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    yield json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+            stdout_fd = proc.stdout.fileno()  # type: ignore[union-attr]
+            buf = ""
+            while True:
+                ready, _, _ = select.select([stdout_fd], [], [], _STREAM_READ_TIMEOUT_S)
+                if not ready:
+                    logger.warning("yt-dlp read timeout (%ds) — killing process", _STREAM_READ_TIMEOUT_S)
+                    proc.kill()
+                    break
+                raw = os.read(stdout_fd, 65536)
+                if not raw:
+                    break
+                buf += raw.decode("utf-8", errors="replace")
+                while "\n" in buf:
+                    line, buf = buf.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
             proc.wait()
             if capture_stderr and proc.stderr:
-                err = proc.stderr.read()
+                err = proc.stderr.read().decode("utf-8", errors="replace")
                 if err.strip():
                     logger.debug("yt-dlp stderr: %s", err.strip())
                 if proc.returncode != 0:
@@ -531,23 +554,28 @@ def _run_download_with_progress(
             text=True,
             bufsize=1,
         )
-        for line in proc.stdout:  # type: ignore[union-attr]
-            line = line.rstrip()
-            m = _PROGRESS_RE.search(line)
-            pct = float(m.group(1)) if m else -1.0
-            if on_progress:
-                on_progress(line, pct)
-            elif pct >= 0:
-                # Default: simple progress bar to stderr
-                filled = int(pct / 2)
-                bar = "█" * filled + "░" * (50 - filled)
-                sys.stderr.write(f"\r  [{bar}] {pct:5.1f}%")
+        with _active_procs_lock:
+            _active_procs.add(proc)
+        try:
+            for line in proc.stdout:  # type: ignore[union-attr]
+                line = line.rstrip()
+                m = _PROGRESS_RE.search(line)
+                pct = float(m.group(1)) if m else -1.0
+                if on_progress:
+                    on_progress(line, pct)
+                elif pct >= 0:
+                    filled = int(pct / 2)
+                    bar = "█" * filled + "░" * (50 - filled)
+                    sys.stderr.write(f"\r  [{bar}] {pct:5.1f}%")
+                    sys.stderr.flush()
+            if on_progress is None:
+                sys.stderr.write("\r\033[K")
                 sys.stderr.flush()
-        if on_progress is None:
-            sys.stderr.write("\r\033[K")
-            sys.stderr.flush()
-        proc.wait()
-        return proc.returncode == 0
+            proc.wait()
+            return proc.returncode == 0
+        finally:
+            with _active_procs_lock:
+                _active_procs.discard(proc)
     except FileNotFoundError:
         raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
 

@@ -91,3 +91,12 @@ Key design decisions:
 - **Stash backfill guarantee** — if fewer than 20 unseen entries exist at exit, backfill from earlier pages so the user always sees a full first page on boot.
 - **Active workers reference counter** — `_active_workers: int` incremented/decremented around workers. Spinner shows when > 0, hides when == 0. Honest to the user.
 - **Search is paged too** — up to 50 results split into pages of 20. Same `[`/`]` navigation.
+
+## Performance and Stability Hardening (May 2026)
+
+Key decisions from the audit:
+- **Prefetch runs on the `focus` worker, not `feed_loader`** — keeps the page-fetch thread clean (single responsibility). `_schedule_prefetch` is dispatched via `call_from_thread` after feed loading completes.
+- **30s read timeout on yt-dlp subprocess stdout** — uses `select.select()` + `os.read()` on raw fd for true non-blocking reads. If yt-dlp hangs, the process is killed and the worker unblocks gracefully.
+- **`atexit` + `on_unmount` double-guard for subprocess cleanup** — `ytdlp.kill_all_active()` runs in both paths to handle SIGINT/SIGTERM/normal exit.
+- **Download procs registered in `_active_procs`** — ensures `kill_all_active()` terminates downloads on quit (previously they were orphaned).
+- **Thumb worker kept separate** — a 3rd exclusive thread for thumbnail rendering (better UX via parallelism), intentionally outside the "2 worker" budget since it's not fetching pages or video info.

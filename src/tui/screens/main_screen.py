@@ -440,8 +440,8 @@ class MainScreen(Screen):
         self.app.call_from_thread(panel.finish_loading)
         self.app.call_from_thread(panel.set_prefetching, False)
 
-        # Step 4 — prefetch metadata for first entry of page 2
-        self._prefetch_next_page_meta(panel, cache, config)
+        # Step 4 — schedule prefetch on the focus worker (keeps feed_loader clean)
+        self.app.call_from_thread(self._schedule_prefetch)
 
         # Prune cache to cap
         try:
@@ -476,24 +476,79 @@ class MainScreen(Screen):
         self.app.call_from_thread(panel.load_page, 1)
         self.app.call_from_thread(panel.finish_loading)
 
-    def _prefetch_next_page_meta(self, panel, cache, config) -> None:
-        """Prefetch full metadata for the first entry of the next unseen page."""
+    def _schedule_prefetch(self) -> None:
+        """Schedule a prefetch of the next page's first entry on the focus worker."""
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        next_page = panel.current_page + 1
+        entries = panel.page_entries(next_page)
+        if not entries:
+            return
+        first_entry = entries[0]
+        vid = first_entry.get("id", "")
+        if not vid or vid.startswith("__"):
+            return
+        cached = self.app.cache.get_video(vid)
+        if cached and cached.get("description") is not None:
+            return
+        self._focus_session += 1
+        session = self._focus_session
+        self._focus_worker(vid, first_entry, session)
+
+    @work(thread=True, exclusive=True, group="feed_loader")
+    def _fetch_more_pages(self) -> None:
+        """Fetch the next batch of pages when user reaches the last page."""
+        import src.ytdlp as ytdlp
+
+        panel = self.query_one("#video-list-panel", VideoListPanel)
+        config = self.app.config
+        cache = self.app.cache
+
+        tab = self._current_tab
+        if tab not in _PAGED_TABS:
+            return
+
+        self.app.call_from_thread(panel.show_next_page_loading)
+        self._worker_start()
         try:
-            next_page = panel.current_page + 1
-            entries = panel.page_entries(next_page)
+            skip_ids = set(panel._seen_ids)
+            start_page = panel.current_page
+
+            if tab in _FEED_TABS:
+                url = ytdlp.FEED_URLS[tab]
+                entries = ytdlp.fetch_page_batch(
+                    url, config, cache,
+                    skip_ids=skip_ids,
+                    count=_BATCH_FETCH_COUNT,
+                    feed_key=None,
+                )
+                if tab == "home":
+                    is_suppressed = cache.is_suppressed
+                    entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
+            elif tab == "search" and self._search_query:
+                entries = ytdlp.fetch_search_batch(
+                    self._search_query, config, cache,
+                    skip_ids=skip_ids,
+                    count=50,
+                )
+            else:
+                return
+
             if not entries:
+                self.app.call_from_thread(panel.finish_loading)
                 return
-            first_entry = entries[0]
-            vid = first_entry.get("id", "")
-            if not vid or vid.startswith("__"):
-                return
-            cached = cache.get_video(vid)
-            if cached and cached.get("description") is not None:
-                return
-            import src.ytdlp as ytdlp
-            ytdlp.fetch_full(vid, config, cache)
+
+            for i in range(0, len(entries), _PAGE_SIZE):
+                page_num = start_page + (i // _PAGE_SIZE)
+                page_entries = entries[i:i + _PAGE_SIZE]
+                self.app.call_from_thread(panel.add_page, page_num, page_entries)
+
+            self.app.call_from_thread(panel.load_page, start_page)
+
         except Exception as exc:
-            _logger.debug("prefetch_next_page_meta error: %s", exc)
+            _logger.debug("fetch_more_pages error: %s", exc)
+            self.app.call_from_thread(panel.finish_loading)
+        finally:
+            self._worker_end()
 
     def _load_playlists_sync(self, panel) -> None:
         from src import playlist
@@ -1386,10 +1441,14 @@ class MainScreen(Screen):
     # ── Page navigation ───────────────────────────────────────────────────────
 
     def action_page_next(self) -> None:
-        """Switch to next page. No-op if next page isn't ready."""
+        """Switch to next page. Auto-fetches more if on the last page of a feed."""
         panel = self.query_one("#video-list-panel", VideoListPanel)
+        if panel.is_loading:
+            return
         if panel.can_go_next():
             panel.load_page(panel.current_page + 1)
+        elif self._current_tab in _PAGED_TABS:
+            self._fetch_more_pages()
 
     def action_page_prev(self) -> None:
         """Switch to previous page. No-op if already on page 1."""

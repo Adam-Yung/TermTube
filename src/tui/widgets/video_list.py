@@ -364,6 +364,17 @@ class VideoListPanel(Widget):
         self._prefetching = active
         self._update_page_indicator()
 
+    def show_next_page_loading(self) -> None:
+        """Advance to the next page number and show the loading spinner."""
+        self._current_page += 1
+        self._is_loading = True
+        self._items_by_id.clear()
+        self._lv.clear()
+        self._anim.display = True
+        self._lv.display = False
+        self._header.update("[dim]Loading…[/dim]")
+        self._update_page_indicator()
+
     def set_freshness(self, text: str) -> None:
         self._freshness = text or ""
         self._render_header()
