@@ -66,6 +66,7 @@
 - ✅ **Leaner cache** — metadata capped at 100 entries (FIFO), stash holds exactly 20 entries for next boot.
 - ✅ **Honest loading indicator** — header spinner animates whenever any worker is active (reference counted).
 - ✅ **100ms metadata debounce** — snappy detail panel updates with cancel-before-start.
+- ✅ **SponsorBlock integration** — sponsor segments highlighted in green on progress bars (audio ActionBar + video WatchModal). Auto-skip enabled by default. Configurable categories (sponsor, selfpromo). Segments cached locally for 24h.
 
 ### Blockers before tagging 0.2.0
 
@@ -119,7 +120,6 @@
 
 ## v0.4 — Platform & Integrations (📋 Planned)
 
-- 📋 **SponsorBlock integration** — highlight sponsor segments in green on the progress bar (both video and audio playback). Configurable: enabled by default, auto-skip toggle, skip self-promotion toggle. Segments are visually marked on the progress bar so the user understands why a section is skipped.
 - 📋 **Search in Library/History** — a pressable/enterable search field at the top of the video list in Library and History tabs. Filters locally through saved/watched videos without network calls.
 - 📋 **Channel browsing** — dedicated channel view: channel info + description on the left panel, channel's videos on the right panel with sub-tabs for "Videos" and "Playlists", sortable by latest/most popular.
 - 📋 **Remove header gap** — eliminate the horizontal gap between the Tabs header bar and the video list / detail panels; consolidate into a seamless, space-efficient layout.

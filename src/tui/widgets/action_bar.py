@@ -7,6 +7,8 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
+from src.sponsorblock import Segment
+
 
 def _fmt_secs(s: float) -> str:
     s = int(s)
@@ -68,6 +70,7 @@ class ActionBar(Widget):
         self._channel: str = ""
         self._playing: bool = False
         self._queue_len: int = 0
+        self._segments: list[Segment] = []
 
     def compose(self) -> ComposeResult:
         yield Static(id="ab-actions")
@@ -147,9 +150,25 @@ class ActionBar(Widget):
             return f"[#2a2a40]{'─' * width}[/#2a2a40]"
         frac = min(pos / dur, 1.0)
         filled = int(frac * width)
-        empty = width - filled
         color = self._get_progress_color()
-        return f"[{color}]{'█' * filled}[/{color}]" f"[#2a2a40]{'░' * empty}[/#2a2a40]"
+        sponsor_color = "#22c55e"
+        sponsor_dim = "#166534"
+
+        if not self._segments:
+            empty = width - filled
+            return f"[{color}]{'█' * filled}[/{color}][#2a2a40]{'░' * empty}[/#2a2a40]"
+
+        parts: list[str] = []
+        for col in range(width):
+            t = (col / width) * dur
+            in_segment = any(s.start <= t < s.end for s in self._segments)
+            if col < filled:
+                c = sponsor_color if in_segment else color
+                parts.append(f"[{c}]█[/{c}]")
+            else:
+                c = sponsor_dim if in_segment else "#2a2a40"
+                parts.append(f"[{c}]░[/{c}]")
+        return "".join(parts)
 
     def _update_np_keys(self) -> None:
         color = self._get_theme_color()
@@ -164,6 +183,14 @@ class ActionBar(Widget):
 
     # ── Public API ────────────────────────────────────────────────────────────
 
+    def set_segments(self, segments: list[Segment]) -> None:
+        """Set SponsorBlock segments for progress bar overlay."""
+        self._segments = segments
+
+    def clear_segments(self) -> None:
+        """Remove all SponsorBlock segment markers."""
+        self._segments = []
+
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
         self.query_one("#ab-actions", Static).update(self._get_actions_table())
@@ -174,6 +201,7 @@ class ActionBar(Widget):
     def set_actions_mode(self) -> None:
         self._playing = False
         self._queue_len = 0
+        self._segments = []
         self._set_mode_actions()
 
     def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:

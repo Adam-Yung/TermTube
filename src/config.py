@@ -35,6 +35,12 @@ DEFAULT_CONFIG: dict = {
     "theme": "crimson",
     # thumbnail_warning_dismissed: set to true after user clicks "Never show again"
     "thumbnail_warning_dismissed": False,
+    # sponsorblock: SponsorBlock integration settings
+    "sponsorblock": {
+        "enabled": True,
+        "auto_skip": True,
+        "categories": ["sponsor", "selfpromo"],
+    },
 }
 
 
@@ -42,6 +48,7 @@ class Config:
     def __init__(self, path: str | None = None) -> None:
         self._data: dict = dict(DEFAULT_CONFIG)
         self._data["cache_ttl"] = dict(DEFAULT_CONFIG["cache_ttl"])
+        self._data["sponsorblock"] = dict(DEFAULT_CONFIG["sponsorblock"])
 
         if path:
             self.path = Path(path)
@@ -66,6 +73,10 @@ class Config:
         if "cache_ttl" in loaded and isinstance(loaded["cache_ttl"], dict):
             self._data["cache_ttl"].update(loaded["cache_ttl"])
             loaded.pop("cache_ttl")
+        # Deep merge sponsorblock
+        if "sponsorblock" in loaded and isinstance(loaded["sponsorblock"], dict):
+            self._data["sponsorblock"].update(loaded["sponsorblock"])
+            loaded.pop("sponsorblock")
         self._data.update(loaded)
 
     # ── Cookie resolution (priority: file → browser) ─────────────────────────
@@ -153,6 +164,21 @@ class Config:
         t = self._data.get("theme", "crimson")
         return t if t in ("crimson", "amber", "ocean", "midnight") else "crimson"
 
+    @property
+    def sponsorblock_enabled(self) -> bool:
+        return bool(self._data.get("sponsorblock", {}).get("enabled", True))
+
+    @property
+    def sponsorblock_auto_skip(self) -> bool:
+        return bool(self._data.get("sponsorblock", {}).get("auto_skip", True))
+
+    @property
+    def sponsorblock_categories(self) -> list[str]:
+        cats = self._data.get("sponsorblock", {}).get("categories")
+        if isinstance(cats, list):
+            return cats
+        return ["sponsor", "selfpromo"]
+
     def save(self) -> None:
         """Persist current config back to disk (only user-visible keys)."""
         try:
@@ -162,8 +188,9 @@ class Config:
                 with open(self.path) as f:
                     existing = yaml.safe_load(f) or {}
             existing.update({k: v for k, v in self._data.items()
-                             if k not in ("cache_ttl",)})
+                             if k not in ("cache_ttl", "sponsorblock")})
             existing["cache_ttl"] = self._data["cache_ttl"]
+            existing["sponsorblock"] = self._data["sponsorblock"]
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "w") as f:
                 import yaml

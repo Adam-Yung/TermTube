@@ -201,6 +201,8 @@ class MainScreen(Screen):
         self._audio_poll_timer = None
         self._audio_queue: list[dict] = []
         self._audio_session: int = 0
+        self._sb_segments: list = []
+        self._sb_skipped: set[int] = set()
         # ── Focus / thumbnail dwell-driven workers ────────────────────────────
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
@@ -996,6 +998,8 @@ class MainScreen(Screen):
         self._audio_stopped = False
         self._audio_session += 1
         session = self._audio_session
+        self._sb_segments = []
+        self._sb_skipped = set()
         self._log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
         self._action_bar().set_player_mode(entry, queue_len=len(self._audio_queue))
         self._refresh_queue_hint()
@@ -1005,6 +1009,8 @@ class MainScreen(Screen):
     def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
         self._log("[dim]Audio stop[/dim]")
         self._audio_stopped = True
+        self._sb_segments = []
+        self._sb_skipped = set()
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
 
@@ -1042,6 +1048,13 @@ class MainScreen(Screen):
             and hasattr(self.app.cache, "suppress_video")
         ):
             self.app.cache.suppress_video(vid)
+
+        # Fetch SponsorBlock segments (runs in worker thread — safe to block)
+        if vid and self.app.config.sponsorblock_enabled:
+            from src.sponsorblock import fetch_segments
+            segments = fetch_segments(vid, self.app.config.sponsorblock_categories)
+            self._sb_segments = segments
+            self.app.call_from_thread(self._action_bar().set_segments, segments)
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
@@ -1082,13 +1095,14 @@ class MainScreen(Screen):
                 stderr=subprocess.PIPE,
                 text=True,
             )
+            proc = self._audio_proc
             # communicate() drains stderr while waiting — avoids the pipe
             # buffer filling up and deadlocking mpv if it spews errors.
             try:
-                _out, stderr_text = self._audio_proc.communicate()
+                _out, stderr_text = proc.communicate()
             except Exception:
                 stderr_text = ""
-            returncode = self._audio_proc.returncode
+            returncode = proc.returncode
         except FileNotFoundError:
             self.app.call_from_thread(
                 self._log, "[red]Error: mpv not found — install with: brew install mpv[/red]"
@@ -1212,6 +1226,24 @@ class MainScreen(Screen):
         pos, dur, paused = poll_audio_properties(socket_path=_AUDIO_SOCKET)
         if pos is not None and dur is not None:
             self._action_bar().update_progress(pos, dur, paused)
+
+            # Auto-skip sponsor segments
+            if self.app.config.sponsorblock_auto_skip and self._sb_segments:
+                for i, seg in enumerate(self._sb_segments):
+                    if i in self._sb_skipped:
+                        continue
+                    if seg.start <= pos < seg.end:
+                        self._sb_skipped.add(i)
+                        skip_dur = int(seg.end - seg.start)
+                        from src.player import send_ipc_command
+                        send_ipc_command(
+                            {"command": ["seek", seg.end, "absolute"]},
+                            socket_path=_AUDIO_SOCKET,
+                        )
+                        self.notify(
+                            f"Skipped: {seg.category} ({skip_dur}s)", timeout=3
+                        )
+                        break
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal

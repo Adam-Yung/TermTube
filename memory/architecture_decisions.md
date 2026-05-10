@@ -100,3 +100,14 @@ Key decisions from the audit:
 - **`atexit` + `on_unmount` double-guard for subprocess cleanup** — `ytdlp.kill_all_active()` runs in both paths to handle SIGINT/SIGTERM/normal exit.
 - **Download procs registered in `_active_procs`** — ensures `kill_all_active()` terminates downloads on quit (previously they were orphaned).
 - **Thumb worker kept separate** — a 3rd exclusive thread for thumbnail rendering (better UX via parallelism), intentionally outside the "2 worker" budget since it's not fetching pages or video info.
+
+## SponsorBlock Integration (May 2026)
+
+Key decisions:
+- **Uses the simple `videoID` endpoint, not the privacy-preserving hash prefix** — we already know the full video ID, so the hash-prefix approach adds complexity for no privacy gain (the video was already fetched via yt-dlp).
+- **Segments fetched in the existing worker thread** — for audio, fetched inside `_launch_audio_worker` (already `@work(thread=True)`); for video, inside `_launch_video`. No new worker needed.
+- **Disk cache at `~/.cache/termtube/sb/{video_id}.json` with 24h TTL** — avoids redundant API calls on re-listen. Empty list cached on 404 (video has no segments) to avoid retrying.
+- **Progress bar rendered character-by-character when segments present** — each column maps to a time range; columns overlapping a segment render in green. Normal playback color otherwise. Falls back to the original fast-path string multiplication when no segments exist.
+- **Auto-skip uses a `_skipped_indices: set[int]` guard** — prevents the same segment from triggering repeated seeks if the poll fires before mpv finishes seeking past the segment boundary.
+- **`urllib.request` (stdlib) instead of `httpx`/`requests`** — zero new dependencies. 3-second timeout so a slow/down API doesn't block playback start noticeably.
+- **Configuration is a nested dict (`sponsorblock:` key in config.yaml)** — mirrors the `cache_ttl` pattern. Deep-merged on load so partial user overrides don't clobber other defaults.

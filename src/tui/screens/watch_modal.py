@@ -10,7 +10,9 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import ProgressBar, Static
+from textual.widgets import Static
+
+from src.sponsorblock import Segment
 
 
 def _fmt_secs(s: float) -> str:
@@ -58,6 +60,9 @@ class WatchModal(ModalScreen[bool]):
         self._ytdl_format = ytdl_format
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._stopped = False
+        self._segments: list[Segment] = []
+        self._skipped_indices: set[int] = set()
+        self._dur: float = 0.0
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or "Unknown"
@@ -67,7 +72,7 @@ class WatchModal(ModalScreen[bool]):
             yield Static(f"[bold white]{title}[/bold white]", id="np-title", markup=True)
             if channel:
                 yield Static(channel, id="np-channel")
-            yield ProgressBar(total=1000, show_eta=False, id="np-progress")
+            yield Static("", id="np-progress", markup=True)
             yield Static("Loading…", id="np-time")
             yield Static(
                 "[dim]space[/dim] pause  "
@@ -93,13 +98,18 @@ class WatchModal(ModalScreen[bool]):
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)
 
+        # Fetch SponsorBlock segments
+        config = getattr(self.app, "config", None)
+        if config and config.sponsorblock_enabled and vid:
+            from src.sponsorblock import fetch_segments
+            self._segments = fetch_segments(vid, config.sponsorblock_categories)
+
         url = (
             self._entry.get("_local_path")
             or f"https://www.youtube.com/watch?v={vid}"
         )
         title = self._entry.get("title", "")
 
-        config = getattr(self.app, "config", None)
         cookie_args = config.cookie_args if config else []
 
         input_conf = player_mod._write_input_conf()
@@ -175,17 +185,68 @@ class WatchModal(ModalScreen[bool]):
 
         pos, dur, paused = poll_audio_properties(socket_path=self._SOCKET)
         if pos is not None and dur and float(dur) > 0:
-            frac = min(float(pos) / float(dur), 1.0)
+            pos_f = float(pos)
+            dur_f = float(dur)
+            self._dur = dur_f
+
+            # Auto-skip sponsor segments
+            config = getattr(self.app, "config", None)
+            if config and config.sponsorblock_auto_skip and self._segments:
+                for i, seg in enumerate(self._segments):
+                    if i in self._skipped_indices:
+                        continue
+                    if seg.start <= pos_f < seg.end:
+                        self._skipped_indices.add(i)
+                        skip_dur = int(seg.end - seg.start)
+                        self._ipc(["seek", seg.end, "absolute"])
+                        self.notify(
+                            f"Skipped: {seg.category} ({skip_dur}s)",
+                            timeout=3,
+                        )
+                        return
+
             try:
-                self.query_one("#np-progress", ProgressBar).update(
-                    progress=int(frac * 1000)
+                bar_width = max(8, (self.query_one("#watch-dialog").size.width or 60) - 6)
+                self.query_one("#np-progress", Static).update(
+                    self._render_bar(pos_f, dur_f, bar_width)
                 )
                 pause_indicator = "  ⏸ paused" if paused else ""
                 self.query_one("#np-time", Static).update(
-                    f"{_fmt_secs(float(pos))}  /  {_fmt_secs(float(dur))}{pause_indicator}"
+                    f"{_fmt_secs(pos_f)}  /  {_fmt_secs(dur_f)}{pause_indicator}"
                 )
             except Exception:
                 pass
+
+    # ── Progress bar rendering ─────────────────────────────────────────────
+
+    def _render_bar(self, pos: float, dur: float, width: int) -> str:
+        width = max(4, width)
+        if dur <= 0:
+            return f"[#2a2a40]{'─' * width}[/#2a2a40]"
+        frac = min(pos / dur, 1.0)
+        filled = int(frac * width)
+        progress_color = "#6666ff"
+        sponsor_color = "#22c55e"
+        sponsor_dim = "#166534"
+
+        if not self._segments:
+            empty = width - filled
+            return (
+                f"[{progress_color}]{'█' * filled}[/{progress_color}]"
+                f"[#2a2a40]{'░' * empty}[/#2a2a40]"
+            )
+
+        parts: list[str] = []
+        for col in range(width):
+            t = (col / width) * dur
+            in_segment = any(s.start <= t < s.end for s in self._segments)
+            if col < filled:
+                c = sponsor_color if in_segment else progress_color
+                parts.append(f"[{c}]█[/{c}]")
+            else:
+                c = sponsor_dim if in_segment else "#2a2a40"
+                parts.append(f"[{c}]░[/{c}]")
+        return "".join(parts)
 
     # ── IPC helper ────────────────────────────────────────────────────────────
 
