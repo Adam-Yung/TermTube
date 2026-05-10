@@ -260,14 +260,13 @@ class VideoListPanel(Widget):
         """Display a specific page. Returns False if page not available."""
         if page_num not in self._pages:
             return False
-        if self._is_loading:
-            return False
 
         entries = self._pages[page_num]
         self._current_page = page_num
         if page_num > self._max_visited_page:
             self._max_visited_page = page_num
 
+        self._is_loading = False
         self._items_by_id.clear()
         self._lv.clear()
 
