@@ -10,20 +10,21 @@ A lightning-fast YouTube client for your terminal. Browse your home feed, search
 - **Native terminal graphics** — high-resolution thumbnails via Kitty/Sixel protocols, with universal chafa fallback
 - **Keyboard-driven** — vim-style navigation, page-based browsing, zero mouse required
 - **Privacy-respecting** — runs locally, no telemetry, no accounts beyond your existing YouTube cookies
+- **Cross-platform** — works on macOS, Linux, and Windows
 
 ## Installation
 
 ### Prerequisites
 
-| Tool | Purpose | Install |
-|------|---------|---------|
-| Python 3.11+ | Runtime | `brew install python@3.11` / `apt install python3.11` |
-| yt-dlp | YouTube data extraction | `brew install yt-dlp` / `pip install yt-dlp` |
-| mpv | Media playback | `brew install mpv` / `apt install mpv` |
-| chafa | Terminal thumbnails (optional) | `brew install chafa` / `apt install chafa` |
-| ffmpeg | Audio conversion (optional) | `brew install ffmpeg` / `apt install ffmpeg` |
+| Tool | Purpose | macOS | Linux (apt) | Windows |
+|------|---------|-------|-------------|---------|
+| Python 3.11+ | Runtime | `brew install python@3.12` | `sudo apt install python3.12` | `winget install Python.Python.3.12` |
+| yt-dlp | YouTube data | `brew install yt-dlp` | `sudo apt install yt-dlp` | `winget install yt-dlp.yt-dlp` |
+| mpv | Playback | `brew install mpv` | `sudo apt install mpv` | `winget install mpv.net` |
+| chafa | Thumbnails (optional) | `brew install chafa` | `sudo apt install chafa` | `winget install hpjansson.Chafa` |
+| ffmpeg | Audio conversion (optional) | `brew install ffmpeg` | `sudo apt install ffmpeg` | `winget install Gyan.FFmpeg` |
 
-### Quick Install
+### Quick Install — macOS / Linux
 
 ```bash
 git clone --depth 1 https://github.com/Adam-Yung/TermTube.git ~/termtube
@@ -31,23 +32,72 @@ cd ~/termtube
 bash setup.sh
 ```
 
-The installer creates a virtual environment, installs Python dependencies, and adds `termtube` to your PATH.
+The installer will:
+1. Detect your package manager (brew, apt, dnf, pacman, zypper, apk)
+2. Offer to install missing dependencies automatically
+3. Ask whether you want standard or developer mode
+4. Create a Python virtual environment
+5. Add `termtube` to your PATH
+
+#### Options
+
+```bash
+bash setup.sh              # Interactive install (recommended)
+bash setup.sh --sync       # Developer mode (symlink, edits are live)
+bash setup.sh --deps       # Auto-install dependencies without prompting
+bash setup.sh --no-prompt  # Non-interactive (accept all defaults)
+```
+
+### Quick Install — Windows
+
+```powershell
+git clone --depth 1 https://github.com/Adam-Yung/TermTube.git $HOME\termtube
+cd $HOME\termtube
+.\setup.ps1
+```
+
+The installer will:
+1. Offer to install missing dependencies via winget
+2. Create a Python virtual environment
+3. Add `termtube` command to your user PATH
+
+> **Recommended:** Use [Windows Terminal](https://aka.ms/terminal) for full Sixel graphics and thumbnail support.
+
+#### Options
+
+```powershell
+.\setup.ps1              # Interactive install (recommended)
+.\setup.ps1 -Sync        # Developer mode (NTFS junction)
+.\setup.ps1 -Deps        # Auto-install dependencies via winget
+.\setup.ps1 -NoPrompt    # Non-interactive
+```
 
 ### Development Mode
 
-For development (edits take effect immediately):
+For development (edits take effect immediately without re-running setup):
 
 ```bash
+# macOS / Linux
 bash setup.sh --sync
+
+# Windows
+.\setup.ps1 -Sync
 ```
 
 ### Uninstalling
 
 ```bash
-bash uninstall.sh
-```
+# macOS / Linux
+bash uninstall.sh            # Preserve config
+bash uninstall.sh --purge    # Remove everything
 
-This removes the installation directory, virtual environment, CLI symlink, and config files.
+# Windows
+.\uninstall.ps1              # Preserve config
+.\uninstall.ps1 -Purge      # Remove everything
+
+# Or from anywhere:
+termtube --uninstall
+```
 
 ## Quick Start
 
@@ -62,6 +112,8 @@ yt-dlp --cookies-from-browser chrome \
 ```
 
 Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
+
+On Windows, the config path is `%APPDATA%\TermTube\cookies.txt`.
 
 3. **Browse**: Use `j`/`k` to navigate, `]`/`[` to switch pages, `Enter` for actions
 
@@ -110,7 +162,11 @@ Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
 
 ## Configuration
 
-Config lives at `~/.config/TermTube/config.yaml` (created on first run):
+Config location:
+- **macOS / Linux:** `~/.config/TermTube/config.yaml`
+- **Windows:** `%APPDATA%\TermTube\config.yaml`
+
+Created on first run with these defaults:
 
 ```yaml
 browser: chrome          # Browser for cookies (chrome/firefox/brave/edge)
@@ -145,11 +201,31 @@ yt-dlp --cookies-from-browser chrome \
 
 1. Install "Get cookies.txt LOCALLY" (Chrome) or "cookies.txt" (Firefox)
 2. Visit youtube.com, export as Netscape format
-3. Save to `~/.config/TermTube/cookies.txt`
+3. Save to `~/.config/TermTube/cookies.txt` (or `%APPDATA%\TermTube\cookies.txt` on Windows)
 
 **Option C — Direct browser access:**
 
 Set `cookies_file: null` in config. TermTube reads cookies directly from your browser session.
+
+## Platform Notes
+
+### macOS
+
+Works out of the box. Homebrew is the recommended package manager.
+
+### Linux
+
+Tested on Ubuntu, Fedora, and Arch. The setup script detects apt, dnf, pacman, zypper, and apk automatically.
+
+For best thumbnail quality, use a terminal that supports Sixel or the Kitty graphics protocol (kitty, iTerm2, WezTerm, foot).
+
+### Windows
+
+- **Windows Terminal** (recommended): Full Sixel graphics support for high-quality thumbnails
+- **PowerShell 7**: TUI works, thumbnails via chafa symbols
+- **Legacy cmd.exe**: Basic support, chafa symbols for thumbnails
+
+mpv on Windows uses named pipes for IPC communication (instead of Unix sockets). This is handled automatically.
 
 ## Debugging
 
@@ -158,4 +234,8 @@ termtube --debug                   # full logging
 termtube --debug --level WARNING   # only warnings+
 ```
 
-Logs go to `$TMPDIR/TermTube/<timestamp>.log`. Toggle the in-app debug panel with `Ctrl+D`.
+Log location:
+- **macOS / Linux:** `$TMPDIR/TermTube/<timestamp>.log`
+- **Windows:** `%TEMP%\TermTube\<timestamp>.log`
+
+Toggle the in-app debug panel with `Ctrl+D`.

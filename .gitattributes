@@ -1,0 +1,23 @@
+# Auto-detect text files and ensure LF line endings in the repo
+* text=auto eol=lf
+
+# Shell scripts must use LF
+*.sh text eol=lf
+
+# PowerShell/Windows scripts can use CRLF
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Python source always LF
+*.py text eol=lf
+
+# Config files
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.tcss text eol=lf

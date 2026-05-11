@@ -26,20 +26,24 @@ from textual.widgets import Static
 # Override: set MYYOUTUBE_IMAGES=1 to force images even inside tmux.
 
 import os as _os
+import sys as _sys
 
-_IN_TMUX = bool(_os.environ.get("TMUX"))
+_IS_WINDOWS = _sys.platform == "win32"
+_IN_TMUX = bool(_os.environ.get("TMUX")) and not _IS_WINDOWS
 _FORCE_IMAGES = _os.environ.get("MYYOUTUBE_IMAGES") == "1"
 
 _HAS_TEXTUAL_IMAGE = False
 if not _IN_TMUX or _FORCE_IMAGES:
     try:
         from textual_image.widget import Image as _TIImage  # type: ignore[import]
-        # Verify the auto-detected renderer supports actual images (not just unicode)
         from textual_image.renderable import Image as _AutoRenderable
         from textual_image.renderable.unicode import Image as _UnicodeRenderable
-        # If the best available renderer is plain unicode, it adds little over chafa
-        # symbols — only enable if we have a real image protocol (TGP or sixel).
         if _AutoRenderable is not _UnicodeRenderable:
+            _HAS_TEXTUAL_IMAGE = True
+        elif _IS_WINDOWS and bool(_os.environ.get("WT_SESSION")):
+            # Windows Terminal supports Sixel natively; textual-image may
+            # fall back to unicode renderer if detection didn't run pre-startup,
+            # but we trust WT to handle image protocols.
             _HAS_TEXTUAL_IMAGE = True
     except ImportError:
         pass

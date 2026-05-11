@@ -333,7 +333,8 @@ def play_playlist(
     if not urls:
         return
     if not _mpv_available():
-        raise RuntimeError("No supported player found. Install mpv: brew install mpv")
+        from src.platform import install_hint
+        raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
     input_conf = _write_input_conf()
     try:
         cmd = [
@@ -384,7 +385,8 @@ def play(
         _play_mpv(url, audio_only=audio_only, title=title, ytdl_format=ytdl_format,
                   cookie_args=cookie_args)
     else:
-        raise RuntimeError("No supported player found. Install mpv: brew install mpv")
+        from src.platform import install_hint
+        raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
 
 
 def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", title: str = "") -> None:

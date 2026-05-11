@@ -146,9 +146,10 @@ class WatchModal(ModalScreen[bool]):
                 **get_popen_kwargs(headless=False),
             )
         except FileNotFoundError:
+            from src.platform import install_hint
             self.app.call_from_thread(
                 self.app.notify,
-                "mpv not found — install with: brew install mpv",
+                f"mpv not found — install with: {install_hint('mpv')}",
                 severity="error",
             )
             self.app.call_from_thread(self.dismiss, False)

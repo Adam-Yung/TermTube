@@ -1176,12 +1176,14 @@ class MainScreen(Screen):
                 stderr_text = ""
             returncode = proc.returncode
         except FileNotFoundError:
+            from src.platform import install_hint
+            hint = install_hint('mpv')
             self.app.call_from_thread(
-                self._log, "[red]Error: mpv not found — install with: brew install mpv[/red]"
+                self._log, f"[red]Error: mpv not found — install with: {hint}[/red]"
             )
             self.app.call_from_thread(
                 self.notify,
-                "mpv not found — install with: brew install mpv",
+                f"mpv not found — install with: {hint}",
                 severity="error",
             )
             self.app.call_from_thread(self._stop_audio)

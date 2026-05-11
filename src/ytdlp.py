@@ -174,7 +174,8 @@ def _stream_json_lines(
             with _active_procs_lock:
                 _active_procs.discard(proc)
     except FileNotFoundError:
-        raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+        from src.platform import install_hint
+        raise RuntimeError(f"yt-dlp not found. Install with: {install_hint('yt-dlp')}")
 
 
 def _read_lines_select(proc: subprocess.Popen) -> Generator[dict, None, None]:
@@ -630,7 +631,8 @@ def _run_download_with_progress(
             with _active_procs_lock:
                 _active_procs.discard(proc)
     except FileNotFoundError:
-        raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+        from src.platform import install_hint
+        raise RuntimeError(f"yt-dlp not found. Install with: {install_hint('yt-dlp')}")
 
 
 def download_video_with_progress(
