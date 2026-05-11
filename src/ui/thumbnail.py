@@ -236,19 +236,19 @@ def render(
         out_fmt = fmt
 
     try:
+        from src.platform import get_popen_kwargs
         proc = subprocess.Popen(
             [
                 "chafa",
                 f"--size={cols}x{rows}",
                 f"--format={out_fmt}",
-                # No --stretch: preserve the 16:9 aspect ratio.
-                # chafa will letterbox within the given size.
                 *extra_flags,
                 str(local),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            **get_popen_kwargs(headless=True),
         )
     except (FileNotFoundError, OSError) as exc:
         logger.debug("chafa spawn error for %s: %s", video_id, exc)

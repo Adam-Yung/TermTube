@@ -14,7 +14,6 @@ import hashlib
 import json
 import os
 import re
-import select
 import subprocess
 import sys
 import threading
@@ -139,6 +138,8 @@ def _stream_json_lines(
     A read timeout (_STREAM_READ_TIMEOUT_S) prevents hangs: if yt-dlp produces
     no output for 30 s, the subprocess is killed and iteration stops.
     """
+    from src.platform import IS_WINDOWS, get_popen_kwargs
+
     logger.debug("yt-dlp cmd: %s", " ".join(cmd))
     try:
         stderr_dest = subprocess.PIPE if capture_stderr else subprocess.DEVNULL
@@ -148,6 +149,7 @@ def _stream_json_lines(
             stderr=stderr_dest,
             text=False,
             bufsize=0,
+            **get_popen_kwargs(headless=True),
         )
         with _active_procs_lock:
             _active_procs.add(proc)
@@ -157,27 +159,10 @@ def _stream_json_lines(
             except Exception:
                 pass
         try:
-            stdout_fd = proc.stdout.fileno()  # type: ignore[union-attr]
-            buf = ""
-            while True:
-                ready, _, _ = select.select([stdout_fd], [], [], _STREAM_READ_TIMEOUT_S)
-                if not ready:
-                    logger.warning("yt-dlp read timeout (%ds) — killing process", _STREAM_READ_TIMEOUT_S)
-                    proc.kill()
-                    break
-                raw = os.read(stdout_fd, 65536)
-                if not raw:
-                    break
-                buf += raw.decode("utf-8", errors="replace")
-                while "\n" in buf:
-                    line, buf = buf.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        yield json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+            if IS_WINDOWS:
+                yield from _read_lines_threaded(proc)
+            else:
+                yield from _read_lines_select(proc)
             proc.wait()
             if capture_stderr and proc.stderr:
                 err = proc.stderr.read().decode("utf-8", errors="replace")
@@ -190,6 +175,72 @@ def _stream_json_lines(
                 _active_procs.discard(proc)
     except FileNotFoundError:
         raise RuntimeError("yt-dlp not found. Install with: brew install yt-dlp")
+
+
+def _read_lines_select(proc: subprocess.Popen) -> Generator[dict, None, None]:
+    """Unix: use select() for timeout-aware reading from stdout pipe."""
+    import select
+    stdout_fd = proc.stdout.fileno()  # type: ignore[union-attr]
+    buf = ""
+    while True:
+        ready, _, _ = select.select([stdout_fd], [], [], _STREAM_READ_TIMEOUT_S)
+        if not ready:
+            logger.warning("yt-dlp read timeout (%ds) — killing process", _STREAM_READ_TIMEOUT_S)
+            proc.kill()
+            break
+        raw = os.read(stdout_fd, 65536)
+        if not raw:
+            break
+        buf += raw.decode("utf-8", errors="replace")
+        while "\n" in buf:
+            line, buf = buf.split("\n", 1)
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+
+def _read_lines_threaded(proc: subprocess.Popen) -> Generator[dict, None, None]:
+    """Windows: use a background thread + queue for timeout-aware reading.
+
+    select() on Windows only works with sockets, not pipe file descriptors.
+    Instead, we read in a daemon thread and consume with a timeout from a queue.
+    """
+    import queue
+    q: queue.Queue[str | None] = queue.Queue()
+
+    def _reader():
+        try:
+            assert proc.stdout is not None
+            for raw_line in proc.stdout:
+                q.put(raw_line.decode("utf-8", errors="replace"))
+        except (ValueError, OSError):
+            pass
+        finally:
+            q.put(None)
+
+    t = threading.Thread(target=_reader, daemon=True)
+    t.start()
+
+    while True:
+        try:
+            line = q.get(timeout=_STREAM_READ_TIMEOUT_S)
+        except queue.Empty:
+            logger.warning("yt-dlp read timeout (%ds) — killing process", _STREAM_READ_TIMEOUT_S)
+            proc.kill()
+            break
+        if line is None:
+            break
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except json.JSONDecodeError:
+            continue
 
 
 # ── Public streaming API ──────────────────────────────────────────────────────
@@ -545,6 +596,7 @@ def _run_download_with_progress(
     on_progress: Callable[[str, float], None] | None = None,
 ) -> bool:
     """Run a yt-dlp download command, streaming progress. Returns True on success."""
+    from src.platform import get_popen_kwargs
     logger.debug("download cmd: %s", " ".join(cmd))
     try:
         proc = subprocess.Popen(
@@ -553,6 +605,7 @@ def _run_download_with_progress(
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            **get_popen_kwargs(headless=True),
         )
         with _active_procs_lock:
             _active_procs.add(proc)
@@ -680,9 +733,10 @@ def fetch_channel_info(
         channel_url,
     ]
     try:
+        from src.platform import get_popen_kwargs
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True,
+            text=True, **get_popen_kwargs(headless=True),
         )
         with _active_procs_lock: _active_procs.add(proc)
         if on_proc_started: on_proc_started(proc)
@@ -781,7 +835,9 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
     results: list[dict] = []
     seen: list[str] = []
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        from src.platform import get_popen_kwargs
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                **get_popen_kwargs(headless=True))
         with _active_procs_lock: _active_procs.add(proc)
         if on_proc_started: on_proc_started(proc)
         try:

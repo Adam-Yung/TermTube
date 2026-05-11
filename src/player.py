@@ -54,12 +54,19 @@ def _mpv_available() -> bool:
 
 
 def _vlc_available() -> bool:
-    return shutil.which("vlc") is not None or Path("/Applications/VLC.app/Contents/MacOS/VLC").exists()
+    if shutil.which("vlc"):
+        return True
+    if IS_WINDOWS:
+        vlc_win = Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "VideoLAN" / "VLC" / "vlc.exe"
+        return vlc_win.exists()
+    return Path("/Applications/VLC.app/Contents/MacOS/VLC").exists()
 
 
 def _vlc_path() -> str:
     if shutil.which("vlc"):
         return "vlc"
+    if IS_WINDOWS:
+        return str(Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "VideoLAN" / "VLC" / "vlc.exe")
     return "/Applications/VLC.app/Contents/MacOS/VLC"
 
 
@@ -99,22 +106,40 @@ def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> b
 
 
 def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes:
-    """Windows named pipe transport using pywin32."""
+    """Windows named pipe transport using pywin32.
+
+    Handles ERROR_PIPE_BUSY with WaitNamedPipe retry, and reads responses
+    until a newline-terminated JSON response is received.
+    """
     try:
         import pywintypes
         import win32file
-        import win32pipe  # noqa: F401 — needed for pipe constants
+        import win32pipe
 
-        handle = win32file.CreateFile(
-            pipe_path,
-            win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-            0, None,
-            win32file.OPEN_EXISTING,
-            0, None,
-        )
+        # Wait for the pipe to become available (mpv may be processing another request)
+        timeout_ms = int(timeout * 1000)
         try:
+            win32pipe.WaitNamedPipe(pipe_path, timeout_ms)
+        except pywintypes.error:
+            pass  # Pipe may already be available; try CreateFile anyway
+
+        try:
+            handle = win32file.CreateFile(
+                pipe_path,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0, None,
+                win32file.OPEN_EXISTING,
+                0, None,
+            )
+        except pywintypes.error:
+            return b""
+
+        try:
+            # Set pipe to message mode for cleaner reads
+            win32pipe.SetNamedPipeHandleState(
+                handle, win32pipe.PIPE_READMODE_BYTE, None, None
+            )
             win32file.WriteFile(handle, data)
-            # Read response
             buf = b""
             while True:
                 try:
@@ -129,6 +154,8 @@ def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes
             return buf
         finally:
             win32file.CloseHandle(handle)
+    except ImportError:
+        return b""
     except Exception:
         return b""
 

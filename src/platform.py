@@ -155,6 +155,34 @@ def get_subprocess_flags(*, headless: bool = False) -> dict:
     return {"creationflags": flags}
 
 
+def get_popen_kwargs(*, headless: bool = False) -> dict:
+    """Return kwargs for subprocess.Popen on any platform.
+
+    On Windows, adds creation flags. On Unix, returns empty dict.
+    Use for Popen calls that need platform awareness.
+    """
+    return get_subprocess_flags(headless=headless)
+
+
+def terminate_process(proc, *, timeout: float = 3.0) -> None:
+    """Gracefully terminate a subprocess, then force-kill if it doesn't exit.
+
+    Works cross-platform: uses terminate() first (SIGTERM on Unix,
+    TerminateProcess on Windows), waits briefly, then kills if needed.
+    """
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=timeout)
+    except Exception:
+        try:
+            proc.kill()
+            proc.wait(timeout=1.0)
+        except Exception:
+            pass
+
+
 def cleanup_ipc(ipc_path: str) -> None:
     """Remove the IPC endpoint if applicable.
 

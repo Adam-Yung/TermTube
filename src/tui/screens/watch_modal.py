@@ -138,10 +138,12 @@ class WatchModal(ModalScreen[bool]):
         cmd += ["--", url]
 
         try:
+            from src.platform import get_popen_kwargs
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                **get_popen_kwargs(headless=False),
             )
         except FileNotFoundError:
             self.app.call_from_thread(
@@ -306,11 +308,8 @@ class WatchModal(ModalScreen[bool]):
             return
         self._stopped = True
         self._ipc(["quit"])
-        if self._proc and self._proc.poll() is None:
-            try:
-                self._proc.terminate()
-            except Exception:
-                pass
+        from src.platform import terminate_process
+        terminate_process(self._proc, timeout=2.0)
         try:
             self.dismiss(False)
         except Exception:

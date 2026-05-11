@@ -1087,10 +1087,8 @@ class MainScreen(Screen):
             from src.player import send_ipc_command
 
             send_ipc_command({"command": ["quit"]}, socket_path=_get_audio_socket())
-            try:
-                self._audio_proc.terminate()
-            except Exception:
-                pass
+            from src.platform import terminate_process
+            terminate_process(self._audio_proc, timeout=2.0)
         self._audio_proc = None
         self._audio_entry = None
         if self._audio_poll_timer:
@@ -1159,11 +1157,13 @@ class MainScreen(Screen):
         stderr_text = ""
         returncode: int | None = None
         try:
+            from src.platform import get_popen_kwargs
             self._audio_proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 text=True,
+                **get_popen_kwargs(headless=True),
             )
             proc = self._audio_proc
             from src import history
