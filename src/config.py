@@ -4,7 +4,9 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-_CONFIG_DIR = Path.home() / ".config" / "TermTube"
+from src.platform import get_config_dir
+
+_CONFIG_DIR = get_config_dir()
 _DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
 
 DEFAULT_CONFIG: dict = {

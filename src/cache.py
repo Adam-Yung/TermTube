@@ -9,8 +9,9 @@ import time
 from pathlib import Path
 
 from src import logger
+from src.platform import get_cache_dir
 
-CACHE_DIR = Path.home() / ".cache" / "termtube"
+CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
 

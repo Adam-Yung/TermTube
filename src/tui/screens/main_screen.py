@@ -105,7 +105,15 @@ _TABS = [
     ("help", "📚 Help"),
 ]
 
-_AUDIO_SOCKET = "/tmp/termtube-mpv-audio.sock"
+_AUDIO_SOCKET = None  # Lazy-initialized from platform module
+
+
+def _get_audio_socket() -> str:
+    global _AUDIO_SOCKET
+    if _AUDIO_SOCKET is None:
+        from src.platform import get_audio_ipc_path
+        _AUDIO_SOCKET = get_audio_ipc_path()
+    return _AUDIO_SOCKET
 
 # ── Dwell / freshness tuning ──────────────────────────────────────────────────
 _FOCUS_DWELL_S = 0.10
@@ -1078,7 +1086,7 @@ class MainScreen(Screen):
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
 
-            send_ipc_command({"command": ["quit"]}, socket_path=_AUDIO_SOCKET)
+            send_ipc_command({"command": ["quit"]}, socket_path=_get_audio_socket())
             try:
                 self._audio_proc.terminate()
             except Exception:
@@ -1090,10 +1098,8 @@ class MainScreen(Screen):
             self._audio_poll_timer = None
         if not keep_player_mode:
             self._action_bar().set_actions_mode()
-        try:
-            os.unlink(_AUDIO_SOCKET)
-        except OSError:
-            pass
+        from src.platform import cleanup_ipc
+        cleanup_ipc(_get_audio_socket())
 
     @work(thread=True, exclusive=True, group="audio_player")
     def _launch_audio_worker(
@@ -1131,7 +1137,7 @@ class MainScreen(Screen):
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
-            f"--input-ipc-server={_AUDIO_SOCKET}",
+            f"--input-ipc-server={_get_audio_socket()}",
             "--no-video",
             "--no-terminal",
             "--msg-level=all=error",
@@ -1285,7 +1291,7 @@ class MainScreen(Screen):
             return
         from src.player import poll_audio_properties
 
-        pos, dur, paused = poll_audio_properties(socket_path=_AUDIO_SOCKET)
+        pos, dur, paused = poll_audio_properties(socket_path=_get_audio_socket())
         if pos is not None and dur is not None:
             self._action_bar().update_progress(pos, dur, paused)
 
@@ -1300,7 +1306,7 @@ class MainScreen(Screen):
                         from src.player import send_ipc_command
                         send_ipc_command(
                             {"command": ["seek", seg.end, "absolute"]},
-                            socket_path=_AUDIO_SOCKET,
+                            socket_path=_get_audio_socket(),
                         )
                         self.notify(
                             f"Skipped: {seg.category} ({skip_dur}s)", timeout=3
@@ -1390,7 +1396,7 @@ class MainScreen(Screen):
     def _audio_ipc(self, cmd: dict) -> None:
         from src.player import send_ipc_command
 
-        send_ipc_command(cmd, socket_path=_AUDIO_SOCKET)
+        send_ipc_command(cmd, socket_path=_get_audio_socket())
 
     # ── Video playback (Delegates to WatchModal) ──────────────────────────────
 
@@ -1517,18 +1523,11 @@ class MainScreen(Screen):
             self.notify("No URL available", severity="warning")
             return
         url = f"https://www.youtube.com/watch?v={vid}"
-        for cmd in (
-            ["pbcopy"],
-            ["xclip", "-selection", "clipboard"],
-            ["wl-copy"],
-        ):
-            try:
-                subprocess.run(cmd, input=url.encode(), check=True, capture_output=True)
-                self.notify("URL copied to clipboard")
-                return
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                continue
-        self.notify(f"URL: {url}", timeout=10)
+        from src.platform import clipboard_copy
+        if clipboard_copy(url):
+            self.notify("URL copied to clipboard")
+        else:
+            self.notify(f"URL: {url}", timeout=10)
 
     def action_queue_audio(self) -> None:
         if not self._audio_playing:

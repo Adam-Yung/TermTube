@@ -5,6 +5,8 @@ Supports both symbols mode (universal) and kitty graphics protocol
 
 Rendered chafa output is cached on disk per (video_id, cols, rows) so that
 re-rendering at the same panel size is essentially free.
+
+On Windows, chafa is skipped entirely — textual-image handles rendering.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from typing import Callable
 
 from src.cache import CACHE_DIR, THUMB_DIR
 from src import logger
+from src.platform import has_chafa as _platform_has_chafa, get_thumbnail_download_cmd
 
 CHAFA_DIR = CACHE_DIR / "chafa"
 
@@ -46,13 +49,17 @@ def _supports_sixel() -> bool:
     Kitty 0.20+ supports sixel as a compatibility layer, so kitty is included.
 
     Checked env vars (fastest, no I/O needed):
+      WT_SESSION      — Windows Terminal ≥ v1.22 supports sixel
       KITTY_WINDOW_ID — Kitty ≥ 0.20 supports sixel
       TERM_PROGRAM    — "iTerm.app" (iTerm2) and "WezTerm"
       TERM            — "foot", "mlterm"
       XTERM_VERSION   — xterm compiled with sixel support
     """
+    from src.platform import in_windows_terminal
+    if in_windows_terminal():
+        return True
     if _is_kitty():
-        return True  # Kitty ≥ 0.20 supports sixel (separate from its native protocol)
+        return True
     term_prog = os.environ.get("TERM_PROGRAM", "")
     if term_prog in ("iTerm.app", "WezTerm"):
         return True
@@ -61,7 +68,6 @@ def _supports_sixel() -> bool:
         return True
     if os.environ.get("MLTERM"):
         return True
-    # xterm with sixel support announces itself via XTERM_VERSION
     if os.environ.get("XTERM_VERSION") and "xterm" in term:
         return True
     return False
@@ -110,7 +116,7 @@ def _chafa_format_for_tui(config=None) -> str:
 
 
 def _has_chafa() -> bool:
-    return shutil.which("chafa") is not None
+    return _platform_has_chafa()
 
 
 def _thumb_path(video_id: str) -> Path:
@@ -120,22 +126,20 @@ def _thumb_path(video_id: str) -> Path:
 # ── Download ───────────────────────────────────────────────────────────────────
 
 def download(video_id: str, url: str) -> Path | None:
-    """Download thumbnail to cache using curl. Returns local path or None on failure."""
+    """Download thumbnail to cache. Returns local path or None on failure."""
     if not url:
         return None
     dest = _thumb_path(video_id)
     if dest.exists():
         return dest
     try:
-        result = subprocess.run(
-            ["curl", "-s", "-L", "--max-time", "8", "-o", str(dest), url],
-            capture_output=True,
-        )
+        cmd = get_thumbnail_download_cmd(url, str(dest))
+        result = subprocess.run(cmd, capture_output=True)
         if result.returncode == 0 and dest.exists() and dest.stat().st_size > 100:
             logger.debug("Downloaded thumbnail for %s", video_id)
             return dest
         dest.unlink(missing_ok=True)
-        logger.debug("Thumbnail download failed for %s (curl rc=%d)", video_id, result.returncode)
+        logger.debug("Thumbnail download failed for %s (rc=%d)", video_id, result.returncode)
         return None
     except Exception as exc:
         logger.debug("Thumbnail download error for %s: %s", video_id, exc)
@@ -316,6 +320,9 @@ def prune_old_chafa(max_age_days: int = 7, max_count: int = 600) -> None:
 def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
     """Render a thumbnail from a URL directly (no caching). Pipes curl into chafa."""
     if not _has_chafa() or not url:
+        return ""
+    from src.platform import has_curl
+    if not has_curl():
         return ""
     fmt = _chafa_format()
     extra_flags = [] if fmt == "kitty" else ["--optimize=3"]

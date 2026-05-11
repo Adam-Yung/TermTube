@@ -642,14 +642,11 @@ class ChannelScreen(Screen):
             self.notify("No URL available", severity="warning")
             return
         url = f"https://www.youtube.com/watch?v={vid}"
-        for cmd in (["pbcopy"], ["xclip", "-selection", "clipboard"], ["wl-copy"]):
-            try:
-                subprocess.run(cmd, input=url.encode(), check=True, capture_output=True)
-                self.notify("URL copied to clipboard")
-                return
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                continue
-        self.notify(f"URL: {url}", timeout=10)
+        from src.platform import clipboard_copy
+        if clipboard_copy(url):
+            self.notify("URL copied to clipboard")
+        else:
+            self.notify(f"URL: {url}", timeout=10)
 
     def action_browser(self) -> None:
         entry = self._selected_entry()
@@ -797,8 +794,9 @@ class ChannelScreen(Screen):
                 self._audio_poll_timer = None
             return
         from src.player import poll_audio_properties
+        from src.platform import get_audio_ipc_path
         pos, dur, paused = poll_audio_properties(
-            socket_path="/tmp/termtube-mpv-audio.sock"
+            socket_path=get_audio_ipc_path()
         )
         if pos is not None and dur is not None:
             self._ch_action_bar().update_progress(pos, dur, paused)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from src import logger
+from src.platform import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup_ipc
 
 # Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
@@ -36,7 +37,7 @@ Ctrl+RIGHT seek +10
 q quit
 """
 
-IPC_SOCKET = "/tmp/termtube-mpv.sock"
+IPC_SOCKET = get_ipc_path()
 
 
 def _write_input_conf() -> str:
@@ -66,37 +67,87 @@ def _vlc_path() -> str:
 
 # ── IPC helpers ───────────────────────────────────────────────────────────────
 
-def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
-    """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
-    if logger.is_debug():
-        # Avoid building the JSON string in the hot path when not debugging.
-        logger.debug("mpv ipc → %s @ %s", cmd.get("command", cmd), socket_path)
+def _ipc_send_recv(data: bytes, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> bytes:
+    """Low-level send/receive over the IPC transport (Unix socket or Windows named pipe)."""
+    if IS_WINDOWS:
+        return _ipc_send_recv_pipe(data, pipe_path=socket_path, timeout=timeout)
+    return _ipc_send_recv_socket(data, socket_path=socket_path, timeout=timeout)
+
+
+def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:
+    """Unix domain socket transport."""
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.settimeout(timeout)
         s.connect(socket_path)
-        s.sendall((json.dumps(cmd) + "\n").encode())
-        data = b""
+        s.sendall(data)
+        buf = b""
         try:
             while True:
                 chunk = s.recv(4096)
                 if not chunk:
                     break
-                data += chunk
-                if b"\n" in data:
+                buf += chunk
+                if b"\n" in buf:
                     break
         except socket.timeout:
             pass
         s.close()
-        for line in data.decode(errors="replace").splitlines():
-            line = line.strip()
-            if line:
-                try:
-                    return json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+        return buf
     except (OSError, ConnectionRefusedError, FileNotFoundError):
-        pass
+        return b""
+
+
+def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes:
+    """Windows named pipe transport using pywin32."""
+    try:
+        import pywintypes
+        import win32file
+        import win32pipe  # noqa: F401 — needed for pipe constants
+
+        handle = win32file.CreateFile(
+            pipe_path,
+            win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+            0, None,
+            win32file.OPEN_EXISTING,
+            0, None,
+        )
+        try:
+            win32file.WriteFile(handle, data)
+            # Read response
+            buf = b""
+            while True:
+                try:
+                    _, chunk = win32file.ReadFile(handle, 4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    if b"\n" in buf:
+                        break
+                except pywintypes.error:
+                    break
+            return buf
+        finally:
+            win32file.CloseHandle(handle)
+    except Exception:
+        return b""
+
+
+def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
+    """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
+    if logger.is_debug():
+        logger.debug("mpv ipc → %s @ %s", cmd.get("command", cmd), socket_path)
+    payload = (json.dumps(cmd) + "\n").encode()
+    data = _ipc_send_recv(payload, socket_path=socket_path, timeout=timeout)
+    if not data:
+        return None
+    for line in data.decode(errors="replace").splitlines():
+        line = line.strip()
+        if line:
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                continue
     return None
 
 
@@ -111,11 +162,34 @@ def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
 def poll_audio_properties(
     *, socket_path: str = IPC_SOCKET
 ) -> tuple[float | None, float | None, bool]:
-    """Return (time_pos, duration, is_paused) in a single socket connection.
+    """Return (time_pos, duration, is_paused) in a single IPC connection.
 
-    Batches all three get_property requests into one Unix socket lifecycle,
+    Batches all three get_property requests into one connection lifecycle,
     reducing overhead from 3 connect/send/recv/close cycles to one.
     """
+    if IS_WINDOWS:
+        return _poll_audio_properties_sequential(socket_path=socket_path)
+    return _poll_audio_properties_batched(socket_path=socket_path)
+
+
+def _poll_audio_properties_sequential(
+    *, socket_path: str
+) -> tuple[float | None, float | None, bool]:
+    """Fallback for Windows: three sequential IPC calls."""
+    pos = get_ipc_property("time-pos", socket_path=socket_path)
+    dur = get_ipc_property("duration", socket_path=socket_path)
+    paused = get_ipc_property("pause", socket_path=socket_path)
+    return (
+        float(pos) if pos is not None else None,
+        float(dur) if dur is not None else None,
+        paused is True,
+    )
+
+
+def _poll_audio_properties_batched(
+    *, socket_path: str
+) -> tuple[float | None, float | None, bool]:
+    """Unix: batch all three requests in one socket connection."""
     try:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.settimeout(1.0)
@@ -251,15 +325,15 @@ def play_playlist(
             cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--"] + urls
         logger.debug("mpv playlist cmd: %s [+%d urls]", " ".join(cmd[:6]), len(urls))
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, **get_subprocess_flags(headless=audio_only))
         if result.returncode not in (0, 4):
             logger.warning("mpv exited with code %d", result.returncode)
     finally:
-        for path in (input_conf, IPC_SOCKET):
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
+        try:
+            os.unlink(input_conf)
+        except OSError:
+            pass
+        cleanup_ipc(IPC_SOCKET)
 
 
 def play(
@@ -314,8 +388,6 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
                     "  [\033[33m${percent-pos}%\033[0m]"
                     "  \033[90mh/l ±5s  H/L ±10s  0-9 jump%  q quit\033[0m\\n",
             ]
-        # Video mode: mpv opens its own window. Silence terminal output so
-        # nothing bleeds into the Textual TUI running in the background.
         if not audio_only:
             cmd += ["--really-quiet", "--no-terminal"]
 
@@ -332,7 +404,7 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
         cmd += ["--", url]
 
         logger.debug("mpv cmd: %s", " ".join(cmd))
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, **get_subprocess_flags(headless=audio_only))
         if result.returncode not in (0, 4):  # 4 = quit by user
             logger.warning("mpv exited with code %d", result.returncode)
     finally:
@@ -340,10 +412,7 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
             os.unlink(input_conf)
         except OSError:
             pass
-        try:
-            os.unlink(IPC_SOCKET)
-        except OSError:
-            pass
+        cleanup_ipc(IPC_SOCKET)
 
 
 # ── VLC ───────────────────────────────────────────────────────────────────────

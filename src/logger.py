@@ -31,6 +31,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from src.platform import get_log_dir
+
 # Accepted level names for the --level CLI flag. "ALL" is an alias for DEBUG.
 LEVEL_CHOICES = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 DEFAULT_LEVEL = "ALL"
@@ -42,7 +44,7 @@ def _resolve_level(name: str) -> int:
         return logging.DEBUG
     return getattr(logging, upper, logging.DEBUG)
 
-_LOG_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "TermTube"
+_LOG_DIR = get_log_dir()
 _log = logging.getLogger("termtube")
 _log.propagate = False
 _debug_enabled = False

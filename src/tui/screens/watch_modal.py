@@ -52,7 +52,14 @@ class WatchModal(ModalScreen[bool]):
         Binding("escape", "stop",          "Stop",         show=False),
     ]
 
-    _SOCKET = "/tmp/termtube-mpv-video.sock"
+    _SOCKET = None  # Lazy-initialized
+
+    @classmethod
+    def _get_socket(cls) -> str:
+        if cls._SOCKET is None:
+            from src.platform import get_video_ipc_path
+            cls._SOCKET = get_video_ipc_path()
+        return cls._SOCKET
 
     def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
         super().__init__()
@@ -116,7 +123,7 @@ class WatchModal(ModalScreen[bool]):
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
-            f"--input-ipc-server={self._SOCKET}",
+            f"--input-ipc-server={self._get_socket()}",
             "--no-terminal",
             "--really-quiet",
             "--msg-level=all=no",
@@ -157,11 +164,12 @@ class WatchModal(ModalScreen[bool]):
         try:
             self._proc.wait()
         finally:
-            for path in (input_conf, self._SOCKET):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
+            try:
+                os.unlink(input_conf)
+            except OSError:
+                pass
+            from src.platform import cleanup_ipc
+            cleanup_ipc(self._get_socket())
 
         if not self._stopped:
             try:
@@ -191,7 +199,7 @@ class WatchModal(ModalScreen[bool]):
 
         from src.player import poll_audio_properties
 
-        pos, dur, paused = poll_audio_properties(socket_path=self._SOCKET)
+        pos, dur, paused = poll_audio_properties(socket_path=self._get_socket())
         if pos is not None and dur and float(dur) > 0:
             pos_f = float(pos)
             dur_f = float(dur)
@@ -260,7 +268,7 @@ class WatchModal(ModalScreen[bool]):
 
     def _ipc(self, cmd: list) -> None:
         from src.player import send_ipc_command
-        send_ipc_command({"command": cmd}, socket_path=self._SOCKET)
+        send_ipc_command({"command": cmd}, socket_path=self._get_socket())
 
     # ── Key actions ───────────────────────────────────────────────────────────
 
