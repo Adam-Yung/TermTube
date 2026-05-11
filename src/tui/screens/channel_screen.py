@@ -94,15 +94,29 @@ class ChannelScreen(Screen):
         Binding("right_square_bracket", "page_next", "Next", show=False),
         Binding("g", "page_first", show=False),
         Binding("G", "page_last", show=False),
-        Binding("s", "sort_picker", "Sort", show=True),
+        Binding("s", "sort_or_stop", "Sort", show=True),
         Binding("r", "reload", "Reload", show=True),
         Binding("enter", "activate", "Actions", show=False),
         Binding("w", "watch", show=False),
-        Binding("l", "listen", show=False),
+        Binding("l", "listen_or_seek", show=False),
+        Binding("L", "listen_q_or_seek_big", show=False),
         Binding("d", "download", show=False),
         Binding("y", "copy_url", show=False),
         Binding("b", "browser", show=False),
         Binding("grave_accent", "tab_picker", "Pages", show=False),
+        Binding("space", "audio_pause", show=False),
+        Binding("h", "audio_seek_back", show=False),
+        Binding("H", "audio_seek_back_big", show=False),
+        Binding("0", "audio_pct_0", show=False),
+        Binding("1", "audio_pct_10", show=False),
+        Binding("2", "audio_pct_20", show=False),
+        Binding("3", "audio_pct_30", show=False),
+        Binding("4", "audio_pct_40", show=False),
+        Binding("5", "audio_pct_50", show=False),
+        Binding("6", "audio_pct_60", show=False),
+        Binding("7", "audio_pct_70", show=False),
+        Binding("8", "audio_pct_80", show=False),
+        Binding("9", "audio_pct_90", show=False),
     ]
 
     def __init__(self, channel_url: str, channel_name: str = "") -> None:
@@ -127,6 +141,8 @@ class ChannelScreen(Screen):
         self._detail_thumb_session: int = 0
         self._last_focus_id: str = ""
         self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
+        # Audio poll timer for syncing ActionBar with MainScreen playback
+        self._audio_poll_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="ch-main"):
@@ -152,6 +168,7 @@ class ChannelScreen(Screen):
             tab.can_focus = False
         self._load_channel_info()
         self.set_timer(0.15, self._ensure_content_loaded)
+        self._sync_audio_state()
 
     def _ensure_content_loaded(self) -> None:
         if not self._initial_load_done:
@@ -547,18 +564,30 @@ class ChannelScreen(Screen):
         from src.tui.screens.watch_modal import WatchModal
         self.app.push_screen(WatchModal(entry))
 
-    def action_listen(self) -> None:
-        entry = self._selected_entry()
-        if not entry or entry.get("_is_playlist"):
-            return
-        self._start_listen(entry)
+    def action_listen_or_seek(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["seek", 5, "relative"]})
+        else:
+            entry = self._selected_entry()
+            if entry and not entry.get("_is_playlist"):
+                self._start_listen(entry)
+
+    def action_listen_q_or_seek_big(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["seek", 10, "relative"]})
+        else:
+            entry = self._selected_entry()
+            if entry and not entry.get("_is_playlist"):
+                self._listen_quality(entry)
 
     def _start_listen(self, entry: dict) -> None:
-        from src.tui.screens.main_screen import MainScreen
-        for screen in self.app.screen_stack:
-            if isinstance(screen, MainScreen):
-                screen._start_audio(entry)
-                return
+        ms = self._get_main_screen()
+        if ms is None:
+            return
+        ms._start_audio(entry)
+        self._sync_audio_state()
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
@@ -570,11 +599,11 @@ class ChannelScreen(Screen):
         self.app.push_screen(QualityModal(audio_only=True), on_fmt)
 
     def _start_listen_with_format(self, entry: dict, fmt: str) -> None:
-        from src.tui.screens.main_screen import MainScreen
-        for screen in self.app.screen_stack:
-            if isinstance(screen, MainScreen):
-                screen._start_audio(entry, ytdl_format=fmt)
-                return
+        ms = self._get_main_screen()
+        if ms is None:
+            return
+        ms._start_audio(entry, ytdl_format=fmt)
+        self._sync_audio_state()
 
     def _watch_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
@@ -670,9 +699,21 @@ class ChannelScreen(Screen):
         if panel.current_page != last:
             panel.load_page(last)
 
-    # ── Sort picker ───────────────────────────────────────────────────────────
+    # ── Sort / Stop ─────────────────────────────────────────────────────────
 
-    def action_sort_picker(self) -> None:
+    def action_sort_or_stop(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_queue.clear()
+            ms._stop_audio()
+            self._ch_action_bar().set_actions_mode()
+            if self._audio_poll_timer:
+                self._audio_poll_timer.stop()
+                self._audio_poll_timer = None
+        else:
+            self._open_sort_picker()
+
+    def _open_sort_picker(self) -> None:
         if self._current_tab == "ch-tab-playlists":
             return
         from src.tui.screens.sort_modal import SortModal
@@ -720,6 +761,82 @@ class ChannelScreen(Screen):
 
     def _selected_entry(self) -> dict | None:
         return self.query_one("#ch-video-list", VideoListPanel).selected_entry
+
+    def _get_main_screen(self):
+        from src.tui.screens.main_screen import MainScreen
+        for screen in self.app.screen_stack:
+            if isinstance(screen, MainScreen):
+                return screen
+        return None
+
+    def _ch_action_bar(self):
+        return self.query_one("#ch-detail-panel", DetailPanel).action_bar
+
+    # ── Audio state sync ──────────────────────────────────────────────────────
+
+    def _sync_audio_state(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing and ms._audio_entry:
+            self._ch_action_bar().set_player_mode(
+                ms._audio_entry, queue_len=len(ms._audio_queue)
+            )
+            if self._audio_poll_timer is None:
+                self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
+        elif not (ms and ms._audio_playing):
+            self._ch_action_bar().set_actions_mode()
+            if self._audio_poll_timer:
+                self._audio_poll_timer.stop()
+                self._audio_poll_timer = None
+
+    def _poll_audio(self) -> None:
+        ms = self._get_main_screen()
+        if ms is None or not ms._audio_playing:
+            self._ch_action_bar().set_actions_mode()
+            if self._audio_poll_timer:
+                self._audio_poll_timer.stop()
+                self._audio_poll_timer = None
+            return
+        from src.player import poll_audio_properties
+        pos, dur, paused = poll_audio_properties(
+            socket_path="/tmp/termtube-mpv-audio.sock"
+        )
+        if pos is not None and dur is not None:
+            self._ch_action_bar().update_progress(pos, dur, paused)
+
+    # ── Audio control actions ─────────────────────────────────────────────────
+
+    def action_audio_pause(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["cycle", "pause"]})
+
+    def action_audio_seek_back(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["seek", -5, "relative"]})
+
+    def action_audio_seek_back_big(self) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["seek", -10, "relative"]})
+
+    def _audio_pct(self, pct: int) -> None:
+        ms = self._get_main_screen()
+        if ms and ms._audio_playing:
+            ms._audio_ipc({"command": ["seek", pct, "absolute-percent"]})
+
+    def action_audio_pct_0(self) -> None: self._audio_pct(0)
+    def action_audio_pct_10(self) -> None: self._audio_pct(10)
+    def action_audio_pct_20(self) -> None: self._audio_pct(20)
+    def action_audio_pct_30(self) -> None: self._audio_pct(30)
+    def action_audio_pct_40(self) -> None: self._audio_pct(40)
+    def action_audio_pct_50(self) -> None: self._audio_pct(50)
+    def action_audio_pct_60(self) -> None: self._audio_pct(60)
+    def action_audio_pct_70(self) -> None: self._audio_pct(70)
+    def action_audio_pct_80(self) -> None: self._audio_pct(80)
+    def action_audio_pct_90(self) -> None: self._audio_pct(90)
+
+    # ── Focus guard ───────────────────────────────────────────────────────────
 
     def on_key(self) -> None:
         from textual.widgets import ListView
