@@ -1011,7 +1011,7 @@ ChannelInfoPanel {
     height: 1fr;
 }
 
-#ch-tabs { height: auto; }
+#ch-tabs { height: 2; }
 #ch-video-list { height: 1fr; }
 
 #video-channel { }

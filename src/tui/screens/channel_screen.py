@@ -230,6 +230,15 @@ class ChannelScreen(Screen):
                 pass
             self._thumb_session += 1
             self._fetch_channel_thumb(ch_id, thumb_url, self._thumb_session)
+        else:
+            self._set_thumb_placeholder()
+
+    def _set_thumb_placeholder(self) -> None:
+        """Show the placeholder state on the channel thumbnail (main thread)."""
+        try:
+            self.query_one("#ch-info-panel #ch-thumbnail", ThumbnailWidget).set_placeholder()
+        except Exception:
+            pass
 
     @work(thread=True, exclusive=True, group="ch_thumb")
     def _fetch_channel_thumb(self, ch_id: str, url: str, session: int) -> None:
@@ -247,13 +256,16 @@ class ChannelScreen(Screen):
                     with _PILImage.open(local) as _img:
                         _img.load()
                 except Exception:
-                    self.app.call_from_thread(_set_placeholder)
+                    self.app.call_from_thread(self._set_thumb_placeholder)
                     return
                 if session != self._thumb_session:
                     return
+                _local = local
                 self.app.call_from_thread(
-                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_image(ch_id, local)
+                    lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_image(ch_id, _local)
                 )
+            else:
+                self.app.call_from_thread(self._set_thumb_placeholder)
         else:
             local = thumb_mod._thumb_path(ch_id)
             if not local.exists():
@@ -261,7 +273,7 @@ class ChannelScreen(Screen):
             if session != self._thumb_session:
                 return
             if not (local and local.exists()):
-                self.app.call_from_thread(_set_placeholder)
+                self.app.call_from_thread(self._set_thumb_placeholder)
                 return
             ansi = thumb_mod.render(ch_id, {"id": ch_id, "thumbnail": url}) or ""
             if session != self._thumb_session:
@@ -272,7 +284,7 @@ class ChannelScreen(Screen):
                     lambda: self.query_one("#ch-info-panel", ChannelInfoPanel).set_thumbnail_ansi(_id2, _ansi)
                 )
             else:
-                self.app.call_from_thread(_set_placeholder)
+                self.app.call_from_thread(self._set_thumb_placeholder)
 
     def _show_info_error(self) -> None:
         try:

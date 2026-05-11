@@ -645,6 +645,19 @@ def download_audio_with_progress(
 
 # -- Channel browsing --------------------------------------------------------
 
+# Strips known tab suffixes from a channel URL so we can append the desired
+# one cleanly — avoids double-suffixing like /videos/videos.
+_CH_SUFFIX_RE = re.compile(
+    r"/(videos|shorts|streams|playlists|community|about|featured|membership|store)(/.*)?$",
+    re.IGNORECASE,
+)
+
+
+def _normalise_channel_url(url: str) -> str:
+    """Strip any existing channel-tab path component from a YouTube channel URL."""
+    return _CH_SUFFIX_RE.sub("", url.rstrip("/"))
+
+
 def fetch_channel_info(
     channel_url: str,
     config,
@@ -707,11 +720,12 @@ def fetch_channel_videos(
     on_proc_started: Callable[[subprocess.Popen], None] | None = None,
 ) -> list[dict]:
     """Fetch video entries from a channel. sort: date | views."""
-    base_url = channel_url.rstrip("/")
+    base_url = _normalise_channel_url(channel_url)
     if sort == "views":
         url = base_url + "/videos?sort=p"
     else:
         url = base_url + "/videos"
+    logger.debug("fetch_channel_videos: url=%s sort=%s", url, sort)
     return fetch_page_batch(url, config, cache, count=count, on_proc_started=on_proc_started)
 
 
@@ -724,7 +738,8 @@ def fetch_channel_playlists(
     on_proc_started: Callable[[subprocess.Popen], None] | None = None,
 ) -> list[dict]:
     """Fetch playlist entries from a channel."""
-    url = channel_url.rstrip("/") + "/playlists"
+    url = _normalise_channel_url(channel_url) + "/playlists"
+    logger.debug("fetch_channel_playlists: url=%s", url)
     cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
     results: list[dict] = []
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug(), on_proc_started=on_proc_started):
