@@ -518,6 +518,9 @@ class ChannelScreen(Screen):
         from src.tui.screens.video_action_modal import VideoActionModal
         self.app.push_screen(VideoActionModal(entry))
 
+    def action_channel(self) -> None:
+        pass  # Already on the channel screen
+
     def action_watch(self) -> None:
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):

@@ -1011,7 +1011,11 @@ ChannelInfoPanel {
 }
 
 #ch-tabs { height: 2; }
-#ch-video-list { height: 1fr; }
+#ch-video-list {
+    height: 1fr;
+    width: 100%;
+    border-right: solid #2a2a2a;
+}
 
 #ch-detail-panel {
     width: 33%;
