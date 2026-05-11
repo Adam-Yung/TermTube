@@ -693,6 +693,15 @@ def fetch_channel_info(
         if proc.returncode != 0 or not stdout.strip():
             return None
         data = json.loads(stdout)
+        thumbs = data.get("thumbnails") or []
+        avatar_url = ""
+        for t in reversed(thumbs):
+            if t.get("id") == "avatar_uncropped":
+                avatar_url = t.get("url", "")
+                break
+        if not avatar_url:
+            avatar_url = thumbs[-1].get("url", "") if thumbs else data.get("thumbnail", "")
+
         info = {
             "_cache_key": cache_key,
             "channel_url": channel_url,
@@ -700,7 +709,7 @@ def fetch_channel_info(
             "channel_id": data.get("channel_id") or data.get("uploader_id", ""),
             "description": data.get("description", ""),
             "subscriber_count": data.get("channel_follower_count"),
-            "thumbnail": data.get("thumbnail", ""),
+            "thumbnail": avatar_url,
             "uploader_url": data.get("uploader_url", ""),
         }
         cache.put_video(info)

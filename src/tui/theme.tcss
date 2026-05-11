@@ -979,10 +979,10 @@ ChannelScreen {
 }
 
 ChannelInfoPanel {
-    width: 35%;
+    width: 22%;
     border-right: solid #2a2a2a;
     background: #0f0f0f;
-    padding: 1 2;
+    padding: 1 1;
     height: 1fr;
     overflow-y: auto;
 }
@@ -999,20 +999,24 @@ ChannelInfoPanel {
 
 #ch-desc-scroll {
     height: 1fr;
-    max-height: 30;
+    max-height: 20;
 }
 
 #ch-desc { color: #aaaaaa; }
-#ch-thumbnail { height: 12; width: 100%; margin-bottom: 1; }
-#ch-hint { color: #555555; margin-top: 1; }
+#ch-thumbnail { height: 10; width: 100%; margin-bottom: 1; }
 
-#ch-right {
-    width: 1fr;
+#ch-center {
+    width: 45%;
     height: 1fr;
 }
 
 #ch-tabs { height: 2; }
 #ch-video-list { height: 1fr; }
+
+#ch-detail-panel {
+    width: 33%;
+    background: #0a0a0a;
+}
 
 #video-channel { }
 
