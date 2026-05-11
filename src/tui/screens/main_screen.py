@@ -739,6 +739,12 @@ class MainScreen(Screen):
         if vid and not vid.startswith("__"):
             self._kick_thumb(vid, entry)
 
+    def on_detail_panel_channel_clicked(
+        self, message: DetailPanel.ChannelClicked
+    ) -> None:
+        """Open the channel screen when the channel name is clicked."""
+        self._open_channel(message.entry)
+
     def _refresh_queue_hint(self, focused_entry: dict | None = None) -> None:
         """Update the action bar's queue hint based on what video is focused."""
         try:

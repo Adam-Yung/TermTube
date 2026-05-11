@@ -94,6 +94,11 @@ class DetailPanel(Widget):
         self._last_entry: dict | None = None
         self._channel_mode: bool = False
 
+    def action_channel(self) -> None:
+        """Handle click on the channel name link."""
+        if self._last_entry:
+            self.post_message(self.ChannelClicked(self._last_entry))
+
     def compose(self) -> ComposeResult:
         with Vertical(id="thumbnail-area"):
             yield ThumbnailWidget(id="thumbnail")

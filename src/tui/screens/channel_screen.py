@@ -501,6 +501,11 @@ class ChannelScreen(Screen):
         if vid and not vid.startswith("__"):
             self._kick_thumb(vid, entry)
 
+    def on_detail_panel_channel_clicked(
+        self, message: DetailPanel.ChannelClicked
+    ) -> None:
+        pass  # Already on the channel screen
+
     # ── Actions ───────────────────────────────────────────────────────────────
 
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:

@@ -164,11 +164,17 @@ class WatchModal(ModalScreen[bool]):
                     pass
 
         if not self._stopped:
-            self.app.call_from_thread(self.dismiss, True)
+            try:
+                self.app.call_from_thread(self.dismiss, True)
+            except Exception:
+                pass
             if title:
-                self.app.call_from_thread(
-                    self.app.notify, f"✓ Finished: {title[:50]}", timeout=4
-                )
+                try:
+                    self.app.call_from_thread(
+                        self.app.notify, f"✓ Finished: {title[:50]}", timeout=4
+                    )
+                except Exception:
+                    pass
 
     # ── IPC polling ───────────────────────────────────────────────────────────
 
@@ -177,7 +183,10 @@ class WatchModal(ModalScreen[bool]):
         if self._proc and self._proc.poll() is not None:
             if not self._stopped:
                 self._stopped = True
-                self.dismiss(True)
+                try:
+                    self.dismiss(True)
+                except Exception:
+                    pass
             return
 
         from src.player import poll_audio_properties
@@ -285,8 +294,16 @@ class WatchModal(ModalScreen[bool]):
     def action_seek_pct_90(self) -> None: self._seek_pct(90)
 
     def action_stop(self) -> None:
+        if self._stopped:
+            return
         self._stopped = True
         self._ipc(["quit"])
         if self._proc and self._proc.poll() is None:
-            self._proc.terminate()
-        self.dismiss(False)
+            try:
+                self._proc.terminate()
+            except Exception:
+                pass
+        try:
+            self.dismiss(False)
+        except Exception:
+            pass
