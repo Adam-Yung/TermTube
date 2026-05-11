@@ -516,7 +516,26 @@ class ChannelScreen(Screen):
         if not entry:
             return
         from src.tui.screens.video_action_modal import VideoActionModal
-        self.app.push_screen(VideoActionModal(entry))
+
+        def on_action(key: str | None) -> None:
+            if not key:
+                return
+            dispatch = {
+                "watch": lambda: self.action_watch(),
+                "watch_quality": lambda: self._watch_quality(entry),
+                "listen": lambda: self._start_listen(entry),
+                "listen_quality": lambda: self._listen_quality(entry),
+                "download": lambda: self.action_download(),
+                "channel": lambda: None,
+                "copy_url": lambda: self.action_copy_url(),
+                "playlist": lambda: None,
+                "browser": lambda: self.action_browser(),
+            }
+            fn = dispatch.get(key)
+            if fn:
+                fn()
+
+        self.app.push_screen(VideoActionModal(entry), on_action)
 
     def action_channel(self) -> None:
         pass  # Already on the channel screen
@@ -532,8 +551,40 @@ class ChannelScreen(Screen):
         entry = self._selected_entry()
         if not entry or entry.get("_is_playlist"):
             return
-        from src.tui.screens.video_action_modal import VideoActionModal
-        self.app.push_screen(VideoActionModal(entry))
+        self._start_listen(entry)
+
+    def _start_listen(self, entry: dict) -> None:
+        from src.tui.screens.main_screen import MainScreen
+        for screen in self.app.screen_stack:
+            if isinstance(screen, MainScreen):
+                screen._start_audio(entry)
+                return
+
+    def _listen_quality(self, entry: dict) -> None:
+        from src.tui.screens.quality_modal import QualityModal
+
+        def on_fmt(fmt: str | None) -> None:
+            if fmt is not None:
+                self._start_listen_with_format(entry, fmt)
+
+        self.app.push_screen(QualityModal(audio_only=True), on_fmt)
+
+    def _start_listen_with_format(self, entry: dict, fmt: str) -> None:
+        from src.tui.screens.main_screen import MainScreen
+        for screen in self.app.screen_stack:
+            if isinstance(screen, MainScreen):
+                screen._start_audio(entry, ytdl_format=fmt)
+                return
+
+    def _watch_quality(self, entry: dict) -> None:
+        from src.tui.screens.quality_modal import QualityModal
+
+        def on_fmt(fmt: str | None) -> None:
+            if fmt is not None:
+                from src.tui.screens.watch_modal import WatchModal
+                self.app.push_screen(WatchModal(entry, ytdl_format=fmt))
+
+        self.app.push_screen(QualityModal(audio_only=False), on_fmt)
 
     def action_download(self) -> None:
         entry = self._selected_entry()
