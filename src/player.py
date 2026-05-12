@@ -49,8 +49,21 @@ def _write_input_conf() -> str:
     return f.name
 
 
+def _mpv_exe() -> str | None:
+    """Return the mpv executable path, handling mpv.net on Windows."""
+    if shutil.which("mpv"):
+        return "mpv"
+    if IS_WINDOWS:
+        import os
+        from pathlib import Path
+        mpvnet = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net" / "mpvnet.exe"
+        if mpvnet.exists():
+            return str(mpvnet)
+    return None
+
+
 def _mpv_available() -> bool:
-    return shutil.which("mpv") is not None
+    return _mpv_exe() is not None
 
 
 def _vlc_available() -> bool:
@@ -332,13 +345,14 @@ def play_playlist(
     """Play multiple URLs sequentially as an mpv playlist. Blocks until done."""
     if not urls:
         return
-    if not _mpv_available():
+    exe = _mpv_exe()
+    if not exe:
         from src.platform import install_hint
         raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
     input_conf = _write_input_conf()
     try:
         cmd = [
-            "mpv",
+            exe,
             f"--input-conf={input_conf}",
             f"--input-ipc-server={IPC_SOCKET}",
         ]
@@ -398,10 +412,14 @@ def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", titl
 
 def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "",
               cookie_args: list[str] | None = None) -> None:
+    exe = _mpv_exe()
+    if not exe:
+        from src.platform import install_hint
+        raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
     input_conf = _write_input_conf()
     try:
         cmd = [
-            "mpv",
+            exe,
             f"--input-conf={input_conf}",
             f"--input-ipc-server={IPC_SOCKET}",
         ]

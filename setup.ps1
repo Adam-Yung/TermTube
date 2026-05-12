@@ -94,12 +94,27 @@ function Test-WinGet {
     Test-Command "winget"
 }
 
+function Test-Tool {
+    param([string]$Name)
+    if (Test-Command $Name) { return $true }
+    switch ($Name) {
+        "mpv" {
+            return Test-Path (Join-Path $env:LOCALAPPDATA "Programs\mpv.net\mpvnet.exe")
+        }
+        "python" {
+            return $null -ne (Find-Python)
+        }
+    }
+    return $false
+}
+
 # ── Dependency Installation ───────────────────────────────────────────────────
 $WinGetPackages = @{
     "yt-dlp"  = "yt-dlp.yt-dlp"
     "mpv"     = "mpv.net"
     "ffmpeg"  = "Gyan.FFmpeg"
     "chafa"   = "hpjansson.Chafa"
+    "python"  = "Python.Python.3.13"
 }
 
 function Install-Dependency {
@@ -111,7 +126,7 @@ function Install-Dependency {
     }
     Write-Step "Installing $Tool via winget ($pkg)..."
     try {
-        winget install --id $pkg --accept-source-agreements --accept-package-agreements --silent
+        winget install --id $pkg --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -eq 0) {
             Write-Success "$Tool installed."
             # mpv.net does not add itself to PATH; probe its known install location
@@ -125,6 +140,11 @@ function Install-Dependency {
                     }
                 }
             }
+            # Refresh PATH after Python install so Find-Python can locate it immediately
+            if ($Tool -eq "python") {
+                $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                            [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            }
             return $true
         }
     } catch {}
@@ -133,28 +153,32 @@ function Install-Dependency {
 }
 
 function Test-Dependencies {
-    $required = @("yt-dlp", "mpv")
+    $required = @("yt-dlp", "mpv", "python")
     $optional = @("ffmpeg", "chafa")
     $missingRequired = @()
     $missingOptional = @()
+    $foundRequired   = @()
+    $foundOptional   = @()
 
     foreach ($tool in $required) {
-        if (Test-Command $tool) {
-            Write-Success "$tool found"
+        if (Test-Tool $tool) {
+            $foundRequired += $tool
         } else {
             $missingRequired += $tool
         }
     }
     foreach ($tool in $optional) {
-        if (Test-Command $tool) {
-            Write-Success "$tool found"
+        if (Test-Tool $tool) {
+            $foundOptional += $tool
         } else {
             $missingOptional += $tool
         }
     }
 
     if ($missingRequired.Count -eq 0 -and $missingOptional.Count -eq 0) {
-        Write-Success "All dependencies satisfied."
+        Write-Header "Installed Dependencies"
+        foreach ($tool in $foundRequired)  { Write-Success "$tool (required)" }
+        foreach ($tool in $foundOptional)  { Write-Success "$tool (optional)" }
         return $true
     }
 
@@ -180,25 +204,30 @@ function Test-Dependencies {
         if ($reply -notmatch '^[Nn]') { $shouldInstall = $true }
     }
 
+    $stillMissing = @()
+
     if ($shouldInstall) {
         foreach ($tool in ($missingRequired + $missingOptional)) {
             Install-Dependency $tool | Out-Null
         }
-        # Re-check required
+        # Re-check after install
         foreach ($tool in $missingRequired) {
-            # Refresh PATH
             $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                         [System.Environment]::GetEnvironmentVariable("PATH", "User")
-            if (-not (Test-Command $tool)) {
-                # Special case: mpv.net installs as mpvnet.exe, not mpv.exe
-                $found = $false
-                if ($tool -eq "mpv") {
-                    $mpvExe = Join-Path $env:LOCALAPPDATA "Programs\mpv.net\mpvnet.exe"
-                    $found = Test-Path $mpvExe
-                }
-                if (-not $found) {
-                    Write-Err "$tool still not found after install. May need a terminal restart."
-                }
+            if (Test-Tool $tool) {
+                $foundRequired += $tool
+            } else {
+                $stillMissing += $tool
+                Write-Err "$tool still not found after install. May need a terminal restart."
+            }
+        }
+        foreach ($tool in $missingOptional) {
+            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                        [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            if (Test-Tool $tool) {
+                $foundOptional += $tool
+            } else {
+                $stillMissing += $tool
             }
         }
     } else {
@@ -209,7 +238,22 @@ function Test-Dependencies {
                 if ($pkg) { Write-Host "    winget install $pkg" }
             }
         }
+        $stillMissing = $missingRequired + $missingOptional
     }
+
+    # ── Dependency Summary ────────────────────────────────────────────────────
+    Write-Header "Installed Dependencies"
+    foreach ($tool in $foundRequired) {
+        Write-Success "$tool (required)"
+    }
+    foreach ($tool in $foundOptional) {
+        Write-Success "$tool (optional)"
+    }
+    foreach ($tool in $stillMissing) {
+        $label = if ($required -contains $tool) { "required" } else { "optional" }
+        Write-Err "$tool missing ($label)"
+    }
+
     return $true
 }
 
@@ -249,23 +293,18 @@ function Setup-Venv {
 
     $py = Find-Python
     if (-not $py) {
-        if ((Test-WinGet) -and (-not $NoDeps)) {
-            Write-Step "Python >= $PythonMin not found. Installing Python 3.13 via winget..."
-            winget install --id Python.Python.3.13 --accept-source-agreements --accept-package-agreements --silent
-            # Refresh PATH so newly installed Python is visible
-            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("PATH", "User")
-            $py = Find-Python
-        }
-        if (-not $py) {
-            Write-Err "Python >= $PythonMin not found."
-            Write-Host "  Install from: https://python.org/downloads/"
-            Write-Host "  Or: winget install Python.Python.3.13"
-            return $false
-        }
+        Write-Err "Python >= $PythonMin not found."
+        Write-Host "  Install from: https://python.org/downloads/"
+        Write-Host "  Or: winget install Python.Python.3.13"
+        return $false
     }
 
-    $version = & $py.Split(' ')[0] $py.Split(' ')[1..99] --version 2>&1
+    $pyArgs = $py -split ' '
+    if ($pyArgs.Count -gt 1) {
+        $version = & $pyArgs[0] $pyArgs[1..($pyArgs.Count - 1)] --version 2>&1
+    } else {
+        $version = & $py --version 2>&1
+    }
     Write-Info "Using $version"
 
     $pipExe = Join-Path $VenvDir "Scripts\pip.exe"
@@ -275,9 +314,8 @@ function Setup-Venv {
         Write-Info "Virtual environment exists - upgrading..."
     } else {
         Write-Step "Creating virtual environment..."
-        $pyArgs = $py.Split(' ')
         if ($pyArgs.Count -gt 1) {
-            & $pyArgs[0] $pyArgs[1..99] -m venv $VenvDir
+            & $pyArgs[0] $pyArgs[1..($pyArgs.Count - 1)] -m venv $VenvDir
         } else {
             & $py -m venv $VenvDir
         }

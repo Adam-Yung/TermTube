@@ -208,7 +208,33 @@ def in_windows_terminal() -> bool:
 def has_chafa() -> bool:
     """True if chafa is available for thumbnail rendering."""
     import shutil
-    return shutil.which("chafa") is not None
+    if shutil.which("chafa"):
+        return True
+    if IS_WINDOWS:
+        # chafa via winget installs into a versioned subdirectory under WinGet packages
+        winget_base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
+        if winget_base.is_dir():
+            for pkg_dir in winget_base.iterdir():
+                if pkg_dir.name.startswith("hpjansson.Chafa"):
+                    for chafa_exe in pkg_dir.rglob("chafa.exe"):
+                        return True
+    return False
+
+
+def get_chafa_exe() -> str | None:
+    """Return the chafa executable path, probing winget install dirs on Windows."""
+    import shutil
+    found = shutil.which("chafa")
+    if found:
+        return found
+    if IS_WINDOWS:
+        winget_base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
+        if winget_base.is_dir():
+            for pkg_dir in winget_base.iterdir():
+                if pkg_dir.name.startswith("hpjansson.Chafa"):
+                    for chafa_exe in pkg_dir.rglob("chafa.exe"):
+                        return str(chafa_exe)
+    return None
 
 
 def has_curl() -> bool:

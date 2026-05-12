@@ -18,7 +18,7 @@ from typing import Callable
 
 from src.cache import CACHE_DIR, THUMB_DIR
 from src import logger
-from src.platform import has_chafa as _platform_has_chafa, get_thumbnail_download_cmd
+from src.platform import has_chafa as _platform_has_chafa, get_thumbnail_download_cmd, get_chafa_exe
 
 CHAFA_DIR = CACHE_DIR / "chafa"
 
@@ -75,7 +75,7 @@ def _supports_sixel() -> bool:
 
 def _chafa_format() -> str:
     """Return the best chafa output format for the current terminal (CLI/fzf context)."""
-    if _is_kitty() and shutil.which("chafa"):
+    if _is_kitty() and _has_chafa():
         return "kitty"
     if _supports_sixel():
         return "sixel"
@@ -237,9 +237,10 @@ def render(
 
     try:
         from src.platform import get_popen_kwargs
+        chafa_exe = get_chafa_exe() or "chafa"
         proc = subprocess.Popen(
             [
-                "chafa",
+                chafa_exe,
                 f"--size={cols}x{rows}",
                 f"--format={out_fmt}",
                 *extra_flags,
@@ -327,6 +328,7 @@ def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
     fmt = _chafa_format()
     extra_flags = [] if fmt == "kitty" else ["--optimize=3"]
     try:
+        chafa_exe = get_chafa_exe() or "chafa"
         curl = subprocess.Popen(
             ["curl", "-sL", "--max-time", "8", url],
             stdout=subprocess.PIPE,
@@ -334,7 +336,7 @@ def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
         )
         result = subprocess.run(
             [
-                "chafa",
+                chafa_exe,
                 f"--size={cols}x{rows}",
                 f"--format={fmt}",
                 *extra_flags,

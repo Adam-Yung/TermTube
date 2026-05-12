@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
 
@@ -70,6 +71,23 @@ def _has(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def _has_mpv() -> bool:
+    """Check for mpv, accounting for mpv.net on Windows (installs as mpvnet.exe)."""
+    if _has("mpv"):
+        return True
+    if IS_WINDOWS:
+        import os
+        mpvnet = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net" / "mpvnet.exe"
+        return mpvnet.exists()
+    return False
+
+
+def _has_chafa() -> bool:
+    """Check for chafa, accounting for winget installs not yet in PATH on Windows."""
+    from src.platform import has_chafa as _platform_has_chafa
+    return _platform_has_chafa()
+
+
 def _brew_available() -> bool:
     return _has("brew")
 
@@ -88,7 +106,7 @@ def _install_winget(pkg_id: str) -> bool:
     print(f"  Installing {pkg_id} via winget...", flush=True)
     result = subprocess.run(
         ["winget", "install", "--id", pkg_id,
-         "--accept-source-agreements", "--accept-package-agreements", "--silent"],
+         "--accept-source-agreements", "--accept-package-agreements"],
         capture_output=False,
     )
     return result.returncode == 0
@@ -100,7 +118,13 @@ def check_dependencies(auto_install: bool = False) -> bool:
     missing_optional: list[tuple[str, str, str | None]] = []
 
     for tool, brew, apt, winget, required in DEPS:
-        if not _has(tool):
+        if tool == "mpv":
+            present = _has_mpv()
+        elif tool == "chafa":
+            present = _has_chafa()
+        else:
+            present = _has(tool)
+        if not present:
             if required:
                 missing_required.append((tool, brew, winget))
             else:

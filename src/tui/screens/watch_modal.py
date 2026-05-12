@@ -151,7 +151,7 @@ class WatchModal(ModalScreen[bool]):
 
         input_conf = player_mod._write_input_conf()
         cmd = [
-            "mpv",
+            player_mod._mpv_exe() or "mpv",
             f"--input-conf={input_conf}",
             f"--input-ipc-server={self._get_socket()}",
             "--no-terminal",

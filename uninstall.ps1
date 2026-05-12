@@ -29,6 +29,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Ensure the console can render Unicode box-drawing characters
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 $AppDir = Join-Path $env:LOCALAPPDATA "TermTube"
 $BinDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
@@ -67,9 +70,16 @@ if ($Help) {
 
 # ── Discovery ─────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "  ┌─────────────────────────────────────┐" -ForegroundColor White
-Write-Host "  │       TermTube Uninstaller           │" -ForegroundColor White
-Write-Host "  └─────────────────────────────────────┘" -ForegroundColor White
+$title = "TermTube Uninstaller"
+$width = 37
+$inner = $width - 2
+$pad   = [Math]::Floor(($inner - $title.Length) / 2)
+$right = $inner - $title.Length - $pad
+$centered = (' ' * $pad) + $title + (' ' * $right)
+$bar = [string][char]0x2500 * $inner
+Write-Host ("  " + [char]0x250C + $bar + [char]0x2510) -ForegroundColor White
+Write-Host ("  " + [char]0x2502 + $centered           + [char]0x2502) -ForegroundColor White
+Write-Host ("  " + [char]0x2514 + $bar + [char]0x2518) -ForegroundColor White
 Write-Host ""
 
 $itemsToRemove = @()
@@ -191,7 +201,6 @@ Write-Host ""
 Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
 Write-Host "  TermTube uninstalled successfully." -ForegroundColor Green
 Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
-
 if (-not $Purge -and (Test-Path $ConfigDir)) {
     Write-Host ""
     Write-Host "  Config preserved at: $ConfigDir" -ForegroundColor DarkGray
