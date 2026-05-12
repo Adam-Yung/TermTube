@@ -590,6 +590,14 @@ AUDIO_QUALITY_CHOICES: list[tuple[str, str]] = [
 ]
 
 _PROGRESS_RE = re.compile(r'\[download\]\s+([\d.]+)%')
+_DESTINATION_RE = re.compile(r'\[download\] Destination:')
+_POSTPROCESS_RE = re.compile(
+    r'\[(Merger|ExtractAudio|FFmpegVideoConvertor|FFmpegExtractAudio|FFmpegMetadata)\]'
+)
+
+# Phase constants emitted via pct parameter
+PHASE_NEW_STREAM = -2.0
+PHASE_POSTPROCESS = -3.0
 
 
 def _run_download_with_progress(
@@ -611,8 +619,18 @@ def _run_download_with_progress(
         with _active_procs_lock:
             _active_procs.add(proc)
         try:
+            stream_count = 0
             for line in proc.stdout:  # type: ignore[union-attr]
                 line = line.rstrip()
+                if _DESTINATION_RE.search(line):
+                    stream_count += 1
+                    if on_progress and stream_count > 1:
+                        on_progress(line, PHASE_NEW_STREAM)
+                    continue
+                if _POSTPROCESS_RE.search(line):
+                    if on_progress:
+                        on_progress(line, PHASE_POSTPROCESS)
+                    continue
                 m = _PROGRESS_RE.search(line)
                 pct = float(m.group(1)) if m else -1.0
                 if on_progress:
