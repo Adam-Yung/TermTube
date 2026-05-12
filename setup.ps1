@@ -37,6 +37,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Ensure the console can render Unicode box-drawing characters
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 $Version = "0.2.0"
 $AppName = "TermTube"
@@ -111,6 +114,17 @@ function Install-Dependency {
         winget install --id $pkg --accept-source-agreements --accept-package-agreements --silent
         if ($LASTEXITCODE -eq 0) {
             Write-Success "$Tool installed."
+            # mpv.net does not add itself to PATH; probe its known install location
+            if ($Tool -eq "mpv") {
+                $mpvDir = Join-Path $env:LOCALAPPDATA "Programs\mpv.net"
+                if (Test-Path (Join-Path $mpvDir "mpvnet.exe")) {
+                    $env:PATH = "$env:PATH;$mpvDir"
+                    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+                    if ($userPath -notlike "*$mpvDir*") {
+                        [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$mpvDir", "User")
+                    }
+                }
+            }
             return $true
         }
     } catch {}
@@ -176,7 +190,15 @@ function Test-Dependencies {
             $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                         [System.Environment]::GetEnvironmentVariable("PATH", "User")
             if (-not (Test-Command $tool)) {
-                Write-Err "$tool still not found after install. May need a terminal restart."
+                # Special case: mpv.net installs as mpvnet.exe, not mpv.exe
+                $found = $false
+                if ($tool -eq "mpv") {
+                    $mpvExe = Join-Path $env:LOCALAPPDATA "Programs\mpv.net\mpvnet.exe"
+                    $found = Test-Path $mpvExe
+                }
+                if (-not $found) {
+                    Write-Err "$tool still not found after install. May need a terminal restart."
+                }
             }
         }
     } else {
@@ -227,10 +249,20 @@ function Setup-Venv {
 
     $py = Find-Python
     if (-not $py) {
-        Write-Err "Python >= $PythonMin not found."
-        Write-Host "  Install from: https://python.org/downloads/"
-        Write-Host "  Or: winget install Python.Python.3.12"
-        return $false
+        if ((Test-WinGet) -and (-not $NoDeps)) {
+            Write-Step "Python >= $PythonMin not found. Installing Python 3.13 via winget..."
+            winget install --id Python.Python.3.13 --accept-source-agreements --accept-package-agreements --silent
+            # Refresh PATH so newly installed Python is visible
+            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                        [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            $py = Find-Python
+        }
+        if (-not $py) {
+            Write-Err "Python >= $PythonMin not found."
+            Write-Host "  Install from: https://python.org/downloads/"
+            Write-Host "  Or: winget install Python.Python.3.13"
+            return $false
+        }
     }
 
     $version = & $py.Split(' ')[0] $py.Split(' ')[1..99] --version 2>&1
@@ -367,10 +399,25 @@ if not exist "%PYTHON%" (
 # ── Main ──────────────────────────────────────────────────────────────────────
 function Main {
     Write-Host ""
-    Write-Host "  ┌─────────────────────────────────────┐" -ForegroundColor White
-    Write-Host "  │         TermTube Installer           │" -ForegroundColor White
-    Write-Host "  │         Windows v$Version             │" -ForegroundColor White
-    Write-Host "  └─────────────────────────────────────┘" -ForegroundColor White
+    $title    = "TermTube Installer"
+    $subtitle = "Windows v$Version"
+    $width    = 37
+    $inner    = $width - 2
+
+    function _Center {
+        param([string]$Text, [int]$W)
+        $len   = $Text.Length
+        $pad   = [Math]::Floor(($W - $len) / 2)
+        $right = $W - $len - $pad
+        return (' ' * $pad) + $Text + (' ' * $right)
+    }
+
+    $line = [string][char]0x2500  # ─
+    $bar  = $line * $inner
+    Write-Host ("  " + [char]0x250C + $bar + [char]0x2510) -ForegroundColor White
+    Write-Host ("  " + [char]0x2502 + (_Center $title    $inner) + [char]0x2502) -ForegroundColor White
+    Write-Host ("  " + [char]0x2502 + (_Center $subtitle $inner) + [char]0x2502) -ForegroundColor White
+    Write-Host ("  " + [char]0x2514 + $bar + [char]0x2518) -ForegroundColor White
     Write-Host ""
 
     Write-Info "Platform: Windows / $(if (Test-WinGet) {'winget available'} else {'winget not found'})"
