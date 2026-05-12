@@ -570,6 +570,108 @@ def fetch_full(
     return entry
 
 
+# ── Stream URL prefetch ───────────────────────────────────────────────────────
+
+def fetch_stream_urls(
+    video_id: str,
+    config,
+    *,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+) -> dict | None:
+    """Fetch direct stream URLs for best audio and best video formats.
+
+    Returns a dict with keys: audio_url, video_url, expire, fetched_at.
+    Returns None on failure. Does NOT use the skip=dash,hls flag so that
+    yt-dlp resolves actual streaming URLs.
+    """
+    import time
+    from urllib.parse import urlparse, parse_qs
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    cmd = [
+        "yt-dlp",
+        "--dump-json",
+        "--no-warnings",
+        "--quiet",
+        "--skip-download",
+        *cookie_args(config),
+        url,
+    ]
+    logger.debug("fetch_stream_urls: %s", video_id)
+    results = list(_stream_json_lines(
+        cmd,
+        capture_stderr=logger.is_debug(),
+        on_proc_started=on_proc_started,
+    ))
+    if not results:
+        logger.warning("fetch_stream_urls got no data for %s", video_id)
+        return None
+
+    info = results[0]
+    formats = info.get("formats") or []
+    if not formats:
+        logger.debug("fetch_stream_urls: no formats in response for %s", video_id)
+        return None
+
+    best_audio_url = _pick_best_audio_url(formats)
+    best_video_url = _pick_best_video_url(formats)
+
+    if not best_audio_url and not best_video_url:
+        return None
+
+    expire = _extract_expire(best_audio_url or best_video_url or "")
+
+    return {
+        "audio_url": best_audio_url,
+        "video_url": best_video_url,
+        "expire": expire,
+        "fetched_at": time.time(),
+    }
+
+
+def _pick_best_audio_url(formats: list[dict]) -> str | None:
+    """Select the best audio-only format URL from yt-dlp formats list."""
+    audio_formats = [
+        f for f in formats
+        if f.get("acodec", "none") != "none"
+        and f.get("vcodec", "none") in ("none", None)
+        and f.get("url")
+    ]
+    if not audio_formats:
+        return None
+    audio_formats.sort(key=lambda f: f.get("abr") or f.get("tbr") or 0, reverse=True)
+    return audio_formats[0]["url"]
+
+
+def _pick_best_video_url(formats: list[dict]) -> str | None:
+    """Select the best video-only format URL from yt-dlp formats list."""
+    video_formats = [
+        f for f in formats
+        if f.get("vcodec", "none") != "none"
+        and f.get("acodec", "none") in ("none", None)
+        and f.get("url")
+    ]
+    if not video_formats:
+        return None
+    video_formats.sort(
+        key=lambda f: (f.get("height") or 0, f.get("tbr") or 0), reverse=True
+    )
+    return video_formats[0]["url"]
+
+
+def _extract_expire(url: str) -> int:
+    """Extract the expire= query parameter from a YouTube stream URL."""
+    from urllib.parse import urlparse, parse_qs
+    try:
+        parsed = urlparse(url)
+        expire_vals = parse_qs(parsed.query).get("expire", [])
+        if expire_vals:
+            return int(expire_vals[0])
+    except (ValueError, TypeError):
+        pass
+    return 0
+
+
 # ── Download ──────────────────────────────────────────────────────────────────
 
 # ── Quality helpers ───────────────────────────────────────────────────────────

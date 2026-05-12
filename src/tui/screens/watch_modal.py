@@ -61,10 +61,11 @@ class WatchModal(ModalScreen[bool]):
             cls._SOCKET = get_video_ipc_path()
         return cls._SOCKET
 
-    def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def __init__(self, entry: dict, *, ytdl_format: str = "", stream_urls: dict | None = None) -> None:
         super().__init__()
         self._entry = entry
         self._ytdl_format = ytdl_format
+        self._stream_urls = stream_urls
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._stopped = False
         self._segments: list[Segment] = []
@@ -119,6 +120,25 @@ class WatchModal(ModalScreen[bool]):
 
         cookie_args = config.cookie_args if config else []
 
+        # Use prefetched stream URLs if available, not expired, and no custom quality
+        use_prefetched = False
+        audio_file_url: str | None = None
+        if not self._entry.get("_local_path") and not self._ytdl_format and self._stream_urls:
+            import time
+            expire = self._stream_urls.get("expire", 0)
+            fetched_at = self._stream_urls.get("fetched_at", 0)
+            is_fresh = (
+                (not expire or (expire - time.time()) >= 300)
+                and (not fetched_at or (time.time() - fetched_at) <= 18000)
+            )
+            if is_fresh:
+                video_url = self._stream_urls.get("video_url")
+                audio_url = self._stream_urls.get("audio_url")
+                if video_url:
+                    url = video_url
+                    audio_file_url = audio_url
+                    use_prefetched = True
+
         input_conf = player_mod._write_input_conf()
         cmd = [
             "mpv",
@@ -132,9 +152,12 @@ class WatchModal(ModalScreen[bool]):
             cmd += [f"--title={title}"]
         if self._ytdl_format:
             cmd += [f"--ytdl-format={self._ytdl_format}"]
-        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+        if use_prefetched and audio_file_url:
+            cmd += [f"--audio-file={audio_file_url}"]
+        if not use_prefetched:
+            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
+            if ytdl_raw:
+                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
 
         try:
