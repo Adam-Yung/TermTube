@@ -260,24 +260,29 @@ def get_thumbnail_download_cmd(url: str, dest: str) -> list[str]:
 
 _INSTALL_HINTS: dict[str, dict[str, str]] = {
     "yt-dlp": {
-        "windows": "winget install yt-dlp.yt-dlp",
-        "macos": "brew install yt-dlp",
-        "linux": "sudo apt install yt-dlp  # or: pip install yt-dlp",
+        "windows": "winget install yt-dlp.yt-dlp  (or: download from github.com/yt-dlp/yt-dlp-nightly-builds/releases)",
+        "macos":   "brew install yt-dlp  (or: curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp)",
+        "linux":   "curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp && chmod +x ~/.local/bin/yt-dlp",
+    },
+    "deno": {
+        "windows": "winget install DenoLand.Deno",
+        "macos":   "brew install deno",
+        "linux":   "curl -fsSL https://deno.land/install.sh | sh",
     },
     "mpv": {
         "windows": "winget install mpv.net",
-        "macos": "brew install mpv",
-        "linux": "sudo apt install mpv",
+        "macos":   "brew install mpv",
+        "linux":   "sudo apt install mpv",
     },
     "chafa": {
         "windows": "winget install hpjansson.Chafa",
-        "macos": "brew install chafa",
-        "linux": "sudo apt install chafa",
+        "macos":   "brew install chafa",
+        "linux":   "sudo apt install chafa",
     },
     "ffmpeg": {
         "windows": "winget install Gyan.FFmpeg",
-        "macos": "brew install ffmpeg",
-        "linux": "sudo apt install ffmpeg",
+        "macos":   "brew install ffmpeg",
+        "linux":   "sudo apt install ffmpeg",
     },
 }
 

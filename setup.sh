@@ -140,11 +140,13 @@ pkg_name() {
                 mpv)     echo "mpv" ;;
                 chafa)   echo "chafa" ;;
                 ffmpeg)  echo "ffmpeg" ;;
+                deno)    echo "deno" ;;
                 *)       echo "$tool" ;;
             esac ;;
         pacman)
             case "$tool" in
                 yt-dlp)  echo "yt-dlp" ;;
+                deno)    echo "deno" ;;
                 *)       echo "$tool" ;;
             esac ;;
         *)  echo "$tool" ;;
@@ -153,19 +155,87 @@ pkg_name() {
 
 install_hint() {
     local tool="$1"
-    case "$PKG_MGR" in
-        brew)    echo "brew install $tool" ;;
-        apt)     echo "sudo apt install $(pkg_name "$tool")" ;;
-        dnf)     echo "sudo dnf install $(pkg_name "$tool")" ;;
-        pacman)  echo "sudo pacman -S $(pkg_name "$tool")" ;;
-        zypper)  echo "sudo zypper install $(pkg_name "$tool")" ;;
-        apk)     echo "sudo apk add $(pkg_name "$tool")" ;;
-        none)    echo "Install '$tool' using your system's package manager" ;;
+    case "$tool" in
+        yt-dlp)
+            if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
+                echo "brew install yt-dlp"
+            elif [[ "$OS" == "macos" ]]; then
+                echo "curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp"
+            else
+                echo "curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o \$HOME/.local/bin/yt-dlp && chmod +x \$HOME/.local/bin/yt-dlp"
+            fi ;;
+        deno)
+            if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
+                echo "brew install deno"
+            else
+                echo "curl -fsSL https://deno.land/install.sh | sh"
+            fi ;;
+        *)
+            case "$PKG_MGR" in
+                brew)    echo "brew install $tool" ;;
+                apt)     echo "sudo apt install $(pkg_name "$tool")" ;;
+                dnf)     echo "sudo dnf install $(pkg_name "$tool")" ;;
+                pacman)  echo "sudo pacman -S $(pkg_name "$tool")" ;;
+                zypper)  echo "sudo zypper install $(pkg_name "$tool")" ;;
+                apk)     echo "sudo apk add $(pkg_name "$tool")" ;;
+                none)    echo "Install '$tool' using your system's package manager" ;;
+            esac ;;
     esac
 }
 
+# Install yt-dlp nightly from GitHub nightly-builds (bypasses stale apt/brew packages
+# and gives the most up-to-date YouTube extractor fixes).
+install_ytdlp_github() {
+    local dest
+    # macOS install destination: /opt/homebrew/bin on Apple Silicon, /usr/local/bin on Intel
+    if [[ "$OS" == "macos" ]]; then
+        if [[ -d "/opt/homebrew/bin" ]]; then
+            dest="/opt/homebrew/bin/yt-dlp"
+        else
+            dest="/usr/local/bin/yt-dlp"
+        fi
+        local url="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos"
+    else
+        dest="$BIN_DIR/yt-dlp"
+        local url="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp"
+    fi
+    mkdir -p "$(dirname "$dest")"
+    step "Downloading yt-dlp nightly from GitHub releases…"
+    if curl -fsSL "$url" -o "$dest" && chmod +x "$dest"; then
+        success "yt-dlp (nightly) installed to $dest"
+        return 0
+    else
+        error "Failed to download yt-dlp from GitHub."
+        return 1
+    fi
+}
+
+# Install Deno via the official installer script.
+install_deno_official() {
+    if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
+        step "Installing deno via Homebrew…"
+        if brew install deno; then
+            success "deno installed."
+            return 0
+        fi
+    fi
+    step "Installing deno via official installer…"
+    if curl -fsSL https://deno.land/install.sh | sh; then
+        # The installer puts deno in ~/.deno/bin; add to PATH for this session
+        export DENO_INSTALL="$HOME/.deno"
+        export PATH="$DENO_INSTALL/bin:$PATH"
+        success "deno installed to ~/.deno/bin"
+        warn "Add ~/.deno/bin to your PATH if it's not already:"
+        echo -e "    ${CYAN}export PATH=\"\$HOME/.deno/bin:\$PATH\"${RESET}"
+        return 0
+    else
+        error "Failed to install deno."
+        return 1
+    fi
+}
+
 check_and_install_deps() {
-    local -a required=(yt-dlp mpv)
+    local -a required=(yt-dlp deno mpv)
     local -a optional=(chafa ffmpeg)
     local missing_required=()
     local missing_optional=()
@@ -198,29 +268,12 @@ check_and_install_deps() {
         info "Missing optional: ${missing_optional[*]}"
     fi
 
-    if [[ "$PKG_MGR" == "none" ]]; then
-        error "No supported package manager detected."
-        echo ""
-        for tool in "${missing_required[@]}"; do
-            echo "  Required: $tool"
-        done
-        for tool in "${missing_optional[@]}"; do
-            echo "  Optional: $tool"
-        done
-        if [[ ${#missing_required[@]} -gt 0 ]]; then
-            echo ""
-            error "Install required dependencies manually, then re-run setup."
-            return 1
-        fi
-        return 0
-    fi
-
     local should_install=false
     if [[ "$AUTO_DEPS" == true ]]; then
         should_install=true
     elif [[ "$INTERACTIVE" == true ]]; then
         echo ""
-        echo -e "  Install missing dependencies using ${BOLD}${PKG_MGR}${RESET}?"
+        echo -e "  Install missing dependencies?"
         if [[ ${#missing_required[@]} -gt 0 ]]; then
             echo -e "    Required: ${BOLD}${missing_required[*]}${RESET}"
         fi
@@ -236,18 +289,35 @@ check_and_install_deps() {
 
     if [[ "$should_install" == true ]]; then
         for tool in "${missing_required[@]}" "${missing_optional[@]}"; do
-            step "Installing $(pkg_name "$tool") via $PKG_MGR…"
-            if pkg_install "$(pkg_name "$tool")"; then
-                success "$tool installed."
-            else
-                if [[ " ${missing_required[*]} " == *" $tool "* ]]; then
-                    error "Failed to install $tool."
-                    error "Try manually: $(install_hint "$tool")"
-                    return 1
-                else
-                    warn "Could not install $tool (optional). $(install_hint "$tool")"
-                fi
-            fi
+            case "$tool" in
+                yt-dlp)
+                    install_ytdlp_github || {
+                        error "Failed to install yt-dlp."
+                        return 1
+                    } ;;
+                deno)
+                    install_deno_official || {
+                        error "Failed to install deno."
+                        return 1
+                    } ;;
+                *)
+                    if [[ "$PKG_MGR" == "none" ]]; then
+                        warn "No package manager. Install $tool manually: $(install_hint "$tool")"
+                    else
+                        step "Installing $(pkg_name "$tool") via $PKG_MGR…"
+                        if pkg_install "$(pkg_name "$tool")"; then
+                            success "$tool installed."
+                        else
+                            if [[ " ${missing_required[*]} " == *" $tool "* ]]; then
+                                error "Failed to install $tool."
+                                error "Try manually: $(install_hint "$tool")"
+                                return 1
+                            else
+                                warn "Could not install $tool (optional). $(install_hint "$tool")"
+                            fi
+                        fi
+                    fi ;;
+            esac
         done
     else
         if [[ ${#missing_required[@]} -gt 0 ]]; then

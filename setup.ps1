@@ -111,10 +111,32 @@ function Test-Tool {
 # ── Dependency Installation ───────────────────────────────────────────────────
 $WinGetPackages = @{
     "yt-dlp"  = "yt-dlp.yt-dlp"
+    "deno"    = "DenoLand.Deno"
     "mpv"     = "mpv.net"
     "ffmpeg"  = "Gyan.FFmpeg"
     "chafa"   = "hpjansson.Chafa"
     "python"  = "Python.Python.3.13"
+}
+
+function Install-YtDlpGitHub {
+    <#
+    .SYNOPSIS
+        Download the latest yt-dlp nightly .exe from GitHub nightly-builds as a
+        fallback when winget is unavailable or fails.
+    #>
+    $destDir = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps"
+    $dest    = Join-Path $destDir "yt-dlp.exe"
+    $url     = "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe"
+    Write-Step "Downloading yt-dlp nightly from GitHub nightly-builds..."
+    try {
+        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+        Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 60
+        Write-Success "yt-dlp (nightly) installed to $dest"
+        return $true
+    } catch {
+        Write-Err "Failed to download yt-dlp from GitHub: $_"
+        return $false
+    }
 }
 
 function Install-Dependency {
@@ -148,12 +170,16 @@ function Install-Dependency {
             return $true
         }
     } catch {}
+    # Fallback: download yt-dlp directly from GitHub if winget failed
+    if ($Tool -eq "yt-dlp") {
+        return Install-YtDlpGitHub
+    }
     Write-Err "Failed to install $Tool."
     return $false
 }
 
 function Test-Dependencies {
-    $required = @("yt-dlp", "mpv", "python")
+    $required = @("yt-dlp", "deno", "mpv", "python")
     $optional = @("ffmpeg", "chafa")
     $missingRequired = @()
     $missingOptional = @()

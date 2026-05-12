@@ -16,13 +16,18 @@ A lightning-fast YouTube client for your terminal. Browse your home feed, search
 
 ### Prerequisites
 
-| Tool | Purpose | macOS | Linux (apt) | Windows |
-|------|---------|-------|-------------|---------|
+| Tool | Purpose | macOS | Linux | Windows |
+|------|---------|-------|-------|---------|
 | Python 3.11+ | Runtime | `brew install python@3.12` | `sudo apt install python3.12` | `winget install Python.Python.3.12` |
-| yt-dlp | YouTube data | `brew install yt-dlp` | `sudo apt install yt-dlp` | `winget install yt-dlp.yt-dlp` |
+| yt-dlp (nightly) | YouTube data | see setup script | see setup script | see setup script |
+| Deno | JS runtime for yt-dlp | see setup script | see setup script | `winget install DenoLand.Deno` |
 | mpv | Playback | `brew install mpv` | `sudo apt install mpv` | `winget install mpv.net` |
 | chafa | Thumbnails (optional) | `brew install chafa` | `sudo apt install chafa` | `winget install hpjansson.Chafa` |
 | ffmpeg | Audio conversion (optional) | `brew install ffmpeg` | `sudo apt install ffmpeg` | `winget install Gyan.FFmpeg` |
+
+> **Important:** TermTube uses **yt-dlp nightly** rather than the stable release or the version shipped by `apt`. YouTube's extractor changes frequently; the nightly build tracks fixes daily. The setup script downloads the nightly binary automatically.
+>
+> **Deno** is required by yt-dlp (since November 2025) to solve YouTube's JavaScript challenges. The setup script installs it for you.
 
 ### Quick Install — macOS / Linux
 
@@ -34,10 +39,12 @@ bash setup.sh
 
 The installer will:
 1. Detect your package manager (brew, apt, dnf, pacman, zypper, apk)
-2. Offer to install missing dependencies automatically
-3. Ask whether you want standard or developer mode
-4. Create a Python virtual environment
-5. Add `termtube` to your PATH
+2. Download **yt-dlp nightly** directly from GitHub (bypasses stale `apt` packages)
+3. Install **Deno** via the official installer
+4. Offer to install remaining dependencies (mpv, ffmpeg, chafa) via your package manager
+5. Ask whether you want standard or developer mode
+6. Create a Python virtual environment
+7. Add `termtube` to your PATH
 
 #### Options
 
@@ -57,7 +64,7 @@ cd $HOME\termtube
 ```
 
 The installer will:
-1. Offer to install missing dependencies via winget
+1. Offer to install missing dependencies via winget (including yt-dlp nightly and Deno)
 2. Create a Python virtual environment
 3. Add `termtube` command to your user PATH
 
@@ -159,7 +166,6 @@ On Windows, the config path is `%APPDATA%\TermTube\cookies.txt`.
 | `,` | Settings |
 | `?` | Help |
 | `q` | Quit |
-
 ## Configuration
 
 Config location:
@@ -278,6 +284,31 @@ termtube --debug                   # full logging
 termtube --debug --level WARNING   # only warnings+
 ```
 
+## Automatic Updates
+
+TermTube keeps its tools current without a cron job or scheduler. On each clean exit, it checks `~/.cache/termtube/LAST_UPDATED`. If the file is missing or older than 7 days, a detached background process runs the updates silently:
+
+| Tool | Update method |
+|------|---------------|
+| yt-dlp | `yt-dlp --update-to nightly` (self-update) |
+| Deno | `deno upgrade` (Linux) / `brew upgrade deno` (macOS) / winget (Windows) |
+| mpv | `brew upgrade mpv` (macOS) / winget (Windows) |
+| ffmpeg | `brew upgrade ffmpeg` (macOS) / winget (Windows) |
+| chafa | `brew upgrade chafa` (macOS) / winget (Windows) |
+
+The next launch after a successful update shows a brief notification: `yt-dlp updated 2026.03.17 → 2026.05.05.233942`.
+
+To update immediately (foreground, with visible output):
+
+```bash
+termtube --update
+```
+
+To check the current yt-dlp version:
+
+```bash
+yt-dlp --version
+```
 Log location:
 - **macOS / Linux:** `$TMPDIR/TermTube/<timestamp>.log`
 - **Windows:** `%TEMP%\TermTube\<timestamp>.log`

@@ -11,10 +11,11 @@ from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
 
 # (tool_name, brew_formula, apt_package, winget_id, is_required)
 DEPS: list[tuple[str, str, str, str | None, bool]] = [
-    ("yt-dlp",  "yt-dlp",  "yt-dlp",  "yt-dlp.yt-dlp",  True),
-    ("mpv",     "mpv",     "mpv",     "mpv.net",         True),
-    ("chafa",   "chafa",   "chafa",   "hpjansson.Chafa", False),  # optional: thumbnails
-    ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",     False),  # optional: audio conversion
+    ("yt-dlp",  "yt-dlp",  "yt-dlp",  "yt-dlp.yt-dlp",   True),
+    ("deno",    "deno",    "deno",    "DenoLand.Deno",    True),   # required by yt-dlp for YouTube (JS runtime)
+    ("mpv",     "mpv",     "mpv",     "mpv.net",          True),
+    ("chafa",   "chafa",   "chafa",   "hpjansson.Chafa",  False),  # optional: thumbnails
+    ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",      False),  # optional: audio conversion
 ]
 
 _config_dir_str = str(get_config_dir())
@@ -191,17 +192,26 @@ def _print_manual_install(missing: list[tuple[str, str, str | None]]) -> None:
     print("\nInstall manually:")
     if IS_WINDOWS:
         for tool, _, winget in missing:
-            if winget:
+            if tool == "yt-dlp":
+                print("  # yt-dlp nightly (recommended):")
+                print("  winget install yt-dlp.yt-dlp")
+                print("  # or download from: github.com/yt-dlp/yt-dlp-nightly-builds/releases")
+            elif tool == "deno":
+                print("  winget install DenoLand.Deno")
+            elif winget:
                 print(f"  winget install {winget}")
             else:
                 print(f"  (install {tool} manually)")
-    elif _brew_available():
-        formulas = " ".join(brew for _, brew, _ in missing if brew)
-        print(f"  brew install {formulas}")
     else:
-        print("  Install Homebrew first: https://brew.sh")
-        formulas = " ".join(brew for _, brew, _ in missing if brew)
-        print(f"  Then: brew install {formulas}")
+        for tool, brew, _ in missing:
+            if tool == "yt-dlp":
+                print("  # yt-dlp nightly (recommended):")
+                print("  curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp \\")
+                print("       -o ~/.local/bin/yt-dlp && chmod +x ~/.local/bin/yt-dlp")
+            elif tool == "deno":
+                print("  curl -fsSL https://deno.land/install.sh | sh")
+            elif brew:
+                print(f"  brew install {brew}" if _brew_available() else f"  sudo apt install {tool}  # or equivalent")
 
 
 def print_cookies_help() -> None:

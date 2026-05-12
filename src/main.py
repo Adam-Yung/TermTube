@@ -75,6 +75,7 @@ def _print_help() -> None:
     _opt("--clear-cache",   "",      "Clear all cached feeds and metadata")
     _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
     _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
+    _opt("--update",        "",      "Update yt-dlp, Deno, mpv, ffmpeg to latest, then exit")
     _opt("--version",       "",      "Show version and exit")
     _opt("--test",          "",      "Run the full test suite")
     _opt("-h, --help",      "",      "Show this message and exit")
@@ -191,6 +192,7 @@ def main() -> None:
         help="Minimum log severity to keep when --debug is set. One of ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL (everything).",
     )
     parser.add_argument("--version", action="store_true", help="Show version")
+    parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv, and ffmpeg to latest versions, then exit")
     parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
     parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
     args = parser.parse_args()
@@ -217,6 +219,18 @@ def main() -> None:
         from src.deps import print_cookies_help
         print_cookies_help()
         sys.exit(0)
+
+    # --update: run all tool updates synchronously, then exit (no TUI)
+    if args.update:
+        from src.updater import run_all_updates
+        color = _supports_color()
+        print(_c("1", "TermTube — updating tools…", color=color))
+        success = run_all_updates(verbose=True)
+        if success:
+            print(_c("1;32", "All updates complete.", color=color))
+        else:
+            print(_c("1;33", "Some updates failed (see above).", color=color))
+        sys.exit(0 if success else 1)
 
     # Dependency check
     from src.deps import check_dependencies
@@ -278,6 +292,12 @@ def main() -> None:
         app.run()
     except KeyboardInterrupt:
         pass
+    finally:
+        try:
+            from src.updater import maybe_update
+            maybe_update()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

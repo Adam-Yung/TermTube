@@ -101,7 +101,36 @@ Key decisions from the audit:
 - **Download procs registered in `_active_procs`** — ensures `kill_all_active()` terminates downloads on quit (previously they were orphaned).
 - **Thumb worker kept separate** — a 3rd exclusive thread for thumbnail rendering (better UX via parallelism), intentionally outside the "2 worker" budget since it's not fetching pages or video info.
 
-## SponsorBlock Integration (May 2026)
+## Tool Update Strategy (May 2026)
+
+TermTube manages its own tool update cadence without relying on OS schedulers (no cron/launchd/Task Scheduler).
+
+**Why GitHub nightly binary instead of apt/brew/winget for yt-dlp:**
+- Ubuntu apt stable ships yt-dlp ~1 year behind; broke on Nov 2025 JS runtime requirement
+- yt-dlp's own recommendation for regular users is the nightly channel
+- `yt-dlp --update-to nightly` self-updates any GitHub-sourced binary reliably
+- The nightly build from `yt-dlp/yt-dlp-nightly-builds` receives daily extractor fixes
+
+**Why Deno is a required dependency:**
+- Since yt-dlp 2025.11.12, a JS runtime is required for full YouTube support (`yt-dlp-ejs`)
+- Deno is the recommended runtime per yt-dlp docs; it self-updates via `deno upgrade`
+
+**UPDATING / LAST_UPDATED sentinel design (`src/updater.py`):**
+- `UPDATING` written at start, removed on success; left on failure as a stale-guard
+- `LAST_UPDATED` written only on full success (all commands exited 0)
+- Staleness check: `UPDATING` < 30 min old → skip (in-progress); else `LAST_UPDATED` < 7 days → skip; else run
+- Forked as `python -m src.updater --background` with `start_new_session=True` (Unix) / `DETACHED_PROCESS` (Windows)
+- Parent exits immediately; child manages all sentinel files
+
+**`LAST_VERSION` for update notifications:**
+- Stores the yt-dlp version string recorded after each successful update
+- On TUI launch, `check_for_update_notification()` runs `yt-dlp --version` in a background worker thread and compares; if different, shows a Textual `notify()` toast with old → new version
+
+**`--update` CLI flag:**
+- Runs `run_all_updates(verbose=True)` synchronously (no TUI, full stdout output)
+- Forces update regardless of `LAST_UPDATED` staleness
+- Exits with code 0 on full success, 1 on any failure
+- Hook point: `main.py` handles it before `app.run()`, after logger setup
 
 Key decisions:
 - **Uses the simple `videoID` endpoint, not the privacy-preserving hash prefix** — we already know the full video ID, so the hash-prefix approach adds complexity for no privacy gain (the video was already fetched via yt-dlp).

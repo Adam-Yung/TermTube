@@ -263,6 +263,20 @@ class MainScreen(Screen):
         # Periodic freshness label refresh ("updated 4m ago").
         self._freshness_timer = self.set_interval(_FRESHNESS_REFRESH_S, self._update_freshness_label)
         self.set_timer(0.4, self._maybe_show_image_warning)
+        # Check for a yt-dlp version change after a background update.
+        # Runs in a worker thread so the --version subprocess doesn't block the loop.
+        self.set_timer(0.8, self._check_update_notification)
+
+    @work(thread=True)
+    def _check_update_notification(self) -> None:
+        """Run in background: detect yt-dlp version change and notify if updated."""
+        try:
+            from src.updater import check_for_update_notification
+            msg = check_for_update_notification()
+            if msg:
+                self.app.call_from_thread(self.notify, msg, timeout=6)
+        except Exception:
+            pass
 
     def _maybe_show_image_warning(self) -> None:
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
