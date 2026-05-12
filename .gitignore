@@ -41,3 +41,7 @@ htmlcov/
 
 # Project runtime files
 /tmp/
+
+# AI Agents
+.claude/
+.cursor/
