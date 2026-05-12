@@ -227,6 +227,50 @@ For best thumbnail quality, use a terminal that supports Sixel or the Kitty grap
 
 mpv on Windows uses named pipes for IPC communication (instead of Unix sockets). This is handled automatically.
 
+## Testing
+
+TermTube has a comprehensive test suite with 200+ tests covering unit logic, integration with external tools, and TUI interactions.
+
+### Running Tests Locally
+
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio
+
+# Run all tests
+pytest
+
+# Run by layer
+pytest tests/unit/           # Pure logic tests (fast, no I/O)
+pytest tests/integration/    # Subprocess/IPC mocking tests
+pytest tests/tui/            # Textual headless TUI tests
+
+# Run a specific test file
+pytest tests/unit/test_cache.py -v
+
+# Run with verbose output
+pytest -v --tb=short
+```
+
+### Visual Snapshot Tests (optional)
+
+```bash
+pip install pytest-textual-snapshot
+pytest tests/snapshots/
+
+# Accept new baselines after intentional UI changes
+pytest tests/snapshots/ --snapshot-update
+```
+
+### CI / GitHub Actions
+
+Tests run automatically on every push and pull request via `.github/workflows/test.yml`. The pipeline has three jobs:
+- **unit-and-integration** — runs `tests/unit/` and `tests/integration/`
+- **tui-tests** — runs `tests/tui/` with async support
+- **snapshot-tests** — runs `tests/snapshots/` and uploads diff report on failure
+
+No external tools (yt-dlp, mpv) are needed in CI — all external dependencies are mocked.
+
 ## Debugging
 
 ```bash
