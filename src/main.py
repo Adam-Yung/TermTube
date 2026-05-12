@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -10,6 +11,94 @@ from pathlib import Path
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+_VERSION = "0.2.0"
+
+
+# ── Colour helpers ─────────────────────────────────────────────────────────────
+
+def _supports_color() -> bool:
+    """True if the terminal likely supports ANSI colour codes."""
+    if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
+        return False
+    return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+
+
+def _c(code: str, text: str, *, color: bool) -> str:
+    return f"\033[{code}m{text}\033[0m" if color else text
+
+
+def _print_help() -> None:
+    """Print a styled, colourful help screen."""
+    color = _supports_color()
+
+    # ── Banner ────────────────────────────────────────────────────────────────
+    width   = 41
+    inner   = width - 2
+    line    = "\u2500" * inner          # ─
+    tl, tr  = "\u250c", "\u2510"        # ┌ ┐
+    bl, br  = "\u2514", "\u2518"        # └ ┘
+    vbar    = "\u2502"                  # │
+
+    def _banner_row(text: str) -> str:
+        pad   = (inner - len(text)) // 2
+        right = inner - len(text) - pad
+        row   = vbar + " " * pad + text + " " * right + vbar
+        return "  " + (_c("1", row, color=color) if color else row)
+
+    print()
+    print("  " + _c("1", tl + line + tr, color=color))
+    print(_banner_row(f"TermTube  v{_VERSION}"))
+    print(_banner_row("YouTube TUI \u2014 yt-dlp + Textual"))
+    print("  " + _c("1", bl + line + br, color=color))
+    print()
+
+    # ── Usage ─────────────────────────────────────────────────────────────────
+    prog = _c("1;32", "termtube", color=color)
+    opts = _c("36", "[OPTIONS]", color=color)
+    print(f"  {_c('1', 'Usage:', color=color)}  {prog} {opts}")
+    print()
+
+    # ── Options ───────────────────────────────────────────────────────────────
+    def _opt(flags: str, meta: str, desc: str) -> None:
+        flag_str = _c("36", flags, color=color)
+        meta_str = _c("33", meta,  color=color) if meta else ""
+        lhs = f"  {flag_str}" + (f" {meta_str}" if meta_str else "")
+        # pad to column 32
+        lhs_plain = f"  {flags}" + (f" {meta}" if meta else "")
+        pad = max(1, 34 - len(lhs_plain))
+        print(lhs + " " * pad + desc)
+
+    print("  " + _c("1", "Options:", color=color))
+    _opt("--config",        "FILE",  "Path to config YAML")
+    _opt("--cookies-help",  "",      "Show cookies.txt setup instructions")
+    _opt("--clear-cache",   "",      "Clear all cached feeds and metadata")
+    _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
+    _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
+    _opt("--version",       "",      "Show version and exit")
+    _opt("--test",          "",      "Run the full test suite")
+    _opt("-h, --help",      "",      "Show this message and exit")
+    print()
+
+    # ── Paths ─────────────────────────────────────────────────────────────────
+    print("  " + _c("1", "Paths:", color=color))
+    if sys.platform == "win32":
+        appdata  = os.environ.get("APPDATA",    r"%APPDATA%")
+        cfg_path = rf"{appdata}\TermTube\config.yaml"
+        ck_path  = rf"{appdata}\TermTube\cookies.txt"
+    else:
+        home     = Path.home()
+        cfg_path = str(home / ".config" / "TermTube" / "config.yaml")
+        ck_path  = str(home / ".config" / "TermTube" / "cookies.txt")
+
+    print(f"    {_c('2', 'Config: ', color=color)}  {_c('36', cfg_path, color=color)}")
+    print(f"    {_c('2', 'Cookies:', color=color)}  {_c('36', ck_path,  color=color)}")
+    print()
+
+    # ── Docs hint ─────────────────────────────────────────────────────────────
+    print("  " + _c("2", "For cookie setup:", color=color)
+          + "  " + _c("36", "termtube --cookies-help", color=color))
+    print()
 
 
 def _run_tests() -> None:
@@ -88,6 +177,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="termtube",
         description="TermTube — YouTube TUI powered by yt-dlp + Textual",
+        add_help=False,
     )
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
@@ -102,7 +192,12 @@ def main() -> None:
     )
     parser.add_argument("--version", action="store_true", help="Show version")
     parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
+    parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
     args = parser.parse_args()
+
+    if args.help:
+        _print_help()
+        sys.exit(0)
 
     # Handle --test before any other setup
     if args.test:
@@ -115,7 +210,7 @@ def main() -> None:
     logger.info("TermTube starting (debug=%s, level=%s)", args.debug, args.level)
 
     if args.version:
-        print("TermTube 0.1.0")
+        print(f"TermTube {_VERSION}")
         sys.exit(0)
 
     if args.cookies_help:

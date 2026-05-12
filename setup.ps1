@@ -371,7 +371,7 @@ function Install-Files {
         if (Test-Path $AppDir) { Remove-Item $AppDir -Recurse -Force }
         New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
 
-        $filesToCopy = @("requirements.txt", "termtube", "setup.sh", "setup.ps1", "uninstall.sh", "uninstall.ps1")
+        $filesToCopy = @("requirements.txt", "termtube", "termtube.cmd", "setup.sh", "setup.ps1", "uninstall.sh", "uninstall.ps1")
         $srcDir = Join-Path $origDir "src"
         if (Test-Path $srcDir) {
             Copy-Item $srcDir -Destination $AppDir -Recurse -Force
@@ -388,29 +388,14 @@ function Install-Files {
 
 # ── Create Launcher Batch File ────────────────────────────────────────────────
 function Install-Launcher {
-    $batContent = @"
-@echo off
-setlocal
-set "SCRIPT_DIR=%LOCALAPPDATA%\TermTube"
-set "PYTHON=%SCRIPT_DIR%\.venv\Scripts\python.exe"
-set "PYTHONUTF8=1"
-set "PYTHONIOENCODING=utf-8"
+    $origDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.ScriptName }
+    $srcCmd  = Join-Path $origDir "termtube.cmd"
 
-if "%~1"=="--uninstall" (
-    if exist "%SCRIPT_DIR%\uninstall.ps1" (
-        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\uninstall.ps1"
-        exit /b %ERRORLEVEL%
-    )
-    echo Uninstaller not found at %SCRIPT_DIR%\uninstall.ps1
-    exit /b 1
-)
-
-if not exist "%PYTHON%" (
-    echo TermTube is not set up. Run setup.ps1 first.
-    exit /b 1
-)
-"%PYTHON%" "%SCRIPT_DIR%\src\main.py" %*
-"@
+    if (-not (Test-Path $srcCmd)) {
+        Write-Err "termtube.cmd not found in source directory ($origDir)."
+        Write-Err "Ensure termtube.cmd exists in the repo root before running setup."
+        return
+    }
 
     if (-not $NoPrompt) {
         $reply = Read-Host "  Add 'termtube' command to PATH? [Y/n]"
@@ -422,7 +407,7 @@ if not exist "%PYTHON%" (
 
     if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Path $BinDir -Force | Out-Null }
     $batPath = Join-Path $BinDir "termtube.cmd"
-    Set-Content -Path $batPath -Value $batContent -Encoding ASCII
+    Copy-Item $srcCmd -Destination $batPath -Force
 
     # Add to user PATH if not present
     $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
