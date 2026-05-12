@@ -307,12 +307,11 @@ setup_venv() {
     info "Using $ver ($py)"
 
     if [[ -d "$venv_dir" ]]; then
-        # Check if the venv's Python is still valid
-        local venv_py="$venv_dir/bin/python3"
-        if [[ -f "$venv_py" ]] && "$venv_py" --version &>/dev/null; then
+        local venv_pip="$venv_dir/bin/pip"
+        if [[ -f "$venv_pip" ]] && "$venv_pip" --version &>/dev/null; then
             info "Virtual environment exists — upgrading dependencies…"
         else
-            warn "Existing venv is stale (Python interpreter changed). Recreating…"
+            warn "Existing venv is stale (interpreter changed). Recreating…"
             rm -rf "$venv_dir"
             "$py" -m venv "$venv_dir"
         fi
