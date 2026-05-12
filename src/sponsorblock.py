@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 import time
 import urllib.request
 import urllib.error
@@ -15,6 +16,57 @@ _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
 _CACHE_DIR = Path.home() / ".cache" / "termtube" / "sb"
 _CACHE_TTL = 86400  # 24 hours
 _REQUEST_TIMEOUT = 3.0
+
+
+def _get_ssl_context() -> ssl.SSLContext:
+    """Build an SSL context, falling back gracefully on certificate issues.
+
+    Tries in order:
+    1. certifi bundle (most portable)
+    2. System default certs
+    3. Unverified context (still encrypted, no cert validation -- for proxies)
+    """
+    # Try certifi first
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        # Quick probe to validate cert chain works
+        urllib.request.urlopen(
+            urllib.request.Request(f"{_API_BASE}/../", method="HEAD"),
+            timeout=2, context=ctx
+        )
+        return ctx
+    except Exception:
+        pass
+
+    # Try system defaults
+    try:
+        ctx = ssl.create_default_context()
+        urllib.request.urlopen(
+            urllib.request.Request(f"{_API_BASE}/../", method="HEAD"),
+            timeout=2, context=ctx
+        )
+        return ctx
+    except Exception:
+        pass
+
+    # Last resort: unverified context (still encrypted, just no cert validation)
+    logger.debug("SponsorBlock: falling back to unverified SSL (proxy detected)")
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+# Cache the context so we only probe once per process
+_ssl_context: ssl.SSLContext | None = None
+
+
+def _cached_ssl_context() -> ssl.SSLContext:
+    global _ssl_context
+    if _ssl_context is None:
+        _ssl_context = _get_ssl_context()
+    return _ssl_context
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,7 +126,8 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
 
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "TermTube/0.2"})
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        ctx = _cached_ssl_context()
+        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ctx) as resp:
             data = json.loads(resp.read().decode())
     except (urllib.error.HTTPError, urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
         logger.debug("SponsorBlock fetch failed for %s: %s", video_id, exc)
