@@ -12,6 +12,78 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 
+def _run_tests() -> None:
+    """Run the full test suite, printing results to terminal and saving to a log file."""
+    import subprocess
+    import tempfile
+    import datetime
+
+    project_root = Path(__file__).parent.parent
+    tests_dir = project_root / "tests"
+
+    if not tests_dir.exists():
+        print("\033[31mError: tests/ directory not found.\033[0m")
+        print(f"Expected at: {tests_dir}")
+        sys.exit(1)
+
+    # Determine log file location
+    tmp_base = Path(tempfile.gettempdir()) / "TermTube"
+    tmp_base.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_path = tmp_base / f"test_results_{timestamp}.log"
+
+    print(f"\033[1m{'=' * 60}\033[0m")
+    print(f"\033[1m  TermTube Test Suite\033[0m")
+    print(f"\033[1m{'=' * 60}\033[0m")
+    print(f"  Log file: \033[36m{log_path}\033[0m")
+    print()
+
+    # Run pytest with output to both terminal and file
+    cmd = [
+        sys.executable, "-m", "pytest",
+        str(tests_dir),
+        "-v", "--tb=short",
+    ]
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            cwd=str(project_root),
+        )
+    except FileNotFoundError:
+        print("\033[31mError: pytest not found. Install with: pip install pytest pytest-asyncio\033[0m")
+        sys.exit(1)
+
+    lines: list[str] = []
+    for line in proc.stdout:  # type: ignore[union-attr]
+        print(line, end="")
+        lines.append(line)
+    proc.wait()
+
+    # Write to log file
+    with open(log_path, "w") as f:
+        f.write(f"TermTube Test Results — {datetime.datetime.now().isoformat()}\n")
+        f.write(f"Command: {' '.join(cmd)}\n")
+        f.write(f"Exit code: {proc.returncode}\n")
+        f.write("=" * 60 + "\n\n")
+        f.writelines(lines)
+
+    print()
+    print(f"\033[1m{'=' * 60}\033[0m")
+    if proc.returncode == 0:
+        print(f"  \033[32mAll tests passed.\033[0m")
+    else:
+        print(f"  \033[31mSome tests failed (exit code {proc.returncode}).\033[0m")
+    print(f"  Results saved to: \033[36m{log_path}\033[0m")
+    print(f"\033[1m{'=' * 60}\033[0m")
+
+    sys.exit(proc.returncode)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="termtube",
@@ -29,7 +101,13 @@ def main() -> None:
         help="Minimum log severity to keep when --debug is set. One of ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL (everything).",
     )
     parser.add_argument("--version", action="store_true", help="Show version")
+    parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
     args = parser.parse_args()
+
+    # Handle --test before any other setup
+    if args.test:
+        _run_tests()
+        sys.exit(0)
 
     # Set up logging before anything else
     from src import logger
