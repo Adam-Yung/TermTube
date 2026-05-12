@@ -24,13 +24,14 @@ class DownloadModal(ModalScreen[bool]):
         self._audio_only = audio_only
         self._fmt = fmt
         self._cancelled = False
+        self._phase = "video" if not audio_only else "audio"
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
         mode = "audio" if self._audio_only else "video"
         with Vertical(id="download-dialog"):
             yield Static(
-                f"⬇  Downloading {mode}",
+                f"\u2b07  Downloading {mode}",
                 id="download-title",
                 markup=True,
             )
@@ -56,7 +57,11 @@ class DownloadModal(ModalScreen[bool]):
         def on_progress(line: str, pct: float) -> None:
             if self._cancelled:
                 return
-            if pct >= 0:
+            if pct == ytdlp.PHASE_NEW_STREAM:
+                self.app.call_from_thread(self._switch_to_audio_phase)
+            elif pct == ytdlp.PHASE_POSTPROCESS:
+                self.app.call_from_thread(self._switch_to_postprocess, line)
+            elif pct >= 0:
                 self.app.call_from_thread(self._update_progress, pct, line)
 
         if self._audio_only:
@@ -76,18 +81,55 @@ class DownloadModal(ModalScreen[bool]):
         if not self._cancelled:
             self.app.call_from_thread(self._on_done, success)
 
+    def _switch_to_audio_phase(self) -> None:
+        """Second stream detected — reset bar and update title for audio download."""
+        self._phase = "audio"
+        try:
+            self.query_one("#download-title", Static).update(
+                "\u2b07  Downloading audio"
+            )
+            bar = self.query_one("#download-bar", ProgressBar)
+            bar.progress = 0
+            self.query_one("#download-status", Static).update(
+                "[dim]Downloading audio track...[/dim]"
+            )
+        except Exception:
+            pass
+
+    def _switch_to_postprocess(self, line: str) -> None:
+        """Post-processing started — switch to indeterminate state."""
+        self._phase = "postprocess"
+        try:
+            if "Merger" in line or "Merging" in line:
+                label = "Merging video + audio..."
+            elif "ExtractAudio" in line or "FFmpegExtractAudio" in line:
+                label = "Converting audio..."
+            else:
+                label = "Processing..."
+            self.query_one("#download-title", Static).update(
+                f"\u2699  {label}"
+            )
+            bar = self.query_one("#download-bar", ProgressBar)
+            bar.update(total=None, progress=0)
+            self.query_one("#download-status", Static).update(
+                "[dim]Please wait...[/dim]"
+            )
+        except Exception:
+            pass
+
     def _update_progress(self, pct: float, line: str) -> None:
         try:
             bar = self.query_one("#download-bar", ProgressBar)
-            bar.progress = pct
-            # Show last meaningful status line
+            if bar.total is None:
+                bar.update(total=100, progress=pct)
+            else:
+                bar.update(progress=pct)
             clean = line.strip()
             if clean and not clean.startswith("[download]"):
                 self.query_one("#download-status", Static).update(
                     f"[dim]{clean[:60]}[/dim]"
                 )
             elif "[download]" in clean:
-                # extract speed/ETA from the progress line
                 parts = clean.replace("[download]", "").strip()
                 if parts:
                     self.query_one("#download-status", Static).update(
@@ -99,7 +141,7 @@ class DownloadModal(ModalScreen[bool]):
     def _on_done(self, success: bool) -> None:
         try:
             bar = self.query_one("#download-bar", ProgressBar)
-            bar.progress = 100
+            bar.update(total=100, progress=100)
         except Exception:
             pass
         self.dismiss(success)

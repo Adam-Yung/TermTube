@@ -15,6 +15,10 @@ CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
 
+# Protected playlist cache — not subject to eviction
+PLAYLIST_VIDEO_DIR = CACHE_DIR / "playlist_videos"
+PLAYLIST_THUMB_DIR = CACHE_DIR / "playlist_thumbs"
+
 _SUPPRESSED_PATH = CACHE_DIR / "suppressed.json"
 
 # Lock protecting all cache file writes so concurrent enrichment threads don't
@@ -25,6 +29,8 @@ _write_lock = threading.Lock()
 def _ensure_dirs() -> None:
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
     VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+    PLAYLIST_VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+    PLAYLIST_THUMB_DIR.mkdir(parents=True, exist_ok=True)
 
 
 _ensure_dirs()
@@ -94,6 +100,8 @@ class Cache:
         """Get cached entry regardless of TTL (used by preview script)."""
         path = VIDEO_DIR / f"{video_id}.json"
         if not path.exists():
+            path = PLAYLIST_VIDEO_DIR / f"{video_id}.json"
+        if not path.exists():
             return None
         try:
             return json.loads(path.read_text())
@@ -155,7 +163,12 @@ class Cache:
     # ── Thumbnails ────────────────────────────────────────────────────────────
 
     def thumb_path(self, video_id: str) -> Path:
-        return THUMB_DIR / f"{video_id}.jpg"
+        path = THUMB_DIR / f"{video_id}.jpg"
+        if not path.exists():
+            playlist_path = PLAYLIST_THUMB_DIR / f"{video_id}.jpg"
+            if playlist_path.exists():
+                return playlist_path
+        return path
 
     def has_thumb(self, video_id: str) -> bool:
         return self.thumb_path(video_id).exists()
@@ -373,3 +386,66 @@ class Cache:
                 capped += 1
         logger.debug("prune_old_videos: %d expired, %d capped, %d kept",
                      deleted, capped, max(0, len(files) - capped))
+
+    # ── Playlist pinning (protected from eviction) ─────────────────────────────
+
+    def pin_video(self, video_id: str, entry: dict | None = None) -> None:
+        """Copy video metadata to the protected playlist cache.
+
+        If entry is provided, writes it directly. Otherwise copies from
+        the main video cache if available.
+        """
+        if entry is None:
+            entry = self.get_video_raw(video_id)
+        if entry is None:
+            return
+        dest = PLAYLIST_VIDEO_DIR / f"{video_id}.json"
+        with _write_lock:
+            _atomic_write(dest, json.dumps(entry, ensure_ascii=False))
+        logger.debug("cache.pin_video %s", video_id)
+
+    def pin_thumb(self, video_id: str) -> None:
+        """Copy thumbnail to the protected playlist cache."""
+        import shutil
+        src = THUMB_DIR / f"{video_id}.jpg"
+        if not src.exists():
+            return
+        dest = PLAYLIST_THUMB_DIR / f"{video_id}.jpg"
+        if dest.exists():
+            return
+        try:
+            shutil.copy2(src, dest)
+            logger.debug("cache.pin_thumb %s", video_id)
+        except OSError:
+            pass
+
+    def unpin_video(self, video_id: str) -> None:
+        """Remove video from the protected playlist cache."""
+        for path in (
+            PLAYLIST_VIDEO_DIR / f"{video_id}.json",
+            PLAYLIST_THUMB_DIR / f"{video_id}.jpg",
+        ):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        logger.debug("cache.unpin_video %s", video_id)
+
+    def pin_all_playlist_videos(self) -> None:
+        """One-time migration: pin all videos currently in any playlist."""
+        from src import playlist
+        all_ids: set[str] = set()
+        for name in playlist.list_names():
+            all_ids.update(playlist.get_playlist(name))
+        pinned = 0
+        for vid_id in all_ids:
+            dest = PLAYLIST_VIDEO_DIR / f"{vid_id}.json"
+            if dest.exists():
+                continue
+            entry = self.get_video_raw(vid_id)
+            if entry:
+                self.pin_video(vid_id, entry)
+                pinned += 1
+            self.pin_thumb(vid_id)
+        if pinned:
+            logger.debug("cache.pin_all_playlist_videos: pinned %d entries", pinned)

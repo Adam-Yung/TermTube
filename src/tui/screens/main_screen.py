@@ -220,6 +220,10 @@ class MainScreen(Screen):
         self._focus_session: int = 0
         self._thumb_session: int = 0
         self._last_focus_id: str = ""
+        # Prefetched direct stream URLs keyed by video ID
+        self._stream_urls: dict[str, dict] = {}
+        self._stream_url_session: int = 0
+        self._stream_url_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         # In-RAM LRU of rendered chafa output keyed by (vid, cols, rows, fmt).
         self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
         # ── Feed loading state (paged) ────────────────────────────────────────
@@ -785,8 +789,9 @@ class MainScreen(Screen):
         # Bump session counters so any worker that already started bails on apply.
         self._focus_session += 1
         self._thumb_session += 1
+        self._stream_url_session += 1
         # Best-effort kill of any subprocess still running.
-        for attr in ("_focus_proc", "_thumb_proc"):
+        for attr in ("_focus_proc", "_thumb_proc", "_stream_url_proc"):
             proc = getattr(self, attr, None)
             if proc is None:
                 continue
@@ -882,6 +887,35 @@ class MainScreen(Screen):
             )
         except Exception:
             pass
+        # Kick off stream URL prefetch now that metadata is loaded
+        self._stream_url_session += 1
+        self._stream_url_worker(vid, self._stream_url_session)
+
+    @work(thread=True, exclusive=True, group="stream_prefetch")
+    def _stream_url_worker(self, vid: str, session: int) -> None:
+        """Prefetch direct audio/video stream URLs for faster playback start."""
+        import src.ytdlp as ytdlp
+
+        if session != self._stream_url_session:
+            return
+
+        def _on_proc(p: subprocess.Popen) -> None:
+            self._stream_url_proc = p
+
+        try:
+            result = ytdlp.fetch_stream_urls(
+                vid, self.app.config, on_proc_started=_on_proc
+            )
+        except Exception as exc:
+            _logger.debug("stream_url_worker error for %s: %s", vid, exc)
+            return
+        finally:
+            self._stream_url_proc = None
+
+        if result is None or session != self._stream_url_session:
+            return
+        self._stream_urls[vid] = result
+        _logger.debug("stream_url_worker: prefetched URLs for %s", vid)
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -1053,6 +1087,30 @@ class MainScreen(Screen):
 
     # ── Audio player ──────────────────────────────────────────────────────────
 
+    def _get_valid_stream_url(self, vid: str, kind: str = "audio") -> str | None:
+        """Return a prefetched stream URL if available and not expired.
+
+        kind: "audio" or "video"
+        Returns None if unavailable or expired (5-min safety margin).
+        """
+        import time
+        cached = self._stream_urls.get(vid)
+        if not cached:
+            return None
+        url_key = f"{kind}_url"
+        url = cached.get(url_key)
+        if not url:
+            return None
+        expire = cached.get("expire", 0)
+        if expire and (expire - time.time()) < 300:
+            _logger.debug("prefetched %s URL for %s expired, falling back", kind, vid)
+            return None
+        fetched_at = cached.get("fetched_at", 0)
+        if fetched_at and (time.time() - fetched_at) > 18000:
+            _logger.debug("prefetched %s URL for %s too old, falling back", kind, vid)
+            return None
+        return url
+
     @property
     def _audio_playing(self) -> bool:
         return self._audio_proc is not None and self._audio_proc.poll() is None
@@ -1128,10 +1186,16 @@ class MainScreen(Screen):
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args
 
+        # Use prefetched audio URL if available and no custom quality selected
+        use_prefetched = False
+        if not entry.get("_local_path") and not ytdl_format and vid:
+            prefetched_audio = self._get_valid_stream_url(vid, "audio")
+            if prefetched_audio:
+                url = prefetched_audio
+                use_prefetched = True
+                _logger.debug("audio: using prefetched URL for %s", vid)
+
         input_conf = player_mod._write_input_conf()
-        # Allow mpv to surface errors on stderr (we capture them via PIPE).
-        # We still suppress chatty status-line output by routing all categories
-        # to "error" — only error/fatal messages reach us.
         cmd = [
             "mpv",
             f"--input-conf={input_conf}",
@@ -1147,9 +1211,10 @@ class MainScreen(Screen):
             cmd += [f"--title={title}"]
         if ytdl_format:
             cmd += [f"--ytdl-format={ytdl_format}"]
-        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+        if not use_prefetched:
+            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
+            if ytdl_raw:
+                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
 
         _logger.debug("audio mpv cmd: %s", " ".join(cmd))
@@ -1408,10 +1473,11 @@ class MainScreen(Screen):
             return
 
         _logger.info("user action: watch %s (%s)", entry.get("id", "?"), (entry.get("title") or "")[:60])
-        # Open our new modal seamlessly
         from src.tui.screens.watch_modal import WatchModal
 
-        self.app.push_screen(WatchModal(entry))
+        vid = entry.get("id", "")
+        stream_urls = self._stream_urls.get(vid) if vid else None
+        self.app.push_screen(WatchModal(entry, stream_urls=stream_urls))
 
     def action_watch_quality(self) -> None:
         entry = self._selected_entry()
