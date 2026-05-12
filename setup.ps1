@@ -393,6 +393,8 @@ function Install-Launcher {
 setlocal
 set "SCRIPT_DIR=%LOCALAPPDATA%\TermTube"
 set "PYTHON=%SCRIPT_DIR%\.venv\Scripts\python.exe"
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
 
 if "%~1"=="--uninstall" (
     if exist "%SCRIPT_DIR%\uninstall.ps1" (

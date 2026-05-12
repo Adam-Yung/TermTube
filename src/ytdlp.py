@@ -715,6 +715,7 @@ def _run_download_with_progress(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
             bufsize=1,
             **get_popen_kwargs(headless=True),
         )
@@ -858,7 +859,7 @@ def fetch_channel_info(
         from src.platform import get_popen_kwargs
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, **get_popen_kwargs(headless=True),
+            text=True, encoding="utf-8", **get_popen_kwargs(headless=True),
         )
         with _active_procs_lock: _active_procs.add(proc)
         if on_proc_started: on_proc_started(proc)
@@ -958,8 +959,8 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
     seen: list[str] = []
     try:
         from src.platform import get_popen_kwargs
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                **get_popen_kwargs(headless=True))
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, encoding="utf-8", **get_popen_kwargs(headless=True))
         with _active_procs_lock: _active_procs.add(proc)
         if on_proc_started: on_proc_started(proc)
         try:

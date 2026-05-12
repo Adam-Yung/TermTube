@@ -159,6 +159,26 @@ def main() -> None:
     # Launch Textual TUI
     from src.tui.app import TermTubeApp
     app = TermTubeApp(config)
+
+    # Ensure mpv and yt-dlp subprocesses are cleaned up on any exit (crash, Ctrl+C, etc.)
+    import atexit
+    from src import ytdlp as _ytdlp
+
+    def _emergency_cleanup() -> None:
+        try:
+            _ytdlp.kill_all_active()
+        except Exception:
+            pass
+        try:
+            screen = app.screen
+            if hasattr(screen, "_audio_proc") and screen._audio_proc is not None:
+                from src.platform import terminate_process
+                terminate_process(screen._audio_proc, timeout=1.0)
+        except Exception:
+            pass
+
+    atexit.register(_emergency_cleanup)
+
     try:
         app.run()
     except KeyboardInterrupt:
