@@ -13,6 +13,7 @@ from __future__ import annotations
 import time as _time
 
 from textual.app import ComposeResult
+from textual.events import Click
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
@@ -22,6 +23,21 @@ from src.tui.widgets.page_indicator import PageIndicator
 
 PAGE_SIZE = 20
 
+
+# ── Private click messages (internal to this module) ──────────────────────────
+
+class _ItemClicked(Message):
+    """Fired by VideoListItem on a single mouse click."""
+    def __init__(self, entry: dict) -> None:
+        super().__init__()
+        self.entry = entry
+
+
+class _ItemDoubleClicked(Message):
+    """Fired by VideoListItem on a double mouse click."""
+    def __init__(self, entry: dict) -> None:
+        super().__init__()
+        self.entry = entry
 
 def _fmt_duration(secs: int | float | None) -> str:
     if not secs:
@@ -96,6 +112,28 @@ class VideoListItem(ListItem):
     def compose(self) -> ComposeResult:
         self._cached_markup = self._build_markup()
         yield Static(self._cached_markup, markup=True, shrink=True)
+
+    def on_click(self, event: Click) -> None:
+        """Single click: focus if not already focused, activate if already focused."""
+        event.stop()
+        event.prevent_default()
+        self.post_message(_ItemClicked(self.entry))
+
+    def on_double_click(self, event: Click) -> None:
+        """Double click: focus this item then activate."""
+        event.stop()
+        event.prevent_default()
+        # Find our index and move the highlight so detail panel updates first
+        try:
+            lv = self.parent
+            if lv is not None:
+                for i, child in enumerate(lv._nodes):  # type: ignore[attr-defined]
+                    if child is self:
+                        lv.index = i  # type: ignore[attr-defined]
+                        break
+        except Exception:
+            pass
+        self.post_message(_ItemDoubleClicked(self.entry))
 
     def _build_markup(self) -> str:
         try:
@@ -474,6 +512,25 @@ class VideoListPanel(Widget):
             pass
 
     # ── Event handlers ────────────────────────────────────────────────────────
+
+    def on__item_clicked(self, msg: _ItemClicked) -> None:
+        """Single click: move highlight if not focused; activate if already focused."""
+        highlighted = self._lv.highlighted_child
+        already_focused = (
+            isinstance(highlighted, VideoListItem)
+            and highlighted.entry.get("id") == msg.entry.get("id")
+        )
+        if already_focused:
+            self.post_message(self.Activated(msg.entry))
+        else:
+            for i, child in enumerate(self._lv._nodes):
+                if isinstance(child, VideoListItem) and child.entry.get("id") == msg.entry.get("id"):
+                    self._lv.index = i
+                    break
+
+    def on__item_double_clicked(self, msg: _ItemDoubleClicked) -> None:
+        """Double click: activate (highlight was already moved by VideoListItem)."""
+        self.post_message(self.Activated(msg.entry))
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.item and isinstance(event.item, VideoListItem):

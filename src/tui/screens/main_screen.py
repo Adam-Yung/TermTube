@@ -1221,6 +1221,7 @@ class MainScreen(Screen):
             f"--input-conf={input_conf}",
             f"--input-ipc-server={_get_audio_socket()}",
             "--no-video",
+            "--force-window=no",
             "--no-terminal",
             "--msg-level=all=error",
             "--cache=yes",
