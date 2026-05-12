@@ -26,6 +26,29 @@ def _run_tests() -> None:
         print(f"Expected at: {tests_dir}")
         sys.exit(1)
 
+    # Ensure pytest is installed
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pytest", "--version"],
+            capture_output=True, check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("\033[33mpytest not found — installing test dependencies...\033[0m")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-q", "pytest", "pytest-asyncio"],
+            check=False,
+        )
+        # Verify installation succeeded
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--version"],
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            print("\033[31mError: failed to install pytest. Run manually:\033[0m")
+            print(f"  {sys.executable} -m pip install pytest pytest-asyncio")
+            sys.exit(1)
+        print()
+
     # Determine log file location
     tmp_base = Path(tempfile.gettempdir()) / "TermTube"
     tmp_base.mkdir(parents=True, exist_ok=True)
