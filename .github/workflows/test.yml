@@ -1,0 +1,53 @@
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  unit-and-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+      - name: Run unit tests
+        run: pytest tests/unit/ -v
+      - name: Run integration tests
+        run: pytest tests/integration/ -v
+
+  tui-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+      - name: Run TUI interaction tests
+        run: pytest tests/tui/ -v --asyncio-mode=auto
+
+  snapshot-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-textual-snapshot
+      - name: Run snapshot tests
+        run: pytest tests/snapshots/ -v
+      - name: Upload snapshot report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: snapshot-report
+          path: snapshot_report.html
