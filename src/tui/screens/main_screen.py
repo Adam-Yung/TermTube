@@ -222,6 +222,7 @@ class MainScreen(Screen):
         self._last_focus_id: str = ""
         # Prefetched direct stream URLs keyed by video ID
         self._stream_urls: dict[str, dict] = {}
+        self._stream_url_ready: dict[str, threading.Event] = {}
         self._stream_url_session: int = 0
         self._stream_url_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         # In-RAM LRU of rendered chafa output keyed by (vid, cols, rows, fmt).
@@ -822,6 +823,12 @@ class MainScreen(Screen):
         self._focus_session += 1
         session = self._focus_session
         self._focus_worker(vid, entry, session)
+        # Start stream URL prefetch in parallel (not after focus_worker)
+        if not entry.get("_local_path") and vid:
+            self._stream_url_session += 1
+            event = threading.Event()
+            self._stream_url_ready[vid] = event
+            self._stream_url_worker(vid, self._stream_url_session)
 
     def _kick_channel_info(self, vid: str, entry: dict) -> None:
         if not vid or not entry.get("_is_channel"):
@@ -887,9 +894,6 @@ class MainScreen(Screen):
             )
         except Exception:
             pass
-        # Kick off stream URL prefetch now that metadata is loaded
-        self._stream_url_session += 1
-        self._stream_url_worker(vid, self._stream_url_session)
 
     @work(thread=True, exclusive=True, group="stream_prefetch")
     def _stream_url_worker(self, vid: str, session: int) -> None:
@@ -897,6 +901,7 @@ class MainScreen(Screen):
         import src.ytdlp as ytdlp
 
         if session != self._stream_url_session:
+            self._signal_stream_ready(vid)
             return
 
         def _on_proc(p: subprocess.Popen) -> None:
@@ -908,14 +913,23 @@ class MainScreen(Screen):
             )
         except Exception as exc:
             _logger.debug("stream_url_worker error for %s: %s", vid, exc)
+            self._signal_stream_ready(vid)
             return
         finally:
             self._stream_url_proc = None
 
         if result is None or session != self._stream_url_session:
+            self._signal_stream_ready(vid)
             return
         self._stream_urls[vid] = result
         _logger.debug("stream_url_worker: prefetched URLs for %s", vid)
+        self._signal_stream_ready(vid)
+
+    def _signal_stream_ready(self, vid: str) -> None:
+        """Signal that stream URL prefetch is complete (success or failure)."""
+        event = self._stream_url_ready.get(vid)
+        if event:
+            event.set()
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -1190,6 +1204,12 @@ class MainScreen(Screen):
         use_prefetched = False
         if not entry.get("_local_path") and not ytdl_format and vid:
             prefetched_audio = self._get_valid_stream_url(vid, "audio")
+            # If not ready yet, wait for the in-flight prefetch (max 2s)
+            if not prefetched_audio:
+                event = self._stream_url_ready.get(vid)
+                if event:
+                    event.wait(timeout=2.0)
+                    prefetched_audio = self._get_valid_stream_url(vid, "audio")
             if prefetched_audio:
                 url = prefetched_audio
                 use_prefetched = True
@@ -1477,7 +1497,13 @@ class MainScreen(Screen):
 
         vid = entry.get("id", "")
         stream_urls = self._stream_urls.get(vid) if vid else None
-        self.app.push_screen(WatchModal(entry, stream_urls=stream_urls))
+        stream_ready = self._stream_url_ready.get(vid) if vid else None
+        self.app.push_screen(WatchModal(
+            entry,
+            stream_urls=stream_urls,
+            stream_ready=stream_ready,
+            stream_urls_map=self._stream_urls,
+        ))
 
     def action_watch_quality(self) -> None:
         entry = self._selected_entry()
