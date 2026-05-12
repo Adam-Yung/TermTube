@@ -307,7 +307,15 @@ setup_venv() {
     info "Using $ver ($py)"
 
     if [[ -d "$venv_dir" ]]; then
-        info "Virtual environment exists — upgrading dependencies…"
+        # Check if the venv's Python is still valid
+        local venv_py="$venv_dir/bin/python3"
+        if [[ -f "$venv_py" ]] && "$venv_py" --version &>/dev/null; then
+            info "Virtual environment exists — upgrading dependencies…"
+        else
+            warn "Existing venv is stale (Python interpreter changed). Recreating…"
+            rm -rf "$venv_dir"
+            "$py" -m venv "$venv_dir"
+        fi
     else
         step "Creating virtual environment…"
         "$py" -m venv "$venv_dir"
@@ -415,11 +423,24 @@ install_binary() {
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
+    local title="TermTube Installer"
+    local subtitle="v${VERSION}"
+    local width=37
+    local inner=$((width - 2))
+
+    _center() {
+        local text="$1" w="$2"
+        local len=${#text}
+        local pad=$(( (w - len) / 2 ))
+        local right=$(( w - len - pad ))
+        printf "%${pad}s%s%${right}s" "" "$text" ""
+    }
+
     echo ""
-    echo -e "${BOLD}┌─────────────────────────────────────┐${RESET}"
-    echo -e "${BOLD}│         TermTube Installer           │${RESET}"
-    echo -e "${BOLD}│              v${VERSION}               │${RESET}"
-    echo -e "${BOLD}└─────────────────────────────────────┘${RESET}"
+    echo -e "${BOLD}┌$(printf '─%.0s' $(seq 1 $inner))┐${RESET}"
+    echo -e "${BOLD}│$(_center "$title" $inner)│${RESET}"
+    echo -e "${BOLD}│$(_center "$subtitle" $inner)│${RESET}"
+    echo -e "${BOLD}└$(printf '─%.0s' $(seq 1 $inner))┘${RESET}"
 
     detect_os
     detect_package_manager

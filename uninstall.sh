@@ -58,10 +58,19 @@ EOF
 done
 
 # ── Discovery ─────────────────────────────────────────────────────────────────
+_box_center() {
+    local text="$1" w="$2"
+    local len=${#text}
+    local pad=$(( (w - len) / 2 ))
+    local right=$(( w - len - pad ))
+    printf "%${pad}s%s%${right}s" "" "$text" ""
+}
+_box_width=35
+
 echo ""
-echo -e "${BOLD}┌─────────────────────────────────────┐${RESET}"
-echo -e "${BOLD}│       TermTube Uninstaller           │${RESET}"
-echo -e "${BOLD}└─────────────────────────────────────┘${RESET}"
+echo -e "${BOLD}┌$(printf '─%.0s' $(seq 1 $_box_width))┐${RESET}"
+echo -e "${BOLD}│$(_box_center "TermTube Uninstaller" $_box_width)│${RESET}"
+echo -e "${BOLD}└$(printf '─%.0s' $(seq 1 $_box_width))┘${RESET}"
 echo ""
 
 items_to_remove=()
