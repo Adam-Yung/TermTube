@@ -77,9 +77,17 @@ class PlaylistModal(ModalScreen[None]):
         if playlist.is_in_playlist(name, self._video_id):
             playlist.remove_video(name, self._video_id)
             self.app.notify(f'Removed from "{name}"')
+            # Unpin if removed from ALL playlists
+            if not playlist.video_playlists(self._video_id):
+                if hasattr(self.app, "cache"):
+                    self.app.cache.unpin_video(self._video_id)
         else:
             playlist.add_video(name, self._video_id)
             self.app.notify(f'Added to "{name}"')
+            # Pin video data for playlist protection
+            if hasattr(self.app, "cache"):
+                self.app.cache.pin_video(self._video_id)
+                self.app.cache.pin_thumb(self._video_id)
         self._refresh_list()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -89,6 +97,10 @@ class PlaylistModal(ModalScreen[None]):
         from src import playlist
         playlist.create(name)
         playlist.add_video(name, self._video_id)
+        # Pin video data for playlist protection
+        if hasattr(self.app, "cache"):
+            self.app.cache.pin_video(self._video_id)
+            self.app.cache.pin_thumb(self._video_id)
         event.input.value = ""
         self._refresh_list()
         self.app.notify(f'Created playlist "{name}" and added video')

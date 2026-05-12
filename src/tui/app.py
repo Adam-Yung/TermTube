@@ -78,6 +78,8 @@ class TermTubeApp(App):
         self._housekeeping_done = True
         try:
             logger.debug("Housekeeping: pruning thumbnails + video JSON + chafa cache")
+            # Pin playlist videos before pruning to protect them
+            self.cache.pin_all_playlist_videos()
             self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
             self.cache.prune_old_videos(max_age_days=3, max_count=400)
             try:
