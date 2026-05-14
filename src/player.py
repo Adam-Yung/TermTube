@@ -53,19 +53,27 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
     """Return the mpv executable path, handling mpv.net on Windows.
 
     Args:
-        headless: If True on Windows, prefer the raw mpv.exe bundled with mpv.net
+        headless: If True on Windows, prefer a standalone mpv.exe (no GUI window)
                   over mpvnet.exe (which always opens a GUI window).
     """
+    if headless and IS_WINDOWS:
+        import os
+        from pathlib import Path
+        # Check TermTube's own bundled mpv.exe first
+        termtube_mpv = Path(os.environ.get("LOCALAPPDATA", "")) / "TermTube" / "mpv" / "mpv.exe"
+        if termtube_mpv.exists():
+            return str(termtube_mpv)
+        # Check mpv.net directory for a raw mpv.exe
+        mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
+        raw_mpv = mpvnet_dir / "mpv.exe"
+        if raw_mpv.exists():
+            return str(raw_mpv)
     if shutil.which("mpv"):
         return "mpv"
     if IS_WINDOWS:
         import os
         from pathlib import Path
         mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
-        if headless:
-            raw_mpv = mpvnet_dir / "mpv.exe"
-            if raw_mpv.exists():
-                return str(raw_mpv)
         mpvnet = mpvnet_dir / "mpvnet.exe"
         if mpvnet.exists():
             return str(mpvnet)

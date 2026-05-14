@@ -152,6 +152,53 @@ function Install-YtDlpGitHub {
     }
 }
 
+function Install-MpvCli {
+    <#
+    .SYNOPSIS
+        Download a standalone mpv.exe for headless audio playback.
+        mpv.net always opens a GUI window; this CLI build does not.
+    #>
+    $destDir = Join-Path $env:LOCALAPPDATA "TermTube\mpv"
+    $dest    = Join-Path $destDir "mpv.exe"
+    if (Test-Path $dest) {
+        Write-Info "Standalone mpv.exe already present."
+        return $true
+    }
+    $releaseUrl = "https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest"
+    Write-Step "Downloading standalone mpv.exe for audio playback..."
+    try {
+        $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing -TimeoutSec 30
+        $asset = $release.assets | Where-Object { $_.name -match "^mpv-x86_64-\d+" -and $_.name -like "*.7z" } | Select-Object -First 1
+        if (-not $asset) {
+            Write-Err "Could not find mpv x86_64 release asset."
+            return $false
+        }
+        $tempArchive = Join-Path $env:TEMP "termtube-mpv.7z"
+        $tempExtract = Join-Path $env:TEMP "termtube-mpv-extract"
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempArchive -UseBasicParsing -TimeoutSec 120
+        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+        if (Test-Path $tempExtract) { Remove-Item -Recurse -Force $tempExtract }
+        # Use tar (built into Windows 10+) to extract 7z
+        & tar -xf $tempArchive -C $env:TEMP
+        # Find mpv.exe in extracted files
+        $extracted = Get-ChildItem -Path $env:TEMP -Filter "mpv.exe" -Recurse -File |
+            Where-Object { $_.DirectoryName -like "*mpv*" } | Select-Object -First 1
+        if ($extracted) {
+            Copy-Item -Path $extracted.FullName -Destination $dest -Force
+            Write-Success "Standalone mpv.exe installed to $dest"
+            return $true
+        } else {
+            Write-Err "mpv.exe not found in downloaded archive."
+            return $false
+        }
+    } catch {
+        Write-Err "Failed to download standalone mpv: $_"
+        return $false
+    } finally {
+        Remove-Item -Path (Join-Path $env:TEMP "termtube-mpv.7z") -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Install-Dependency {
     param([string]$Tool)
     $pkg = $WinGetPackages[$Tool]
@@ -490,6 +537,9 @@ function Main {
         Write-Header "System Dependencies"
         Test-Dependencies | Out-Null
     }
+
+    # Download standalone mpv.exe for windowless audio playback
+    Install-MpvCli | Out-Null
 
     Install-Files -SyncMode $syncMode
 
