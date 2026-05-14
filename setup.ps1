@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     TermTube installer for Windows.
@@ -348,8 +348,8 @@ function Setup-Venv {
     }
 
     Write-Step "Installing Python packages..."
-    & $pipExe install --quiet --upgrade pip 2>$null
-    & $pipExe install --quiet -r $Requirements
+    & $pythonExe -m pip install --quiet --upgrade pip 2>$null
+    & $pythonExe -m pip install --quiet -r $Requirements
     if ($LASTEXITCODE -ne 0) {
         Write-Err "pip install failed."
         return $false
