@@ -49,14 +49,24 @@ def _write_input_conf() -> str:
     return f.name
 
 
-def _mpv_exe() -> str | None:
-    """Return the mpv executable path, handling mpv.net on Windows."""
+def _mpv_exe(*, headless: bool = False) -> str | None:
+    """Return the mpv executable path, handling mpv.net on Windows.
+
+    Args:
+        headless: If True on Windows, prefer the raw mpv.exe bundled with mpv.net
+                  over mpvnet.exe (which always opens a GUI window).
+    """
     if shutil.which("mpv"):
         return "mpv"
     if IS_WINDOWS:
         import os
         from pathlib import Path
-        mpvnet = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net" / "mpvnet.exe"
+        mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
+        if headless:
+            raw_mpv = mpvnet_dir / "mpv.exe"
+            if raw_mpv.exists():
+                return str(raw_mpv)
+        mpvnet = mpvnet_dir / "mpvnet.exe"
         if mpvnet.exists():
             return str(mpvnet)
     return None
@@ -412,7 +422,7 @@ def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", titl
 
 def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_format: str = "",
               cookie_args: list[str] | None = None) -> None:
-    exe = _mpv_exe()
+    exe = _mpv_exe(headless=audio_only)
     if not exe:
         from src.platform import install_hint
         raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")

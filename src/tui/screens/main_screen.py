@@ -1231,7 +1231,7 @@ class MainScreen(Screen):
 
         input_conf = player_mod._write_input_conf()
         cmd = [
-            player_mod._mpv_exe() or "mpv",
+            player_mod._mpv_exe(headless=True) or "mpv",
             f"--input-conf={input_conf}",
             f"--input-ipc-server={_get_audio_socket()}",
             "--no-video",
