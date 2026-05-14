@@ -94,6 +94,11 @@ function Test-WinGet {
     Test-Command "winget"
 }
 
+function Refresh-Path {
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                [System.Environment]::GetEnvironmentVariable("PATH", "User")
+}
+
 function Test-Tool {
     param([string]$Name)
     if (Test-Command $Name) { return $true }
@@ -103,6 +108,14 @@ function Test-Tool {
         }
         "python" {
             return $null -ne (Find-Python)
+        }
+    }
+    # Fallback: ask winget if the package is installed
+    $pkg = $WinGetPackages[$Name]
+    if ($pkg -and (Test-WinGet)) {
+        $result = winget list --id $pkg --accept-source-agreements 2>$null
+        if ($LASTEXITCODE -eq 0 -and $result -match [regex]::Escape($pkg)) {
+            return $true
         }
     }
     return $false
@@ -179,6 +192,7 @@ function Install-Dependency {
 }
 
 function Test-Dependencies {
+    Refresh-Path
     $required = @("yt-dlp", "deno", "mpv", "python")
     $optional = @("ffmpeg", "chafa")
     $missingRequired = @()
@@ -237,9 +251,8 @@ function Test-Dependencies {
             Install-Dependency $tool | Out-Null
         }
         # Re-check after install
+        Refresh-Path
         foreach ($tool in $missingRequired) {
-            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("PATH", "User")
             if (Test-Tool $tool) {
                 $foundRequired += $tool
             } else {
@@ -248,8 +261,6 @@ function Test-Dependencies {
             }
         }
         foreach ($tool in $missingOptional) {
-            $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                        [System.Environment]::GetEnvironmentVariable("PATH", "User")
             if (Test-Tool $tool) {
                 $foundOptional += $tool
             } else {

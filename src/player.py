@@ -427,6 +427,7 @@ def _play_mpv(url: str, *, audio_only: bool = False, title: str = "", ytdl_forma
         if audio_only:
             cmd += [
                 "--no-video",
+                "--force-window=no",
                 "--term-osd-bar",
                 "--term-osd-bar-chars=[=  ]",
                 "--term-playing-msg="
