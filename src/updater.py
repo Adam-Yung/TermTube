@@ -23,6 +23,14 @@ from pathlib import Path
 
 from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
 
+# ── Platform-specific process creation flags ──────────────────────────────────
+if IS_WINDOWS:
+    _DETACHED_PROCESS: int = subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+    _CREATE_NEW_PROCESS_GROUP: int = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+else:
+    _DETACHED_PROCESS = 0x00000008
+    _CREATE_NEW_PROCESS_GROUP = 0x00000200
+
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 UPDATE_INTERVAL_S: int = 7 * 24 * 3600   # 1 week between automatic updates
@@ -54,7 +62,8 @@ def _needs_update() -> bool:
         if age < UPDATING_TIMEOUT_S:
             # A recent UPDATING file means another process is already running.
             return False
-        # Stale UPDATING → previous run failed; fall through to re-run.
+        # Stale UPDATING → previous run crashed; re-run unconditionally.
+        return True
 
     mtime_last = _mtime(_LAST_UPDATED)
     if mtime_last is not None and (now - mtime_last) < UPDATE_INTERVAL_S:
@@ -247,10 +256,7 @@ def maybe_update() -> None:
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            creationflags=(
-                subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
-                | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-            ),
+            creationflags=(_DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP),
             close_fds=True,
         )
     else:

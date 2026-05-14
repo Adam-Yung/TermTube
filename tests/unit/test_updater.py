@@ -344,7 +344,7 @@ class TestMaybeUpdate:
         assert cmd[0] == sys.executable
 
     def test_windows_uses_detached_process_flags(self, tmp_path):
-        import subprocess
+        import src.updater as updater_mod
         mod = _make_updater(tmp_path)
         with (
             patch("subprocess.Popen") as mock_popen,
@@ -353,7 +353,7 @@ class TestMaybeUpdate:
             mod.maybe_update()
         kwargs = mock_popen.call_args[1]
         expected_flags = (
-            subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+            updater_mod._DETACHED_PROCESS | updater_mod._CREATE_NEW_PROCESS_GROUP
         )
         assert kwargs.get("creationflags") == expected_flags
 
