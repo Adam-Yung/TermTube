@@ -6,7 +6,9 @@ import time
 from pathlib import Path
 from typing import Iterator
 
-HISTORY_PATH = Path.home() / ".config" / "TermTube" / "history.json"
+from src.platform import get_config_dir
+
+HISTORY_PATH = get_config_dir() / "history.json"
 
 
 def _load() -> list[dict]:

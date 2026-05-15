@@ -174,6 +174,33 @@ def _run_tests() -> None:
     sys.exit(proc.returncode)
 
 
+
+def _migrate_legacy_windows_paths() -> None:
+    """One-time migration for Windows users whose data landed at the wrong path.
+
+    Older builds hardcoded Path.home() / ".config" / "TermTube" instead of
+    using get_config_dir() which resolves to %APPDATA%\TermTube on Windows.
+    Move any files found at the legacy location to the correct one.
+    """
+    import os
+    if os.sys.platform != "win32":
+        return
+    from pathlib import Path
+    from src.platform import get_config_dir
+    correct = get_config_dir()
+    legacy  = Path.home() / ".config" / "TermTube"
+    if not legacy.exists():
+        return
+    for name in ("history.json", "playlists.json"):
+        old = legacy / name
+        new = correct / name
+        if old.exists() and not new.exists():
+            try:
+                new.parent.mkdir(parents=True, exist_ok=True)
+                old.rename(new)
+            except OSError:
+                pass
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="termtube",
@@ -210,6 +237,8 @@ def main() -> None:
     from src import logger
     logger.setup(debug=args.debug, level=args.level)
     logger.info("TermTube starting (debug=%s, level=%s)", args.debug, args.level)
+
+    _migrate_legacy_windows_paths()
 
     if args.version:
         print(f"TermTube {_VERSION}")

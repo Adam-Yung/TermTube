@@ -233,3 +233,90 @@ class TestCleanupIPC:
         sock_file.write_text("")
         cleanup_ipc(str(sock_file))
         assert sock_file.exists()
+
+
+# ── get_config_dir ────────────────────────────────────────────────────────────
+
+
+class TestGetConfigDir:
+    def test_returns_path_instance(self):
+        result = get_config_dir()
+        assert isinstance(result, Path)
+
+    def test_name_is_termtube(self):
+        assert get_config_dir().name == "TermTube"
+
+    def test_windows_uses_appdata_not_dot_config(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setenv("APPDATA", r"C:\Users\Test\AppData\Roaming")
+        result = get_config_dir()
+        assert "AppData" in str(result)
+        assert ".config" not in str(result)
+
+    def test_windows_does_not_use_localappdata(self, monkeypatch):
+        """Config (not cache) should be under APPDATA (Roaming), not LOCALAPPDATA."""
+        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setenv("APPDATA",      r"C:\Roaming")
+        monkeypatch.setenv("LOCALAPPDATA", r"C:\Local")
+        result = get_config_dir()
+        assert str(result).startswith(r"C:\Roaming")
+
+    def test_linux_uses_dot_config(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        result = get_config_dir()
+        assert ".config" in str(result)
+        assert "AppData" not in str(result)
+
+    def test_respects_xdg_config_home(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setenv("XDG_CONFIG_HOME", "/custom/config")
+        result = get_config_dir()
+        assert result == Path("/custom/config/TermTube")
+
+
+# ── get_cache_dir (extended) ──────────────────────────────────────────────────
+
+
+class TestGetCacheDirExtended:
+    def test_windows_does_not_use_dot_cache(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Test\AppData\Local")
+        result = get_cache_dir()
+        assert ".cache" not in str(result)
+        assert "AppData" in str(result)
+
+    def test_config_and_cache_are_distinct_dirs(self, monkeypatch):
+        """On all platforms the config dir and cache dir must differ."""
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        monkeypatch.delenv("XDG_CACHE_HOME",  raising=False)
+        assert get_config_dir() != get_cache_dir()
+
+
+# ── install_hint (deno + extended) ───────────────────────────────────────────
+
+
+class TestInstallHintDeno:
+    def test_deno_windows_uses_winget(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        assert "winget" in install_hint("deno")
+
+    def test_deno_macos_uses_brew(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.platform.IS_MACOS",   True)
+        assert "brew" in install_hint("deno")
+
+    def test_deno_linux_uses_official_installer(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        hint = install_hint("deno")
+        assert "deno.land" in hint or "deno" in hint
+
+    def test_ytdlp_linux_uses_nightly_url(self, monkeypatch):
+        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        hint = install_hint("yt-dlp")
+        assert "nightly" in hint or "github.com" in hint

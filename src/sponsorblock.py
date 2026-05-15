@@ -11,9 +11,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src import logger
+from src.platform import get_cache_dir
 
 _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
-_CACHE_DIR = Path.home() / ".cache" / "termtube" / "sb"
+_CACHE_DIR = get_cache_dir() / "sb"
 _CACHE_TTL = 86400  # 24 hours
 _REQUEST_TIMEOUT = 3.0
 

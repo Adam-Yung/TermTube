@@ -1,10 +1,12 @@
-"""Playlist management — stored as JSON at ~/.local/share/termtube/playlists.json."""
+"""Playlist management — stored as JSON in the TermTube config directory."""
 
 from __future__ import annotations
 import json
 from pathlib import Path
 
-_PLAYLISTS_PATH = Path.home() / ".config" / "TermTube" / "playlists.json"
+from src.platform import get_config_dir
+
+_PLAYLISTS_PATH = get_config_dir() / "playlists.json"
 
 
 def _load() -> dict[str, list[str]]:
@@ -39,7 +41,7 @@ def create(name: str, video_ids: list[str] | None = None) -> None:
 
 
 def delete(name: str) -> bool:
-    """Delete a playlist. Returns False if it didn't exist."""
+    """Delete a playlist. Returns False if it did not exist."""
     data = _load()
     if name not in data:
         return False
@@ -71,11 +73,11 @@ def remove_video(name: str, video_id: str) -> bool:
 
 
 def rename(old_name: str, new_name: str) -> bool:
-    """Rename a playlist. Returns False if old_name doesn't exist."""
+    """Rename a playlist. Returns False if old_name does not exist."""
     data = _load()
     if old_name not in data:
         return False
-    # Preserve insertion order by rebuilding
+    # Preserve insertion order by rebuilding the dict
     new_data = {(new_name if k == old_name else k): v for k, v in data.items()}
     _save(new_data)
     return True

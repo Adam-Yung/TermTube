@@ -18,54 +18,75 @@ DEPS: list[tuple[str, str, str, str | None, bool]] = [
     ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",      False),  # optional: audio conversion
 ]
 
-_config_dir_str = str(get_config_dir())
 
-COOKIES_HELP = f"""
-\033[1;36mHow to get a cookies.txt file\033[0m
-\033[90m──────────────────────────────────────────────\033[0m
+def _build_cookies_help() -> str:
+    """Build the --cookies-help text with platform-correct paths and shell syntax."""
+    ck   = str(get_config_dir() / "cookies.txt")
+    conf = str(get_config_dir() / "config.yaml")
+    sep  = "\033[90m" + "─" * 46 + "\033[0m"
 
-\033[1mOption A — Browser extension (manual)\033[0m
+    if IS_WINDOWS:
+        option_b_cmd = (
+            f'  yt-dlp --cookies-from-browser chrome `\n'
+            f'         --cookies "{ck}" `\n'
+            f'         --skip-download --quiet --no-warnings `\n'
+            f'         "https://www.youtube.com/watch?v=dQw4w9WgXcQ"'
+        )
+    else:
+        option_b_cmd = (
+            f'  yt-dlp --cookies-from-browser chrome \\\n'
+            f'         --cookies {ck} \\\n'
+            f'         --skip-download --quiet --no-warnings \\\n'
+            f'         "https://www.youtube.com/watch?v=dQw4w9WgXcQ"'
+        )
 
-  Chrome / Edge:
-    Install "Get cookies.txt LOCALLY" from the Chrome Web Store
-    chrome.google.com/webstore → search: Get cookies.txt LOCALLY
+    return (
+        f"\033[1;36mHow to get a cookies.txt file\033[0m\n"
+        f"{sep}\n"
+        f"\n"
+        f"\033[1mOption A — Browser extension (manual)\033[0m\n"
+        f"\n"
+        f"  Chrome / Edge:\n"
+        f'    Install "Get cookies.txt LOCALLY" from the Chrome Web Store\n'
+        f"    chrome.google.com/webstore → search: Get cookies.txt LOCALLY\n"
+        f"\n"
+        f"  Firefox:\n"
+        f'    Install "cookies.txt" from Firefox Add-ons\n'
+        f"    addons.mozilla.org → search: cookies.txt\n"
+        f"\n"
+        f"  Then visit youtube.com, click the extension icon,\n"
+        f"  and export in Netscape format. Save to:\n"
+        f"\n"
+        f"    {ck}\n"
+        f"\n"
+        f"{sep}\n"
+        f"\n"
+        f"\033[1mOption B — Export via yt-dlp\033[0m\n"
+        f"\n"
+        f"  Run this once (fast, no video downloaded):\n"
+        f"\n"
+        f"{option_b_cmd}\n"
+        f"\n"
+        f"  Replace \033[36mchrome\033[0m with \033[36mfirefox\033[0m, "
+        f"\033[36mbrave\033[0m, or \033[36medge\033[0m as needed.\n"
+        f"\n"
+        f"{sep}\n"
+        f"\n"
+        f"\033[1mOption C — Browser session (simplest)\033[0m\n"
+        f"\n"
+        f"  Skip cookies.txt and set in {conf}:\n"
+        f"\n"
+        f"    cookies_file: null\n"
+        f"    browser: chrome\n"
+        f"\n"
+        f"  You must be logged into YouTube in that browser.\n"
+        f"  Safari is sandboxed on macOS and is usually blocked.\n"
+        f"\n"
+        f"{sep}\n"
+    )
 
-  Firefox:
-    Install "cookies.txt" from Firefox Add-ons
-    addons.mozilla.org → search: cookies.txt
 
-  Then visit youtube.com, click the extension icon,
-  and export in Netscape format. Save to:
-
-    {_config_dir_str}/cookies.txt
-
-\033[90m──────────────────────────────────────────────\033[0m
-
-\033[1mOption B — Export via yt-dlp\033[0m
-
-  Run this once (fast, no video downloaded):
-
-    yt-dlp --cookies-from-browser chrome \\
-           --cookies {_config_dir_str}/cookies.txt \\
-           --skip-download --quiet --no-warnings \\
-           "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-  Replace \033[36mchrome\033[0m with \033[36mfirefox\033[0m, \033[36mbrave\033[0m, or \033[36medge\033[0m as needed.
-
-\033[90m──────────────────────────────────────────────\033[0m
-
-\033[1mOption C — Browser session (simplest)\033[0m
-
-  Skip cookies.txt and set in {_config_dir_str}/config.yaml:
-
-    cookies_file: null
-    browser: chrome
-
-  You must be logged into YouTube in that browser.
-  Safari is sandboxed on macOS and is usually blocked.
-
-\033[90m──────────────────────────────────────────────\033[0m
-"""
+COOKIES_HELP = _build_cookies_help()
 
 
 def _has(cmd: str) -> bool:
@@ -206,12 +227,16 @@ def _print_manual_install(missing: list[tuple[str, str, str | None]]) -> None:
         for tool, brew, _ in missing:
             if tool == "yt-dlp":
                 print("  # yt-dlp nightly (recommended):")
-                print("  curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp \\")
+                print(
+                    "  curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds"
+                    "/releases/latest/download/yt-dlp \\"
+                )
                 print("       -o ~/.local/bin/yt-dlp && chmod +x ~/.local/bin/yt-dlp")
             elif tool == "deno":
                 print("  curl -fsSL https://deno.land/install.sh | sh")
             elif brew:
-                print(f"  brew install {brew}" if _brew_available() else f"  sudo apt install {tool}  # or equivalent")
+                fallback = f"sudo apt install {tool}  # or equivalent"
+                print(f"  brew install {brew}" if _brew_available() else f"  {fallback}")
 
 
 def print_cookies_help() -> None:

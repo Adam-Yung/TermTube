@@ -152,50 +152,175 @@ function Install-YtDlpGitHub {
     }
 }
 
+function Test-IsAdmin {
+    ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
+function Find-7Zip {
+    foreach ($candidate in @("7z","7za","7zr")) {
+        $found = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($found) { return $found.Source }
+    }
+    foreach ($p in @(
+        "C:\Program Files\7-Zip\7z.exe",
+        "C:\Program Files (x86)\7-Zip\7z.exe"
+    )) { if (Test-Path $p) { return $p } }
+    $wingetPkgs = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages"
+    if (Test-Path $wingetPkgs) {
+        $hit = Get-ChildItem $wingetPkgs -Filter "7z.exe" -Recurse -ErrorAction SilentlyContinue |
+               Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
+function Ensure-7Zip {
+    $found = Find-7Zip
+    if ($found) { return $found }
+    if (-not (Test-WinGet)) {
+        Write-Warn "7-Zip not found and winget unavailable; cannot extract .7z archives."
+        return $null
+    }
+    Write-Step "Installing 7-Zip (needed to extract mpv archive)..."
+    winget install --id 7zip.7zip --accept-source-agreements --accept-package-agreements *>$null
+    Refresh-Path
+    return Find-7Zip
+}
+
 function Install-MpvCli {
     <#
     .SYNOPSIS
         Download a standalone mpv.exe for headless audio playback.
-        mpv.net always opens a GUI window; this CLI build does not.
+        mpv.net (winget) always opens a GUI window; this CLI build does not.
+        Installs to %LOCALAPPDATA%\TermTube\mpv\mpv.exe and adds to user PATH.
     #>
     $destDir = Join-Path $env:LOCALAPPDATA "TermTube\mpv"
     $dest    = Join-Path $destDir "mpv.exe"
     if (Test-Path $dest) {
-        Write-Info "Standalone mpv.exe already present."
+        Write-Info "Standalone mpv.exe already present ($dest)."
         return $true
     }
-    $releaseUrl = "https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest"
+
+    # Detect CPU architecture for the correct asset
+    $arch = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
+    $assetPattern = if ($arch -eq "Arm64") { "^mpv-aarch64-\d" } else { "^mpv-x86_64-\d" }
+
     Write-Step "Downloading standalone mpv.exe for audio playback..."
     try {
-        $release = Invoke-RestMethod -Uri $releaseUrl -UseBasicParsing -TimeoutSec 30
-        $asset = $release.assets | Where-Object { $_.name -match "^mpv-x86_64-\d+" -and $_.name -like "*.7z" } | Select-Object -First 1
+        $release = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest" `
+            -UseBasicParsing -TimeoutSec 30
+        $asset = $release.assets |
+            Where-Object {
+                $_.name -match $assetPattern -and
+                $_.name -like "*.7z" -and
+                $_.name -notlike "*debug*" -and
+                $_.name -notlike "*dev*"
+            } | Select-Object -First 1
         if (-not $asset) {
-            Write-Err "Could not find mpv x86_64 release asset."
+            Write-Err "Could not find a suitable mpv release asset (arch=$arch)."
             return $false
         }
-        $tempArchive = Join-Path $env:TEMP "termtube-mpv.7z"
-        $tempExtract = Join-Path $env:TEMP "termtube-mpv-extract"
-        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempArchive -UseBasicParsing -TimeoutSec 120
-        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+
+        $sevenZip = Ensure-7Zip
+        if (-not $sevenZip) {
+            Write-Err "No .7z extractor available. Install manually: winget install 7zip.7zip"
+            return $false
+        }
+
+        # Use an owned staging dir — never write into bare $env:TEMP.
+        # System subdirs like WinSAT have restricted ACLs and will deny access.
+        $tempDir     = Join-Path $env:LOCALAPPDATA "TermTube\tmp"
+        $tempArchive = Join-Path $tempDir "mpv-download.7z"
+        $tempExtract = Join-Path $tempDir "mpv-extract"
+
+        # Verify write access before starting the large download
+        try {
+            New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+            $probe = Join-Path $tempDir ".write-test"
+            [System.IO.File]::WriteAllText($probe, "ok")
+            Remove-Item $probe -Force
+        } catch {
+            Write-Err "Cannot write to staging directory ($tempDir): $_"
+            if (-not (Test-IsAdmin)) {
+                Write-Host ""
+                Write-Warn "This looks like a permissions issue."
+                Write-Host "  Re-run setup as Administrator:" -ForegroundColor Yellow
+                Write-Host "    Start-Process powershell -Verb RunAs -ArgumentList '-File setup.ps1'" -ForegroundColor Cyan
+                if (-not $NoPrompt) {
+                    $reply = Read-Host "  Relaunch as Administrator now? [Y/n]"
+                    if ($reply -notmatch '^[Nn]') {
+                        Start-Process powershell -Verb RunAs `
+                            -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Wait
+                        exit 0
+                    }
+                }
+            } else {
+                Write-Warn "Already running as Administrator; path may be locked by another process."
+            }
+            return $false
+        }
+
+        $sizeMB = [math]::Round($asset.size / 1MB, 1)
+        Write-Info "Downloading $($asset.name) (${sizeMB} MB)..."
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempArchive `
+            -UseBasicParsing -TimeoutSec 180
+
         if (Test-Path $tempExtract) { Remove-Item -Recurse -Force $tempExtract }
-        # Use tar (built into Windows 10+) to extract 7z
-        & tar -xf $tempArchive -C $env:TEMP
-        # Find mpv.exe in extracted files
-        $extracted = Get-ChildItem -Path $env:TEMP -Filter "mpv.exe" -Recurse -File |
-            Where-Object { $_.DirectoryName -like "*mpv*" } | Select-Object -First 1
-        if ($extracted) {
-            Copy-Item -Path $extracted.FullName -Destination $dest -Force
-            Write-Success "Standalone mpv.exe installed to $dest"
-            return $true
-        } else {
-            Write-Err "mpv.exe not found in downloaded archive."
+        New-Item -ItemType Directory -Path $tempExtract -Force | Out-Null
+
+        Write-Info "Extracting with 7-Zip..."
+        & $sevenZip x $tempArchive "-o$tempExtract" -y *>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "7-Zip extraction failed (exit $LASTEXITCODE)."
             return $false
         }
+
+        $extracted = Get-ChildItem -Path $tempExtract -Filter "mpv.exe" -Recurse -File |
+            Select-Object -First 1
+        if (-not $extracted) {
+            Write-Err "mpv.exe not found in extracted archive."
+            return $false
+        }
+
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        Copy-Item -Path $extracted.FullName -Destination $dest -Force
+        Write-Success "Standalone mpv.exe installed to $dest"
+
+        $userPath = [System.Environment]::GetEnvironmentVariable("PATH","User")
+        if ($userPath -notlike "*$destDir*") {
+            [System.Environment]::SetEnvironmentVariable("PATH","$userPath;$destDir","User")
+            $env:PATH = "$env:PATH;$destDir"
+            Write-Info "Added $destDir to user PATH."
+        }
+        return $true
+
     } catch {
-        Write-Err "Failed to download standalone mpv: $_"
+        $errMsg = $_.Exception.Message
+        Write-Err "Failed to install standalone mpv: $errMsg"
+        if ($errMsg -like "*Access*denied*" -or $errMsg -like "*UnauthorizedAccess*") {
+            Write-Host ""
+            Write-Warn "Access was denied. This is a permissions issue."
+            if (-not (Test-IsAdmin)) {
+                Write-Host "  Re-run setup as Administrator:" -ForegroundColor Yellow
+                Write-Host "    Start-Process powershell -Verb RunAs -ArgumentList '-File setup.ps1'" -ForegroundColor Cyan
+                if (-not $NoPrompt) {
+                    $reply = Read-Host "  Relaunch as Administrator now? [Y/n]"
+                    if ($reply -notmatch '^[Nn]') {
+                        Start-Process powershell -Verb RunAs `
+                            -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Wait
+                        exit 0
+                    }
+                }
+            } else {
+                Write-Warn "Already running as Administrator; path may be locked by another process."
+            }
+        }
         return $false
     } finally {
-        Remove-Item -Path (Join-Path $env:TEMP "termtube-mpv.7z") -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path (Join-Path $env:LOCALAPPDATA "TermTube\tmp") `
+            -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -223,10 +348,7 @@ function Install-Dependency {
                 }
             }
             # Refresh PATH after Python install so Find-Python can locate it immediately
-            if ($Tool -eq "python") {
-                $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                            [System.Environment]::GetEnvironmentVariable("PATH", "User")
-            }
+            if ($Tool -eq "python") { Refresh-Path }
             return $true
         }
     } catch {}
@@ -391,7 +513,7 @@ function Setup-Venv {
     }
     Write-Info "Using $version"
 
-    $pipExe = Join-Path $VenvDir "Scripts\pip.exe"
+    $pipExe    = Join-Path $VenvDir "Scripts\pip.exe"
     $pythonExe = Join-Path $VenvDir "Scripts\python.exe"
 
     if (Test-Path $pythonExe) {
@@ -544,7 +666,7 @@ function Main {
     Install-Files -SyncMode $syncMode
 
     Write-Header "Python Environment"
-    $venvDir = Join-Path $AppDir ".venv"
+    $venvDir      = Join-Path $AppDir ".venv"
     $requirements = Join-Path $AppDir "requirements.txt"
     $result = Setup-Venv -VenvDir $venvDir -Requirements $requirements
     if (-not $result) { exit 1 }
