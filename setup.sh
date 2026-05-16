@@ -390,9 +390,29 @@ setup_venv() {
         "$py" -m venv "$venv_dir"
     fi
 
+    # Hash-based cache: skip pip install when requirements.txt is unchanged
+    local hash_file="$venv_dir/.requirements.sha256"
+    local current_hash=""
+    if [[ -f "$requirements" ]]; then
+        if command -v sha256sum &>/dev/null; then
+            current_hash=$(sha256sum "$requirements" | awk '{print $1}')
+        elif command -v shasum &>/dev/null; then
+            current_hash=$(shasum -a 256 "$requirements" | awk '{print $1}')
+        fi
+    fi
+    local cached_hash=""
+    [[ -f "$hash_file" ]] && cached_hash=$(<"$hash_file")
+
+    if [[ -n "$current_hash" && "$cached_hash" == "$current_hash" ]]; then
+        info "Requirements unchanged — skipping pip install."
+        success "Python environment ready."
+        return
+    fi
+
     step "Installing Python packages…"
     "$venv_dir/bin/pip" install --quiet --upgrade pip 2>/dev/null || true
     "$venv_dir/bin/pip" install --quiet -r "$requirements"
+    [[ -n "$current_hash" ]] && printf '%s' "$current_hash" > "$hash_file"
     success "Python environment ready."
 }
 

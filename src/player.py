@@ -49,30 +49,50 @@ def _write_input_conf() -> str:
     return f.name
 
 
+def _is_real_cli_mpv(path: str) -> bool:
+    """Return True if `path` is the real upstream mpv CLI (not mpv.net's shim).
+
+    mpv.net ships an `mpv.exe` in its install directory that is a stub
+    redirecting to `mpvnet.exe` — which ALWAYS opens a GUI window even with
+    `--force-window=no`. Detect that case by checking the parent directory
+    for `mpvnet.exe`.
+    """
+    if not IS_WINDOWS:
+        return True
+    try:
+        from pathlib import Path
+        parent = Path(path).resolve().parent
+        return not (parent / "mpvnet.exe").exists()
+    except Exception:
+        return True
+
+
 def _mpv_exe(*, headless: bool = False) -> str | None:
-    """Return the mpv executable path, handling mpv.net on Windows.
+    """Return the mpv executable path.
 
     Args:
-        headless: If True on Windows, prefer a standalone mpv.exe (no GUI window)
-                  over mpvnet.exe (which always opens a GUI window).
+        headless: If True on Windows, REQUIRE a standalone mpv.exe (no GUI
+                  window). Will not fall back to mpv.net or its `mpv.exe`
+                  shim — those always open a GUI window even with
+                  `--force-window=no` and `--no-video`.
     """
     if headless and IS_WINDOWS:
-        import os
-        from pathlib import Path
-        # Check TermTube's own bundled mpv.exe first
+        # 1. TermTube's bundled standalone CLI mpv (installed by setup.ps1)
         termtube_mpv = Path(os.environ.get("LOCALAPPDATA", "")) / "TermTube" / "mpv" / "mpv.exe"
         if termtube_mpv.exists():
             return str(termtube_mpv)
-        # Check mpv.net directory for a raw mpv.exe
-        mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
-        raw_mpv = mpvnet_dir / "mpv.exe"
-        if raw_mpv.exists():
-            return str(raw_mpv)
+        # 2. PATH mpv, but only if it's not mpv.net's shim
+        which = shutil.which("mpv")
+        if which and _is_real_cli_mpv(which):
+            return which
+        # 3. No headless-capable mpv. Return None so the caller surfaces a
+        #    clear "install standalone mpv" error rather than silently
+        #    spawning mpvnet (which pops a window).
+        return None
+
     if shutil.which("mpv"):
         return "mpv"
     if IS_WINDOWS:
-        import os
-        from pathlib import Path
         mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
         mpvnet = mpvnet_dir / "mpvnet.exe"
         if mpvnet.exists():

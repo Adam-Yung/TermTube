@@ -177,6 +177,58 @@ the probe, and still has to handle the failure mode. The
 actual product semantic (Home/Subs are the only pages that *need* the
 token).
 
+## Why mpv.net is rejected for headless audio on Windows (May 2026)
+
+mpv.net (`mpvnet.exe`) is a fork that always opens a GUI window — even when
+launched with `--no-video --force-window=no --no-terminal` and even with the
+Windows `CREATE_NO_WINDOW` Popen flag. The flags suppress the *console*
+window but mpv.net's video window is a top-level GUI window controlled by
+the build itself, not by mpv's window flags.
+
+Worse: the mpv.net install dir ships a stub `mpv.exe` that redirects to
+`mpvnet.exe`. So a naive `shutil.which("mpv")` or "look for mpv.exe near
+mpv.net" probe will silently bind to the shim and the user sees a popup
+every time audio plays.
+
+The fix is two-layered:
+
+1. **setup.ps1** no longer maps `mpv → mpv.net` in `$WinGetPackages`.
+   `Install-MpvCli` downloads the real upstream CLI build from
+   `zhongfly/mpv-winbuild` to `%LOCALAPPDATA%\TermTube\mpv\mpv.exe`.
+2. **`src/player.py`** `_mpv_exe(headless=True)` on Windows only returns:
+   - the TermTube-bundled standalone mpv.exe, OR
+   - a PATH `mpv.exe` that does NOT have `mpvnet.exe` as a sibling
+     (`_is_real_cli_mpv` detects the shim by inspecting the parent dir).
+   - Otherwise returns `None`, and the audio worker surfaces a clear error
+     telling the user to re-run setup.ps1.
+
+Rejected alternative: spawning mpv.net hidden via Win32 `ShowWindow(SW_HIDE)`
+after launch. Doesn't work because mpv.net renders its window in a separate
+thread that creates a fresh visible HWND on every property change.
+
+## Why setup.ps1 uses `Remove-PathSafe` instead of `Remove-Item -Recurse -Force`
+
+`Remove-Item -Recurse -Force` on a Windows directory junction FOLLOWS THE
+LINK and deletes the target directory's contents. In sync mode, `$AppDir`
+(`%LOCALAPPDATA%\TermTube`) is a junction pointing at the user's source
+repo — so a `Remove-Item -Recurse -Force $AppDir` would wipe the repo.
+
+`Remove-PathSafe` inspects the `ReparsePoint` attribute and, for junctions
+and symlinks, calls `[System.IO.Directory]::Delete($Path, recursive=$false)`
+which removes only the link. For real directories it falls back to the
+standard recursive delete. This makes "switch from sync to standard" (or
+the reverse) safe.
+
+## Why setup.ps1 / setup.sh SHA256-hash requirements.txt
+
+Pip's resolver is the dominant cost in `setup_venv`, often 30–60 s even
+when nothing needs to change. We hash `requirements.txt` with SHA256 and
+store the digest at `<venv>/.requirements.sha256`. If the file is
+unchanged, the entire pip step is skipped. The hash is invalidated
+automatically by any whitespace or version pin change in the requirements
+file. No state in the user's home dir; everything is under `<venv>` and
+goes away with the venv.
+
 ## Why the Settings → "Generate OAuth2 Token" option was removed
 
 The option called `subprocess.call(["yt-dlp", "--oauth2", "--dump-json", URL],

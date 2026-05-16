@@ -1234,9 +1234,26 @@ class MainScreen(Screen):
                 use_prefetched = True
                 _logger.debug("audio: using prefetched URL for %s", vid)
 
+        mpv_exe = player_mod._mpv_exe(headless=True)
+        if not mpv_exe:
+            from src.platform import install_hint, IS_WINDOWS
+            hint = (
+                "re-run setup.ps1 (it downloads a standalone headless mpv.exe). "
+                "mpv.net opens a GUI window and cannot be used for background audio."
+                if IS_WINDOWS else install_hint('mpv')
+            )
+            self.app.call_from_thread(
+                self._log, f"[red]Error: no headless mpv found — {hint}[/red]"
+            )
+            self.app.call_from_thread(
+                self.notify, f"No headless mpv found — {hint}", severity="error"
+            )
+            self.app.call_from_thread(self._stop_audio)
+            return
+
         input_conf = player_mod._write_input_conf()
         cmd = [
-            player_mod._mpv_exe(headless=True) or "mpv",
+            mpv_exe,
             f"--input-conf={input_conf}",
             f"--input-ipc-server={_get_audio_socket()}",
             "--no-video",

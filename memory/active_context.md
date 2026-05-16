@@ -1,57 +1,70 @@
 # Active Context
 
 Status: COMPLETED May 2026
-Task: Scope browser-cookie fallback to auth-required pages; remove crashing
-OAuth2 Generate option from Settings.
+Task: Polish setup.ps1 + fix mpv GUI window leak on Windows audio playback.
 
-Changes:
-- src/config.py: `cookie_args` converted from `@property` to method
-  `cookie_args(*, auth_required: bool = False)`. Same priority chain
-  (cookies.txt → browser → none) but browser fallback only runs when
-  `auth_required=True`. `cookie_source` docstring clarifies it describes
-  the auth-required chain.
-- src/ytdlp.py: helper `cookie_args(config, *, auth_required=False)` forwards
-  to the config method. `stream_flat` got a new `auth_required: bool | None`
-  param — defaults to `feed_key in FEED_URLS` (home / subscriptions).
-  `fetch_page_batch` got an explicit `auth_required: bool = False` param.
-  `fetch_subscribed_channels` pins `auth_required=True`. All other
-  call sites (`stream_search`, `fetch_search_batch`, `fetch_full`,
-  `fetch_stream_urls`, `download_video_with_progress`,
-  `download_audio_with_progress`, `fetch_channel_info`,
-  `fetch_channel_playlists`) inherit `auth_required=False`.
-- src/tui/screens/main_screen.py: three `fetch_page_batch` call sites
-  (in `_load_feed_paged`, `_fetch_more_pages`, `_prefetch_more_pages`)
-  pass `auth_required=True` because they serve the Home tab. Audio
-  playback (`_launch_audio_worker`) calls
-  `config.cookie_args(auth_required=False)`.
-- src/tui/screens/watch_modal.py: video playback uses
-  `config.cookie_args(auth_required=False)`.
-- src/main.py: startup warning now uses `cookie_args(auth_required=True)`
-  and wording clarifies non-auth pages still work without cookies.
-- src/player.py: docstring updated to reference the new method signature.
-- src/tui/screens/settings_modal.py: removed the broken
-  "Generate new OAuth2 Token" option, the `auth-list` ListView, and
-  `_generate_oauth_token`. Replaced with a read-only Static
-  `#s-auth-status` showing cookies.txt path/state, browser fallback
-  status, and the resolution rules. Tab cycling list updated.
-- tests/unit/test_config.py: TestCookieArgs rewritten — file priority,
-  browser fallback ONLY when `auth_required=True`, empty otherwise.
-- tests/unit/test_stream_prefetch.py: mocks switched to
-  `config.cookie_args.return_value = []` (callable, not attribute).
-- tests/integration/test_ytdlp_download.py: `fake_config` mock same fix.
+## Changes
 
-Why:
-- Default `browser: chrome` in DEFAULT_CONFIG meant unauthenticated users
-  always got `--cookies-from-browser chrome` attached. When Chrome wasn't
-  running / cookies couldn't be extracted (Linux keyring lock, wrong
-  browser, etc.), yt-dlp errored — breaking pages that don't even need
-  auth (search, channels, watch, download). Now only Home / Subs / Subs-
-  channels take that risk; everything else falls through to "no cookies"
-  as soon as cookies.txt is absent.
-- `Settings → Authentication → Generate OAuth2 Token` crashed the app:
-  stock yt-dlp has no `--oauth2` flag, AND `App.suspend(callable)` is a
-  TypeError on Textual ≥ 0.68 (`suspend()` is a context manager there).
-  Removed wholesale.
+### setup.ps1
+- New helpers: `Refresh-Path` (preserves session-added PATH entries),
+  `Test-IsReparsePoint`, `Remove-PathSafe` (deletes junctions safely without
+  recursing into the target — was a data-loss bug), `Test-MpvAvailable`
+  (locates the standalone CLI mpv only, never matches `mpvnet.exe`).
+- `$WinGetPackages` no longer maps `mpv → mpv.net`. mpv.net's window-spawning
+  build is unusable for headless audio; `Install-MpvCli` is the only path.
+- `Install-Dependency` no longer adds mpv.net's dir to PATH on install
+  (since mpv is no longer in the winget map).
+- `Find-Python` version-comparison fixed: was
+  `major>=3 AND minor>=11` (rejects 4.x); now correctly accepts 3.11+ AND 4+.
+  Extracted to `Test-PythonVersion` helper.
+- `Setup-Venv` now SHA256-hashes `requirements.txt` and skips pip install when
+  unchanged. Hash stored at `<venv>/.requirements.sha256`. Also detects stale
+  venvs (broken interpreter) and recreates them.
+- `Install-Files` now:
+  - Uses `Remove-PathSafe` so a sync-mode reinstall over a previous
+    standard install (or vice versa) doesn't recurse into junctions.
+  - Stashes `<AppDir>/.venv` aside on standard reinstall and restores it
+    afterward — preserves pip cache across re-runs.
+  - Falls back gracefully if junction creation fails.
 
-Tests: 260 passed (unit + integration).
-Pushed as commit fix(auth): scope browser-cookie fallback to auth-required pages…
+### setup.sh
+- Mirrored the SHA256 requirements-hash cache to `setup_venv` so Unix users
+  also skip pip install when `requirements.txt` hasn't changed. Uses
+  `sha256sum` (Linux) or `shasum -a 256` (macOS).
+
+### src/player.py — mpv window leak fix
+- New `_is_real_cli_mpv(path)` predicate that detects mpv.net's `mpv.exe`
+  stub (parent dir contains `mpvnet.exe`).
+- `_mpv_exe(headless=True)` on Windows now ONLY returns the TermTube
+  bundled standalone mpv.exe OR a PATH `mpv.exe` that is not the
+  mpv.net shim. Returns `None` otherwise — never silently falls through
+  to mpvnet (which opens a GUI window even with `--no-video` /
+  `--force-window=no`).
+
+### src/tui/screens/main_screen.py — audio worker hardening
+- `_launch_audio_worker` checks for a headless mpv up front. If
+  `_mpv_exe(headless=True)` returns None, it logs an error and shows a
+  notification telling Windows users to re-run setup.ps1 (which installs
+  the standalone CLI mpv). Prevents the silent "audio finished after 3 s
+  with no sound" UX seen when mpvnet was selected.
+
+## Why
+- User reported mpv GUI window appearing during audio playback on Windows
+  despite `--no-video`, `--force-window=no`, `--no-terminal`, and
+  `CREATE_NO_WINDOW`. Root cause: `_mpv_exe(headless=True)` was falling
+  through to `shutil.which("mpv")` / the mpv.net dir's stub mpv.exe, which
+  is a redirect to mpvnet — and mpvnet ALWAYS spawns a GUI regardless of
+  flags. Fix is to refuse those binaries when headless audio is requested
+  and force users onto the standalone build that setup.ps1 installs.
+- Polish items: hash-cache for pip install, junction-safe `Remove-PathSafe`
+  (previous code did `Remove-Item -Recurse -Force` on `$AppDir` which
+  follows junctions and would wipe the user's source repo on sync→standard
+  reinstall), Python version comparison fix, .venv preservation.
+
+## Tests
+- Full pytest suite passes (264 tests, 1 skipped).
+- Config/cookie tests still pass after no changes there.
+
+## Pending / Not Done
+- Step 7 of HomeScreen v2 (observe_property event reader in player.py)
+  remains deferred to a separate PR per existing memory.

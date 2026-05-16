@@ -95,17 +95,87 @@ function Test-WinGet {
 }
 
 function Refresh-Path {
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    <#
+    .SYNOPSIS
+        Merge Machine + User PATH into $env:PATH while preserving any entries
+        added by the current process. Deduplicates while keeping first
+        occurrence order so paths we added earlier (e.g. the standalone mpv
+        dir) survive a refresh.
+    #>
+    $machine = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $user    = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    $combined = @($env:PATH, $machine, $user) -join ';'
+    $seen = @{}
+    $out  = New-Object System.Collections.Generic.List[string]
+    foreach ($p in ($combined -split ';')) {
+        if ($p -and -not $seen.ContainsKey($p)) {
+            $seen[$p] = $true
+            [void]$out.Add($p)
+        }
+    }
+    $env:PATH = ($out -join ';')
+}
+
+function Test-IsReparsePoint {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) { return $false }
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        return (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+    } catch { return $false }
+}
+
+function Remove-PathSafe {
+    <#
+    .SYNOPSIS
+        Delete a file or directory; for junctions / symlinks, delete only the
+        link itself (do NOT recurse into the target).
+    .DESCRIPTION
+        `Remove-Item -Recurse -Force` on a Windows junction follows the link
+        and deletes the TARGET's contents. That would wipe the user's source
+        repo when a sync-mode install is replaced. This helper detects
+        reparse points and uses the .NET API to remove only the link.
+    #>
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -ErrorAction SilentlyContinue)) { return $true }
+    try {
+        if (Test-IsReparsePoint $Path) {
+            # Delete only the junction/symlink, never its target
+            [System.IO.Directory]::Delete($Path, $false)
+        } else {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+        }
+        return $true
+    } catch {
+        Write-Err "Failed to remove ${Path}: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Test-MpvAvailable {
+    <#
+    .SYNOPSIS
+        Return the path to a usable headless mpv.exe, or $null.
+        Excludes mpv.net's mpvnet.exe — that build always pops a GUI window
+        and is unsuitable for the audio worker.
+    #>
+    # Any mpv.exe on PATH (Get-Command resolves the exact exe name, so
+    # mpvnet.exe will not match a "mpv.exe" lookup).
+    $cmd = Get-Command "mpv.exe" -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    # The standalone CLI build we install at Install-MpvCli's dest
+    $local = Join-Path $env:LOCALAPPDATA "TermTube\mpv\mpv.exe"
+    if (Test-Path -LiteralPath $local) { return $local }
+    return $null
 }
 
 function Test-Tool {
     param([string]$Name)
+    if ($Name -eq "mpv") {
+        return $null -ne (Test-MpvAvailable)
+    }
     if (Test-Command $Name) { return $true }
     switch ($Name) {
-        "mpv" {
-            return Test-Path (Join-Path $env:LOCALAPPDATA "Programs\mpv.net\mpvnet.exe")
-        }
         "python" {
             return $null -ne (Find-Python)
         }
@@ -125,7 +195,9 @@ function Test-Tool {
 $WinGetPackages = @{
     "yt-dlp"  = "yt-dlp.yt-dlp"
     "deno"    = "DenoLand.Deno"
-    "mpv"     = "mpv.net"
+    # NOTE: mpv is intentionally NOT in this map. mpv.net opens a GUI window
+    # even with --no-video / --force-window=no, which breaks the background
+    # audio player. Install-MpvCli downloads the real upstream CLI build.
     "ffmpeg"  = "Gyan.FFmpeg"
     "chafa"   = "hpjansson.Chafa"
     "python"  = "Python.Python.3.13"
@@ -336,17 +408,6 @@ function Install-Dependency {
         winget install --id $pkg --accept-source-agreements --accept-package-agreements
         if ($LASTEXITCODE -eq 0) {
             Write-Success "$Tool installed."
-            # mpv.net does not add itself to PATH; probe its known install location
-            if ($Tool -eq "mpv") {
-                $mpvDir = Join-Path $env:LOCALAPPDATA "Programs\mpv.net"
-                if (Test-Path (Join-Path $mpvDir "mpvnet.exe")) {
-                    $env:PATH = "$env:PATH;$mpvDir"
-                    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-                    if ($userPath -notlike "*$mpvDir*") {
-                        [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$mpvDir", "User")
-                    }
-                }
-            }
             # Refresh PATH after Python install so Find-Python can locate it immediately
             if ($Tool -eq "python") { Refresh-Path }
             return $true
@@ -464,27 +525,33 @@ function Test-Dependencies {
 }
 
 # ── Python Detection ──────────────────────────────────────────────────────────
+function Test-PythonVersion {
+    param([string]$Version)
+    if (-not $Version) { return $false }
+    $parts = $Version.Trim().Split('.')
+    if ($parts.Count -lt 2) { return $false }
+    try {
+        $major = [int]$parts[0]
+        $minor = [int]$parts[1]
+    } catch { return $false }
+    # >= 3.11 (accepts 3.11+, 4.x, etc.)
+    return ($major -gt 3) -or ($major -eq 3 -and $minor -ge 11)
+}
+
 function Find-Python {
-    $candidates = @("python3", "python", "py")
-    foreach ($c in $candidates) {
+    foreach ($c in @("python3", "python", "py")) {
         if (Test-Command $c) {
             try {
                 $ver = & $c -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
-                $parts = $ver.Split('.')
-                if ([int]$parts[0] -ge 3 -and [int]$parts[1] -ge 11) {
-                    return $c
-                }
+                if (Test-PythonVersion $ver) { return $c }
             } catch {}
         }
     }
-    # Try py launcher with version
+    # Try py launcher with explicit -3
     if (Test-Command "py") {
         try {
             $ver = & py -3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
-            $parts = $ver.Split('.')
-            if ([int]$parts[0] -ge 3 -and [int]$parts[1] -ge 11) {
-                return "py -3"
-            }
+            if (Test-PythonVersion $ver) { return "py -3" }
         } catch {}
     }
     return $null
@@ -515,16 +582,52 @@ function Setup-Venv {
 
     $pipExe    = Join-Path $VenvDir "Scripts\pip.exe"
     $pythonExe = Join-Path $VenvDir "Scripts\python.exe"
+    $hashFile  = Join-Path $VenvDir ".requirements.sha256"
 
-    if (Test-Path $pythonExe) {
-        Write-Info "Virtual environment exists - upgrading..."
-    } else {
+    $venvExists = Test-Path $pythonExe
+    if ($venvExists) {
+        # Detect stale venv (interpreter moved/uninstalled)
+        $venvOk = $false
+        try {
+            & $pythonExe --version *>$null
+            $venvOk = ($LASTEXITCODE -eq 0)
+        } catch { $venvOk = $false }
+        if (-not $venvOk) {
+            Write-Warn "Existing venv is stale (interpreter changed). Recreating..."
+            Remove-PathSafe $VenvDir | Out-Null
+            $venvExists = $false
+        } else {
+            Write-Info "Virtual environment exists."
+        }
+    }
+
+    if (-not $venvExists) {
         Write-Step "Creating virtual environment..."
         if ($pyArgs.Count -gt 1) {
             & $pyArgs[0] $pyArgs[1..($pyArgs.Count - 1)] -m venv $VenvDir
         } else {
             & $py -m venv $VenvDir
         }
+        if (-not (Test-Path $pythonExe)) {
+            Write-Err "Failed to create virtual environment."
+            return $false
+        }
+    }
+
+    # Hash-based cache: skip pip install when requirements.txt unchanged
+    $currentHash = $null
+    if (Test-Path $Requirements) {
+        $currentHash = (Get-FileHash -LiteralPath $Requirements -Algorithm SHA256).Hash
+    }
+    $cachedHash = $null
+    if (Test-Path $hashFile) {
+        try { $cachedHash = (Get-Content -LiteralPath $hashFile -Raw).Trim() } catch {}
+    }
+
+    if ($currentHash -and $cachedHash -eq $currentHash) {
+        Write-Info "Requirements unchanged — skipping pip install."
+        Write-Success "Python environment ready."
+        return $true
     }
 
     Write-Step "Installing Python packages..."
@@ -533,6 +636,9 @@ function Setup-Venv {
     if ($LASTEXITCODE -ne 0) {
         Write-Err "pip install failed."
         return $false
+    }
+    if ($currentHash) {
+        try { Set-Content -LiteralPath $hashFile -Value $currentHash -NoNewline } catch {}
     }
     Write-Success "Python environment ready."
     return $true
@@ -559,37 +665,90 @@ function Prompt-SyncMode {
 function Install-Files {
     param([bool]$SyncMode)
 
-    $origDir = Split-Path -Parent $MyInvocation.ScriptName
-    if (-not $origDir) { $origDir = $PSScriptRoot }
+    $origDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.ScriptName }
 
     if ($origDir -eq $AppDir) {
         Write-Info "Already running from install directory."
         return
     }
 
+    # Preserve the previous install's .venv across reinstalls so users don't
+    # pay a 30-60s pip cost every time. Move it aside before tearing down the
+    # install dir, then restore it after. Only valid in standard mode — in
+    # sync mode the .venv lives inside the repo dir, not $AppDir.
+    $stashedVenv = $null
+    $appVenv     = Join-Path $AppDir ".venv"
+    $existingIsJunction = (Test-Path $AppDir) -and (Test-IsReparsePoint $AppDir)
+
     if ($SyncMode) {
         Write-Header "Developer Sync Mode"
-        if (Test-Path $AppDir) { Remove-Item $AppDir -Recurse -Force }
-        New-Item -ItemType Junction -Path $AppDir -Target $origDir | Out-Null
-        Write-Success "Junction: $AppDir -> $origDir"
-    } else {
-        Write-Header "Standard Installation"
-        if (Test-Path $AppDir) { Remove-Item $AppDir -Recurse -Force }
-        New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
-
-        $filesToCopy = @("requirements.txt", "termtube", "termtube.cmd", "setup.sh", "setup.ps1", "uninstall.sh", "uninstall.ps1")
-        $srcDir = Join-Path $origDir "src"
-        if (Test-Path $srcDir) {
-            Copy-Item $srcDir -Destination $AppDir -Recurse -Force
+        # IMPORTANT: Remove-PathSafe so that if $AppDir was a previous
+        # standard install (a real dir) we recurse-delete it, but if it was
+        # a junction from a prior sync run we delete only the junction —
+        # NOT the user's source tree it points at.
+        if (Test-Path $AppDir) {
+            if (-not (Remove-PathSafe $AppDir)) { return }
         }
-        foreach ($f in $filesToCopy) {
-            $src = Join-Path $origDir $f
-            if (Test-Path $src) {
-                Copy-Item $src -Destination $AppDir -Force
-            }
+        # Junctions only work on same volume and cannot span network shares
+        try {
+            New-Item -ItemType Junction -Path $AppDir -Target $origDir -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Err "Failed to create junction: $($_.Exception.Message)"
+            Write-Warn "Falling back to standard copy install."
+            $SyncMode = $false
         }
-        Write-Success "Installed to $AppDir"
+        if ($SyncMode) {
+            Write-Success "Junction: $AppDir -> $origDir"
+            return
+        }
     }
+
+    Write-Header "Standard Installation"
+
+    # Stash .venv if it exists in the previous standard install (not a junction)
+    if ((Test-Path $appVenv) -and -not $existingIsJunction -and -not (Test-IsReparsePoint $appVenv)) {
+        $stashedVenv = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
+        if (Test-Path $stashedVenv) { Remove-PathSafe $stashedVenv | Out-Null }
+        try {
+            Move-Item -LiteralPath $appVenv -Destination $stashedVenv -Force -ErrorAction Stop
+            Write-Info "Preserving existing virtual environment."
+        } catch {
+            Write-Warn "Could not stash existing .venv ($($_.Exception.Message)); it will be recreated."
+            $stashedVenv = $null
+        }
+    }
+
+    if (Test-Path $AppDir) {
+        if (-not (Remove-PathSafe $AppDir)) { return }
+    }
+    New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
+
+    $filesToCopy = @(
+        "requirements.txt", "termtube", "termtube.cmd",
+        "setup.sh", "setup.ps1", "uninstall.sh", "uninstall.ps1"
+    )
+    $srcDir = Join-Path $origDir "src"
+    if (Test-Path $srcDir) {
+        Copy-Item $srcDir -Destination $AppDir -Recurse -Force
+    }
+    foreach ($f in $filesToCopy) {
+        $src = Join-Path $origDir $f
+        if (Test-Path $src) {
+            Copy-Item $src -Destination $AppDir -Force
+        }
+    }
+
+    # Restore the preserved .venv
+    if ($stashedVenv -and (Test-Path $stashedVenv)) {
+        try {
+            Move-Item -LiteralPath $stashedVenv -Destination $appVenv -Force -ErrorAction Stop
+            Write-Success "Restored existing virtual environment."
+        } catch {
+            Write-Warn "Failed to restore .venv: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Success "Installed to $AppDir"
 }
 
 # ── Create Launcher Batch File ────────────────────────────────────────────────
