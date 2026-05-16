@@ -33,11 +33,16 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-$AppDir = Join-Path $env:LOCALAPPDATA "TermTube"
-$BinDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
-$ConfigDir = Join-Path $env:APPDATA "TermTube"
-$CacheDir = Join-Path $env:LOCALAPPDATA "TermTube\cache"
-$TempDir = Join-Path $env:TEMP "TermTube"
+# New layout (post-2026-05): code lives under \Programs\TermTube, data under
+# \TermTube. We also detect the legacy layout where code lived directly under
+# \TermTube and conflicted with the data dir.
+$AppDir       = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
+$DataDir      = Join-Path $env:LOCALAPPDATA "TermTube"   # cache, bundled mpv, history
+$LegacyAppDir = $DataDir                                  # pre-fix code dir
+$ConfigDir    = Join-Path $env:APPDATA "TermTube"
+$CacheDir     = Join-Path $DataDir "cache"
+$MpvDir       = Join-Path $DataDir "mpv"                  # bundled standalone mpv
+$TempDir      = Join-Path $env:TEMP "TermTube"
 
 # ── Output Helpers ────────────────────────────────────────────────────────────
 function Write-Info    { param($Msg) Write-Host "  > " -NoNewline -ForegroundColor Cyan; Write-Host $Msg }
@@ -114,12 +119,26 @@ Write-Host "  The following will be removed:" -ForegroundColor White
 Write-Host ""
 
 Check-Item $AppDir "Application files"
-Check-Item $BinDir "Launcher directory"
+# Legacy install dir from before the architectural split — show it only if
+# it has code in it (don't flag a pure data dir as "legacy install").
+if ((Test-Path $LegacyAppDir) -and -not ($LegacyAppDir -eq $AppDir)) {
+    $legacyHasCode = (Test-Path (Join-Path $LegacyAppDir "src")) -or `
+                     (Test-Path (Join-Path $LegacyAppDir "termtube.cmd"))
+    if ($legacyHasCode) {
+        Check-Item $LegacyAppDir "Legacy application files"
+    }
+}
+Check-Item $MpvDir "Bundled mpv binary"
 
 if ($Purge) {
     Check-Item $ConfigDir "Configuration & cookies"
     Check-Item $CacheDir  "Cache data"
     Check-Item $TempDir   "Temp/log files"
+    # On -Purge we also nuke the entire data dir (which contains mpv/, cache/,
+    # history.json, etc.) — already-listed children get deduped during removal.
+    if ((Test-Path $DataDir) -and -not ((Get-Item $DataDir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        Check-Item $DataDir "Data directory (history, etc.)"
+    }
 }
 
 if ($itemsToRemove.Count -eq 0) {
@@ -179,21 +198,39 @@ function Remove-SafeItem {
     }
 }
 
-Remove-SafeItem $BinDir  "Launcher"
 Remove-SafeItem $AppDir  "Application files"
+# Legacy code dir (preserve any data files inside — mpv/, cache/, history.json
+# — by removing only the code/launcher artifacts).
+if ((Test-Path $LegacyAppDir) -and -not ($LegacyAppDir -eq $AppDir) -and `
+    -not ((Get-Item $LegacyAppDir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    foreach ($name in @("src", "termtube", "termtube.cmd", "setup.sh", "setup.ps1",
+                        "uninstall.sh", "uninstall.ps1", "requirements.txt", ".venv")) {
+        $p = Join-Path $LegacyAppDir $name
+        if (Test-Path $p) { Remove-SafeItem $p "Legacy: $name" }
+    }
+}
+Remove-SafeItem $MpvDir "Bundled mpv binary"
 
 if ($Purge) {
     Remove-SafeItem $ConfigDir "Configuration & cookies"
     Remove-SafeItem $CacheDir  "Cache data"
     Remove-SafeItem $TempDir   "Temp/log files"
+    Remove-SafeItem $DataDir   "Data directory"
 }
 
 # ── Clean PATH ────────────────────────────────────────────────────────────────
+# Strip both the new $AppDir and the historical $BinDir from user PATH.
+$legacyBinDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"   # same as $AppDir today
 $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-if ($userPath -and $userPath -like "*$BinDir*") {
-    $cleanPath = ($userPath.Split(';') | Where-Object { $_ -ne $BinDir -and $_ -ne "" }) -join ';'
-    [System.Environment]::SetEnvironmentVariable("PATH", $cleanPath, "User")
-    Write-Success "Removed $BinDir from user PATH."
+if ($userPath) {
+    $entries = $userPath.Split(';') | Where-Object {
+        $_ -and $_ -ne $AppDir -and $_ -ne $legacyBinDir
+    }
+    $cleanPath = $entries -join ';'
+    if ($cleanPath -ne $userPath) {
+        [System.Environment]::SetEnvironmentVariable("PATH", $cleanPath, "User")
+        Write-Success "Removed TermTube entries from user PATH."
+    }
 }
 
 # ── Summary ───────────────────────────────────────────────────────────────────

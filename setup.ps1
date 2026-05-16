@@ -41,12 +41,27 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 # ── Constants ─────────────────────────────────────────────────────────────────
+# Path conventions (matters! — getting this wrong causes the "mpv vanishes
+# on reinstall" and "sync mode pollutes the source repo" bugs):
+#
+#   $AppDir   — code + .venv + launcher. May be a junction in sync mode.
+#               Lives under \Programs\ so it is SEPARATE from $DataDir.
+#   $DataDir  — bundled mpv binary + cache + history. Always a real dir.
+#               Must NOT live inside $AppDir or sync-mode reinstalls will
+#               wipe the bundled mpv and writes to cache will pollute the
+#               user's source repo.
+#   $ConfigDir — roaming config + cookies.
+#
 $Version = "0.2.0"
 $AppName = "TermTube"
-$AppDir = Join-Path $env:LOCALAPPDATA $AppName
-$BinDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
+$AppDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
+$DataDir = Join-Path $env:LOCALAPPDATA $AppName
 $ConfigDir = Join-Path $env:APPDATA "TermTube"
 $PythonMin = "3.11"
+
+# Legacy path: pre-architecture-fix installs put code at %LOCALAPPDATA%\TermTube.
+# Used by migration code in Install-Files to clean up old layouts.
+$LegacyAppDir = Join-Path $env:LOCALAPPDATA "TermTube"
 
 # ── Output Helpers ────────────────────────────────────────────────────────────
 function Write-Info    { param($Msg) Write-Host "  > " -NoNewline -ForegroundColor Cyan; Write-Host $Msg }
@@ -76,7 +91,8 @@ if ($Help) {
     -Help         Show this message.
 
   Paths:
-    Install dir:  %LOCALAPPDATA%\TermTube
+    Install dir:  %LOCALAPPDATA%\Programs\TermTube   (code, .venv, launcher)
+    Data dir:     %LOCALAPPDATA%\TermTube            (mpv binary, cache)
     Config:       %APPDATA%\TermTube\config.yaml
     Cookies:      %APPDATA%\TermTube\cookies.txt
 
@@ -267,7 +283,7 @@ function Install-MpvCli {
         mpv.net (winget) always opens a GUI window; this CLI build does not.
         Installs to %LOCALAPPDATA%\TermTube\mpv\mpv.exe and adds to user PATH.
     #>
-    $destDir = Join-Path $env:LOCALAPPDATA "TermTube\mpv"
+    $destDir = Join-Path $DataDir "mpv"
     $dest    = Join-Path $destDir "mpv.exe"
     if (Test-Path $dest) {
         Write-Info "Standalone mpv.exe already present ($dest)."
@@ -303,7 +319,7 @@ function Install-MpvCli {
 
         # Use an owned staging dir — never write into bare $env:TEMP.
         # System subdirs like WinSAT have restricted ACLs and will deny access.
-        $tempDir     = Join-Path $env:LOCALAPPDATA "TermTube\tmp"
+        $tempDir     = Join-Path $DataDir "tmp"
         $tempArchive = Join-Path $tempDir "mpv-download.7z"
         $tempExtract = Join-Path $tempDir "mpv-extract"
 
@@ -391,7 +407,7 @@ function Install-MpvCli {
         }
         return $false
     } finally {
-        Remove-Item -Path (Join-Path $env:LOCALAPPDATA "TermTube\tmp") `
+        Remove-Item -Path (Join-Path $DataDir "tmp") `
             -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
@@ -672,6 +688,41 @@ function Install-Files {
         return
     }
 
+    # ── Migrate from legacy layout (pre-2026-05) ──────────────────────────
+    # Old installs put code at %LOCALAPPDATA%\TermTube, conflicting with the
+    # data dir. If we detect that old layout, salvage its .venv and clean it
+    # up so the data dir (mpv binary, cache) is left intact at the same path.
+    if (Test-Path $LegacyAppDir) {
+        $legacyIsJunction = Test-IsReparsePoint $LegacyAppDir
+        $legacyVenv       = Join-Path $LegacyAppDir ".venv"
+        $legacyHasCode    = (Test-Path (Join-Path $LegacyAppDir "src")) -or `
+                            (Test-Path (Join-Path $LegacyAppDir "termtube.cmd"))
+        if ($legacyIsJunction) {
+            Write-Warn "Removing legacy install junction at $LegacyAppDir."
+            Remove-PathSafe $LegacyAppDir | Out-Null
+        } elseif ($legacyHasCode) {
+            Write-Info "Migrating from legacy layout at $LegacyAppDir."
+            # Salvage .venv to the new $AppDir location below; then prune
+            # the legacy code dir but PRESERVE mpv/, cache/, history.json, etc.
+            if (Test-Path $legacyVenv) {
+                $migrateStash = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
+                if (Test-Path $migrateStash) { Remove-PathSafe $migrateStash | Out-Null }
+                try {
+                    Move-Item -LiteralPath $legacyVenv -Destination $migrateStash -Force -ErrorAction Stop
+                } catch {
+                    Write-Warn "Could not preserve legacy .venv: $($_.Exception.Message)"
+                }
+            }
+            # Remove only the code/launcher artifacts from the legacy dir
+            foreach ($name in @("src", "termtube", "termtube.cmd", "setup.sh", "setup.ps1",
+                                "uninstall.sh", "uninstall.ps1", "requirements.txt")) {
+                $p = Join-Path $LegacyAppDir $name
+                if (Test-Path $p) { Remove-PathSafe $p | Out-Null }
+            }
+            Write-Success "Legacy code dir cleaned; data preserved at $LegacyAppDir."
+        }
+    }
+
     # Preserve the previous install's .venv across reinstalls so users don't
     # pay a 30-60s pip cost every time. Move it aside before tearing down the
     # install dir, then restore it after. Only valid in standard mode — in
@@ -679,6 +730,18 @@ function Install-Files {
     $stashedVenv = $null
     $appVenv     = Join-Path $AppDir ".venv"
     $existingIsJunction = (Test-Path $AppDir) -and (Test-IsReparsePoint $AppDir)
+    # If migration above stashed a venv, treat that as the existing one to restore.
+    $migrateStash = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
+    if ((Test-Path $migrateStash) -and -not (Test-Path $appVenv)) {
+        $stashedVenv = $migrateStash
+    }
+
+    # Ensure $AppDir's parent dir (%LOCALAPPDATA%\Programs\) exists — New-Item
+    # Junction will fail with an unhelpful error if it doesn't.
+    $appParent = Split-Path -Parent $AppDir
+    if ($appParent -and -not (Test-Path $appParent)) {
+        New-Item -ItemType Directory -Path $appParent -Force | Out-Null
+    }
 
     if ($SyncMode) {
         Write-Header "Developer Sync Mode"
@@ -770,19 +833,25 @@ function Install-Launcher {
         }
     }
 
-    if (-not (Test-Path $BinDir)) { New-Item -ItemType Directory -Path $BinDir -Force | Out-Null }
-    $batPath = Join-Path $BinDir "termtube.cmd"
-    Copy-Item $srcCmd -Destination $batPath -Force
+    # termtube.cmd is already inside $AppDir (Install-Files copied it for
+    # standard mode; in sync mode it's reachable via the junction). All we
+    # have to do is put $AppDir on user PATH.
+    $batPath = Join-Path $AppDir "termtube.cmd"
+    if (-not (Test-Path $batPath)) {
+        # Defensive: ensure the launcher exists. Useful if user ran with -NoDeps
+        # and Install-Files didn't run, or if termtube.cmd was missing from source.
+        Copy-Item $srcCmd -Destination $batPath -Force
+    }
 
     # Add to user PATH if not present
     $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-    if ($userPath -notlike "*$BinDir*") {
-        [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$BinDir", "User")
-        $env:PATH = "$env:PATH;$BinDir"
-        Write-Success "Added $BinDir to user PATH."
+    if ($userPath -notlike "*$AppDir*") {
+        [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$AppDir", "User")
+        $env:PATH = "$env:PATH;$AppDir"
+        Write-Success "Added $AppDir to user PATH."
         Write-Warn "Restart your terminal for PATH changes to take effect."
     } else {
-        Write-Success "termtube.cmd installed to $BinDir"
+        Write-Success "termtube launcher available at $batPath"
     }
 }
 
@@ -819,10 +888,16 @@ function Main {
         Test-Dependencies | Out-Null
     }
 
-    # Download standalone mpv.exe for windowless audio playback
-    Install-MpvCli | Out-Null
-
+    # Install code first, THEN download bundled mpv.
+    # mpv lives in $DataDir, which is intentionally outside $AppDir — so
+    # the order is no longer load-bearing for correctness, but doing code
+    # first matches the user-visible "set up the app, then add binaries"
+    # mental model.
     Install-Files -SyncMode $syncMode
+
+    # Download standalone mpv.exe for windowless audio playback (into
+    # $DataDir, NOT $AppDir — safe across reinstalls and sync mode).
+    Install-MpvCli | Out-Null
 
     Write-Header "Python Environment"
     $venvDir      = Join-Path $AppDir ".venv"
