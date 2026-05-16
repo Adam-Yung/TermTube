@@ -140,3 +140,61 @@ Key decisions:
 - **Auto-skip uses a `_skipped_indices: set[int]` guard** — prevents the same segment from triggering repeated seeks if the poll fires before mpv finishes seeking past the segment boundary.
 - **`urllib.request` (stdlib) instead of `httpx`/`requests`** — zero new dependencies. 3-second timeout so a slow/down API doesn't block playback start noticeably.
 - **Configuration is a nested dict (`sponsorblock:` key in config.yaml)** — mirrors the `cache_ttl` pattern. Deep-merged on load so partial user overrides don't clobber other defaults.
+
+## Why `cookie_args` is a method with `auth_required`, not a property
+
+`Config.cookie_args` used to be a `@property` that always returned the full
+priority chain: cookies.txt → browser → none. With `browser: chrome` as the
+default in `DEFAULT_CONFIG`, every unauthenticated user got
+`--cookies-from-browser chrome` attached to every single yt-dlp invocation —
+search, channel pages, watch, download, video detail. When Chrome wasn't
+running, wasn't installed, the cookie store was locked (Linux keyring),
+or the user had a different browser, yt-dlp failed and so did pages that
+genuinely don't need a token at all.
+
+The fix splits the chain by caller intent rather than trying to probe
+browser-cookie viability (which is slow and unreliable):
+
+- `Config.cookie_args(*, auth_required: bool = False) -> list[str]`
+  - File → browser → none, **but** browser is only attempted when the
+    caller passes `auth_required=True`.
+- Only `Home`, `Subscriptions`, and `fetch_subscribed_channels` pass
+  `True`. Everything else — `stream_search`, `fetch_search_batch`,
+  `fetch_full`, `fetch_stream_urls`, `download_*`, `fetch_channel_*`,
+  audio/video playback — uses the default `False`, so they emit no
+  cookie flags at all when cookies.txt is absent. They still benefit
+  from cookies.txt when it exists ("search with the token for better
+  results" still works).
+- `ytdlp.stream_flat` infers `auth_required` from
+  `feed_key in FEED_URLS` so the home/subs feed loader doesn't have
+  to specify it explicitly.
+
+Tradeoff considered and rejected: probing browser cookies once per
+session with a synthetic `yt-dlp --cookies-from-browser X --simulate`
+call. Adds startup latency, false negatives when YouTube rate-limits
+the probe, and still has to handle the failure mode. The
+`auth_required` split is simpler, deterministic, and matches the
+actual product semantic (Home/Subs are the only pages that *need* the
+token).
+
+## Why the Settings → "Generate OAuth2 Token" option was removed
+
+The option called `subprocess.call(["yt-dlp", "--oauth2", "--dump-json", URL],
+stdout=DEVNULL)` inside `self.app.suspend(_run)`. Two compounding bugs:
+
+1. Stock `yt-dlp` has no `--oauth2` flag. There is a third-party plugin
+   (`yt-dlp-youtube-oauth2`) that adds it, but the codebase never
+   checked for it nor instructed the user to install it. The subprocess
+   errored, output was sent to `/dev/null`, and nothing was persisted
+   to disk — even on success, the next yt-dlp invocation had no token
+   to use.
+2. `App.suspend()` on Textual ≥ 0.68 (this project requires ≥ 0.68) is
+   a **context manager**, not a callable that takes a function. So
+   `self.app.suspend(_run)` raised `TypeError` and tore down the modal.
+
+The cookies.txt / `--cookies-from-browser` paths already cover the
+authentication need without needing OAuth2 token persistence
+(yt-dlp consumes browser cookies directly on each call). The
+Authentication section in Settings is now a read-only status display
+of the active cookie source, which is what the option was effectively
+trying to surface anyway.
