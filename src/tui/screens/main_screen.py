@@ -80,17 +80,7 @@ class AppHeader(Widget):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _fmt_age_seconds(secs: float) -> str:
-    """Compact human age string for the freshness header (e.g. '4m ago', '2h ago')."""
-    secs = int(secs)
-    if secs < 60:
-        return "just now"
-    if secs < 3600:
-        return f"{secs // 60}m ago"
-    if secs < 86400:
-        return f"{secs // 3600}h ago"
-    days = secs // 86400
-    return f"{days}d ago"
+from src.tui.fmt import fmt_age_seconds as _fmt_age_seconds
 
 
 # ── Tab definitions ────────────────────────────────────────────────────────────

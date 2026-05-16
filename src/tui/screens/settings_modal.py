@@ -98,23 +98,22 @@ class SettingsModal(ModalScreen[None]):
             tfl.append(item)
 
         # Cookie status subtitle
+        import time
+        from src.tui.fmt import fmt_age_seconds
         cf_path = config.cookies_file_path
         cf_exists = cf_path.exists() if cf_path else False
         if cf_exists:
-            import time
             try:
                 age_s = time.time() - cf_path.stat().st_mtime
-                if age_s < 3600:
-                    age_str = f"{int(age_s // 60)}m ago"
-                elif age_s < 86400:
-                    age_str = f"{int(age_s // 3600)}h ago"
-                else:
-                    age_str = f"{int(age_s // 86400)}d ago"
+                age_str = fmt_age_seconds(age_s)
             except OSError:
                 age_str = "unknown"
             cookie_line = f"  [dim]cookies.txt:[/dim] [green]{cf_path}[/green]  ·  refreshed {age_str}"
         elif cf_path:
-            cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not yet extracted — refresh on next exit[/yellow]"
+            cookie_line = (
+                "  [dim]cookies.txt:[/dim] [yellow]not found[/yellow]"
+                "  ·  run [bold]termtube --refresh-cookies[/bold]"
+            )
         else:
             cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not configured[/yellow]"
         self.query_one("#s-cookie-status", Static).update(cookie_line)

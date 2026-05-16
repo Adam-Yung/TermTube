@@ -21,7 +21,7 @@ A lightning-fast YouTube client for your terminal. Browse your home feed, search
 | Python 3.11+ | Runtime | `brew install python@3.12` | `sudo apt install python3.12` | `winget install Python.Python.3.12` |
 | yt-dlp (nightly) | YouTube data | see setup script | see setup script | see setup script |
 | Deno | JS runtime for yt-dlp | see setup script | see setup script | `winget install DenoLand.Deno` |
-| mpv | Playback | `brew install mpv` | `sudo apt install mpv` | `winget install mpv.net` |
+| mpv | Playback | `brew install mpv` | `sudo apt install mpv` | bundled by `setup.ps1` |
 | chafa | Thumbnails (optional) | `brew install chafa` | `sudo apt install chafa` | `winget install hpjansson.Chafa` |
 | ffmpeg | Audio conversion (optional) | `brew install ffmpeg` | `sudo apt install ffmpeg` | `winget install Gyan.FFmpeg` |
 

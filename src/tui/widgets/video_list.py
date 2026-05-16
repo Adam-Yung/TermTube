@@ -39,53 +39,7 @@ class _ItemDoubleClicked(Message):
         super().__init__()
         self.entry = entry
 
-def _fmt_duration(secs: int | float | None) -> str:
-    if not secs:
-        return ""
-    secs = int(secs)
-    h, rem = divmod(secs, 3600)
-    m, s = divmod(rem, 60)
-    if h:
-        return f"{h}:{m:02d}:{s:02d}"
-    return f"{m}:{s:02d}"
-
-
-def _fmt_views(n: int | None) -> str:
-    if not n:
-        return ""
-    if n >= 1_000_000_000:
-        return f"{n / 1_000_000_000:.1f}B views"
-    if n >= 1_000_000:
-        return f"{n / 1_000_000:.1f}M views"
-    if n >= 1_000:
-        return f"{n / 1_000:.0f}K views"
-    return f"{n} views"
-
-
-def _fmt_age(upload_date: str | None) -> str:
-    if not upload_date or len(upload_date) < 8:
-        return ""
-    try:
-        import datetime
-
-        y, m, d = int(upload_date[:4]), int(upload_date[4:6]), int(upload_date[6:8])
-        delta = datetime.date.today() - datetime.date(y, m, d)
-        days = delta.days
-        if days < 0:
-            return ""
-        if days == 0:
-            return "today"
-        if days == 1:
-            return "yesterday"
-        if days < 7:
-            return f"{days}d ago"
-        if days < 30:
-            return f"{days // 7}w ago"
-        if days < 365:
-            return f"{days // 30}mo ago"
-        return f"{days // 365}y ago"
-    except (ValueError, TypeError):
-        return ""
+from src.tui.fmt import fmt_duration as _fmt_duration, fmt_views as _fmt_views, fmt_age as _fmt_age
 
 
 def _fmt_watched(ts: float | None) -> str:

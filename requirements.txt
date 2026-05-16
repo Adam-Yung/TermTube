@@ -24,6 +24,6 @@ pywin32>=306; sys_platform == "win32"
 
 # System tools expected on PATH (install via brew / apt / winget, not pip):
 #   yt-dlp      brew install yt-dlp       / winget install yt-dlp.yt-dlp
-#   mpv         brew install mpv          / winget install mpv.net
+#   mpv         brew install mpv          / bundled by setup.ps1 on Windows
 #   chafa       brew install chafa        (optional, Unix only — skipped on Windows)
 #   ffmpeg      brew install ffmpeg       / winget install Gyan.FFmpeg (optional)

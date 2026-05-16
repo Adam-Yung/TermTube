@@ -270,7 +270,7 @@ _INSTALL_HINTS: dict[str, dict[str, str]] = {
         "linux":   "curl -fsSL https://deno.land/install.sh | sh",
     },
     "mpv": {
-        "windows": "winget install mpv.net",
+        "windows": "re-run setup.ps1 (bundles standalone mpv)",
         "macos":   "brew install mpv",
         "linux":   "sudo apt install mpv",
     },

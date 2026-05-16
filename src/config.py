@@ -106,17 +106,6 @@ class Config:
         raw = self._data.get("cookies_file")
         return Path(raw).expanduser() if raw else None
 
-    @property
-    def cookie_source(self) -> str:
-        """Human-readable description of the active cookie source."""
-        cf = self.cookies_file
-        if cf:
-            return f"cookies.txt ({cf})"
-        path = self.cookies_file_path
-        if path:
-            return f"none — run `termtube --refresh-cookies` to extract from {self.browser}"
-        return "none (no cookies_file configured)"
-
     # ── Convenience properties ────────────────────────────────────────────────
 
     @property

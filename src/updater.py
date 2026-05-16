@@ -190,7 +190,7 @@ def refresh_cookies(config=None, verbose: bool = False) -> bool:
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL if not verbose else None,
-            timeout=30,
+            timeout=120,
         )
     except FileNotFoundError:
         if verbose:

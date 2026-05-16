@@ -13,7 +13,7 @@ from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
 DEPS: list[tuple[str, str, str, str | None, bool]] = [
     ("yt-dlp",  "yt-dlp",  "yt-dlp",  "yt-dlp.yt-dlp",   True),
     ("deno",    "deno",    "deno",    "DenoLand.Deno",    True),   # required by yt-dlp for YouTube (JS runtime)
-    ("mpv",     "mpv",     "mpv",     "mpv.net",          True),
+    ("mpv",     "mpv",     "mpv",     None,               True),   # Windows: bundled by setup.ps1
     ("chafa",   "chafa",   "chafa",   "hpjansson.Chafa",  False),  # optional: thumbnails
     ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",      False),  # optional: audio conversion
 ]
@@ -94,13 +94,13 @@ def _has(cmd: str) -> bool:
 
 
 def _has_mpv() -> bool:
-    """Check for mpv, accounting for mpv.net on Windows (installs as mpvnet.exe)."""
+    """Check for mpv — PATH or TermTube's bundled standalone on Windows."""
     if _has("mpv"):
         return True
     if IS_WINDOWS:
         import os
-        mpvnet = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net" / "mpvnet.exe"
-        return mpvnet.exists()
+        bundled = Path(os.environ.get("LOCALAPPDATA", "")) / "TermTube" / "mpv" / "mpv.exe"
+        return bundled.exists()
     return False
 
 

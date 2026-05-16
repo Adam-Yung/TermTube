@@ -64,13 +64,6 @@ _FAST_FLAGS = [
 ]
 
 
-# ── Cookie helper ─────────────────────────────────────────────────────────────
-
-def cookie_args(config) -> list[str]:
-    """Return yt-dlp --cookies flags from config."""
-    return config.cookie_args()
-
-
 # ── Entry normalisation ───────────────────────────────────────────────────────
 
 def _best_thumb_url(entry: dict) -> str:
@@ -296,7 +289,7 @@ def stream_flat(
 
     # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
     logger.debug("stream_flat fetching fresh: %s (max_count=%s)", url, max_count)
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
     seen_ids: list[str] = []
     yielded = 0
 
@@ -370,7 +363,7 @@ def stream_search(
         "--quiet",
         "--flat-playlist",
         "--extractor-args", "youtube:skip=dash,hls",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     seen_ids: list[str] = []
@@ -434,7 +427,7 @@ def fetch_page_batch(
 
     # Fresh fetch
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
     results: list[dict] = []
     all_ids: list[str] = []
 
@@ -501,7 +494,7 @@ def fetch_search_batch(
         "--quiet",
         "--flat-playlist",
         "--extractor-args", "youtube:skip=dash,hls",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     results: list[dict] = []
@@ -552,7 +545,7 @@ def fetch_full(
         "--quiet",
         "--skip-download",
         "--extractor-args", "youtube:skip=dash,hls",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     logger.debug("fetch_full fetching: %s", video_id)
@@ -594,7 +587,7 @@ def fetch_stream_urls(
         "--no-warnings",
         "--quiet",
         "--skip-download",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     logger.debug("fetch_stream_urls: %s", video_id)
@@ -784,7 +777,7 @@ def download_video_with_progress(
         "--write-thumbnail",
         "--newline",
         "--no-warnings",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     return _run_download_with_progress(cmd, on_progress)
@@ -812,7 +805,7 @@ def download_audio_with_progress(
         "--write-thumbnail",
         "--newline",
         "--no-warnings",
-        *cookie_args(config),
+        *config.cookie_args(),
         url,
     ]
     return _run_download_with_progress(cmd, on_progress)
@@ -852,7 +845,7 @@ def fetch_channel_info(
         "--flat-playlist",
         "--playlist-items", "0",
         "--no-warnings",
-        *cookie_args(config),
+        *config.cookie_args(),
         channel_url,
     ]
     try:
@@ -926,7 +919,7 @@ def fetch_channel_playlists(
     """Fetch playlist entries from a channel."""
     url = _normalise_channel_url(channel_url) + "/playlists"
     logger.debug("fetch_channel_playlists: url=%s", url)
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
+    cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
     results: list[dict] = []
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug(), on_proc_started=on_proc_started):
         if len(results) >= count:
@@ -955,7 +948,7 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
             return entries
     flat = "--flat-playlist"
     cmd = ["yt-dlp", flat, "--dump-json", "--no-warnings", "--quiet",
-           *cookie_args(config), url]
+           *config.cookie_args(), url]
     results: list[dict] = []
     seen: list[str] = []
     try:

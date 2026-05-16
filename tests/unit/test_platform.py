@@ -132,7 +132,7 @@ class TestInstallHint:
 
     def test_known_tool_windows(self, monkeypatch):
         monkeypatch.setattr("src.platform.IS_WINDOWS", True)
-        assert "winget" in install_hint("mpv")
+        assert "setup.ps1" in install_hint("mpv")
 
     def test_unknown_tool_returns_fallback(self, monkeypatch):
         monkeypatch.setattr("src.platform.IS_WINDOWS", False)
