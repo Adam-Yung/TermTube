@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(autouse=True)
 def _restore_modules():
     """Reload hot-patched modules after each test to restore clean module state.
 
@@ -43,11 +43,10 @@ def _restore_modules():
 
 def _reload_as_windows(monkeypatch, module_name: str, appdata: str, localappdata: str):
     """Reload *module_name* with IS_WINDOWS=True and Windows env vars set."""
-    monkeypatch.setattr("src.platform.IS_WINDOWS", True)
-    monkeypatch.setattr("src.platform.IS_MACOS",   False)
-    monkeypatch.setattr("src.platform.IS_LINUX",   False)
     monkeypatch.setenv("APPDATA",      appdata)
     monkeypatch.setenv("LOCALAPPDATA", localappdata)
+    # Patch sys.platform before reloading so IS_WINDOWS computes True at import
+    monkeypatch.setattr(sys, "platform", "win32")
     if "src.platform" in sys.modules:
         importlib.reload(sys.modules["src.platform"])
     mod = sys.modules.get(module_name)
@@ -130,14 +129,10 @@ class TestPlaylistPath:
 
 class TestSponsorblockCacheDir:
     def test_windows_uses_localappdata_not_dot_cache(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        monkeypatch.setattr("src.platform.IS_LINUX",   False)
         monkeypatch.setenv("APPDATA",      _WIN_APPDATA)
         monkeypatch.setenv("LOCALAPPDATA", _WIN_LOCALAPPDATA)
-        import importlib, sys
+        monkeypatch.setattr(sys, "platform", "win32")
         importlib.reload(sys.modules["src.platform"])
-        # Read the patched cache dir directly — no full module reload needed
         import src.platform as plat
         cache = plat.get_cache_dir()
         s = str(cache / "sb")

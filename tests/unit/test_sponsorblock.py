@@ -19,6 +19,14 @@ from src.sponsorblock import (
 )
 
 
+def _assert_segment(seg, *, start: float, end: float, category: str):
+    """Assert segment fields without relying on dataclass __eq__ (which breaks
+    when other tests reload the module and create a new Segment class object)."""
+    assert seg.start == start
+    assert seg.end == end
+    assert seg.category == category
+
+
 # ── Segment dataclass ─────────────────────────────────────────────────────────
 
 
@@ -80,8 +88,8 @@ class TestReadCache:
         result = _read_cache("fresh_video")
         assert result is not None
         assert len(result) == 2
-        assert result[0] == Segment(start=10.0, end=20.0, category="sponsor")
-        assert result[1] == Segment(start=50.0, end=60.0, category="selfpromo")
+        _assert_segment(result[0], start=10.0, end=20.0, category="sponsor")
+        _assert_segment(result[1], start=50.0, end=60.0, category="selfpromo")
 
     def test_returns_empty_list_for_cached_empty(self, tmp_path, monkeypatch):
         cache_dir = tmp_path / "sb"
@@ -155,7 +163,7 @@ class TestFetchSegments:
 
         result = fetch_segments("cached_vid")
         assert len(result) == 1
-        assert result[0] == Segment(start=1.0, end=2.0, category="sponsor")
+        _assert_segment(result[0], start=1.0, end=2.0, category="sponsor")
 
     def test_returns_empty_for_empty_video_id(self):
         assert fetch_segments("") == []
@@ -213,9 +221,9 @@ class TestFetchSegments:
             result = fetch_segments("parse_test_vid")
 
         assert len(result) == 3
-        assert result[0] == Segment(start=0.0, end=30.5, category="sponsor")
-        assert result[1] == Segment(start=120.0, end=150.0, category="selfpromo")
-        assert result[2] == Segment(start=200.0, end=210.0, category="sponsor")
+        _assert_segment(result[0], start=0.0, end=30.5, category="sponsor")
+        _assert_segment(result[1], start=120.0, end=150.0, category="selfpromo")
+        _assert_segment(result[2], start=200.0, end=210.0, category="sponsor")
 
     def test_skips_malformed_segments(self, tmp_path, monkeypatch):
         cache_dir = tmp_path / "sb"
@@ -239,7 +247,7 @@ class TestFetchSegments:
             result = fetch_segments("malformed_vid")
 
         assert len(result) == 1
-        assert result[0] == Segment(start=0.0, end=10.0, category="sponsor")
+        _assert_segment(result[0], start=0.0, end=10.0, category="sponsor")
 
 
 # ── _get_ssl_context / _cached_ssl_context ────────────────────────────────────

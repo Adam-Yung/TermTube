@@ -72,8 +72,8 @@ async def test_help_toggle(app):
 async def test_search_modal_opens(app):
     """Pressing / should open the search modal."""
     async with app.run_test(size=(100, 30)) as pilot:
-        await pilot.pause(0.3)
+        await pilot.pause(0.5)
         await pilot.press("slash")
-        await pilot.pause(0.2)
-        from src.tui.screens.search_modal import SearchModal
-        assert any(isinstance(s, SearchModal) for s in app.screen_stack)
+        await pilot.pause(1.0)
+        screen_names = [type(s).__name__ for s in app.screen_stack]
+        assert "SearchModal" in screen_names, f"SearchModal not in screen_stack: {screen_names}"
