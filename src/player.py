@@ -408,8 +408,8 @@ def play(
     """
     Stream video/audio URL with the configured player.
     Blocks until playback ends.
-    cookie_args: yt-dlp cookie flags (e.g. config.cookie_args) passed to mpv's
-                 internal yt-dlp via --ytdl-raw-options so YouTube auth works.
+    cookie_args: yt-dlp cookie flags (e.g. config.cookie_args(auth_required=False))
+                 passed to mpv's internal yt-dlp via --ytdl-raw-options so YouTube auth works.
     """
     if player == "vlc" and _vlc_available():
         _play_vlc(url, audio_only=audio_only)

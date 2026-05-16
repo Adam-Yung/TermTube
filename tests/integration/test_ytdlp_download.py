@@ -34,7 +34,7 @@ def fake_config(tmp_path):
     cfg.video_format = "%(title)s.%(ext)s"
     cfg.audio_format = "%(title)s.%(ext)s"
     cfg.preferred_quality = "1080"
-    cfg.cookie_args = []
+    cfg.cookie_args.return_value = []
     return cfg
 
 

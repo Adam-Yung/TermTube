@@ -281,9 +281,10 @@ def main() -> None:
         print("Cache cleared.")
         sys.exit(0)
 
-    # Warn if no cookie source is configured
-    if not config.cookie_args:
-        print("\033[33m⚠ No cookie source configured. Home feed and subscriptions require authentication.\033[0m")
+    # Warn if no cookie source is configured for auth-required pages
+    if not config.cookie_args(auth_required=True):
+        print("\033[33m⚠ No cookie source configured. Home feed and Subscriptions require authentication;\033[0m")
+        print("\033[33m  other pages (Search, channels, watch, download) will still work without one.\033[0m")
         print("  Run: termtube --cookies-help  for setup instructions.\n")
 
     # Import textual_image.widget BEFORE launching Textual — the library queries the

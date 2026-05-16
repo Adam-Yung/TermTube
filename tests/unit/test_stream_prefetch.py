@@ -100,7 +100,7 @@ class TestFetchStreamUrls:
 
         with patch("src.ytdlp._stream_json_lines", return_value=iter([fake_info])):
             config = MagicMock()
-            config.cookie_args = []
+            config.cookie_args.return_value = []
             result = fetch_stream_urls("abc123", config)
 
         assert result is not None
@@ -114,7 +114,7 @@ class TestFetchStreamUrls:
 
         with patch("src.ytdlp._stream_json_lines", return_value=iter([fake_info])):
             config = MagicMock()
-            config.cookie_args = []
+            config.cookie_args.return_value = []
             result = fetch_stream_urls("abc123", config)
 
         assert result is None
@@ -122,7 +122,7 @@ class TestFetchStreamUrls:
     def test_returns_none_on_empty_response(self):
         with patch("src.ytdlp._stream_json_lines", return_value=iter([])):
             config = MagicMock()
-            config.cookie_args = []
+            config.cookie_args.return_value = []
             result = fetch_stream_urls("abc123", config)
 
         assert result is None
@@ -138,7 +138,7 @@ class TestFetchStreamUrls:
 
         with patch("src.ytdlp._stream_json_lines", return_value=iter([fake_info])):
             config = MagicMock()
-            config.cookie_args = []
+            config.cookie_args.return_value = []
             result = fetch_stream_urls("abc123", config)
 
         assert result is not None

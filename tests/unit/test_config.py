@@ -99,10 +99,11 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        args = cfg.cookie_args
-        assert args == ["--cookies", str(cookies_path)]
+        # File is used regardless of auth_required.
+        assert cfg.cookie_args(auth_required=True) == ["--cookies", str(cookies_path)]
+        assert cfg.cookie_args(auth_required=False) == ["--cookies", str(cookies_path)]
 
-    def test_falls_back_to_browser(self, tmp_path):
+    def test_falls_back_to_browser_only_when_auth_required(self, tmp_path):
         config_path = tmp_path / "config.yaml"
         config_path.write_text(
             yaml.dump({"cookies_file": str(tmp_path / "nonexistent.txt"), "browser": "firefox"})
@@ -111,8 +112,11 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        args = cfg.cookie_args
-        assert args == ["--cookies-from-browser", "firefox"]
+        # Auth-required pages (home, subs) fall back to the browser.
+        assert cfg.cookie_args(auth_required=True) == ["--cookies-from-browser", "firefox"]
+        # Non-auth pages (search, watch, …) skip the browser fallback so they
+        # always work even when the configured browser is unavailable.
+        assert cfg.cookie_args(auth_required=False) == []
 
     def test_empty_when_no_source(self, tmp_path):
         config_path = tmp_path / "config.yaml"
@@ -121,7 +125,8 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        assert cfg.cookie_args == []
+        assert cfg.cookie_args(auth_required=True) == []
+        assert cfg.cookie_args(auth_required=False) == []
 
 
 class TestDirPaths:
