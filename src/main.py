@@ -176,7 +176,7 @@ def _run_tests() -> None:
 
 
 def _migrate_legacy_windows_paths() -> None:
-    """One-time migration for Windows users whose data landed at the wrong path.
+    r"""One-time migration for Windows users whose data landed at the wrong path.
 
     Older builds hardcoded Path.home() / ".config" / "TermTube" instead of
     using get_config_dir() which resolves to %APPDATA%\TermTube on Windows.
