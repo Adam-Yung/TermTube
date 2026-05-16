@@ -203,8 +203,8 @@ function Install-MpvCli {
     }
 
     # Detect CPU architecture for the correct asset
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
-    $assetPattern = if ($arch -eq "Arm64") { "^mpv-aarch64-\d" } else { "^mpv-x86_64-\d" }
+    $arch = $env:PROCESSOR_ARCHITECTURE   # "AMD64", "x86", or "ARM64"; available on all Windows versions
+    $assetPattern = if ($arch -eq "ARM64") { "^mpv-aarch64-\d" } else { "^mpv-x86_64-\d" }
 
     Write-Step "Downloading standalone mpv.exe for audio playback..."
     try {
