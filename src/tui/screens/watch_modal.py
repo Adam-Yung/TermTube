@@ -121,7 +121,7 @@ class WatchModal(ModalScreen[bool]):
         )
         title = self._entry.get("title", "")
 
-        cookie_args = config.cookie_args(auth_required=False) if config else []
+        cookie_args = config.cookie_args() if config else []
 
         # Use prefetched stream URLs if available, not expired, and no custom quality
         use_prefetched = False

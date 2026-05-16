@@ -366,3 +366,78 @@ class TestMaybeUpdate:
             mod.maybe_update()
         kwargs = mock_popen.call_args[1]
         assert kwargs.get("start_new_session") is True
+
+
+# ── refresh_cookies ───────────────────────────────────────────────────────────
+
+class TestRefreshCookies:
+    def _make_config(self, tmp_path: Path):
+        """Create a minimal Config-like object for testing."""
+        mock = MagicMock()
+        mock.cookies_file_path = tmp_path / "cookies.txt"
+        mock.get.return_value = "chrome"
+        return mock
+
+    def test_success_writes_cookies_and_touches_sentinel(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        config = self._make_config(tmp_path)
+        cookies_tmp = config.cookies_file_path.with_suffix(".tmp")
+
+        def _fake_run(cmd, **kw):
+            # Simulate yt-dlp writing the .tmp file
+            cookies_tmp.write_text("# Netscape cookies\nfoo\tbar\n")
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=_fake_run):
+            result = mod.refresh_cookies(config, verbose=False)
+
+        assert result is True
+        assert config.cookies_file_path.exists()
+        assert not cookies_tmp.exists()
+        assert mod._LAST_COOKIE_REFRESH.exists()
+
+    def test_failure_preserves_existing_cookies(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        config = self._make_config(tmp_path)
+        # Pre-existing cookies.txt
+        config.cookies_file_path.write_text("# existing cookies")
+
+        mock_result = MagicMock(returncode=1)
+        with patch("subprocess.run", return_value=mock_result):
+            result = mod.refresh_cookies(config, verbose=False)
+
+        assert result is False
+        # Existing file should be untouched
+        assert config.cookies_file_path.read_text() == "# existing cookies"
+
+    def test_no_cookies_file_configured_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        config = MagicMock()
+        config.cookies_file_path = None
+
+        result = mod.refresh_cookies(config, verbose=False)
+        assert result is False
+
+    def test_ytdlp_not_found_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        config = self._make_config(tmp_path)
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            result = mod.refresh_cookies(config, verbose=False)
+
+        assert result is False
+
+    def test_empty_output_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        config = self._make_config(tmp_path)
+        cookies_tmp = config.cookies_file_path.with_suffix(".tmp")
+
+        def _fake_run(cmd, **kw):
+            # Simulate yt-dlp creating an empty file
+            cookies_tmp.write_text("")
+            return MagicMock(returncode=0)
+
+        with patch("subprocess.run", side_effect=_fake_run):
+            result = mod.refresh_cookies(config, verbose=False)
+
+        assert result is False

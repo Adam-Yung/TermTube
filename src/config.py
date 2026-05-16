@@ -81,30 +81,16 @@ class Config:
             loaded.pop("sponsorblock")
         self._data.update(loaded)
 
-    # ── Cookie resolution (priority: file → browser → none) ─────────────────
+    # ── Cookie resolution ────────────────────────────────────────────────────
 
-    def cookie_args(self, *, auth_required: bool = False) -> list[str]:
-        """Return yt-dlp cookie flags based on config priority.
+    def cookie_args(self) -> list[str]:
+        """Return yt-dlp cookie flags: ``--cookies <path>`` if the file exists, else nothing.
 
-        Resolution order, in all cases:
-          1. cookies.txt at the configured ``cookies_file`` path, if it exists
-          2. the configured browser via ``--cookies-from-browser``
-          3. no cookies at all
-
-        ``auth_required`` controls whether step 2 is attempted. Set it to
-        ``True`` for pages that genuinely require authentication (Home,
-        Subscriptions). For everything else (search, channel pages, watch,
-        download, video detail), leave it ``False`` — extracting browser
-        cookies can fail or hang when the browser isn't running / the cookie
-        store is locked / not the configured browser, which would otherwise
-        break operations that don't need a token at all.
+        Browser extraction is handled exclusively by the refresher
+        (``updater.refresh_cookies``), never at runtime.
         """
         cf = self.cookies_file
-        if cf:
-            return ["--cookies", str(cf)]
-        if auth_required and self._data.get("browser"):
-            return ["--cookies-from-browser", self._data["browser"]]
-        return []
+        return ["--cookies", str(cf)] if cf else []
 
     @property
     def cookies_file(self) -> Path | None:
@@ -122,18 +108,14 @@ class Config:
 
     @property
     def cookie_source(self) -> str:
-        """Human-readable description of the active cookie source.
-
-        Describes what the *auth-required* chain (Home / Subscriptions) would
-        use, since unauthenticated pages always fall through to "none".
-        """
+        """Human-readable description of the active cookie source."""
         cf = self.cookies_file
         if cf:
             return f"cookies.txt ({cf})"
-        browser = self._data.get("browser")
-        if browser:
-            return f"{browser} browser (auth pages only)"
-        return "none (unauthenticated)"
+        path = self.cookies_file_path
+        if path:
+            return f"none — run `termtube --refresh-cookies` to extract from {self.browser}"
+        return "none (no cookies_file configured)"
 
     # ── Convenience properties ────────────────────────────────────────────────
 

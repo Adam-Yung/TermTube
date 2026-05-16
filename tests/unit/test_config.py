@@ -87,7 +87,7 @@ class TestSponsorblock:
 
 
 class TestCookieArgs:
-    def test_cookie_file_takes_priority(self, tmp_path):
+    def test_cookie_file_returns_cookies_flag(self, tmp_path):
         cookies_path = tmp_path / "cookies.txt"
         cookies_path.write_text("# Netscape cookies file")
 
@@ -99,11 +99,9 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        # File is used regardless of auth_required.
-        assert cfg.cookie_args(auth_required=True) == ["--cookies", str(cookies_path)]
-        assert cfg.cookie_args(auth_required=False) == ["--cookies", str(cookies_path)]
+        assert cfg.cookie_args() == ["--cookies", str(cookies_path)]
 
-    def test_falls_back_to_browser_only_when_auth_required(self, tmp_path):
+    def test_missing_cookie_file_returns_empty(self, tmp_path):
         config_path = tmp_path / "config.yaml"
         config_path.write_text(
             yaml.dump({"cookies_file": str(tmp_path / "nonexistent.txt"), "browser": "firefox"})
@@ -112,11 +110,8 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        # Auth-required pages (home, subs) fall back to the browser.
-        assert cfg.cookie_args(auth_required=True) == ["--cookies-from-browser", "firefox"]
-        # Non-auth pages (search, watch, …) skip the browser fallback so they
-        # always work even when the configured browser is unavailable.
-        assert cfg.cookie_args(auth_required=False) == []
+        # No file on disk → no flags (browser is never used at runtime)
+        assert cfg.cookie_args() == []
 
     def test_empty_when_no_source(self, tmp_path):
         config_path = tmp_path / "config.yaml"
@@ -125,8 +120,7 @@ class TestCookieArgs:
         from src.config import Config
 
         cfg = Config(path=str(config_path))
-        assert cfg.cookie_args(auth_required=True) == []
-        assert cfg.cookie_args(auth_required=False) == []
+        assert cfg.cookie_args() == []
 
 
 class TestDirPaths:

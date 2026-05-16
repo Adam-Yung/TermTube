@@ -66,15 +66,9 @@ _FAST_FLAGS = [
 
 # ── Cookie helper ─────────────────────────────────────────────────────────────
 
-def cookie_args(config, *, auth_required: bool = False) -> list[str]:
-    """Return yt-dlp --cookies / --cookies-from-browser flags.
-
-    See ``Config.cookie_args`` for the priority chain. ``auth_required`` is
-    forwarded — only Home / Subscriptions / Subscribed-channels call this
-    with ``True``; everything else uses the cookies file if present and
-    otherwise sends no cookie flags at all.
-    """
-    return config.cookie_args(auth_required=auth_required)
+def cookie_args(config) -> list[str]:
+    """Return yt-dlp --cookies flags from config."""
+    return config.cookie_args()
 
 
 # ── Entry normalisation ───────────────────────────────────────────────────────
@@ -260,7 +254,6 @@ def stream_flat(
     feed_key: str | None = None,
     on_entry: Callable[[dict], None] | None = None,
     max_count: int | None = None,
-    auth_required: bool | None = None,
 ) -> Generator[dict, None, None]:
     """
     Stream basic video entries from a URL using --flat-playlist.
@@ -303,10 +296,7 @@ def stream_flat(
 
     # ── Fresh fetch from yt-dlp ───────────────────────────────────────────────
     logger.debug("stream_flat fetching fresh: %s (max_count=%s)", url, max_count)
-    # auth_required default: feed_key in FEED_URLS (home / subscriptions) needs auth
-    if auth_required is None:
-        auth_required = feed_key in FEED_URLS
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config, auth_required=auth_required), url]
+    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
     seen_ids: list[str] = []
     yielded = 0
 
@@ -412,7 +402,6 @@ def fetch_page_batch(
     count: int = 80,
     feed_key: str | None = None,
     on_proc_started: Callable[[subprocess.Popen], None] | None = None,
-    auth_required: bool = False,
 ) -> list[dict]:
     """Fetch up to `count` entries from a URL, skipping IDs in skip_ids.
 
@@ -445,7 +434,7 @@ def fetch_page_batch(
 
     # Fresh fetch
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
-    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config, auth_required=auth_required), url]
+    cmd = ["yt-dlp", *_FAST_FLAGS, *cookie_args(config), url]
     results: list[dict] = []
     all_ids: list[str] = []
 
@@ -966,7 +955,7 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
             return entries
     flat = "--flat-playlist"
     cmd = ["yt-dlp", flat, "--dump-json", "--no-warnings", "--quiet",
-           *cookie_args(config, auth_required=True), url]
+           *cookie_args(config), url]
     results: list[dict] = []
     seen: list[str] = []
     try:

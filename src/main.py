@@ -76,6 +76,7 @@ def _print_help() -> None:
     _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
     _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
     _opt("--update",        "",      "Update yt-dlp, Deno, mpv, ffmpeg to latest, then exit")
+    _opt("--refresh-cookies","",     "Extract cookies from browser into cookies.txt")
     _opt("--version",       "",      "Show version and exit")
     _opt("--test",          "",      "Run the full test suite")
     _opt("-h, --help",      "",      "Show this message and exit")
@@ -220,6 +221,7 @@ def main() -> None:
     )
     parser.add_argument("--version", action="store_true", help="Show version")
     parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv, and ffmpeg to latest versions, then exit")
+    parser.add_argument("--refresh-cookies", action="store_true", help="Extract cookies from your browser into cookies.txt, then exit")
     parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
     parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
     args = parser.parse_args()
@@ -261,6 +263,19 @@ def main() -> None:
             print(_c("1;33", "Some updates failed (see above).", color=color))
         sys.exit(0 if success else 1)
 
+    # --refresh-cookies: extract cookies from browser, then exit (no TUI)
+    if args.refresh_cookies:
+        from src.config import Config
+        cfg = Config(args.config)
+        from src.updater import refresh_cookies
+        color = _supports_color()
+        success = refresh_cookies(cfg, verbose=True)
+        if success:
+            print(_c("1;32", "Cookie refresh complete.", color=color))
+        else:
+            print(_c("1;33", "Cookie refresh failed (see above).", color=color))
+        sys.exit(0 if success else 1)
+
     # Dependency check
     from src.deps import check_dependencies
     logger.debug("Running dependency check")
@@ -281,11 +296,11 @@ def main() -> None:
         print("Cache cleared.")
         sys.exit(0)
 
-    # Warn if no cookie source is configured for auth-required pages
-    if not config.cookie_args(auth_required=True):
-        print("\033[33m⚠ No cookie source configured. Home feed and Subscriptions require authentication;\033[0m")
-        print("\033[33m  other pages (Search, channels, watch, download) will still work without one.\033[0m")
-        print("  Run: termtube --cookies-help  for setup instructions.\n")
+    # Warn if no cookies file exists
+    if not config.cookie_args():
+        cf_path = config.cookies_file_path
+        print(f"\033[33m⚠ No cookies file at {cf_path}; some pages may be limited.\033[0m")
+        print("  Run: termtube --refresh-cookies  to extract from your browser.\n")
 
     # Import textual_image.widget BEFORE launching Textual — the library queries the
     # terminal for sixel/TGP support and cell dimensions at import time, and those

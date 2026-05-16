@@ -40,6 +40,7 @@ _CACHE_DIR: Path = get_cache_dir()
 _UPDATING: Path = _CACHE_DIR / "UPDATING"
 _LAST_UPDATED: Path = _CACHE_DIR / "LAST_UPDATED"
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
+_LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
 
 
 # ── Sentinel helpers ───────────────────────────────────────────────────────────
@@ -143,6 +144,99 @@ def check_for_update_notification() -> str | None:
     return None
 
 
+# ── Cookie refresher ──────────────────────────────────────────────────────────
+
+def _load_config_lazy():
+    """Import Config lazily to avoid circular imports in the background fork."""
+    from src.config import Config
+    return Config()
+
+
+def refresh_cookies(config=None, verbose: bool = False) -> bool:
+    """Extract cookies from the configured browser into cookies_file.
+
+    Writes to a .tmp file first, then atomically renames on success.
+    Existing cookies.txt is preserved on failure.
+    Returns True on success.
+    """
+    if config is None:
+        config = _load_config_lazy()
+
+    path = config.cookies_file_path
+    if path is None:
+        if verbose:
+            print("  No cookies_file configured — skipping cookie refresh.")
+        return False
+
+    browser = config.get("browser") or "chrome"
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    tmp_path = path.with_suffix(".tmp")
+    cmd = [
+        "yt-dlp",
+        "--cookies-from-browser", browser,
+        "--cookies", str(tmp_path),
+        "--skip-download",
+        "--no-playlist",
+        "--quiet",
+        "https://www.youtube.com/feed/subscriptions",
+    ]
+
+    if verbose:
+        print(f"  Refreshing cookies from {browser}…", flush=True)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL if not verbose else None,
+            timeout=30,
+        )
+    except FileNotFoundError:
+        if verbose:
+            print("  ⚠  yt-dlp not found — cannot refresh cookies.")
+        return False
+    except subprocess.TimeoutExpired:
+        if verbose:
+            print("  ⚠  Cookie extraction timed out.")
+        _cleanup_tmp(tmp_path)
+        return False
+    except Exception as exc:
+        if verbose:
+            print(f"  ⚠  Cookie extraction failed: {exc}")
+        _cleanup_tmp(tmp_path)
+        return False
+
+    if result.returncode == 0 and tmp_path.exists() and tmp_path.stat().st_size > 0:
+        try:
+            tmp_path.replace(path)
+        except OSError:
+            # Windows: target may be locked; fall back to remove+rename
+            try:
+                path.unlink(missing_ok=True)
+                tmp_path.rename(path)
+            except OSError:
+                _cleanup_tmp(tmp_path)
+                return False
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _LAST_COOKIE_REFRESH.touch()
+        if verbose:
+            print(f"  ✓  Cookies saved to {path}")
+        return True
+
+    if verbose:
+        print("  ⚠  Cookie extraction produced no output.")
+    _cleanup_tmp(tmp_path)
+    return False
+
+
+def _cleanup_tmp(tmp_path: Path) -> None:
+    try:
+        tmp_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 # ── Update command list ────────────────────────────────────────────────────────
 
 def _update_commands() -> list[list[str]]:
@@ -173,7 +267,6 @@ def _update_commands() -> list[list[str]]:
                     "--accept-source-agreements", "--accept-package-agreements",
                 ]
             cmds.append(_winget_upgrade("DenoLand.Deno"))
-            cmds.append(_winget_upgrade("mpv.net"))
             cmds.append(_winget_upgrade("Gyan.FFmpeg"))
             cmds.append(_winget_upgrade("hpjansson.Chafa"))
     elif IS_LINUX:
@@ -234,6 +327,10 @@ def run_all_updates(verbose: bool = False) -> bool:
             _write_last_version(new_ver)
     # On failure we leave UPDATING in place; it will be detected as stale on
     # the next exit and trigger a fresh attempt.
+
+    # Refresh cookies using the (possibly freshly-updated) yt-dlp.
+    # Non-fatal: failure here doesn't affect the overall update result.
+    refresh_cookies(_load_config_lazy(), verbose=verbose)
 
     return all_ok
 

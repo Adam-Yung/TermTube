@@ -480,7 +480,6 @@ class MainScreen(Screen):
             skip_ids=skip_ids,
             count=_BATCH_FETCH_COUNT,
             feed_key=feed_key,
-            auth_required=True,
         )
 
         # Filter suppressed
@@ -600,8 +599,7 @@ class MainScreen(Screen):
                     skip_ids=skip_ids,
                     count=_BATCH_FETCH_COUNT,
                     feed_key=None,
-                    auth_required=True,
-                )
+                        )
                 if tab == "home":
                     is_suppressed = cache.is_suppressed
                     entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
@@ -656,8 +654,7 @@ class MainScreen(Screen):
                     skip_ids=skip_ids,
                     count=_BATCH_FETCH_COUNT,
                     feed_key=None,
-                    auth_required=True,
-                )
+                        )
                 if tab == "home":
                     is_suppressed = cache.is_suppressed
                     entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
@@ -1217,7 +1214,7 @@ class MainScreen(Screen):
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
-        cookie_args = self.app.config.cookie_args(auth_required=False)
+        cookie_args = self.app.config.cookie_args()
 
         # Use prefetched audio URL if available and no custom quality selected
         use_prefetched = False

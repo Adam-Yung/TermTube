@@ -141,41 +141,27 @@ Key decisions:
 - **`urllib.request` (stdlib) instead of `httpx`/`requests`** — zero new dependencies. 3-second timeout so a slow/down API doesn't block playback start noticeably.
 - **Configuration is a nested dict (`sponsorblock:` key in config.yaml)** — mirrors the `cache_ttl` pattern. Deep-merged on load so partial user overrides don't clobber other defaults.
 
-## Why `cookie_args` is a method with `auth_required`, not a property
+## Why we removed per-request browser fallback (May 2026)
 
-`Config.cookie_args` used to be a `@property` that always returned the full
-priority chain: cookies.txt → browser → none. With `browser: chrome` as the
-default in `DEFAULT_CONFIG`, every unauthenticated user got
-`--cookies-from-browser chrome` attached to every single yt-dlp invocation —
-search, channel pages, watch, download, video detail. When Chrome wasn't
-running, wasn't installed, the cookie store was locked (Linux keyring),
-or the user had a different browser, yt-dlp failed and so did pages that
-genuinely don't need a token at all.
+`Config.cookie_args` previously had an `auth_required` parameter that gated
+`--cookies-from-browser` at runtime. This was fragile: browser cookie stores
+could be locked, the configured browser might not be installed, and the
+extraction could hang. The regression in `392109a` made it worse by scoping
+the browser fallback to auth-required pages only, but non-auth pages lost
+it even when cookies.txt was also missing.
 
-The fix splits the chain by caller intent rather than trying to probe
-browser-cookie viability (which is slow and unreliable):
+The new model is simpler:
+- `Config.cookie_args()` returns `["--cookies", path]` if cookies.txt exists,
+  else `[]`. No `auth_required` parameter. Never `--cookies-from-browser`.
+- Browser extraction is handled exclusively by `updater.refresh_cookies()`,
+  which runs on the weekly update cadence (and can be triggered manually via
+  `termtube --refresh-cookies`). It writes to a `.tmp` file and atomically
+  renames on success, preserving existing cookies on failure.
+- All call sites collapse to a simple `*cookie_args(config)`.
 
-- `Config.cookie_args(*, auth_required: bool = False) -> list[str]`
-  - File → browser → none, **but** browser is only attempted when the
-    caller passes `auth_required=True`.
-- Only `Home`, `Subscriptions`, and `fetch_subscribed_channels` pass
-  `True`. Everything else — `stream_search`, `fetch_search_batch`,
-  `fetch_full`, `fetch_stream_urls`, `download_*`, `fetch_channel_*`,
-  audio/video playback — uses the default `False`, so they emit no
-  cookie flags at all when cookies.txt is absent. They still benefit
-  from cookies.txt when it exists ("search with the token for better
-  results" still works).
-- `ytdlp.stream_flat` infers `auth_required` from
-  `feed_key in FEED_URLS` so the home/subs feed loader doesn't have
-  to specify it explicitly.
-
-Tradeoff considered and rejected: probing browser cookies once per
-session with a synthetic `yt-dlp --cookies-from-browser X --simulate`
-call. Adds startup latency, false negatives when YouTube rate-limits
-the probe, and still has to handle the failure mode. The
-`auth_required` split is simpler, deterministic, and matches the
-actual product semantic (Home/Subs are the only pages that *need* the
-token).
+This is a "single source of truth" design: the cookies file at
+`~/.config/TermTube/cookies.txt` is either there or not. No runtime
+probing, no per-caller policy decisions.
 
 ## Why mpv.net is rejected for headless audio on Windows (May 2026)
 
@@ -244,9 +230,7 @@ stdout=DEVNULL)` inside `self.app.suspend(_run)`. Two compounding bugs:
    a **context manager**, not a callable that takes a function. So
    `self.app.suspend(_run)` raised `TypeError` and tore down the modal.
 
-The cookies.txt / `--cookies-from-browser` paths already cover the
-authentication need without needing OAuth2 token persistence
-(yt-dlp consumes browser cookies directly on each call). The
-Authentication section in Settings is now a read-only status display
-of the active cookie source, which is what the option was effectively
-trying to surface anyway.
+The cookies.txt path covers the authentication need without needing
+OAuth2 token persistence. The Authentication section in Settings has
+been removed entirely; cookie status (path + freshness) is now shown
+as a subtitle in the Cookie Browser section.

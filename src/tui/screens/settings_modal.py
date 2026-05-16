@@ -65,9 +65,8 @@ class SettingsModal(ModalScreen[None]):
                 yield Static("[bold #ff6666]Thumbnail Format[/bold #ff6666]", id="s-thumb-head", markup=True)
                 yield ListView(id="thumb-list")
                 yield Static("[bold #ff6666]Cookie Browser[/bold #ff6666]", id="s-browser-head", markup=True)
+                yield Static("", id="s-cookie-status", markup=True)
                 yield ListView(id="browser-list")
-                yield Static("[bold #ff6666]Authentication[/bold #ff6666]", id="s-auth-head", markup=True)
-                yield Static("", id="s-auth-status", markup=True)
             yield Static(
                 "[dim]Enter[/dim] select  ·  [dim]Tab[/dim] next section  ·  [dim]Esc[/dim] close",
                 id="settings-hint",
@@ -98,36 +97,34 @@ class SettingsModal(ModalScreen[None]):
             item = _ChoiceItem(val, ("▶ " if val == cur_tf else "  ") + label)
             tfl.append(item)
 
+        # Cookie status subtitle
+        cf_path = config.cookies_file_path
+        cf_exists = cf_path.exists() if cf_path else False
+        if cf_exists:
+            import time
+            try:
+                age_s = time.time() - cf_path.stat().st_mtime
+                if age_s < 3600:
+                    age_str = f"{int(age_s // 60)}m ago"
+                elif age_s < 86400:
+                    age_str = f"{int(age_s // 3600)}h ago"
+                else:
+                    age_str = f"{int(age_s // 86400)}d ago"
+            except OSError:
+                age_str = "unknown"
+            cookie_line = f"  [dim]cookies.txt:[/dim] [green]{cf_path}[/green]  ·  refreshed {age_str}"
+        elif cf_path:
+            cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not yet extracted — refresh on next exit[/yellow]"
+        else:
+            cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not configured[/yellow]"
+        self.query_one("#s-cookie-status", Static).update(cookie_line)
+
         # Browser list
         bl = self.query_one("#browser-list", ListView)
         cur_b = config.get("browser", "chrome")
         for val, label in [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]:
             item = _ChoiceItem(val, ("▶ " if val == cur_b else "  ") + label)
             bl.append(item)
-            
-        # Authentication status (read-only — cookie source is driven by
-        # config.cookies_file and config.browser, picked up at runtime).
-        cf_path = config.cookies_file_path
-        cf_exists = cf_path.exists() if cf_path else False
-        browser = config.get("browser", "")
-        lines: list[str] = []
-        lines.append(
-            f"  [dim]cookies.txt:[/dim] "
-            + (f"[green]{cf_path}[/green]" if cf_exists
-               else f"[yellow]{cf_path} (not found)[/yellow]" if cf_path
-               else "[yellow]not configured[/yellow]")
-        )
-        lines.append(
-            f"  [dim]browser fallback:[/dim] "
-            + (f"[green]{browser}[/green] [dim](used by Home / Subscriptions only)[/dim]"
-               if browser else "[yellow]none[/yellow]")
-        )
-        lines.append(
-            "  [dim]priority:[/dim] cookies.txt → browser → none. "
-            "Search / channels / watch / download never use the browser fallback "
-            "so they always work without a token."
-        )
-        self.query_one("#s-auth-status", Static).update("\n".join(lines))
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if not isinstance(event.item, _ChoiceItem):
