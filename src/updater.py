@@ -152,7 +152,8 @@ def _load_config_lazy():
     return Config()
 
 
-def refresh_cookies(config=None, verbose: bool = False) -> bool:
+_RICK_ROLL="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL) -> bool:
     """Extract cookies from the configured browser into cookies_file.
 
     Writes to a .tmp file first, then atomically renames on success.
@@ -179,7 +180,7 @@ def refresh_cookies(config=None, verbose: bool = False) -> bool:
         "--skip-download",
         "--no-playlist",
         "--quiet",
-        "https://www.youtube.com/feed/subscriptions",
+        _RICK_ROLL,
     ]
 
     if verbose:
