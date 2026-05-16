@@ -77,13 +77,21 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
                   `--force-window=no` and `--no-video`.
     """
     if headless and IS_WINDOWS:
+        localappdata = os.environ.get("LOCALAPPDATA", "")
         # 1. TermTube's bundled standalone CLI mpv (installed by setup.ps1)
-        termtube_mpv = Path(os.environ.get("LOCALAPPDATA", "")) / "TermTube" / "mpv" / "mpv.exe"
-        if termtube_mpv.exists():
+        termtube_mpv = Path(localappdata) / "TermTube" / "mpv" / "mpv.exe"
+        exists = termtube_mpv.exists()
+        logger.debug(
+            "mpv probe: LOCALAPPDATA=%r bundled=%s exists=%s",
+            localappdata, str(termtube_mpv), exists,
+        )
+        if exists:
             return str(termtube_mpv)
         # 2. PATH mpv, but only if it's not mpv.net's shim
         which = shutil.which("mpv")
-        if which and _is_real_cli_mpv(which):
+        real = bool(which) and _is_real_cli_mpv(which)
+        logger.debug("mpv probe: shutil.which=%r real_cli=%s", which, real)
+        if which and real:
             return which
         # 3. No headless-capable mpv. Return None so the caller surfaces a
         #    clear "install standalone mpv" error rather than silently
