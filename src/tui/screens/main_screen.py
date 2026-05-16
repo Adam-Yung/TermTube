@@ -142,6 +142,8 @@ class MainScreen(Screen):
         Binding("G", "page_last", "Last Page", show=False),
         Binding("left_square_bracket", "page_prev", "Prev Page", show=False),
         Binding("right_square_bracket", "page_next", "Next Page", show=False),
+        Binding("left", "page_prev", "Prev Page", show=False),
+        Binding("right", "page_next", "Next Page", show=False),
         Binding("backspace", "nav_back", "Back", show=False),
         # Enter → video action menu
         Binding("enter", "activate", "Actions", show=False),

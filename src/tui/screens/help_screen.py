@@ -18,6 +18,7 @@ _HELP_CONTENT = """\
   [{COLOR}]j / ↓[/{COLOR}]          Move cursor down
   [{COLOR}]k / ↑[/{COLOR}]          Move cursor up
   [{COLOR}]] / [[/{COLOR}]          Next page / previous page
+  [{COLOR}]← / →[/{COLOR}]          Previous page / next page
   [{COLOR}]g[/{COLOR}]              Jump to first page
   [{COLOR}]G[/{COLOR}]              Jump to last page
   [{COLOR}]Backspace[/{COLOR}]      Go back (e.g. from playlist drill-down)

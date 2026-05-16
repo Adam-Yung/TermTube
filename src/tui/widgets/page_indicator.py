@@ -64,10 +64,10 @@ class PageIndicator(Widget):
         width = self.size.width
         if width <= 0:
             return
-        x = event.x
-        if x < width // 3:
+        mid = width // 2
+        if event.x < mid:
             if self._current > 1:
                 self.post_message(self.PrevPage())
-        elif x > (width * 2) // 3:
+        else:
             if self._next_ready:
                 self.post_message(self.NextPage())
