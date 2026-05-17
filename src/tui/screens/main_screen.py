@@ -254,7 +254,7 @@ class MainScreen(Screen):
             self._log(f"[green]Debug logging active[/green] — file: [dim]{_logger.log_file()}[/dim]")
         # Periodic freshness label refresh ("updated 4m ago").
         self._freshness_timer = self.set_interval(_FRESHNESS_REFRESH_S, self._update_freshness_label)
-        self.set_timer(0.4, self._maybe_show_image_warning)
+        self.call_after_refresh(self._maybe_show_warnings)
         # Check for a yt-dlp version change after a background update.
         # Runs in a worker thread so the --version subprocess doesn't block the loop.
         self.set_timer(0.8, self._check_update_notification)
@@ -270,20 +270,60 @@ class MainScreen(Screen):
         except Exception:
             pass
 
-    def _maybe_show_image_warning(self) -> None:
+    def _maybe_show_warnings(self) -> None:
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
-        if _HAS_TEXTUAL_IMAGE:
-            return
-        if self.app.config.get("thumbnail_warning_dismissed", False):
-            return
-        from src.tui.screens.image_warning_modal import ImageWarningModal
 
-        def _on_done(never_show: bool) -> None:
-            if never_show:
-                self.app.config._data["thumbnail_warning_dismissed"] = True
-                self.app.config.save()
+        need_image_warning = (
+            not _HAS_TEXTUAL_IMAGE
+            and not self.app.config.get("thumbnail_warning_dismissed", False)
+        )
 
-        self.app.push_screen(ImageWarningModal(), _on_done)
+        if need_image_warning:
+            from src.tui.screens.image_warning_modal import ImageWarningModal
+
+            def _on_image_done(never_show: bool) -> None:
+                if never_show:
+                    self.app.config._data["thumbnail_warning_dismissed"] = True
+                    self.app.config.save()
+                self._maybe_show_cookie_warning()
+
+            self.app.push_screen(ImageWarningModal(), _on_image_done)
+        else:
+            self._maybe_show_cookie_warning()
+
+    def _maybe_show_cookie_warning(self) -> None:
+        config = self.app.config
+        if config.cookies_file_path and config.cookies_file_path.exists():
+            return
+        if config.get("cookie_warning_dismissed", False):
+            return
+
+        from src.tui.screens.cookie_warning_modal import CookieWarningModal
+
+        def _on_cookie_done(choice: str) -> None:
+            if choice == "cookiewarn-now":
+                self._run_cookie_refresh_now()
+            elif choice == "cookiewarn-exit":
+                self.app._refresh_cookies_on_exit = True  # type: ignore[attr-defined]
+            elif choice == "cookiewarn-never":
+                config._data["cookie_warning_dismissed"] = True
+                config.save()
+
+        self.app.push_screen(CookieWarningModal(), _on_cookie_done)
+
+    @work(thread=True)
+    def _run_cookie_refresh_now(self) -> None:
+        from src.updater import refresh_cookies
+        success = refresh_cookies(self.app.config, verbose=False)
+        if success:
+            self.app.call_from_thread(
+                self.notify, "Cookies refreshed successfully.", timeout=5
+            )
+        else:
+            self.app.call_from_thread(
+                self.notify, "Cookie refresh failed. Try: termtube --refresh-cookies",
+                severity="error", timeout=6,
+            )
 
     # ── Focus guard ───────────────────────────────────────────────────────────
 

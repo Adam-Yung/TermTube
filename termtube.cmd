@@ -13,7 +13,13 @@ if "%~1"=="--uninstall" (
         powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\uninstall.ps1"
         exit /b %ERRORLEVEL%
     )
-    echo Uninstaller not found at %SCRIPT_DIR%\uninstall.ps1
+    if exist "%LOCALAPPDATA%\Programs\TermTube\uninstall.ps1" (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\Programs\TermTube\uninstall.ps1"
+        exit /b %ERRORLEVEL%
+    )
+    echo Uninstaller not found.
+    echo   Checked: %SCRIPT_DIR%\uninstall.ps1
+    echo   Checked: %LOCALAPPDATA%\Programs\TermTube\uninstall.ps1
     exit /b 1
 )
 

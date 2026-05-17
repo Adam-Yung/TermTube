@@ -29,9 +29,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# Ensure the console can render Unicode box-drawing characters
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-
 # ── Constants ─────────────────────────────────────────────────────────────────
 # New layout (post-2026-05): code lives under \Programs\TermTube, data under
 # \TermTube. We also detect the legacy layout where code lived directly under
@@ -78,13 +75,30 @@ Write-Host ""
 $title = "TermTube Uninstaller"
 $width = 37
 $inner = $width - 2
-$pad   = [Math]::Floor(($inner - $title.Length) / 2)
-$right = $inner - $title.Length - $pad
-$centered = (' ' * $pad) + $title + (' ' * $right)
-$bar = [string][char]0x2500 * $inner
-Write-Host ("  " + [char]0x250C + $bar + [char]0x2510) -ForegroundColor White
-Write-Host ("  " + [char]0x2502 + $centered           + [char]0x2502) -ForegroundColor White
-Write-Host ("  " + [char]0x2514 + $bar + [char]0x2518) -ForegroundColor White
+
+try {
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+    $OutputEncoding = [System.Text.UTF8Encoding]::new()
+    $pad   = [Math]::Floor(($inner - $title.Length) / 2)
+    $right = $inner - $title.Length - $pad
+    $centered = (' ' * $pad) + $title + (' ' * $right)
+    $bar = [string][char]0x2500 * $inner
+    $top = "  " + [char]0x250C + $bar + [char]0x2510
+    $mid = "  " + [char]0x2502 + $centered + [char]0x2502
+    $bot = "  " + [char]0x2514 + $bar + [char]0x2518
+    $testBytes = [Console]::OutputEncoding.GetBytes($top)
+    Write-Host $top -ForegroundColor White
+    Write-Host $mid -ForegroundColor White
+    Write-Host $bot -ForegroundColor White
+} catch {
+    $bar = "-" * $inner
+    $pad   = [Math]::Floor(($inner - $title.Length) / 2)
+    $right = $inner - $title.Length - $pad
+    $centered = (' ' * $pad) + $title + (' ' * $right)
+    Write-Host ("  +" + $bar + "+") -ForegroundColor White
+    Write-Host ("  |" + $centered + "|") -ForegroundColor White
+    Write-Host ("  +" + $bar + "+") -ForegroundColor White
+}
 Write-Host ""
 
 $itemsToRemove = @()
@@ -235,9 +249,9 @@ if ($userPath) {
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
+Write-Host ("  " + ("=" * 41)) -ForegroundColor White
 Write-Host "  TermTube uninstalled successfully." -ForegroundColor Green
-Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
+Write-Host ("  " + ("=" * 41)) -ForegroundColor White
 if (-not $Purge -and (Test-Path $ConfigDir)) {
     Write-Host ""
     Write-Host "  Config preserved at: $ConfigDir" -ForegroundColor DarkGray

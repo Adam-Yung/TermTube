@@ -509,6 +509,54 @@ ImageWarningModal {
 #imgwarn-list > ListItem.-highlight > Static { color: #ffffff;
 }
 
+/* ── Cookie Warning Modal ───────────────────────────────────────────────── */
+CookieWarningModal {
+    align: center middle;
+}
+
+#cookiewarn-dialog {
+    width: 56;
+    height: auto;
+    background: #1a1a1a;
+    border: solid #888800;
+    padding: 1 2;
+}
+
+#cookiewarn-title {
+    color: #dddd00;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#cookiewarn-body {
+    color: #aaaaaa;
+    margin-bottom: 1;
+}
+
+#cookiewarn-list {
+    height: auto;
+    background: #0d0d0d;
+    border: solid #333333;
+}
+
+#cookiewarn-list > ListItem {
+    padding: 0 1;
+    color: #888888;
+    border-left: thick #0d0d0d;
+    height: 1;
+}
+
+#cookiewarn-list > ListItem > Static { background: transparent; }
+
+#cookiewarn-list > ListItem.-highlight {
+    background: #1e1e00;
+    border-left: thick #dddd00;
+    color: #ffffff;
+}
+
+#cookiewarn-list > ListItem.-highlight > Static { color: #ffffff;
+}
+
 /* ── Debug log panel ─────────────────────────────────────────────────────── */
 #debug-log {
     height: 12;

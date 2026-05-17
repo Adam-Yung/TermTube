@@ -305,6 +305,7 @@ def run_all_updates(verbose: bool = False) -> bool:
                     cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    **({"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WINDOWS else {}),
                 )
             if result.returncode != 0:
                 if verbose:
@@ -334,6 +335,111 @@ def run_all_updates(verbose: bool = False) -> bool:
     refresh_cookies(_load_config_lazy(), verbose=verbose)
 
     return all_ok
+
+
+# ── Self-update (termtube --update) ────────────────────────────────────────────
+
+def self_update() -> None:
+    """Download latest TermTube source from GitHub and replace the current install.
+
+    Steps:
+      1. Download main.zip from GitHub
+      2. Extract to a temp directory
+      3. Install Python requirements via pip in the venv
+      4. Run run_all_updates(verbose=True) for external tools
+      5. Generate and execute a platform script to copy new source files over
+    """
+    import os
+    import tempfile
+    import urllib.request
+    import zipfile
+
+    install_dir = Path(__file__).parent.parent
+    zip_url = "https://github.com/Adam-Yung/TermTube/archive/refs/heads/main.zip"
+
+    print("  Downloading latest TermTube…", flush=True)
+    tmp_dir = Path(tempfile.mkdtemp(prefix="termtube_update_"))
+    zip_path = tmp_dir / "main.zip"
+
+    try:
+        urllib.request.urlretrieve(zip_url, zip_path)
+    except Exception as exc:
+        print(f"  ⚠  Download failed: {exc}")
+        sys.exit(1)
+
+    print("  Extracting…", flush=True)
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(tmp_dir)
+    except Exception as exc:
+        print(f"  ⚠  Extraction failed: {exc}")
+        sys.exit(1)
+
+    extracted = tmp_dir / "TermTube-main"
+    if not extracted.exists():
+        candidates = [d for d in tmp_dir.iterdir() if d.is_dir()]
+        if candidates:
+            extracted = candidates[0]
+        else:
+            print("  ⚠  Could not find extracted directory.")
+            sys.exit(1)
+
+    # Install requirements via venv pip
+    if IS_WINDOWS:
+        pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
+    else:
+        pip_exe = install_dir / ".venv" / "bin" / "pip3"
+
+    req_file = extracted / "requirements.txt"
+    if pip_exe.exists() and req_file.exists():
+        print("  Installing requirements…", flush=True)
+        subprocess.run(
+            [str(pip_exe), "install", "-r", str(req_file), "--quiet"],
+            cwd=str(extracted),
+        )
+
+    # Run external tool updates
+    print("  Updating external tools…", flush=True)
+    run_all_updates(verbose=True)
+
+    # Generate and execute copy script
+    print("  Copying new source files…", flush=True)
+    copy_files = "requirements.txt termtube termtube.cmd setup.sh setup.ps1 uninstall.sh uninstall.ps1"
+
+    if IS_WINDOWS:
+        script_path = tmp_dir / "_update.cmd"
+        script_content = (
+            "@echo off\r\n"
+            f'xcopy /s /y /q "{extracted}\\src" "{install_dir}\\src\\"\r\n'
+        )
+        for f in copy_files.split():
+            script_content += (
+                f'if exist "{extracted}\\{f}" copy /y "{extracted}\\{f}" "{install_dir}\\" >nul\r\n'
+            )
+        script_content += (
+            f'rmdir /s /q "{tmp_dir}"\r\n'
+            "echo TermTube updated successfully.\r\n"
+        )
+        script_path.write_text(script_content)
+        subprocess.run(["cmd", "/c", str(script_path)], check=False)
+        sys.exit(0)
+    else:
+        script_path = tmp_dir / "_update.sh"
+        script_content = (
+            "#!/bin/bash\n"
+            f'cp -rf "{extracted}/src" "{install_dir}/"\n'
+        )
+        for f in copy_files.split():
+            script_content += (
+                f'[ -f "{extracted}/{f}" ] && cp -f "{extracted}/{f}" "{install_dir}/"\n'
+            )
+        script_content += (
+            f'rm -rf "{tmp_dir}"\n'
+            'echo "TermTube updated successfully."\n'
+        )
+        script_path.write_text(script_content)
+        script_path.chmod(0o755)
+        os.execv("/bin/bash", ["/bin/bash", str(script_path)])
 
 
 # ── Forked background entry point ─────────────────────────────────────────────

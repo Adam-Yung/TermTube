@@ -251,17 +251,12 @@ def main() -> None:
         print_cookies_help()
         sys.exit(0)
 
-    # --update: run all tool updates synchronously, then exit (no TUI)
+    # --update: download latest TermTube + update all tools, then exit (no TUI)
     if args.update:
-        from src.updater import run_all_updates
+        from src.updater import self_update
         color = _supports_color()
-        print(_c("1", "TermTube — updating tools…", color=color))
-        success = run_all_updates(verbose=True)
-        if success:
-            print(_c("1;32", "All updates complete.", color=color))
-        else:
-            print(_c("1;33", "Some updates failed (see above).", color=color))
-        sys.exit(0 if success else 1)
+        print(_c("1", "TermTube — updating…", color=color))
+        self_update()
 
     # --refresh-cookies: extract cookies from browser, then exit (no TUI)
     if args.refresh_cookies:
@@ -295,12 +290,6 @@ def main() -> None:
         cache.clear_all()
         print("Cache cleared.")
         sys.exit(0)
-
-    # Warn if no cookies file exists
-    if not config.cookie_args():
-        cf_path = config.cookies_file_path
-        print(f"\033[33m⚠ No cookies file at {cf_path}; some pages may be limited.\033[0m")
-        print("  Run: termtube --refresh-cookies  to extract from your browser.\n")
 
     # Import textual_image.widget BEFORE launching Textual — the library queries the
     # terminal for sixel/TGP support and cell dimensions at import time, and those
@@ -338,8 +327,16 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        if getattr(app, '_refresh_cookies_on_exit', False):
+            from src.updater import refresh_cookies
+            refresh_cookies(config, verbose=True)
         try:
-            from src.updater import maybe_update
+            from src.updater import _needs_update, maybe_update
+            if _needs_update():
+                from rich.console import Console
+                from rich.panel import Panel
+                Console().print(Panel("Updating dependencies in the background…",
+                                      title="TermTube", border_style="yellow"))
             maybe_update()
         except Exception:
             pass
