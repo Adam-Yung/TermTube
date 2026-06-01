@@ -25,6 +25,7 @@ def _make_updater(tmp_path: Path):
     mod._CACHE_DIR = tmp_path
     mod._UPDATING = tmp_path / "UPDATING"
     mod._LAST_UPDATED = tmp_path / "LAST_UPDATED"
+    mod._LAST_ATTEMPT = tmp_path / "LAST_ATTEMPT"
     mod._LAST_VERSION = tmp_path / "LAST_VERSION"
     return mod
 
@@ -64,15 +65,30 @@ class TestNeedsUpdate:
         os.utime(mod._UPDATING, (stale_mtime, stale_mtime))
         assert mod._needs_update() is True
 
-    def test_stale_updating_with_fresh_last_updated_triggers_rerun(self, tmp_path):
-        """Stale UPDATING overrides a fresh LAST_UPDATED — the failed run's result
-        is not trustworthy; re-run to finish cleanly."""
+    def test_stale_updating_with_fresh_last_updated_skips(self, tmp_path):
+        """A stale UPDATING with a fresh LAST_UPDATED means the previous run's
+        result is still valid — no need to re-run."""
         mod = _make_updater(tmp_path)
         mod._LAST_UPDATED.touch()
         mod._UPDATING.touch()
         stale_mtime = time.time() - mod.UPDATING_TIMEOUT_S - 1
         import os
         os.utime(mod._UPDATING, (stale_mtime, stale_mtime))
+        assert mod._needs_update() is False
+
+    def test_fresh_last_attempt_skips(self, tmp_path):
+        """A recent LAST_ATTEMPT (< 24h) means we tried recently — skip."""
+        mod = _make_updater(tmp_path)
+        mod._LAST_ATTEMPT.touch()
+        assert mod._needs_update() is False
+
+    def test_stale_last_attempt_allows_rerun(self, tmp_path):
+        """A stale LAST_ATTEMPT (> 24h) allows a new update attempt."""
+        mod = _make_updater(tmp_path)
+        mod._LAST_ATTEMPT.touch()
+        stale_mtime = time.time() - mod.ATTEMPT_COOLDOWN_S - 1
+        import os
+        os.utime(mod._LAST_ATTEMPT, (stale_mtime, stale_mtime))
         assert mod._needs_update() is True
 
 
@@ -112,6 +128,50 @@ class TestSentinelHelpers:
         mod = _make_updater(tmp_path)
         mod._write_last_version("2026.03.17")
         assert mod._read_last_version() == "2026.03.17"
+
+
+# ── _is_brew_already_uptodate ─────────────────────────────────────────────────
+
+class TestIsBrewAlreadyUptodate:
+    def test_brew_upgrade_exit_1_is_uptodate(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        assert mod._is_brew_already_uptodate(["brew", "upgrade", "mpv"], 1) is True
+
+    def test_brew_upgrade_exit_0_is_not_uptodate(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        assert mod._is_brew_already_uptodate(["brew", "upgrade", "mpv"], 0) is False
+
+    def test_non_brew_exit_1_is_failure(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        assert mod._is_brew_already_uptodate(["yt-dlp", "--update-to", "nightly"], 1) is False
+
+    def test_brew_non_upgrade_exit_1_is_failure(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        assert mod._is_brew_already_uptodate(["brew", "install", "mpv"], 1) is False
+
+    def test_macos_brew_exit_1_treated_as_success(self, tmp_path):
+        """Integration: brew upgrade exit 1 should NOT set all_ok=False."""
+        mod = _make_updater(tmp_path)
+
+        def _which(cmd):
+            return f"/opt/homebrew/bin/{cmd}" if cmd in ("yt-dlp", "brew") else None
+
+        call_count = {"n": 0}
+        def _fake_run(cmd, **kw):
+            call_count["n"] += 1
+            if cmd[0] == "brew":
+                return MagicMock(returncode=1)  # "already up to date"
+            return MagicMock(returncode=0)  # yt-dlp succeeds
+
+        with (
+            patch("subprocess.run", side_effect=_fake_run),
+            patch("shutil.which", side_effect=_which),
+            patch.multiple("src.updater", IS_MACOS=True, IS_WINDOWS=False, IS_LINUX=False),
+            patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
+        ):
+            ok = mod.run_all_updates(verbose=False)
+        assert ok is True
+        assert mod._LAST_UPDATED.exists()
 
 
 # ── get_ytdlp_version ─────────────────────────────────────────────────────────
@@ -215,9 +275,10 @@ class TestRunAllUpdates:
             ok = mod.run_all_updates(verbose=False)
         assert ok is True
         assert mod._LAST_UPDATED.exists()
+        assert mod._LAST_ATTEMPT.exists()
         assert not mod._UPDATING.exists()
 
-    def test_failure_leaves_updating_sentinel(self, tmp_path):
+    def test_failure_removes_updating_and_writes_last_attempt(self, tmp_path):
         mod = _make_updater(tmp_path)
         mock_result = MagicMock(returncode=1)
         with (
@@ -227,8 +288,9 @@ class TestRunAllUpdates:
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is False
-        assert mod._UPDATING.exists()
+        assert not mod._UPDATING.exists()
         assert not mod._LAST_UPDATED.exists()
+        assert mod._LAST_ATTEMPT.exists()
 
     def test_missing_tool_skipped_silently(self, tmp_path):
         mod = _make_updater(tmp_path)

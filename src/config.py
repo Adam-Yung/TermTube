@@ -43,6 +43,8 @@ DEFAULT_CONFIG: dict = {
         "auto_skip": True,
         "categories": ["sponsor", "selfpromo"],
     },
+    # auto_update: automatically update yt-dlp and other tools on app exit
+    "auto_update": True,
 }
 
 
@@ -168,6 +170,10 @@ class Config:
         if isinstance(cats, list):
             return cats
         return ["sponsor", "selfpromo"]
+
+    @property
+    def auto_update(self) -> bool:
+        return bool(self._data.get("auto_update", True))
 
     def save(self) -> None:
         """Persist current config back to disk (only user-visible keys)."""

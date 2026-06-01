@@ -517,6 +517,15 @@ class MainScreen(Screen):
             entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
 
         # Step 3 — split into pages (don't touch page 1 if stash is showing)
+        if not entries and not stash_loaded:
+            self.app.call_from_thread(
+                panel.set_error_message,
+                "⚠ Home feed returned no results.\n\n"
+                "Your yt-dlp version may be outdated. Run:\n"
+                "  termtube --update",
+            )
+            return
+
         start_page = 2 if stash_loaded else 1
         for i in range(0, len(entries), _PAGE_SIZE):
             page_num = start_page + (i // _PAGE_SIZE)

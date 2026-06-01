@@ -331,13 +331,14 @@ def main() -> None:
             from src.updater import refresh_cookies
             refresh_cookies(config, verbose=True)
         try:
-            from src.updater import _needs_update, maybe_update
-            if _needs_update():
-                from rich.console import Console
-                from rich.panel import Panel
-                Console().print(Panel("Updating dependencies in the background…",
-                                      title="TermTube", border_style="yellow"))
-            maybe_update()
+            if config.auto_update:
+                from src.updater import _needs_update, maybe_update
+                if _needs_update():
+                    from rich.console import Console
+                    from rich.panel import Panel
+                    Console().print(Panel("Updating dependencies in the background…",
+                                          title="TermTube", border_style="yellow"))
+                maybe_update()
         except Exception:
             pass
 

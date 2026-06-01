@@ -29,6 +29,11 @@ _THUMB_OPTS = [
     ("ascii",   "ascii   — ASCII only (most compatible)"),
 ]
 
+_AUTO_UPDATE_OPTS = [
+    ("on",  "On  — update yt-dlp & tools on exit (default)"),
+    ("off", "Off — never auto-update"),
+]
+
 
 class _ChoiceItem(ListItem):
     def __init__(self, value: str, label: str) -> None:
@@ -67,6 +72,8 @@ class SettingsModal(ModalScreen[None]):
                 yield Static("[bold #ff6666]Cookie Browser[/bold #ff6666]", id="s-browser-head", markup=True)
                 yield Static("", id="s-cookie-status", markup=True)
                 yield ListView(id="browser-list")
+                yield Static("[bold #ff6666]Auto-update[/bold #ff6666]", id="s-autoupdate-head", markup=True)
+                yield ListView(id="autoupdate-list")
             yield Static(
                 "[dim]Enter[/dim] select  ·  [dim]Tab[/dim] next section  ·  [dim]Esc[/dim] close",
                 id="settings-hint",
@@ -125,6 +132,13 @@ class SettingsModal(ModalScreen[None]):
             item = _ChoiceItem(val, ("▶ " if val == cur_b else "  ") + label)
             bl.append(item)
 
+        # Auto-update list
+        aul = self.query_one("#autoupdate-list", ListView)
+        cur_au = "on" if config.auto_update else "off"
+        for val, label in _AUTO_UPDATE_OPTS:
+            item = _ChoiceItem(val, ("▶ " if val == cur_au else "  ") + label)
+            aul.append(item)
+
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if not isinstance(event.item, _ChoiceItem):
             return
@@ -150,6 +164,10 @@ class SettingsModal(ModalScreen[None]):
             config._data["browser"] = event.item.value
             browsers = [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]
             self._refresh_list("browser-list", browsers, event.item.value)
+
+        elif lv_id == "autoupdate-list":
+            config._data["auto_update"] = (event.item.value == "on")
+            self._refresh_list("autoupdate-list", _AUTO_UPDATE_OPTS, event.item.value)
 
         # Persist immediately
         config.save()
@@ -194,7 +212,7 @@ class SettingsModal(ModalScreen[None]):
             pass
 
     def action_next_section(self) -> None:
-        lists = ["theme-list", "quality-list-s", "thumb-list", "browser-list"]
+        lists = ["theme-list", "quality-list-s", "thumb-list", "browser-list", "autoupdate-list"]
         for i, lid in enumerate(lists):
             lv = self.query_one(f"#{lid}", ListView)
             if lv.has_focus:

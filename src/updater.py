@@ -35,10 +35,12 @@ else:
 
 UPDATE_INTERVAL_S: int = 7 * 24 * 3600   # 1 week between automatic updates
 UPDATING_TIMEOUT_S: int = 30 * 60        # 30 min: treat UPDATING as stale after this
+ATTEMPT_COOLDOWN_S: int = 24 * 3600      # 24 h: minimum gap between update attempts (success or failure)
 
 _CACHE_DIR: Path = get_cache_dir()
 _UPDATING: Path = _CACHE_DIR / "UPDATING"
 _LAST_UPDATED: Path = _CACHE_DIR / "LAST_UPDATED"
+_LAST_ATTEMPT: Path = _CACHE_DIR / "LAST_ATTEMPT"
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
 _LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
 
@@ -57,18 +59,21 @@ def _needs_update() -> bool:
     """Return True if an update run should be started."""
     now = time.time()
 
+    # If an update process is currently running (< 30 min old), skip.
     mtime_updating = _mtime(_UPDATING)
     if mtime_updating is not None:
         age = now - mtime_updating
         if age < UPDATING_TIMEOUT_S:
-            # A recent UPDATING file means another process is already running.
             return False
-        # Stale UPDATING → previous run crashed; re-run unconditionally.
-        return True
 
+    # If we attempted (success or failure) within the last 24 h, skip.
+    mtime_attempt = _mtime(_LAST_ATTEMPT)
+    if mtime_attempt is not None and (now - mtime_attempt) < ATTEMPT_COOLDOWN_S:
+        return False
+
+    # If we successfully updated within the last week, skip.
     mtime_last = _mtime(_LAST_UPDATED)
     if mtime_last is not None and (now - mtime_last) < UPDATE_INTERVAL_S:
-        # Successfully updated within the last week.
         return False
 
     return True
@@ -89,6 +94,11 @@ def _remove_updating() -> None:
         _UPDATING.unlink()
     except FileNotFoundError:
         pass
+
+
+def _write_last_attempt() -> None:
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _LAST_ATTEMPT.touch()
 
 
 # ── Version tracking ───────────────────────────────────────────────────────────
@@ -281,6 +291,11 @@ def _update_commands() -> list[list[str]]:
 
 # ── Core update runner (synchronous) ──────────────────────────────────────────
 
+def _is_brew_already_uptodate(cmd: list[str], returncode: int) -> bool:
+    """Homebrew returns exit 1 when a package is already at latest version."""
+    return returncode == 1 and len(cmd) >= 2 and cmd[0] == "brew" and cmd[1] == "upgrade"
+
+
 def run_all_updates(verbose: bool = False) -> bool:
     """Run all update commands synchronously.
 
@@ -308,11 +323,14 @@ def run_all_updates(verbose: bool = False) -> bool:
                     **({"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WINDOWS else {}),
                 )
             if result.returncode != 0:
-                if verbose:
-                    print(f"  ⚠  {tool} update exited {result.returncode}", flush=True)
-                all_ok = False
+                if _is_brew_already_uptodate(cmd, result.returncode):
+                    if verbose:
+                        print(f"  ✓  {tool} already up to date", flush=True)
+                else:
+                    if verbose:
+                        print(f"  ⚠  {tool} update exited {result.returncode}", flush=True)
+                    all_ok = False
         except FileNotFoundError:
-            # Tool not on PATH — skip silently.
             pass
         except Exception as exc:
             if verbose:
@@ -321,17 +339,15 @@ def run_all_updates(verbose: bool = False) -> bool:
 
     if all_ok:
         _write_last_updated()
-        _remove_updating()
-        # Record the newly installed yt-dlp version so the next launch can
-        # detect the change and show a notification.
         new_ver = get_ytdlp_version()
         if new_ver:
             _write_last_version(new_ver)
-    # On failure we leave UPDATING in place; it will be detected as stale on
-    # the next exit and trigger a fresh attempt.
+
+    # Always record the attempt and clean up, regardless of success or failure.
+    _write_last_attempt()
+    _remove_updating()
 
     # Refresh cookies using the (possibly freshly-updated) yt-dlp.
-    # Non-fatal: failure here doesn't affect the overall update result.
     refresh_cookies(_load_config_lazy(), verbose=verbose)
 
     return all_ok
