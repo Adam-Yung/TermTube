@@ -165,6 +165,80 @@ def download(video_id: str, url: str) -> Path | None:
 
 
 
+# ── PIL half-block fallback ────────────────────────────────────────────────────
+
+def render_pil_halfblock(
+    video_id: str,
+    entry: dict,
+    *,
+    cols: int = 38,
+    rows: int = 20,
+) -> str:
+    """Render thumbnail as 24-bit colored Unicode half-block art using Pillow.
+
+    Each terminal cell covers 2 pixel rows: the upper half-block character (▀)
+    is drawn with the top pixel as foreground color and the bottom pixel as
+    background color, giving effectively double the vertical resolution.
+
+    Used on Windows when neither chafa nor a Sixel/TGP protocol is available
+    (e.g. running inside the Cursor IDE terminal instead of Windows Terminal).
+    Pillow is a hard dependency (requirements.txt) so this always works.
+
+    Result is cached to CHAFA_DIR with a ``_pil`` format suffix so re-renders
+    at the same size are free.
+    """
+    cache_path = _chafa_cache_path(video_id, cols, rows, "pil")
+    if cache_path.exists():
+        try:
+            return cache_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    local = _thumb_path(video_id)
+    if not local.exists():
+        url = _best_thumb_url(entry)
+        if not url:
+            logger.debug("render_pil_halfblock: no URL for %s", video_id)
+            return ""
+        local = download(video_id, url) or Path("")
+
+    if not local.exists():
+        return ""
+
+    try:
+        from PIL import Image as _PILImage
+        img = _PILImage.open(local).convert("RGB")
+        img = img.resize((cols, rows * 2), _PILImage.LANCZOS)
+        lines: list[str] = []
+        for y in range(0, rows * 2, 2):
+            row = ""
+            for x in range(cols):
+                r1, g1, b1 = img.getpixel((x, y))
+                r2, g2, b2 = img.getpixel((x, y + 1))
+                # ESC[38;2;r;g;bm  = set foreground (upper pixel)
+                # ESC[48;2;r;g;bm  = set background (lower pixel)
+                # ▀ = upper half block
+                row += (
+                    f"\x1b[38;2;{r1};{g1};{b1}m"
+                    f"\x1b[48;2;{r2};{g2};{b2}m"
+                    "\u2580"
+                )
+            lines.append(row + "\x1b[0m")
+        ansi = "\n".join(lines)
+    except Exception as exc:
+        logger.debug("PIL halfblock render failed for %s: %s", video_id, exc)
+        return ""
+
+    if ansi:
+        _ensure_chafa_dir()
+        try:
+            cache_path.write_text(ansi, encoding="utf-8")
+        except OSError:
+            pass
+
+    return ansi
+
+
 # ── URL selection ──────────────────────────────────────────────────────────────
 
 def _best_thumb_url(entry: dict) -> str:

@@ -39,17 +39,11 @@ if not _IN_TMUX or _FORCE_IMAGES:
         from textual_image.renderable import Image as _AutoRenderable
         from textual_image.renderable.unicode import Image as _UnicodeRenderable
         if _AutoRenderable is not _UnicodeRenderable:
-            # textual-image successfully detected a graphics protocol (TGP or sixel)
             _HAS_TEXTUAL_IMAGE = True
-        elif _IS_WINDOWS:
-            # On Windows, textual-image may detect unicode renderer because the
-            # terminal capability query ran *after* Textual started (too late).
-            # Trust the install: if textual-image is present on Windows, use it.
-            # It will render via halfcell/unicode at minimum, which is still better
-            # than nothing. Windows Terminal (WT_SESSION) supports Sixel natively.
-            _HAS_TEXTUAL_IMAGE = True
-        elif bool(_os.environ.get("WT_SESSION")):
-            # Explicit Windows Terminal override for non-Windows detection edge cases
+        elif _IS_WINDOWS and bool(_os.environ.get("WT_SESSION")):
+            # Windows Terminal supports Sixel natively; textual-image may
+            # fall back to unicode renderer if detection didn't run pre-startup,
+            # but we trust WT to handle image protocols.
             _HAS_TEXTUAL_IMAGE = True
     except ImportError:
         pass

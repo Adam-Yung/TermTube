@@ -246,9 +246,12 @@ def has_curl() -> bool:
 def get_thumbnail_download_cmd(url: str, dest: str) -> list[str]:
     """Return the command to download a thumbnail.
 
-    Uses curl on Unix, and curl (shipped with Windows 10+) or PowerShell fallback.
+    On Windows, always use PowerShell Invoke-WebRequest — it uses the Windows
+    certificate store, which correctly handles corporate proxies with self-signed
+    certs. curl.exe (built into Windows 10+) fails with SSL rc=35 in those
+    environments. On Unix, use curl.
     """
-    if IS_WINDOWS and not has_curl():
+    if IS_WINDOWS:
         return [
             "powershell", "-NoProfile", "-Command",
             f"Invoke-WebRequest -Uri '{url}' -OutFile '{dest}' -TimeoutSec 8",
