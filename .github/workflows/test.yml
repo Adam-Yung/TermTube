@@ -4,47 +4,50 @@ on: [push, pull_request]
 jobs:
   unit-and-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install dependencies
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio
+      - name: Install yt-dlp
         run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio
+          curl -sSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          chmod +x /usr/local/bin/yt-dlp
       - name: Run unit tests
-        run: pytest tests/unit/ -v
+        run: pytest tests/unit/ -v --tb=short
       - name: Run integration tests
-        run: pytest tests/integration/ -v
+        run: pytest tests/integration/ -v --tb=short
 
   tui-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio
       - name: Run TUI interaction tests
-        run: pytest tests/tui/ -v --asyncio-mode=auto
+        run: pytest tests/tui/ -v --tb=short --timeout=30
+        env:
+          TERM: xterm-256color
 
   snapshot-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-textual-snapshot
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio pytest-textual-snapshot
       - name: Run snapshot tests
-        run: pytest tests/snapshots/ -v
+        run: pytest tests/snapshots/ -v --tb=short
       - name: Upload snapshot report
         uses: actions/upload-artifact@v4
         if: failure()

@@ -1,4 +1,4 @@
-"""DownloadModal — shows live download progress inside the TUI."""
+"""DownloadModal -- shows live download progress inside the TUI."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ class DownloadModal(ModalScreen[bool]):
         self._fmt = fmt
         self._cancelled = False
         self._phase = "video" if not audio_only else "audio"
+        self._error_msg: str = ""
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
@@ -43,6 +44,7 @@ class DownloadModal(ModalScreen[bool]):
             yield ProgressBar(total=100, show_eta=False, id="download-bar")
             yield Static(
                 "[dim]Esc[/dim] to cancel",
+                id="download-hint",
                 markup=True,
             )
 
@@ -53,6 +55,7 @@ class DownloadModal(ModalScreen[bool]):
     def _start_download(self) -> None:
         import src.ytdlp as ytdlp
         app = self.app  # type: ignore[attr-defined]
+        error_lines: list[str] = []
 
         def on_progress(line: str, pct: float) -> None:
             if self._cancelled:
@@ -63,26 +66,38 @@ class DownloadModal(ModalScreen[bool]):
                 self.app.call_from_thread(self._switch_to_postprocess, line)
             elif pct >= 0:
                 self.app.call_from_thread(self._update_progress, pct, line)
+            # Capture error lines from yt-dlp output for display on failure
+            stripped = line.strip()
+            if stripped.startswith("ERROR:") or "error" in stripped.lower():
+                error_lines.append(stripped[:120])
 
-        if self._audio_only:
-            success = ytdlp.download_audio_with_progress(
-                self._video_id,
-                app.config,
-                on_progress=on_progress,
-            )
-        else:
-            success = ytdlp.download_video_with_progress(
-                self._video_id,
-                app.config,
-                quality_format=self._fmt,
-                on_progress=on_progress,
-            )
+        try:
+            if self._audio_only:
+                success = ytdlp.download_audio_with_progress(
+                    self._video_id,
+                    app.config,
+                    on_progress=on_progress,
+                )
+            else:
+                success = ytdlp.download_video_with_progress(
+                    self._video_id,
+                    app.config,
+                    quality_format=self._fmt,
+                    on_progress=on_progress,
+                )
+        except RuntimeError as exc:
+            success = False
+            error_lines.append(str(exc))
+        except Exception as exc:
+            success = False
+            error_lines.append(f"Unexpected error: {exc}")
 
         if not self._cancelled:
-            self.app.call_from_thread(self._on_done, success)
+            err = error_lines[-1] if error_lines else ""
+            self.app.call_from_thread(self._on_done, success, err)
 
     def _switch_to_audio_phase(self) -> None:
-        """Second stream detected — reset bar and update title for audio download."""
+        """Second stream detected -- reset bar and update title for audio download."""
         self._phase = "audio"
         try:
             self.query_one("#download-title", Static).update(
@@ -97,7 +112,7 @@ class DownloadModal(ModalScreen[bool]):
             pass
 
     def _switch_to_postprocess(self, line: str) -> None:
-        """Post-processing started — switch to indeterminate state."""
+        """Post-processing started -- switch to indeterminate state."""
         self._phase = "postprocess"
         try:
             if "Merger" in line or "Merging" in line:
@@ -138,13 +153,32 @@ class DownloadModal(ModalScreen[bool]):
         except Exception:
             pass
 
-    def _on_done(self, success: bool) -> None:
-        try:
-            bar = self.query_one("#download-bar", ProgressBar)
-            bar.update(total=100, progress=100)
-        except Exception:
-            pass
-        self.dismiss(success)
+    def _on_done(self, success: bool, error_msg: str = "") -> None:
+        if success:
+            try:
+                bar = self.query_one("#download-bar", ProgressBar)
+                bar.update(total=100, progress=100)
+            except Exception:
+                pass
+            self.dismiss(True)
+        else:
+            # Show the error inline so the user knows what went wrong
+            try:
+                self.query_one("#download-title", Static).update(
+                    "[bold red]\u26a0  Download failed[/bold red]"
+                )
+                msg = error_msg or "yt-dlp returned an error -- check cookies or network."
+                self.query_one("#download-status", Static).update(
+                    f"[red]{msg[:80]}[/red]"
+                )
+                self.query_one("#download-hint", Static).update(
+                    "[dim]Press Esc to close[/dim]"
+                )
+                bar = self.query_one("#download-bar", ProgressBar)
+                bar.update(total=100, progress=0)
+            except Exception:
+                pass
+            self._error_msg = error_msg
 
     def action_cancel_download(self) -> None:
         self._cancelled = True

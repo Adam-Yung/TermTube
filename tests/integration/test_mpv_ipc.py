@@ -2,6 +2,7 @@
 
 import json
 import socket
+import sys
 from unittest.mock import patch, MagicMock, call
 
 import pytest
@@ -11,6 +12,12 @@ from src.player import (
     poll_audio_properties,
     _poll_audio_properties_batched,
     _cookie_args_to_ytdl_raw,
+)
+
+# socket.AF_UNIX does not exist on Windows — skip Unix-socket tests there.
+_SKIP_UNIX = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Unix AF_UNIX socket tests not applicable on Windows",
 )
 
 
@@ -34,6 +41,7 @@ def _make_mock_socket(responses: list[dict] | None = None, raise_on_connect=Fals
     return mock_sock
 
 
+@_SKIP_UNIX
 class TestSendIpcCommand:
     """Tests for send_ipc_command JSON formatting."""
 
@@ -101,6 +109,7 @@ class TestSendIpcCommand:
         assert sent_json["command"] == ["set_property", "volume", 75]
 
 
+@_SKIP_UNIX
 class TestPollAudioProperties:
     """Tests for poll_audio_properties batched response parsing."""
 

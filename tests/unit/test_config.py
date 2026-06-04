@@ -152,34 +152,6 @@ class TestDirPaths:
         assert "TermTube" in str(cfg.audio_dir)
 
 
-class TestAutoUpdate:
-    def test_default_is_true(self, tmp_path):
-        from src.config import Config
-
-        cfg = Config(path=str(tmp_path / "config.yaml"))
-        assert cfg.auto_update is True
-
-    def test_can_be_disabled(self, tmp_path):
-        config_path = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"auto_update": False}))
-
-        from src.config import Config
-
-        cfg = Config(path=str(config_path))
-        assert cfg.auto_update is False
-
-    def test_persists_after_save(self, tmp_path):
-        config_path = tmp_path / "config.yaml"
-        from src.config import Config
-
-        cfg = Config(path=str(config_path))
-        cfg._data["auto_update"] = False
-        cfg.save()
-
-        cfg2 = Config(path=str(config_path))
-        assert cfg2.auto_update is False
-
-
 class TestSaveAndReload:
     def test_save_persists_changes(self, tmp_path):
         config_path = tmp_path / "config.yaml"

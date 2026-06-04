@@ -255,7 +255,7 @@ def main() -> None:
     if args.update:
         from src.updater import self_update
         color = _supports_color()
-        print(_c("1", "TermTube — updating…", color=color))
+        print(_c("1", "TermTube -- updating...", color=color))
         self_update()
 
     # --refresh-cookies: extract cookies from browser, then exit (no TUI)
@@ -330,17 +330,6 @@ def main() -> None:
         if getattr(app, '_refresh_cookies_on_exit', False):
             from src.updater import refresh_cookies
             refresh_cookies(config, verbose=True)
-        try:
-            if config.auto_update:
-                from src.updater import _needs_update, maybe_update
-                if _needs_update():
-                    from rich.console import Console
-                    from rich.panel import Panel
-                    Console().print(Panel("Updating dependencies in the background…",
-                                          title="TermTube", border_style="yellow"))
-                maybe_update()
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

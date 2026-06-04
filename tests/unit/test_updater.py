@@ -371,65 +371,6 @@ class TestRunAllUpdates:
         assert "yt-dlp" in out
 
 
-# ── maybe_update ──────────────────────────────────────────────────────────────
-
-class TestMaybeUpdate:
-    def test_does_not_fork_when_fresh(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._LAST_UPDATED.touch()
-        with patch("subprocess.Popen") as mock_popen:
-            mod.maybe_update()
-        mock_popen.assert_not_called()
-
-    def test_forks_when_stale(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        # No LAST_UPDATED → stale
-        with (
-            patch("subprocess.Popen") as mock_popen,
-            patch("src.updater.IS_WINDOWS", False),
-        ):
-            mod.maybe_update()
-        mock_popen.assert_called_once()
-        args = mock_popen.call_args
-        cmd = args[0][0]
-        assert "--background" in cmd
-
-    def test_fork_uses_current_interpreter(self, tmp_path):
-        import sys
-        mod = _make_updater(tmp_path)
-        with (
-            patch("subprocess.Popen") as mock_popen,
-            patch("src.updater.IS_WINDOWS", False),
-        ):
-            mod.maybe_update()
-        cmd = mock_popen.call_args[0][0]
-        assert cmd[0] == sys.executable
-
-    def test_windows_uses_detached_process_flags(self, tmp_path):
-        import src.updater as updater_mod
-        mod = _make_updater(tmp_path)
-        with (
-            patch("subprocess.Popen") as mock_popen,
-            patch("src.updater.IS_WINDOWS", True),
-        ):
-            mod.maybe_update()
-        kwargs = mock_popen.call_args[1]
-        expected_flags = (
-            updater_mod._DETACHED_PROCESS | updater_mod._CREATE_NEW_PROCESS_GROUP
-        )
-        assert kwargs.get("creationflags") == expected_flags
-
-    def test_unix_uses_start_new_session(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        with (
-            patch("subprocess.Popen") as mock_popen,
-            patch("src.updater.IS_WINDOWS", False),
-        ):
-            mod.maybe_update()
-        kwargs = mock_popen.call_args[1]
-        assert kwargs.get("start_new_session") is True
-
-
 # ── refresh_cookies ───────────────────────────────────────────────────────────
 
 class TestRefreshCookies:
