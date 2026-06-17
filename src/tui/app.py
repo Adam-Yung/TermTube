@@ -39,6 +39,13 @@ class TermTubeApp(App):
         atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:
+        # Clean up any orphaned processes/sockets from a previous crash
+        from src.platform import reap_orphans
+        try:
+            reap_orphans()
+        except Exception:
+            pass
+
         # Apply colour theme as a CSS class on the App root
         theme = self.config.theme
         logger.debug("App mounting (theme=%s)", theme)
@@ -55,7 +62,12 @@ class TermTubeApp(App):
         self.push_screen(MainScreen())
 
     def on_unmount(self) -> None:
-        # Kill all active yt-dlp subprocesses so they don't orphan on exit.
+        # Kill all tracked subprocesses so they don't orphan on exit.
+        try:
+            from src.platform import ProcessRegistry
+            ProcessRegistry.get().kill_all(timeout=1.5)
+        except Exception:
+            pass
         try:
             import src.ytdlp as ytdlp
             ytdlp.kill_all_active()
@@ -93,7 +105,12 @@ class TermTubeApp(App):
 
     @staticmethod
     def _atexit_cleanup() -> None:
-        """Last-resort cleanup: kill any orphaned yt-dlp subprocesses on exit."""
+        """Last-resort cleanup: kill any orphaned subprocesses on exit."""
+        try:
+            from src.platform import ProcessRegistry
+            ProcessRegistry.get().kill_all(timeout=1.5)
+        except Exception:
+            pass
         try:
             import src.ytdlp as ytdlp
             ytdlp.kill_all_active()

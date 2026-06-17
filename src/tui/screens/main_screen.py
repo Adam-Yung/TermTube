@@ -1284,6 +1284,9 @@ class MainScreen(Screen):
             send_ipc_command({"command": ["quit"]}, socket_path=_get_audio_socket())
             from src.platform import terminate_process
             terminate_process(self._audio_proc, timeout=2.0)
+        if self._audio_proc:
+            from src.platform import ProcessRegistry
+            ProcessRegistry.get().unregister(self._audio_proc)
         self._audio_proc = None
         self._audio_entry = None
         if self._audio_poll_timer:
@@ -1383,7 +1386,7 @@ class MainScreen(Screen):
         stderr_text = ""
         returncode: int | None = None
         try:
-            from src.platform import get_popen_kwargs
+            from src.platform import get_popen_kwargs, ProcessRegistry
             self._audio_proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
@@ -1391,6 +1394,7 @@ class MainScreen(Screen):
                 text=True,
                 **get_popen_kwargs(headless=True),
             )
+            ProcessRegistry.get().register(self._audio_proc)
             proc = self._audio_proc
             from src import history
             history.add(entry)
@@ -2039,5 +2043,15 @@ class MainScreen(Screen):
         if self._current_tab in _FEED_TABS:
             self._save_feed_stash(self._current_tab)
         self._stop_audio()
-        threading.Timer(0.6, os._exit, args=(0,)).start()
+
+        def _force_exit() -> None:
+            """Structured shutdown: kill all tracked procs, then force-exit."""
+            from src.platform import ProcessRegistry
+            try:
+                ProcessRegistry.get().kill_all(timeout=1.5)
+            except Exception:
+                pass
+            os._exit(0)
+
+        threading.Timer(2.0, _force_exit).start()
         self.app.exit()

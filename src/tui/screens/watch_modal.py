@@ -171,13 +171,14 @@ class WatchModal(ModalScreen[bool]):
         cmd += ["--", url]
 
         try:
-            from src.platform import get_popen_kwargs
+            from src.platform import get_popen_kwargs, ProcessRegistry
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 **get_popen_kwargs(headless=False),
             )
+            ProcessRegistry.get().register(self._proc)
         except FileNotFoundError:
             from src.platform import install_hint
             self.app.call_from_thread(
@@ -200,6 +201,8 @@ class WatchModal(ModalScreen[bool]):
         try:
             self._proc.wait()
         finally:
+            from src.platform import ProcessRegistry
+            ProcessRegistry.get().unregister(self._proc)
             try:
                 os.unlink(input_conf)
             except OSError:
@@ -342,8 +345,10 @@ class WatchModal(ModalScreen[bool]):
             return
         self._stopped = True
         self._ipc(["quit"])
-        from src.platform import terminate_process
+        from src.platform import terminate_process, ProcessRegistry
         terminate_process(self._proc, timeout=2.0)
+        if self._proc:
+            ProcessRegistry.get().unregister(self._proc)
         try:
             self.dismiss(False)
         except Exception:

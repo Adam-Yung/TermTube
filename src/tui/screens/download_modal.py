@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -24,6 +26,7 @@ class DownloadModal(ModalScreen[bool]):
         self._audio_only = audio_only
         self._fmt = fmt
         self._cancelled = False
+        self._download_proc: "subprocess.Popen | None" = None
         self._phase = "video" if not audio_only else "audio"
         self._error_msg: str = ""
 
@@ -57,6 +60,9 @@ class DownloadModal(ModalScreen[bool]):
         app = self.app  # type: ignore[attr-defined]
         error_lines: list[str] = []
 
+        def on_proc_started(proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+            self._download_proc = proc
+
         def on_progress(line: str, pct: float) -> None:
             if self._cancelled:
                 return
@@ -77,6 +83,7 @@ class DownloadModal(ModalScreen[bool]):
                     self._video_id,
                     app.config,
                     on_progress=on_progress,
+                    on_proc_started=on_proc_started,
                 )
             else:
                 success = ytdlp.download_video_with_progress(
@@ -84,6 +91,7 @@ class DownloadModal(ModalScreen[bool]):
                     app.config,
                     quality_format=self._fmt,
                     on_progress=on_progress,
+                    on_proc_started=on_proc_started,
                 )
         except RuntimeError as exc:
             success = False
@@ -182,4 +190,9 @@ class DownloadModal(ModalScreen[bool]):
 
     def action_cancel_download(self) -> None:
         self._cancelled = True
+        if self._download_proc and self._download_proc.poll() is None:
+            try:
+                self._download_proc.terminate()
+            except Exception:
+                pass
         self.dismiss(False)

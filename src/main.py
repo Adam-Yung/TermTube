@@ -257,6 +257,7 @@ def main() -> None:
         color = _supports_color()
         print(_c("1", "TermTube -- updating...", color=color))
         self_update()
+        sys.exit(0)
 
     # --refresh-cookies: extract cookies from browser, then exit (no TUI)
     if args.refresh_cookies:
@@ -303,24 +304,33 @@ def main() -> None:
     from src.tui.app import TermTubeApp
     app = TermTubeApp(config)
 
-    # Ensure mpv and yt-dlp subprocesses are cleaned up on any exit (crash, Ctrl+C, etc.)
+    # ── Signal & atexit cleanup ────────────────────────────────────────────────
     import atexit
+    import signal
     from src import ytdlp as _ytdlp
+    from src.platform import ProcessRegistry
 
     def _emergency_cleanup() -> None:
+        """Kill all tracked subprocesses (mpv, yt-dlp, etc.) on exit."""
+        try:
+            ProcessRegistry.get().kill_all(timeout=1.5)
+        except Exception:
+            pass
         try:
             _ytdlp.kill_all_active()
         except Exception:
             pass
-        try:
-            screen = app.screen
-            if hasattr(screen, "_audio_proc") and screen._audio_proc is not None:
-                from src.platform import terminate_process
-                terminate_process(screen._audio_proc, timeout=1.0)
-        except Exception:
-            pass
+
+    def _signal_handler(signum: int, frame) -> None:
+        """Handle SIGTERM/SIGHUP by cleaning up child processes then exiting."""
+        _emergency_cleanup()
+        sys.exit(128 + signum)
 
     atexit.register(_emergency_cleanup)
+
+    if sys.platform != "win32":
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGHUP, _signal_handler)
 
     try:
         app.run()

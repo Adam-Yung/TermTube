@@ -278,6 +278,125 @@ def _ssl_context_unverified():
     return ctx
 
 
+# ── Unified Process Registry ──────────────────────────────────────────────────
+
+import subprocess
+import threading
+
+
+class ProcessRegistry:
+    """Global registry of all child processes spawned by TermTube.
+
+    Tracks mpv (audio/video), yt-dlp, chafa, and any other subprocesses so they
+    can all be killed on exit — regardless of exit path (normal quit, Ctrl+C,
+    SIGTERM, os._exit failsafe).
+    """
+
+    _instance: "ProcessRegistry | None" = None
+
+    def __init__(self) -> None:
+        self._procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
+        self._lock = threading.Lock()
+
+    @classmethod
+    def get(cls) -> "ProcessRegistry":
+        """Return the singleton registry instance."""
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def register(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+        """Add a subprocess to the registry."""
+        with self._lock:
+            self._procs.add(proc)
+
+    def unregister(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+        """Remove a subprocess from the registry (e.g. after it exits normally)."""
+        with self._lock:
+            self._procs.discard(proc)
+
+    def kill_all(self, timeout: float = 2.0) -> int:
+        """Kill every tracked subprocess. Returns count of processes killed.
+
+        Sends SIGTERM first, waits up to timeout, then SIGKILL for stragglers.
+        """
+        import time
+
+        with self._lock:
+            procs = list(self._procs)
+            self._procs.clear()
+        if not procs:
+            return 0
+
+        killed = 0
+        for proc in procs:
+            try:
+                if proc.poll() is None:
+                    proc.terminate()
+                    killed += 1
+            except Exception:
+                pass
+
+        deadline = time.monotonic() + timeout
+        for proc in procs:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            try:
+                proc.wait(timeout=max(0.05, remaining / max(len(procs), 1)))
+            except Exception:
+                pass
+
+        for proc in procs:
+            try:
+                if proc.poll() is None:
+                    proc.kill()
+            except Exception:
+                pass
+
+        return killed
+
+    @property
+    def active_count(self) -> int:
+        with self._lock:
+            return sum(1 for p in self._procs if p.poll() is None)
+
+
+def reap_orphans() -> None:
+    """Kill stale TermTube processes and remove stale IPC sockets on startup.
+
+    Handles the case where a previous instance was SIGKILL'd or crashed without
+    cleanup. Checks for orphaned mpv processes with TermTube-specific
+    command-line patterns, and removes stale socket files.
+    """
+    import glob as _glob
+
+    for pattern in ("/tmp/termtube-mpv*.sock",):
+        for sock in _glob.glob(pattern):
+            try:
+                os.unlink(sock)
+            except OSError:
+                pass
+
+    if IS_WINDOWS:
+        return
+
+    try:
+        import signal
+        result = subprocess.run(
+            ["pgrep", "-f", "mpv.*termtube-mpv"],
+            capture_output=True, text=True, timeout=3,
+        )
+        for pid_str in result.stdout.strip().split("\n"):
+            if pid_str.strip():
+                try:
+                    os.kill(int(pid_str.strip()), signal.SIGTERM)
+                except (ProcessLookupError, PermissionError, ValueError):
+                    pass
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+
 # ── Install Hints ─────────────────────────────────────────────────────────────
 
 _INSTALL_HINTS: dict[str, dict[str, str]] = {

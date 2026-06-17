@@ -28,6 +28,22 @@ _active_procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
 _active_procs_lock = threading.Lock()
 
 
+def _register_proc(proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+    """Register a yt-dlp subprocess in both the local and global registries."""
+    with _active_procs_lock:
+        _active_procs.add(proc)
+    from src.platform import ProcessRegistry
+    ProcessRegistry.get().register(proc)
+
+
+def _unregister_proc(proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+    """Unregister a yt-dlp subprocess from both registries."""
+    with _active_procs_lock:
+        _active_procs.discard(proc)
+    from src.platform import ProcessRegistry
+    ProcessRegistry.get().unregister(proc)
+
+
 def kill_all_active() -> None:
     """Kill every yt-dlp subprocess that is currently streaming.
 
@@ -44,6 +60,9 @@ def kill_all_active() -> None:
             proc.kill()
         except Exception:
             pass
+    from src.platform import ProcessRegistry
+    for proc in procs:
+        ProcessRegistry.get().unregister(proc)
 
 
 # ── Feed URLs ─────────────────────────────────────────────────────────────────
@@ -144,8 +163,7 @@ def _stream_json_lines(
             bufsize=0,
             **get_popen_kwargs(headless=True),
         )
-        with _active_procs_lock:
-            _active_procs.add(proc)
+        _register_proc(proc)
         if on_proc_started is not None:
             try:
                 on_proc_started(proc)
@@ -164,8 +182,7 @@ def _stream_json_lines(
                 if proc.returncode != 0:
                     logger.warning("yt-dlp exited %d: %s", proc.returncode, err.strip())
         finally:
-            with _active_procs_lock:
-                _active_procs.discard(proc)
+            _unregister_proc(proc)
     except FileNotFoundError:
         from src.platform import install_hint
         raise RuntimeError(f"yt-dlp not found. Install with: {install_hint('yt-dlp')}")
@@ -551,6 +568,7 @@ PHASE_POSTPROCESS = -3.0
 def _run_download_with_progress(
     cmd: list[str],
     on_progress: Callable[[str, float], None] | None = None,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
 ) -> bool:
     """Run a yt-dlp download command, streaming progress. Returns True on success."""
     from src.platform import get_popen_kwargs
@@ -565,8 +583,12 @@ def _run_download_with_progress(
             bufsize=1,
             **get_popen_kwargs(headless=True),
         )
-        with _active_procs_lock:
-            _active_procs.add(proc)
+        _register_proc(proc)
+        if on_proc_started:
+            try:
+                on_proc_started(proc)
+            except Exception:
+                pass
         try:
             stream_count = 0
             for line in proc.stdout:  # type: ignore[union-attr]
@@ -595,8 +617,7 @@ def _run_download_with_progress(
             proc.wait()
             return proc.returncode == 0
         finally:
-            with _active_procs_lock:
-                _active_procs.discard(proc)
+            _unregister_proc(proc)
     except FileNotFoundError:
         from src.platform import install_hint
         raise RuntimeError(f"yt-dlp not found. Install with: {install_hint('yt-dlp')}")
@@ -608,6 +629,7 @@ def download_video_with_progress(
     *,
     quality_format: str = "",
     on_progress: Callable[[str, float], None] | None = None,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
 ) -> bool:
     """Download video with live progress. quality_format overrides preferred_quality."""
     config.video_dir.mkdir(parents=True, exist_ok=True)
@@ -633,7 +655,7 @@ def download_video_with_progress(
         *config.cookie_args(),
         url,
     ]
-    return _run_download_with_progress(cmd, on_progress)
+    return _run_download_with_progress(cmd, on_progress, on_proc_started)
 
 
 def download_audio_with_progress(
@@ -641,6 +663,7 @@ def download_audio_with_progress(
     config,
     *,
     on_progress: Callable[[str, float], None] | None = None,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
 ) -> bool:
     """Download audio with live progress."""
     config.audio_dir.mkdir(parents=True, exist_ok=True)
@@ -661,7 +684,7 @@ def download_audio_with_progress(
         *config.cookie_args(),
         url,
     ]
-    return _run_download_with_progress(cmd, on_progress)
+    return _run_download_with_progress(cmd, on_progress, on_proc_started)
 
 
 
@@ -707,12 +730,12 @@ def fetch_channel_info(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", **get_popen_kwargs(headless=True),
         )
-        with _active_procs_lock: _active_procs.add(proc)
+        _register_proc(proc)
         if on_proc_started: on_proc_started(proc)
         try:
             stdout, _ = proc.communicate(timeout=30)
         finally:
-            with _active_procs_lock: _active_procs.discard(proc)
+            _unregister_proc(proc)
         if proc.returncode != 0 or not stdout.strip():
             return None
         data = json.loads(stdout)
@@ -808,7 +831,7 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
         from src.platform import get_popen_kwargs
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True, encoding="utf-8", **get_popen_kwargs(headless=True))
-        with _active_procs_lock: _active_procs.add(proc)
+        _register_proc(proc)
         if on_proc_started: on_proc_started(proc)
         try:
             for raw_line in proc.stdout:
@@ -829,7 +852,7 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
                 results.append(entry)
                 seen.append(cid)
         finally:
-            with _active_procs_lock: _active_procs.discard(proc)
+            _unregister_proc(proc)
     except Exception as exc:
         logger.debug("subs ch exc: %s", exc)
     if seen: cache.put_feed(cache_key, seen)
