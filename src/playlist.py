@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from src.platform import get_config_dir
@@ -20,7 +22,21 @@ def _load() -> dict[str, list[str]]:
 
 def _save(data: dict[str, list[str]]) -> None:
     _PLAYLISTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _PLAYLISTS_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    blob = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=_PLAYLISTS_PATH.parent, suffix=".tmp")
+    try:
+        os.write(fd, blob)
+        os.close(fd)
+        fd = -1
+        os.replace(tmp, _PLAYLISTS_PATH)
+    except Exception:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def list_names() -> list[str]:

@@ -35,7 +35,7 @@ class TermTubeApp(App):
         super().__init__()
         self.config = config
         self.cache = Cache(config._data.get("cache_ttl", {}))
-        self._housekeeping_done = False
+        self._housekeeping_done = threading.Event()
         atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:
@@ -75,19 +75,19 @@ class TermTubeApp(App):
             pass
         # Backstop: if the user quits before the 60 s timer fires, still prune
         # before exit. Synchronous run is fine — process is exiting anyway.
-        if not self._housekeeping_done:
+        if not self._housekeeping_done.is_set():
             self._run_housekeeping()
 
     def _launch_housekeeping(self) -> None:
-        if self._housekeeping_done:
+        if self._housekeeping_done.is_set():
             return
         threading.Thread(target=self._run_housekeeping, daemon=True).start()
 
     def _run_housekeeping(self) -> None:
         """Prune stale files from the cache directories."""
-        if self._housekeeping_done:
+        if self._housekeeping_done.is_set():
             return
-        self._housekeeping_done = True
+        self._housekeeping_done.set()
         try:
             logger.debug("Housekeeping: pruning thumbnails + video JSON + chafa cache")
             # Pin playlist videos before pruning to protect them

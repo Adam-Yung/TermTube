@@ -67,6 +67,9 @@ def kill_all_active() -> None:
 
 # ── Feed URLs ─────────────────────────────────────────────────────────────────
 
+_MAX_RETRIES = 1
+_RETRY_DELAY_S = 2.0
+
 FEED_URLS = {
     "home":          "https://www.youtube.com/feed/recommended",
     "subscriptions": "https://www.youtube.com/feed/subscriptions",
@@ -296,29 +299,37 @@ def fetch_page_batch(
                 return results
             logger.debug("fetch_page_batch: only %d cached entries usable, refetching", len(results))
 
-    # Fresh fetch
+    # Fresh fetch (with retry on empty results)
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
     cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
     results: list[dict] = []
     all_ids: list[str] = []
 
-    for entry in _stream_json_lines(
-        cmd,
-        capture_stderr=logger.is_debug(),
-        on_proc_started=on_proc_started,
-    ):
-        if len(results) >= count:
+    for attempt in range(_MAX_RETRIES + 1):
+        results = []
+        all_ids = []
+        for entry in _stream_json_lines(
+            cmd,
+            capture_stderr=logger.is_debug(),
+            on_proc_started=on_proc_started,
+        ):
+            if len(results) >= count:
+                break
+            if not _is_playable_video(entry):
+                continue
+            _normalise_entry(entry)
+            vid = entry.get("id", "")
+            if vid and vid in skip_ids:
+                continue
+            cache.put_video(entry)
+            if vid:
+                all_ids.append(vid)
+            results.append(entry)
+        if results or attempt >= _MAX_RETRIES:
             break
-        if not _is_playable_video(entry):
-            continue
-        _normalise_entry(entry)
-        vid = entry.get("id", "")
-        if vid and vid in skip_ids:
-            continue
-        cache.put_video(entry)
-        if vid:
-            all_ids.append(vid)
-        results.append(entry)
+        logger.debug("fetch_page_batch: empty result, retrying (%d/%d)", attempt + 1, _MAX_RETRIES)
+        import time
+        time.sleep(_RETRY_DELAY_S)
 
     if feed_key and len(all_ids) >= _MIN_FEED_COUNT:
         cache.put_feed(feed_key, all_ids)
@@ -356,7 +367,7 @@ def fetch_search_batch(
         if len(results) >= _MIN_SEARCH_COUNT:
             return results
 
-    # Fresh fetch
+    # Fresh fetch (with retry on empty results)
     url = f"ytsearch{count}:{query}"
     cmd = [
         "yt-dlp",
@@ -371,17 +382,25 @@ def fetch_search_batch(
     results: list[dict] = []
     all_ids: list[str] = []
 
-    for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
-        if not _is_playable_video(entry):
-            continue
-        _normalise_entry(entry)
-        vid = entry.get("id", "")
-        if vid and vid in skip_ids:
-            continue
-        cache.put_video(entry)
-        if vid:
-            all_ids.append(vid)
-        results.append(entry)
+    for attempt in range(_MAX_RETRIES + 1):
+        results = []
+        all_ids = []
+        for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug()):
+            if not _is_playable_video(entry):
+                continue
+            _normalise_entry(entry)
+            vid = entry.get("id", "")
+            if vid and vid in skip_ids:
+                continue
+            cache.put_video(entry)
+            if vid:
+                all_ids.append(vid)
+            results.append(entry)
+        if results or attempt >= _MAX_RETRIES:
+            break
+        logger.debug("fetch_search_batch: empty result, retrying (%d/%d)", attempt + 1, _MAX_RETRIES)
+        import time
+        time.sleep(_RETRY_DELAY_S)
 
     if len(all_ids) >= _MIN_SEARCH_COUNT:
         cache.put_feed(cache_key, all_ids)
@@ -734,6 +753,10 @@ def fetch_channel_info(
         if on_proc_started: on_proc_started(proc)
         try:
             stdout, _ = proc.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+            return None
         finally:
             _unregister_proc(proc)
         if proc.returncode != 0 or not stdout.strip():

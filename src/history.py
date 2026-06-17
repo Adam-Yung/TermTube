@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 import json
+import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Iterator
@@ -22,7 +24,21 @@ def _load() -> list[dict]:
 
 def _save(entries: list[dict]) -> None:
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    HISTORY_PATH.write_text(json.dumps(entries, ensure_ascii=False, indent=2))
+    data = json.dumps(entries, ensure_ascii=False, indent=2).encode("utf-8")
+    fd, tmp = tempfile.mkstemp(dir=HISTORY_PATH.parent, suffix=".tmp")
+    try:
+        os.write(fd, data)
+        os.close(fd)
+        fd = -1
+        os.replace(tmp, HISTORY_PATH)
+    except Exception:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def add(entry: dict) -> None:
