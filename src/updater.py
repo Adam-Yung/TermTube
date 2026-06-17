@@ -1,103 +1,20 @@
-"""Background and foreground updater for TermTube system tools.
-
-Manages sentinel files in the cache directory to rate-limit updates:
-  UPDATING     -- written at the start of an update run; removed on success/failure.
-  LAST_UPDATED -- written only after a fully successful run.
-  LAST_ATTEMPT -- written on every attempt (success or failure); enforces 24h cooldown.
-
-Staleness rules (_needs_update):
-  - UPDATING exists and is < UPDATING_TIMEOUT_S old -> update in progress, skip.
-  - LAST_ATTEMPT exists and is < ATTEMPT_COOLDOWN_S old -> tried recently, skip.
-  - LAST_UPDATED exists and is < UPDATE_INTERVAL_S old -> still fresh, skip.
-  - Otherwise -> run.
-
-A stale UPDATING (older than UPDATING_TIMEOUT_S) means the previous run crashed;
-we re-run on the next explicit --update call.
-"""
+"""Updater for TermTube system tools (yt-dlp, mpv, deno, etc.)."""
 
 from __future__ import annotations
 
 import shutil
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
 
-# -- Platform-specific process creation flags ---------------------------------
-if IS_WINDOWS:
-    _DETACHED_PROCESS: int = subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
-    _CREATE_NEW_PROCESS_GROUP: int = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
-else:
-    _DETACHED_PROCESS = 0x00000008
-    _CREATE_NEW_PROCESS_GROUP = 0x00000200
-
 # -- Constants -----------------------------------------------------------------
 
-UPDATE_INTERVAL_S: int = 7 * 24 * 3600   # 1 week between automatic updates
-UPDATING_TIMEOUT_S: int = 30 * 60        # 30 min: treat UPDATING as stale after this
-ATTEMPT_COOLDOWN_S: int = 24 * 3600      # 24 h: minimum gap between update attempts
-
 _CACHE_DIR: Path = get_cache_dir()
-_UPDATING: Path = _CACHE_DIR / "UPDATING"
-_LAST_UPDATED: Path = _CACHE_DIR / "LAST_UPDATED"
-_LAST_ATTEMPT: Path = _CACHE_DIR / "LAST_ATTEMPT"
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
 _LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
 
-
-# -- Sentinel helpers ----------------------------------------------------------
-
-def _mtime(path: Path) -> float | None:
-    """Return mtime of *path*, or None if it does not exist."""
-    try:
-        return path.stat().st_mtime
-    except FileNotFoundError:
-        return None
-
-
-def _needs_update() -> bool:
-    """Return True if an update run should be started."""
-    now = time.time()
-
-    mtime_updating = _mtime(_UPDATING)
-    if mtime_updating is not None:
-        age = now - mtime_updating
-        if age < UPDATING_TIMEOUT_S:
-            return False
-
-    mtime_attempt = _mtime(_LAST_ATTEMPT)
-    if mtime_attempt is not None and (now - mtime_attempt) < ATTEMPT_COOLDOWN_S:
-        return False
-
-    mtime_last = _mtime(_LAST_UPDATED)
-    if mtime_last is not None and (now - mtime_last) < UPDATE_INTERVAL_S:
-        return False
-
-    return True
-
-
-def _write_updating() -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    _UPDATING.touch()
-
-
-def _write_last_updated() -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    _LAST_UPDATED.touch()
-
-
-def _remove_updating() -> None:
-    try:
-        _UPDATING.unlink()
-    except FileNotFoundError:
-        pass
-
-
-def _write_last_attempt() -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    _LAST_ATTEMPT.touch()
 
 
 # -- Version tracking ----------------------------------------------------------
@@ -316,7 +233,6 @@ def run_all_updates(verbose: bool = False) -> bool:
     Mixing cookie extraction into tool-update runs causes silent failures on
     systems without a GUI browser available (CI, headless servers).
     """
-    _write_updating()
     all_ok = True
 
     for cmd in _update_commands():
@@ -352,7 +268,6 @@ def run_all_updates(verbose: bool = False) -> bool:
             all_ok = False
 
     if all_ok:
-        _write_last_updated()
         new_ver = get_ytdlp_version()
         if new_ver:
             _write_last_version(new_ver)
@@ -361,9 +276,6 @@ def run_all_updates(verbose: bool = False) -> bool:
     else:
         if verbose:
             _safe_print("  Some updates failed -- check output above.")
-
-    _write_last_attempt()
-    _remove_updating()
 
     return all_ok
 

@@ -326,10 +326,6 @@ def main() -> None:
         app.run()
     except KeyboardInterrupt:
         pass
-    finally:
-        if getattr(app, '_refresh_cookies_on_exit', False):
-            from src.updater import refresh_cookies
-            refresh_cookies(config, verbose=True)
 
 
 if __name__ == "__main__":

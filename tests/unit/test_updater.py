@@ -6,7 +6,6 @@ fully offline with no external tools required.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
@@ -16,105 +15,19 @@ import pytest
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _make_updater(tmp_path: Path):
-    """Return the updater module re-loaded with its sentinel paths redirected to
-    *tmp_path*.  We patch at the module level rather than importing once so
-    each test gets a clean sentinel state."""
+    """Return the updater module with its cache paths redirected to *tmp_path*
+    so each test gets a clean state."""
     import importlib
     import src.updater as mod
 
     mod._CACHE_DIR = tmp_path
-    mod._UPDATING = tmp_path / "UPDATING"
-    mod._LAST_UPDATED = tmp_path / "LAST_UPDATED"
-    mod._LAST_ATTEMPT = tmp_path / "LAST_ATTEMPT"
     mod._LAST_VERSION = tmp_path / "LAST_VERSION"
     return mod
 
 
-# ── _needs_update ─────────────────────────────────────────────────────────────
+# ── Version file helpers ───────────────────────────────────────────────────────
 
-class TestNeedsUpdate:
-    def test_no_sentinel_files_returns_true(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        assert mod._needs_update() is True
-
-    def test_fresh_last_updated_returns_false(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._LAST_UPDATED.touch()
-        assert mod._needs_update() is False
-
-    def test_stale_last_updated_returns_true(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._LAST_UPDATED.touch()
-        stale_mtime = time.time() - mod.UPDATE_INTERVAL_S - 1
-        import os
-        os.utime(mod._LAST_UPDATED, (stale_mtime, stale_mtime))
-        assert mod._needs_update() is True
-
-    def test_recent_updating_file_returns_false(self, tmp_path):
-        """A fresh UPDATING means an update is in progress — skip."""
-        mod = _make_updater(tmp_path)
-        mod._UPDATING.touch()
-        assert mod._needs_update() is False
-
-    def test_stale_updating_file_triggers_rerun(self, tmp_path):
-        """A stale UPDATING means the previous run failed — re-run."""
-        mod = _make_updater(tmp_path)
-        mod._UPDATING.touch()
-        stale_mtime = time.time() - mod.UPDATING_TIMEOUT_S - 1
-        import os
-        os.utime(mod._UPDATING, (stale_mtime, stale_mtime))
-        assert mod._needs_update() is True
-
-    def test_stale_updating_with_fresh_last_updated_skips(self, tmp_path):
-        """A stale UPDATING with a fresh LAST_UPDATED means the previous run's
-        result is still valid — no need to re-run."""
-        mod = _make_updater(tmp_path)
-        mod._LAST_UPDATED.touch()
-        mod._UPDATING.touch()
-        stale_mtime = time.time() - mod.UPDATING_TIMEOUT_S - 1
-        import os
-        os.utime(mod._UPDATING, (stale_mtime, stale_mtime))
-        assert mod._needs_update() is False
-
-    def test_fresh_last_attempt_skips(self, tmp_path):
-        """A recent LAST_ATTEMPT (< 24h) means we tried recently — skip."""
-        mod = _make_updater(tmp_path)
-        mod._LAST_ATTEMPT.touch()
-        assert mod._needs_update() is False
-
-    def test_stale_last_attempt_allows_rerun(self, tmp_path):
-        """A stale LAST_ATTEMPT (> 24h) allows a new update attempt."""
-        mod = _make_updater(tmp_path)
-        mod._LAST_ATTEMPT.touch()
-        stale_mtime = time.time() - mod.ATTEMPT_COOLDOWN_S - 1
-        import os
-        os.utime(mod._LAST_ATTEMPT, (stale_mtime, stale_mtime))
-        assert mod._needs_update() is True
-
-
-# ── Sentinel file helpers ──────────────────────────────────────────────────────
-
-class TestSentinelHelpers:
-    def test_write_updating_creates_file(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_updating()
-        assert mod._UPDATING.exists()
-
-    def test_write_last_updated_creates_file(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_last_updated()
-        assert mod._LAST_UPDATED.exists()
-
-    def test_remove_updating_deletes_file(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._UPDATING.touch()
-        mod._remove_updating()
-        assert not mod._UPDATING.exists()
-
-    def test_remove_updating_tolerates_missing_file(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._remove_updating()  # Should not raise
-
+class TestVersionHelpers:
     def test_write_last_version_persists(self, tmp_path):
         mod = _make_updater(tmp_path)
         mod._write_last_version("2026.05.05.233942")
@@ -171,7 +84,6 @@ class TestIsBrewAlreadyUptodate:
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is True
-        assert mod._LAST_UPDATED.exists()
 
 
 # ── get_ytdlp_version ─────────────────────────────────────────────────────────
@@ -263,7 +175,7 @@ class TestRunAllUpdates:
             IS_LINUX=is_linux,
         )
 
-    def test_success_writes_last_updated_and_removes_updating(self, tmp_path):
+    def test_success_returns_true(self, tmp_path):
         mod = _make_updater(tmp_path)
         mock_result = MagicMock(returncode=0)
         with (
@@ -274,11 +186,8 @@ class TestRunAllUpdates:
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is True
-        assert mod._LAST_UPDATED.exists()
-        assert mod._LAST_ATTEMPT.exists()
-        assert not mod._UPDATING.exists()
 
-    def test_failure_removes_updating_and_writes_last_attempt(self, tmp_path):
+    def test_failure_returns_false(self, tmp_path):
         mod = _make_updater(tmp_path)
         mock_result = MagicMock(returncode=1)
         with (
@@ -288,9 +197,6 @@ class TestRunAllUpdates:
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is False
-        assert not mod._UPDATING.exists()
-        assert not mod._LAST_UPDATED.exists()
-        assert mod._LAST_ATTEMPT.exists()
 
     def test_missing_tool_skipped_silently(self, tmp_path):
         mod = _make_updater(tmp_path)

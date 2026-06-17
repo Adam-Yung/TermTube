@@ -31,7 +31,6 @@ class CookieWarningModal(ModalScreen[str]):
             )
             yield ListView(
                 ListItem(Static("  Run cookie refresh now"), id="cookiewarn-now"),
-                ListItem(Static("  Run after TermTube exits"), id="cookiewarn-exit"),
                 ListItem(Static("  Never show this warning"), id="cookiewarn-never"),
                 id="cookiewarn-list",
             )

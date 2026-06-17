@@ -255,20 +255,6 @@ class MainScreen(Screen):
         # Periodic freshness label refresh ("updated 4m ago").
         self._freshness_timer = self.set_interval(_FRESHNESS_REFRESH_S, self._update_freshness_label)
         self.call_after_refresh(self._maybe_show_warnings)
-        # Check for a yt-dlp version change after a background update.
-        # Runs in a worker thread so the --version subprocess doesn't block the loop.
-        self.set_timer(0.8, self._check_update_notification)
-
-    @work(thread=True)
-    def _check_update_notification(self) -> None:
-        """Run in background: detect yt-dlp version change and notify if updated."""
-        try:
-            from src.updater import check_for_update_notification
-            msg = check_for_update_notification()
-            if msg:
-                self.app.call_from_thread(self.notify, msg, timeout=6)
-        except Exception:
-            pass
 
     def _maybe_show_warnings(self) -> None:
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
@@ -303,8 +289,6 @@ class MainScreen(Screen):
         def _on_cookie_done(choice: str) -> None:
             if choice == "cookiewarn-now":
                 self._run_cookie_refresh_now()
-            elif choice == "cookiewarn-exit":
-                self.app._refresh_cookies_on_exit = True  # type: ignore[attr-defined]
             elif choice == "cookiewarn-never":
                 config._data["cookie_warning_dismissed"] = True
                 config.save()
