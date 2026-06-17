@@ -958,7 +958,7 @@ class MainScreen(Screen):
             url = entry.get("channel_url") or entry.get("uploader_url") or ""
             if not url: return
             info = ytdlp.fetch_channel_info(url, self.app.config, self.app.cache)
-            if info and info.get("id") == vid or True:
+            if info:
                 self.app.call_from_thread(self._apply_ch_info_to_detail, vid, info)
         except Exception as exc:
             _logger.debug("ch_info_worker exc: %s", exc)
@@ -2037,18 +2037,9 @@ class MainScreen(Screen):
     # ── Quit ──────────────────────────────────────────────────────────────────
 
     def action_quit_app(self) -> None:
-        import threading
-
         _logger.info("user action: quit")
-        # Save the quick-start stash so the next boot is instant.
         if self._current_tab in _FEED_TABS:
             self._save_feed_stash(self._current_tab)
         self._stop_audio()
-        try:
-            import src.ytdlp as ytdlp
-
-            ytdlp.kill_all_active()
-        except Exception:
-            pass
         threading.Timer(0.6, os._exit, args=(0,)).start()
         self.app.exit()

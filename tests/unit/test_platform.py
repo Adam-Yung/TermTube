@@ -13,7 +13,6 @@ from src.platform import (
     IS_LINUX,
     get_cache_dir,
     get_config_dir,
-    get_data_dir,
     get_audio_ipc_path,
     get_video_ipc_path,
     get_ipc_path,

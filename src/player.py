@@ -324,42 +324,6 @@ def _poll_audio_properties_batched(
         return None, None, False
 
 
-def is_playing(*, socket_path: str = IPC_SOCKET) -> bool:
-    """Return True if mpv is active and not paused."""
-    paused = get_ipc_property("pause", socket_path=socket_path)
-    return paused is False
-
-
-def pause_toggle(*, socket_path: str = IPC_SOCKET) -> None:
-    """Toggle pause in a running mpv instance."""
-    send_ipc_command({"command": ["cycle", "pause"]}, socket_path=socket_path)
-
-
-def seek_to(seconds: float, *, socket_path: str = IPC_SOCKET) -> None:
-    """Seek to an absolute position in seconds."""
-    send_ipc_command({"command": ["seek", seconds, "absolute"]}, socket_path=socket_path)
-
-
-def set_volume(vol: int, *, socket_path: str = IPC_SOCKET) -> None:
-    """Set playback volume (0–130)."""
-    send_ipc_command({"command": ["set_property", "volume", vol]}, socket_path=socket_path)
-
-
-def playlist_append(url: str, *, socket_path: str = IPC_SOCKET) -> None:
-    """Append a URL to mpv's internal playlist without interrupting current playback."""
-    send_ipc_command({"command": ["loadfile", url, "append"]}, socket_path=socket_path)
-
-
-def playlist_next(*, socket_path: str = IPC_SOCKET) -> None:
-    """Skip to the next item in mpv's playlist."""
-    send_ipc_command({"command": ["playlist-next"]}, socket_path=socket_path)
-
-
-def playlist_prev(*, socket_path: str = IPC_SOCKET) -> None:
-    """Skip to the previous item in mpv's playlist."""
-    send_ipc_command({"command": ["playlist-prev"]}, socket_path=socket_path)
-
-
 def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
     """
     Convert yt-dlp cookie flags to mpv --ytdl-raw-options format.
@@ -378,50 +342,6 @@ def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
         else:
             i += 1
     return ",".join(opts)
-
-
-def play_playlist(
-    urls: list[str],
-    *,
-    audio_only: bool = False,
-    title: str = "",
-    ytdl_format: str = "",
-    cookie_args: list[str] | None = None,
-) -> None:
-    """Play multiple URLs sequentially as an mpv playlist. Blocks until done."""
-    if not urls:
-        return
-    exe = _mpv_exe()
-    if not exe:
-        from src.platform import install_hint
-        raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
-    input_conf = _write_input_conf()
-    try:
-        cmd = [
-            exe,
-            f"--input-conf={input_conf}",
-            f"--input-ipc-server={IPC_SOCKET}",
-        ]
-        if audio_only:
-            cmd += ["--no-video", "--term-osd-bar"]
-        if title:
-            cmd += [f"--title={title}"]
-        if ytdl_format:
-            cmd += [f"--ytdl-format={ytdl_format}"]
-        ytdl_raw = _cookie_args_to_ytdl_raw(cookie_args or [])
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-        cmd += ["--"] + urls
-        logger.debug("mpv playlist cmd: %s [+%d urls]", " ".join(cmd[:6]), len(urls))
-        result = subprocess.run(cmd, **get_subprocess_flags(headless=audio_only))
-        if result.returncode not in (0, 4):
-            logger.warning("mpv exited with code %d", result.returncode)
-    finally:
-        try:
-            os.unlink(input_conf)
-        except OSError:
-            pass
-        cleanup_ipc(IPC_SOCKET)
 
 
 def play(
@@ -448,10 +368,6 @@ def play(
         from src.platform import install_hint
         raise RuntimeError(f"No supported player found. Install mpv: {install_hint('mpv')}")
 
-
-def play_local(path: str, *, audio_only: bool = False, player: str = "mpv", title: str = "") -> None:
-    """Play a local file."""
-    play(path, audio_only=audio_only, player=player, title=title)
 
 
 # ── mpv ───────────────────────────────────────────────────────────────────────

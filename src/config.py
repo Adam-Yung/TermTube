@@ -174,7 +174,6 @@ class Config:
         try:
             existing: dict = {}
             if self.path.exists():
-                import yaml
                 with open(self.path) as f:
                     existing = yaml.safe_load(f) or {}
             existing.update({k: v for k, v in self._data.items()
@@ -183,7 +182,6 @@ class Config:
             existing["sponsorblock"] = self._data["sponsorblock"]
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "w") as f:
-                import yaml
                 yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
         except Exception:
             pass

@@ -187,10 +187,6 @@ class ActionBar(Widget):
         """Set SponsorBlock segments for progress bar overlay."""
         self._segments = segments
 
-    def clear_segments(self) -> None:
-        """Remove all SponsorBlock segment markers."""
-        self._segments = []
-
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
         self.query_one("#ab-actions", Static).update(self._get_actions_table())

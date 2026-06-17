@@ -51,7 +51,3 @@ def iter_entries() -> Iterator[dict]:
     for e in _load():
         yield e
 
-
-def clear() -> None:
-    if HISTORY_PATH.exists():
-        HISTORY_PATH.unlink()

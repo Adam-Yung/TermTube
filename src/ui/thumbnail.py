@@ -10,8 +10,6 @@ On Windows, chafa is skipped entirely — textual-image handles rendering.
 """
 
 from __future__ import annotations
-import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
@@ -33,53 +31,6 @@ def _ensure_chafa_dir() -> None:
 def _chafa_cache_path(video_id: str, cols: int, rows: int, fmt: str) -> Path:
     return CHAFA_DIR / f"{video_id}_{cols}x{rows}_{fmt}.ansi"
 
-
-# ── Terminal detection ─────────────────────────────────────────────────────────
-
-def _is_kitty() -> bool:
-    """True if running inside kitty (even through tmux)."""
-    return bool(os.environ.get("KITTY_WINDOW_ID"))
-
-
-def _supports_sixel() -> bool:
-    """Heuristic: return True when the terminal is known to support sixel graphics.
-
-    NOTE: This is specifically for *sixel* (DCS escape sequences), NOT for the
-    Kitty native graphics protocol (which is binary and cannot go through Rich).
-    Kitty 0.20+ supports sixel as a compatibility layer, so kitty is included.
-
-    Checked env vars (fastest, no I/O needed):
-      WT_SESSION      — Windows Terminal ≥ v1.22 supports sixel
-      KITTY_WINDOW_ID — Kitty ≥ 0.20 supports sixel
-      TERM_PROGRAM    — "iTerm.app" (iTerm2) and "WezTerm"
-      TERM            — "foot", "mlterm"
-      XTERM_VERSION   — xterm compiled with sixel support
-    """
-    from src.platform import in_windows_terminal
-    if in_windows_terminal():
-        return True
-    if _is_kitty():
-        return True
-    term_prog = os.environ.get("TERM_PROGRAM", "")
-    if term_prog in ("iTerm.app", "WezTerm"):
-        return True
-    term = os.environ.get("TERM", "")
-    if term in ("foot", "mlterm"):
-        return True
-    if os.environ.get("MLTERM"):
-        return True
-    if os.environ.get("XTERM_VERSION") and "xterm" in term:
-        return True
-    return False
-
-
-def _chafa_format() -> str:
-    """Return the best chafa output format for the current terminal (CLI/fzf context)."""
-    if _is_kitty() and _has_chafa():
-        return "kitty"
-    if _supports_sixel():
-        return "sixel"
-    return "symbols"
 
 
 def _chafa_format_for_tui(config=None) -> str:
@@ -407,38 +358,3 @@ def prune_old_chafa(max_age_days: int = 7, max_count: int = 600) -> None:
             capped += 1
     logger.debug("prune_old_chafa: %d expired, %d capped, %d kept",
                  deleted, capped, max(0, len(files) - capped))
-
-
-def render_url(url: str, *, cols: int = 38, rows: int = 20) -> str:
-    """Render a thumbnail from a URL directly (no caching). Pipes curl into chafa."""
-    if not _has_chafa() or not url:
-        return ""
-    from src.platform import has_curl
-    if not has_curl():
-        return ""
-    fmt = _chafa_format()
-    extra_flags = [] if fmt == "kitty" else ["--optimize=3"]
-    try:
-        chafa_exe = get_chafa_exe() or "chafa"
-        curl = subprocess.Popen(
-            ["curl", "-sL", "--max-time", "8", url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-        result = subprocess.run(
-            [
-                chafa_exe,
-                f"--size={cols}x{rows}",
-                f"--format={fmt}",
-                *extra_flags,
-                "-",
-            ],
-            stdin=curl.stdout,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        curl.wait()
-        return result.stdout
-    except (subprocess.TimeoutExpired, OSError):
-        return ""

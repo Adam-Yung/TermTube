@@ -32,15 +32,6 @@ def get_config_dir() -> Path:
     return base / "TermTube"
 
 
-def get_data_dir() -> Path:
-    """Application data directory (~/.local/share/TermTube or %LOCALAPPDATA%/TermTube)."""
-    if IS_WINDOWS:
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    return base / "TermTube"
-
-
 def get_cache_dir() -> Path:
     """Cache directory (~/.cache/termtube or %LOCALAPPDATA%/TermTube/cache)."""
     if IS_WINDOWS:

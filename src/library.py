@@ -68,21 +68,3 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
     entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)
     return entries
 
-
-def find_local(video_id: str, video_dir: Path, audio_dir: Path) -> dict:
-    """Return dict with 'video_path' and/or 'audio_path' if saved locally."""
-    result: dict = {}
-    for d, key in [(video_dir, "video_path"), (audio_dir, "audio_path")]:
-        if not d.exists():
-            continue
-        for info_path in d.glob(f"**/*.info.json"):
-            try:
-                data = json.loads(info_path.read_text())
-                if data.get("id") == video_id:
-                    sidecar = _load_sidecar(info_path)
-                    if sidecar and sidecar.get("_local_path"):
-                        result[key] = sidecar["_local_path"]
-                    break
-            except (json.JSONDecodeError, OSError):
-                continue
-    return result

@@ -342,18 +342,6 @@ class VideoListPanel(Widget):
         self._breadcrumb.update("")
         self._update_page_indicator()
 
-    def set_loading(self, loading: bool) -> None:
-        """Set the loading state (blocks page switching while True)."""
-        self._is_loading = loading
-        if loading:
-            self._anim.display = True
-            self._lv.display = False
-        else:
-            if self._anim.display:
-                self._anim.display = False
-                self._lv.display = True
-        self._update_page_indicator()
-
     def finish_loading(self) -> None:
         """Mark loading as done."""
         self._is_loading = False
@@ -361,11 +349,6 @@ class VideoListPanel(Widget):
             self._anim.display = False
             self._lv.display = True
             self._lv.focus()
-        self._update_page_indicator()
-
-    def set_prefetching(self, active: bool) -> None:
-        """Toggle the prefetch indicator on the page bar."""
-        self._prefetching = active
         self._update_page_indicator()
 
     def show_next_page_loading(self) -> None:
@@ -416,19 +399,6 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    def neighbor_id(self, vid_id: str, direction: int) -> str | None:
-        """Return the ID of the entry at offset direction from vid_id on current page."""
-        if self._current_page not in self._pages:
-            return None
-        entries = self._pages[self._current_page]
-        for i, e in enumerate(entries):
-            if e.get("id") == vid_id:
-                target = i + direction
-                if 0 <= target < len(entries):
-                    return entries[target].get("id") or None
-                return None
-        return None
-
     # ── Cursor helpers (used by MainScreen) ───────────────────────────────────
 
     def cursor_index(self) -> int | None:
@@ -439,15 +409,6 @@ class VideoListPanel(Widget):
 
     def cursor_up(self) -> None:
         self._lv.action_cursor_up()
-
-    def cursor_to_top(self) -> None:
-        if self._lv._nodes:
-            self._lv.index = 0
-
-    def cursor_to_bottom(self) -> None:
-        count = len(self._lv._nodes)
-        if count > 0:
-            self._lv.index = count - 1
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
