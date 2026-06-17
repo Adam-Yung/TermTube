@@ -1124,11 +1124,9 @@ class MainScreen(Screen):
         # available (hard dependency), so this gives thumbnails in any terminal
         # that supports 24-bit ANSI color (including the Cursor IDE terminal).
         if not ansi:
-            from src.platform import IS_WINDOWS
-            if IS_WINDOWS:
-                ansi = thumb_mod.render_pil_halfblock(vid, entry, cols=cols, rows=rows)
-                if session != self._thumb_session:
-                    return
+            ansi = thumb_mod.render_pil_halfblock(vid, entry, cols=cols, rows=rows)
+            if session != self._thumb_session:
+                return
 
         if ansi:
             self._chafa_ram_cache[ram_key] = ansi
