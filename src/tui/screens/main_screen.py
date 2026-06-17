@@ -322,6 +322,8 @@ class MainScreen(Screen):
         def _on_result(choice: str) -> None:
             if choice == "refresh":
                 self._run_cookie_refresh_now(reload_tab=feed_key)
+            elif choice == "update":
+                self._run_ytdlp_update(reload_tab=feed_key)
             else:
                 panel = self.query_one("#video-list-panel")
                 panel.set_error_message(
@@ -331,6 +333,48 @@ class MainScreen(Screen):
                 )
 
         self.app.push_screen(FeedErrorModal(), _on_result)
+
+    def _prompt_ytdlp_update(self, feed_key: str, error_detail: str = "") -> None:
+        """Push YtdlpUpdateModal and handle update on user confirmation."""
+        from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal
+
+        def _on_result(choice: str) -> None:
+            if choice == "update":
+                self._run_ytdlp_update(reload_tab=feed_key)
+            else:
+                panel = self.query_one("#video-list-panel")
+                panel.set_error_message(
+                    "⚠ Feed loading failed.\n\n"
+                    "Try updating manually:\n"
+                    "  termtube --update"
+                )
+
+        self.app.push_screen(YtdlpUpdateModal(error_detail), _on_result)
+
+    @work(thread=True)
+    def _run_ytdlp_update(self, *, reload_tab: str | None = None) -> None:
+        from src.updater import update_ytdlp
+        self.app.call_from_thread(
+            self.notify, "Updating yt-dlp…", timeout=3
+        )
+        success = update_ytdlp(verbose=False)
+        if success:
+            if reload_tab:
+                self.app.call_from_thread(
+                    self.notify, "yt-dlp updated — reloading feed…", timeout=4
+                )
+                self.app.call_from_thread(self._load_view, reload_tab)
+            else:
+                self.app.call_from_thread(
+                    self.notify, "yt-dlp updated successfully.", timeout=5
+                )
+        else:
+            self.app.call_from_thread(
+                self.notify, "yt-dlp update failed. Try: termtube --update",
+                severity="error", timeout=6,
+            )
+
+
 
     # ── Focus guard ───────────────────────────────────────────────────────────
 
@@ -473,7 +517,12 @@ class MainScreen(Screen):
                 self._load_playlist_videos_sync(view[len("playlist:"):], panel, cache)
         except Exception as exc:
             msg = str(exc)
-            self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
+            _EXTRACTION_PATTERNS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
+            is_extraction_error = any(p in msg.lower() for p in _EXTRACTION_PATTERNS)
+            if is_extraction_error and view in _FEED_TABS:
+                self.app.call_from_thread(self._prompt_ytdlp_update, view, msg)
+            else:
+                self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
             self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
         finally:
             self._home_loading = False

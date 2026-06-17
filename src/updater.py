@@ -65,6 +65,28 @@ def check_for_update_notification() -> str | None:
     return None
 
 
+
+
+def update_ytdlp(verbose: bool = False) -> bool:
+    """Update yt-dlp to latest nightly. Returns True on success."""
+    if not shutil.which("yt-dlp"):
+        return False
+    cmd = ["yt-dlp", "--update-to", "nightly"]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=not verbose,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            new_ver = get_ytdlp_version()
+            if new_ver:
+                _write_last_version(new_ver)
+            return True
+        return False
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return False
+
 # -- Cookie refresher ----------------------------------------------------------
 
 def _load_config_lazy():
