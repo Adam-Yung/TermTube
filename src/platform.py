@@ -7,6 +7,7 @@ doing ad-hoc platform checks.
 
 from __future__ import annotations
 
+import functools
 import os
 import sys
 from pathlib import Path
@@ -196,8 +197,9 @@ def in_windows_terminal() -> bool:
     return IS_WINDOWS and bool(os.environ.get("WT_SESSION"))
 
 
+@functools.cache
 def has_chafa() -> bool:
-    """True if chafa is available for thumbnail rendering."""
+    """True if chafa is available for thumbnail rendering (cached per process)."""
     import shutil
     if shutil.which("chafa"):
         return True
@@ -212,8 +214,9 @@ def has_chafa() -> bool:
     return False
 
 
+@functools.cache
 def get_chafa_exe() -> str | None:
-    """Return the chafa executable path, probing winget install dirs on Windows."""
+    """Return the chafa executable path, probing winget install dirs on Windows (cached per process)."""
     import shutil
     found = shutil.which("chafa")
     if found:
