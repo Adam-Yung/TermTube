@@ -115,12 +115,14 @@ TermTube manages its own tool update cadence without relying on OS schedulers (n
 - Since yt-dlp 2025.11.12, a JS runtime is required for full YouTube support (`yt-dlp-ejs`)
 - Deno is the recommended runtime per yt-dlp docs; it self-updates via `deno upgrade`
 
-**UPDATING / LAST_UPDATED sentinel design (`src/updater.py`):**
-- `UPDATING` written at start, removed on success; left on failure as a stale-guard
-- `LAST_UPDATED` written only on full success (all commands exited 0)
-- Staleness check: `UPDATING` < 30 min old → skip (in-progress); else `LAST_UPDATED` < 7 days → skip; else run
-- Forked as `python -m src.updater --background` with `start_new_session=True` (Unix) / `DETACHED_PROCESS` (Windows)
-- Parent exits immediately; child manages all sentinel files
+**Error-driven updates (Jun 2026 redesign):**
+- The sentinel file system (UPDATING/LAST_UPDATED/LAST_ATTEMPT) was removed entirely
+- No background updates, no timers, no on-exit hooks
+- Updates are triggered ONLY when something is broken:
+  - Empty feed → prompt cookie refresh first, then yt-dlp update if still empty
+  - Extraction errors (pattern-matched in exception handler) → prompt yt-dlp update
+- `update_ytdlp()` runs `yt-dlp --update-to nightly` and records the new version
+- Explicit `termtube --update` remains for manual full tool updates
 
 **`LAST_VERSION` for update notifications:**
 - Stores the yt-dlp version string recorded after each successful update

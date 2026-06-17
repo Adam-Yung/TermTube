@@ -1,57 +1,18 @@
 # Active Context
 
-## Status: COMPLETED — Jun 3 2026
+## Status: COMPLETED — Jun 17 2026
 
-## Session: Fix thumbnails on Windows, remove auto-update, harden update/download, fix CI
+## Session: Reactive updates, dead code pruning, Windows performance
 
-### Changes Made
+### Summary of Changes
 
-#### `src/updater.py`
-- **Removed `refresh_cookies()` call from `run_all_updates()`** — was causing silent failures on CI/headless systems; now separate explicit calls only
-- **Removed `maybe_update()` function** — background forked updater on every exit
-- **Added `_is_winget_already_uptodate()`** — winget exits 2316632107 when no upgrade available; treat as success (same pattern as `_is_brew_already_uptodate`)
-- **Added `_safe_print()`** — falls back to ASCII-safe output on Windows cp1252 consoles
-- **Replaced all Unicode emoji (`✓`, `⚠`, `…`, `—`)** in print statements with ASCII equivalents for Windows console compatibility
-- **Switched `xcopy` to `robocopy`** in the Windows copy script — more reliable; robocopy exit codes 0-7 are success
-- **Fixed temp dir cleanup** — removed self-referential `rmdir /s /q` from within the script being executed
-- **Removed `--background` forked process entry point** — the `__main__` now uses `--run` flag
-
-#### `src/config.py`
-- **Removed `auto_update` config key** from `DEFAULT_CONFIG` and the `auto_update` property
-
-#### `src/main.py`
-- **Removed auto-update `finally` block** — `maybe_update()` was called on every exit silently
-- **Fixed Unicode in `--update` banner** — replaced `—` and `…` with `--` and `...`
-
-#### `src/tui/widgets/thumbnail_widget.py`
-- **Fixed Windows thumbnail detection** — previously only enabled `_HAS_TEXTUAL_IMAGE` on Windows if `WT_SESSION` was set; now enables it on all Windows installs (textual-image renders at least halfcell/unicode)
-
-#### `src/ui/thumbnail.py`
-- **Fixed `download()`** — creates `THUMB_DIR` before writing; passes `get_popen_kwargs(headless=True)` to suppress PowerShell console window in TUI; logs stderr on non-zero exit
-
-#### `src/tui/screens/download_modal.py`
-- **Surfaced errors** — captures `ERROR:` lines from yt-dlp stdout; shows inline error message in the modal instead of silently dismissing with `False`
-- **Added `download-hint` Static widget** for per-state footer message
-
-#### `.github/workflows/test.yml`
-- Added `yt-dlp` binary install step to CI (needed for integration tests)
-- Added `timeout-minutes` to all jobs (5-10 min)
-- Added `TERM: xterm-256color` env for TUI tests
-- Added `--timeout=30` to TUI test run
-
-#### `tests/unit/test_config.py`
-- Removed `TestAutoUpdate` class (3 tests) — `auto_update` property no longer exists
-
-#### `tests/unit/test_updater.py`
-- Removed `TestMaybeUpdate` class (5 tests) — `maybe_update()` no longer exists
-
-#### `tests/integration/test_mpv_ipc.py`
-- Added `_SKIP_UNIX = pytest.mark.skipif(sys.platform == "win32", ...)` marker
-- Applied `@_SKIP_UNIX` to `TestSendIpcCommand` and `TestPollAudioProperties` — `socket.AF_UNIX` doesn't exist on Windows
-
-### Test Results
-- 252 passed, 15 skipped (11 AF_UNIX + 4 pre-existing) on Windows locally
-- CI now properly installs yt-dlp and will pass on Linux
-
-### Known Limitation
-- `yt-dlp --update-to nightly` fails on PAN network with SSL cert error (corporate proxy self-signed cert); this is a network environment issue, not a code bug
+1. **Removed background/scheduled update infrastructure** — deleted sentinel file system, auto_update settings toggle (fixes crash), version-check timer, on-exit cookie refresh hook
+2. **Implemented error-driven cookie refresh** — when feed returns empty + cookies configured, modal prompts user to refresh; on success, feed auto-reloads
+3. **Implemented error-driven yt-dlp update** — extraction errors or persistent empty feeds prompt user to update yt-dlp; on success, feed auto-reloads
+4. **Pruned 22+ dead functions** — removed unused stream_flat/stream_search, 9 player wrappers, 5 widget methods, 4 fzf-legacy thumbnail funcs, etc. Fixed `or True` debug leftover, consolidated redundant cleanup paths
+5. **Windows performance improvements:**
+   - Replaced PowerShell thumbnail downloads with urllib (eliminates ~300-500ms startup per thumbnail)
+   - Cached has_chafa()/get_chafa_exe() with functools.cache (eliminates repeated rglob scans)
+   - Batched IPC audio polling on Windows into single named-pipe session (3x fewer pipe connections)
+   - Made PIL halfblock thumbnail fallback universal (any platform without chafa benefits)
+   - Unified IS_WINDOWS detection via src.platform import
