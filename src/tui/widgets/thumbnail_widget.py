@@ -26,9 +26,8 @@ from textual.widgets import Static
 # Override: set MYYOUTUBE_IMAGES=1 to force images even inside tmux.
 
 import os as _os
-import sys as _sys
 
-_IS_WINDOWS = _sys.platform == "win32"
+from src.platform import IS_WINDOWS as _IS_WINDOWS
 _IN_TMUX = bool(_os.environ.get("TMUX")) and not _IS_WINDOWS
 _FORCE_IMAGES = _os.environ.get("MYYOUTUBE_IMAGES") == "1"
 
