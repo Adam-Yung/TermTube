@@ -16,7 +16,7 @@ from typing import Callable
 
 from src.cache import CACHE_DIR, THUMB_DIR
 from src import logger
-from src.platform import has_chafa as _platform_has_chafa, get_thumbnail_download_cmd, get_chafa_exe
+from src.platform import has_chafa as _platform_has_chafa, get_chafa_exe
 
 CHAFA_DIR = CACHE_DIR / "chafa"
 
@@ -83,31 +83,17 @@ def download(video_id: str, url: str) -> Path | None:
     dest = _thumb_path(video_id)
     if dest.exists():
         return dest
-    # Ensure cache directory exists before writing
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         logger.debug("Thumbnail cache dir create failed for %s: %s", video_id, exc)
         return None
     try:
-        from src.platform import get_popen_kwargs
-        cmd = get_thumbnail_download_cmd(url, str(dest))
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            **get_popen_kwargs(headless=True),
-        )
-        if result.returncode == 0 and dest.exists() and dest.stat().st_size > 100:
+        from src.platform import download_thumbnail
+        if download_thumbnail(url, str(dest)):
             logger.debug("Downloaded thumbnail for %s", video_id)
             return dest
         dest.unlink(missing_ok=True)
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace").strip() if result.stderr else ""
-            logger.debug(
-                "Thumbnail download failed for %s (rc=%d)%s",
-                video_id, result.returncode,
-                f": {stderr}" if stderr else "",
-            )
         return None
     except Exception as exc:
         logger.debug("Thumbnail download error for %s: %s", video_id, exc)

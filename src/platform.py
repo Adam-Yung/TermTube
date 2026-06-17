@@ -228,26 +228,26 @@ def get_chafa_exe() -> str | None:
     return None
 
 
-def has_curl() -> bool:
-    """True if curl is available for thumbnail downloads."""
-    import shutil
-    return shutil.which("curl") is not None
+def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
+    """Download a file using Python stdlib urllib (cross-platform, no subprocess).
 
-
-def get_thumbnail_download_cmd(url: str, dest: str) -> list[str]:
-    """Return the command to download a thumbnail.
-
-    On Windows, always use PowerShell Invoke-WebRequest — it uses the Windows
-    certificate store, which correctly handles corporate proxies with self-signed
-    certs. curl.exe (built into Windows 10+) fails with SSL rc=35 in those
-    environments. On Unix, use curl.
+    Uses the system SSL context which handles corporate proxies on all platforms.
+    Returns True on success.
     """
-    if IS_WINDOWS:
-        return [
-            "powershell", "-NoProfile", "-Command",
-            f"Invoke-WebRequest -Uri '{url}' -OutFile '{dest}' -TimeoutSec 8",
-        ]
-    return ["curl", "-s", "-L", "--max-time", "8", "-o", dest, url]
+    import ssl
+    import urllib.request
+
+    try:
+        ctx = ssl.create_default_context()
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            data = resp.read()
+        if len(data) < 100:
+            return False
+        Path(dest).write_bytes(data)
+        return True
+    except Exception:
+        return False
 
 
 # ── Install Hints ─────────────────────────────────────────────────────────────
