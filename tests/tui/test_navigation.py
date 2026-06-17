@@ -45,6 +45,7 @@ def app(mock_all_externals, tmp_path):
     config = Config(path=str(tmp_path / "config.yaml"))
     config._data["thumbnail_warning_dismissed"] = True
     config._data["cookie_warning_dismissed"] = True
+    config._data["cookies_file"] = ""
     return TermTubeApp(config)
 
 

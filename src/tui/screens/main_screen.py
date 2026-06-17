@@ -296,18 +296,41 @@ class MainScreen(Screen):
         self.app.push_screen(CookieWarningModal(), _on_cookie_done)
 
     @work(thread=True)
-    def _run_cookie_refresh_now(self) -> None:
+    def _run_cookie_refresh_now(self, *, reload_tab: str | None = None) -> None:
         from src.updater import refresh_cookies
         success = refresh_cookies(self.app.config, verbose=False)
         if success:
-            self.app.call_from_thread(
-                self.notify, "Cookies refreshed successfully.", timeout=5
-            )
+            if reload_tab:
+                self.app.call_from_thread(
+                    self.notify, "Cookies refreshed \u2014 reloading feed\u2026", timeout=4
+                )
+                self.app.call_from_thread(self._load_view, reload_tab)
+            else:
+                self.app.call_from_thread(
+                    self.notify, "Cookies refreshed successfully.", timeout=5
+                )
         else:
             self.app.call_from_thread(
                 self.notify, "Cookie refresh failed. Try: termtube --refresh-cookies",
                 severity="error", timeout=6,
             )
+
+    def _prompt_cookie_refresh(self, feed_key: str) -> None:
+        """Push FeedErrorModal and handle cookie refresh on user confirmation."""
+        from src.tui.screens.feed_error_modal import FeedErrorModal
+
+        def _on_result(choice: str) -> None:
+            if choice == "refresh":
+                self._run_cookie_refresh_now(reload_tab=feed_key)
+            else:
+                panel = self.query_one("#video-list-panel")
+                panel.set_error_message(
+                    "\u26a0 Feed returned no results.\n\n"
+                    "Cookies may be expired. Run:\n"
+                    "  termtube --refresh-cookies"
+                )
+
+        self.app.push_screen(FeedErrorModal(), _on_result)
 
     # ── Focus guard ───────────────────────────────────────────────────────────
 
@@ -502,12 +525,15 @@ class MainScreen(Screen):
 
         # Step 3 — split into pages (don't touch page 1 if stash is showing)
         if not entries and not stash_loaded:
-            self.app.call_from_thread(
-                panel.set_error_message,
-                "⚠ Home feed returned no results.\n\n"
-                "Your yt-dlp version may be outdated. Run:\n"
-                "  termtube --update",
-            )
+            if config.cookies_file:
+                self.app.call_from_thread(self._prompt_cookie_refresh, feed_key)
+            else:
+                self.app.call_from_thread(
+                    panel.set_error_message,
+                    "\u26a0 Feed returned no results.\n\n"
+                    "No cookies configured. Run:\n"
+                    "  termtube --refresh-cookies",
+                )
             return
 
         start_page = 2 if stash_loaded else 1
