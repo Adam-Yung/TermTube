@@ -254,17 +254,96 @@ def poll_audio_properties(
     reducing overhead from 3 connect/send/recv/close cycles to one.
     """
     if IS_WINDOWS:
-        return _poll_audio_properties_sequential(socket_path=socket_path)
+        return _poll_audio_properties_batched_pipe(socket_path=socket_path)
     return _poll_audio_properties_batched(socket_path=socket_path)
 
 
-def _poll_audio_properties_sequential(
+def _poll_audio_properties_batched_pipe(
     *, socket_path: str
 ) -> tuple[float | None, float | None, bool]:
-    """Fallback for Windows: three sequential IPC calls."""
-    pos = get_ipc_property("time-pos", socket_path=socket_path)
-    dur = get_ipc_property("duration", socket_path=socket_path)
-    paused = get_ipc_property("pause", socket_path=socket_path)
+    """Windows: batch all three requests in one named-pipe session."""
+    try:
+        import pywintypes
+        import win32file
+        import win32pipe
+
+        timeout_ms = 1000
+        try:
+            win32pipe.WaitNamedPipe(socket_path, timeout_ms)
+        except pywintypes.error:
+            pass
+
+        try:
+            handle = win32file.CreateFile(
+                socket_path,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0, None,
+                win32file.OPEN_EXISTING,
+                0, None,
+            )
+        except pywintypes.error:
+            return None, None, False
+
+        try:
+            win32pipe.SetNamedPipeHandleState(
+                handle, win32pipe.PIPE_READMODE_BYTE, None, None
+            )
+            # Write all 3 requests at once
+            payload = b""
+            for i, prop in enumerate(("time-pos", "duration", "pause")):
+                payload += (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
+            win32file.WriteFile(handle, payload)
+
+            # Read all 3 responses
+            buf = b""
+            results: dict[int, dict] = {}
+            while len(results) < 3:
+                try:
+                    _, chunk = win32file.ReadFile(handle, 4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    while b"\n" in buf:
+                        line, buf = buf.split(b"\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            resp = json.loads(line)
+                            rid = resp.get("request_id")
+                            if rid is not None:
+                                results[rid] = resp
+                        except json.JSONDecodeError:
+                            pass
+                except pywintypes.error:
+                    break
+            return _extract_poll_results(results)
+        finally:
+            win32file.CloseHandle(handle)
+    except ImportError:
+        # pywin32 not installed — fall back to sequential
+        pos = get_ipc_property("time-pos", socket_path=socket_path)
+        dur = get_ipc_property("duration", socket_path=socket_path)
+        paused = get_ipc_property("pause", socket_path=socket_path)
+        return (
+            float(pos) if pos is not None else None,
+            float(dur) if dur is not None else None,
+            paused is True,
+        )
+    except Exception:
+        return None, None, False
+
+
+def _extract_poll_results(
+    results: dict[int, dict],
+) -> tuple[float | None, float | None, bool]:
+    """Extract (time_pos, duration, is_paused) from batched IPC results."""
+    def _val(rid: int) -> Any:
+        r = results.get(rid, {})
+        return r.get("data") if r.get("error") == "success" else None
+    pos = _val(0)
+    dur = _val(1)
+    paused = _val(2)
     return (
         float(pos) if pos is not None else None,
         float(dur) if dur is not None else None,
@@ -308,18 +387,7 @@ def _poll_audio_properties_batched(
             pass
         s.close()
 
-        def _val(rid: int) -> Any:
-            r = results.get(rid, {})
-            return r.get("data") if r.get("error") == "success" else None
-
-        pos = _val(0)
-        dur = _val(1)
-        paused = _val(2)
-        return (
-            float(pos) if pos is not None else None,
-            float(dur) if dur is not None else None,
-            paused is True,
-        )
+        return _extract_poll_results(results)
     except (OSError, ConnectionRefusedError, FileNotFoundError):
         return None, None, False
 
