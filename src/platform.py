@@ -234,23 +234,48 @@ def get_chafa_exe() -> str | None:
 def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
     """Download a file using Python stdlib urllib (cross-platform, no subprocess).
 
-    Uses the system SSL context which handles corporate proxies on all platforms.
+    Tries verified SSL first, falls back to unverified on certificate errors
+    (common on corporate networks with MITM proxies). Thumbnail images are
+    public CDN content so skipping verification is acceptable as a fallback.
     Returns True on success.
     """
     import ssl
     import urllib.request
 
-    try:
-        ctx = ssl.create_default_context()
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-            data = resp.read()
-        if len(data) < 100:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+
+    for ctx in (_ssl_context_verified(), _ssl_context_unverified()):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                data = resp.read()
+            if len(data) < 100:
+                return False
+            Path(dest).write_bytes(data)
+            return True
+        except ssl.SSLError:
+            continue
+        except ssl.SSLCertVerificationError:
+            continue
+        except urllib.error.URLError as e:
+            if "SSL" in str(e) or "certificate" in str(e).lower():
+                continue
             return False
-        Path(dest).write_bytes(data)
-        return True
-    except Exception:
-        return False
+        except Exception:
+            return False
+    return False
+
+
+def _ssl_context_verified():
+    import ssl
+    return ssl.create_default_context()
+
+
+def _ssl_context_unverified():
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
 
 
 # ── Install Hints ─────────────────────────────────────────────────────────────
