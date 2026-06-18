@@ -1,21 +1,16 @@
-"""Dependency checker — prompts user to install missing tools."""
+"""Dependency checker — validates tools and offers bootstrap installation."""
 
 from __future__ import annotations
 
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
 
-# (tool_name, brew_formula, apt_package, winget_id, is_required)
-DEPS: list[tuple[str, str, str, str | None, bool]] = [
-    ("yt-dlp",  "yt-dlp",  "yt-dlp",  "yt-dlp.yt-dlp",   True),
-    ("deno",    "deno",    "deno",    "DenoLand.Deno",    True),   # required by yt-dlp for YouTube (JS runtime)
-    ("mpv",     "mpv",     "mpv",     None,               True),   # Windows: bundled by setup.ps1
-    ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",      False),  # optional: audio conversion
-]
+# Required tools and their purposes
+REQUIRED_TOOLS: list[str] = ["yt-dlp", "deno", "mpv"]
+OPTIONAL_TOOLS: list[str] = ["ffmpeg"]
 
 
 def _build_cookies_help() -> str:
@@ -88,15 +83,15 @@ def _build_cookies_help() -> str:
 COOKIES_HELP: str | None = None
 
 
-def _has(cmd: str) -> bool:
-    return shutil.which(cmd) is not None
-
-
 def print_cookies_help() -> None:
     global COOKIES_HELP
     if COOKIES_HELP is None:
         COOKIES_HELP = _build_cookies_help()
     print(COOKIES_HELP)
+
+
+def _has(cmd: str) -> bool:
+    return shutil.which(cmd) is not None
 
 
 def _has_mpv() -> bool:
@@ -110,135 +105,101 @@ def _has_mpv() -> bool:
     return False
 
 
-def _brew_available() -> bool:
-    return _has("brew")
+def check_dependencies() -> bool:
+    """Check all deps. Returns True if all required deps are present.
 
+    If tools are missing, offers to install them via the bootstrap system
+    (downloading from GitHub releases into ~/.local/termtube-deps/bin/).
+    """
+    missing_required: list[str] = []
+    missing_optional: list[str] = []
 
-def _winget_available() -> bool:
-    return IS_WINDOWS and _has("winget")
-
-
-def _install_brew(formula: str) -> bool:
-    print(f"  Installing {formula} via Homebrew...", flush=True)
-    result = subprocess.run(["brew", "install", formula], capture_output=False)
-    return result.returncode == 0
-
-
-def _install_winget(pkg_id: str) -> bool:
-    print(f"  Installing {pkg_id} via winget...", flush=True)
-    result = subprocess.run(
-        ["winget", "install", "--id", pkg_id,
-         "--accept-source-agreements", "--accept-package-agreements"],
-        capture_output=False,
-    )
-    return result.returncode == 0
-
-
-def check_dependencies(auto_install: bool = False) -> bool:
-    """Check all deps. Returns True if all required deps are present."""
-    missing_required: list[tuple[str, str, str | None]] = []
-    missing_optional: list[tuple[str, str, str | None]] = []
-
-    for tool, brew, apt, winget, required in DEPS:
+    for tool in REQUIRED_TOOLS:
         if tool == "mpv":
             present = _has_mpv()
         else:
             present = _has(tool)
         if not present:
-            if required:
-                missing_required.append((tool, brew, winget))
-            else:
-                missing_optional.append((tool, brew, winget))
+            missing_required.append(tool)
+
+    for tool in OPTIONAL_TOOLS:
+        if not _has(tool):
+            missing_optional.append(tool)
 
     if missing_optional:
         print("\n\033[33m⚠ Optional tools not found:\033[0m")
-        for tool, _, _ in missing_optional:
-            note = ""
-            print(f"  • {tool}  {note}")
+        for tool in missing_optional:
+            print(f"  • {tool}")
         print()
 
+    if not missing_required and not missing_optional:
+        return True
+
     if not missing_required:
+        # Only optional tools missing — offer bootstrap but don't block
+        if sys.stdin.isatty():
+            _offer_bootstrap(missing_optional, required=False)
         return True
 
     print("\n\033[31m✗ Required tools missing:\033[0m")
-    for tool, brew, winget in missing_required:
+    for tool in missing_required:
         print(f"  • {tool}")
 
-    if _winget_available():
-        if not sys.stdin.isatty():
-            _print_manual_install(missing_required)
-            return False
-        print()
-        try:
-            ans = input("Install missing tools via winget? [Y/n] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            ans = "n"
-
-        if ans in ("", "y", "yes"):
-            all_ok = True
-            for tool, _, winget in missing_required:
-                if winget and _install_winget(winget):
-                    print(f"\033[32m  ✓ Installed {tool}\033[0m")
-                else:
-                    print(f"\033[31m  ✗ Failed to install {tool}\033[0m")
-                    all_ok = False
-            return all_ok
-        else:
-            _print_manual_install(missing_required)
-            return False
-    elif _brew_available():
-        if not sys.stdin.isatty():
-            _print_manual_install(missing_required)
-            return False
-        print()
-        try:
-            ans = input("Install missing tools via Homebrew? [Y/n] ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            ans = "n"
-
-        if ans in ("", "y", "yes"):
-            all_ok = True
-            for tool, brew, _ in missing_required:
-                if _install_brew(brew):
-                    print(f"\033[32m  ✓ Installed {tool}\033[0m")
-                else:
-                    print(f"\033[31m  ✗ Failed to install {tool}\033[0m")
-                    all_ok = False
-            return all_ok
-        else:
-            _print_manual_install(missing_required)
-            return False
-    else:
-        _print_manual_install(missing_required)
+    all_missing = missing_required + missing_optional
+    if not sys.stdin.isatty():
+        _print_bootstrap_hint(all_missing)
         return False
 
+    return _offer_bootstrap(all_missing, required=True)
 
-def _print_manual_install(missing: list[tuple[str, str, str | None]]) -> None:
-    print("\nInstall manually:")
-    if IS_WINDOWS:
-        for tool, _, winget in missing:
-            if tool == "yt-dlp":
-                print("  # yt-dlp nightly (recommended):")
-                print("  winget install yt-dlp.yt-dlp")
-                print("  # or download from: github.com/yt-dlp/yt-dlp-nightly-builds/releases")
-            elif tool == "deno":
-                print("  winget install DenoLand.Deno")
-            elif winget:
-                print(f"  winget install {winget}")
-            else:
-                print(f"  (install {tool} manually)")
+
+def _offer_bootstrap(missing: list[str], *, required: bool) -> bool:
+    """Offer to install missing tools via the bootstrap system."""
+    from src.bootstrap import get_deps_bin, install_tool
+
+    print()
+    print(f"  TermTube can download these from GitHub into:")
+    print(f"    \033[36m{get_deps_bin()}\033[0m")
+    print()
+
+    try:
+        prompt = "Install missing tools now? [Y/n] " if required else "Install optional tools? [y/N] "
+        ans = input(f"  {prompt}").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        ans = "n"
+
+    default_yes = required
+    if default_yes:
+        accepted = ans in ("", "y", "yes")
     else:
-        for tool, brew, _ in missing:
-            if tool == "yt-dlp":
-                print("  # yt-dlp nightly (recommended):")
-                print(
-                    "  curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds"
-                    "/releases/latest/download/yt-dlp \\"
-                )
-                print("       -o ~/.local/bin/yt-dlp && chmod +x ~/.local/bin/yt-dlp")
-            elif tool == "deno":
-                print("  curl -fsSL https://deno.land/install.sh | sh")
-            elif brew:
-                fallback = f"sudo apt install {tool}  # or equivalent"
-                print(f"  brew install {brew}" if _brew_available() else f"  {fallback}")
+        accepted = ans in ("y", "yes")
 
+    if not accepted:
+        if required:
+            _print_bootstrap_hint(missing)
+        return not required
+
+    all_ok = True
+    for tool in missing:
+        print(f"  Installing {tool}...", flush=True)
+        if install_tool(tool, force=True):
+            print(f"\033[32m  ✓ {tool} installed\033[0m")
+        else:
+            print(f"\033[31m  ✗ {tool} installation failed\033[0m")
+            if tool in REQUIRED_TOOLS:
+                all_ok = False
+
+    if all_ok:
+        print()
+    return all_ok
+
+
+def _print_bootstrap_hint(missing: list[str]) -> None:
+    """Print manual bootstrap instructions."""
+    print("\n  Install manually by running:")
+    print("    \033[36mpython -m src.bootstrap\033[0m")
+    print()
+    print("  Or install individually:")
+    from src.bootstrap import get_deps_bin
+    print(f"    Target: {get_deps_bin()}")
+    print()

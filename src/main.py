@@ -12,6 +12,13 @@ _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+
+# Prepend TermTube-managed deps bin to PATH so shutil.which() finds them
+from src.bootstrap import get_deps_bin as _get_deps_bin
+_deps_bin = _get_deps_bin()
+if _deps_bin.is_dir():
+    os.environ["PATH"] = str(_deps_bin) + os.pathsep + os.environ.get("PATH", "")
+
 _VERSION = "0.2.0"
 
 
