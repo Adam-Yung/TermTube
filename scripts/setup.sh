@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# TermTube installer — minimal setup that bootstraps dependencies from GitHub.
+# TermTube installer — sets up a Python venv and bootstraps binary dependencies
+# from GitHub releases.
 #
-# Requirements: git, python3.11+, curl
+# Prerequisites: python3.11+, curl
 # All other dependencies (yt-dlp, deno, ffmpeg, mpv) are downloaded
 # automatically into ~/.local/termtube-deps/bin/ by src/bootstrap.py.
 
@@ -38,14 +39,7 @@ show_help() {
   TermTube Setup Script
   ═════════════════════
 
-  Usage: bash setup.sh [OPTIONS]
-
-  Install Modes:
-    (default)     Copy project to ~/.local/share/TermTube.
-                  Standard end-user installation. Source changes require re-run.
-
-    --sync        Symlink installation → current directory.
-                  For development: edits are immediately live.
+  Usage: bash scripts/setup.sh [OPTIONS]
 
   Options:
     --no-deps     Skip dependency bootstrap (only set up Python venv).
@@ -53,7 +47,6 @@ show_help() {
     --help, -h    Show this help message and exit.
 
   Prerequisites:
-    git           Version control (already have it if you cloned this)
     python3.11+   Python interpreter
     curl          For downloading dependencies (used by bootstrap.py)
 
@@ -68,29 +61,24 @@ EOF
 }
 
 # ── Argument Parsing ──────────────────────────────────────────────────────────
-SYNC_MODE=false
 SKIP_DEPS=false
 INTERACTIVE=true
 
 for arg in "$@"; do
     case "$arg" in
-        --sync)      SYNC_MODE=true ;;
         --no-deps)   SKIP_DEPS=true ;;
         --no-prompt) INTERACTIVE=false ;;
         --help|-h)   show_help ;;
-        *)           error "Unknown option: $arg"; echo "  Run 'bash setup.sh --help' for usage."; exit 1 ;;
+        *)           error "Unknown option: $arg"; echo "  Run 'bash scripts/setup.sh --help' for usage."; exit 1 ;;
     esac
 done
 
+# Resolve repo root (one level above the scripts/ directory)
 ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── Prerequisite Checks ───────────────────────────────────────────────────────
 check_prerequisites() {
     local missing=()
-
-    if ! command -v git &>/dev/null; then
-        missing+=("git")
-    fi
 
     if ! command -v curl &>/dev/null; then
         missing+=("curl")
@@ -102,7 +90,7 @@ check_prerequisites() {
         exit 1
     fi
 
-    success "Prerequisites OK (git, curl)"
+    success "Prerequisites OK (curl)"
 }
 
 # ── Python Detection ──────────────────────────────────────────────────────────
@@ -185,34 +173,6 @@ setup_venv() {
     success "Python environment ready."
 }
 
-# ── Sync Mode Prompt ──────────────────────────────────────────────────────────
-prompt_sync_mode() {
-    if [[ "$INTERACTIVE" != true ]]; then
-        return
-    fi
-
-    if [[ "$SYNC_MODE" == true ]]; then
-        return
-    fi
-
-    echo ""
-    echo -e "  ${BOLD}Choose installation mode:${RESET}"
-    echo ""
-    echo -e "    ${GREEN}1${RESET}) ${BOLD}Standard${RESET} (recommended)"
-    echo -e "       Copies files to ~/.local/share/TermTube"
-    echo -e "       ${DIM}Stable, isolated from source changes${RESET}"
-    echo ""
-    echo -e "    ${GREEN}2${RESET}) ${BOLD}Developer sync${RESET}"
-    echo -e "       Symlinks to current directory"
-    echo -e "       ${DIM}Edits take effect immediately${RESET}"
-    echo ""
-    read -r -p "  Select [1/2]: " choice
-    case "$choice" in
-        2) SYNC_MODE=true ;;
-        *) SYNC_MODE=false ;;
-    esac
-}
-
 # ── File Installation ─────────────────────────────────────────────────────────
 install_files() {
     if [[ "${ORIG_DIR}" == "${APP_DIR}" ]]; then
@@ -220,35 +180,30 @@ install_files() {
         return 0
     fi
 
-    if [[ "$SYNC_MODE" == true ]]; then
-        header "Developer Sync Mode"
-        rm -rf "${APP_DIR}"
-        mkdir -p "$(dirname "${APP_DIR}")"
-        ln -s "${ORIG_DIR}" "${APP_DIR}"
-        success "Symlinked ${APP_DIR} → ${ORIG_DIR}"
-        info "Edits in source are immediately live."
-    else
-        header "Standard Installation"
-        rm -rf "${APP_DIR}"
-        mkdir -p "${APP_DIR}"
+    header "Standard Installation"
+    rm -rf "${APP_DIR}"
+    mkdir -p "${APP_DIR}"
 
-        if [[ -d "${ORIG_DIR}/src" ]]; then
-            cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
-        fi
-
-        if [[ -d "${ORIG_DIR}/scripts" ]]; then
-            cp -a "${ORIG_DIR}/scripts" "${APP_DIR}/"
-        fi
-
-        for f in requirements.txt termtube termtube.cmd; do
-            if [[ -f "${ORIG_DIR}/$f" ]]; then
-                cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
-            fi
-        done
-
-        chmod +x "${APP_DIR}/termtube" "${APP_DIR}/setup.sh" "${APP_DIR}/uninstall.sh" 2>/dev/null || true
-        success "Project files installed to ${APP_DIR}"
+    if [[ -d "${ORIG_DIR}/src" ]]; then
+        cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
     fi
+
+    if [[ -d "${ORIG_DIR}/scripts" ]]; then
+        cp -a "${ORIG_DIR}/scripts" "${APP_DIR}/"
+    fi
+
+    if [[ -d "${ORIG_DIR}/assets" ]]; then
+        cp -a "${ORIG_DIR}/assets" "${APP_DIR}/"
+    fi
+
+    for f in requirements.txt termtube termtube.cmd; do
+        if [[ -f "${ORIG_DIR}/$f" ]]; then
+            cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
+        fi
+    done
+
+    chmod +x "${APP_DIR}/termtube" 2>/dev/null || true
+    success "Project files installed to ${APP_DIR}"
 }
 
 # ── PATH Symlink ──────────────────────────────────────────────────────────────
@@ -307,6 +262,107 @@ bootstrap_deps() {
     return $rc
 }
 
+# ── Desktop Shortcut ──────────────────────────────────────────────────────────
+install_shortcut() {
+    if [[ "$INTERACTIVE" == true ]]; then
+        echo ""
+        read -r -p "  Install TermTube outside the terminal? (creates a desktop shortcut/app) [Y/n] " reply
+        if [[ "${reply}" =~ ^[Nn]$ ]]; then
+            info "Skipped desktop shortcut."
+            return
+        fi
+    else
+        return
+    fi
+
+    if [[ "$(uname)" == "Darwin" ]]; then
+        _install_macos_app
+    else
+        _install_linux_desktop
+    fi
+}
+
+_install_linux_desktop() {
+    local desktop_dir="$HOME/.local/share/applications"
+    local desktop_file="$desktop_dir/termtube.desktop"
+    mkdir -p "$desktop_dir"
+    cat > "$desktop_file" <<EOF
+[Desktop Entry]
+Name=TermTube
+Comment=YouTube in your terminal
+Exec=termtube
+Icon=${APP_DIR}/assets/termtube.png
+Terminal=true
+Type=Application
+Categories=Network;Video;
+EOF
+    if command -v update-desktop-database &>/dev/null; then
+        update-desktop-database "$desktop_dir" 2>/dev/null || true
+    fi
+    success "Desktop entry created: $desktop_file"
+    info "TermTube will appear in your application launcher."
+}
+
+_install_macos_app() {
+    local app_bundle="$HOME/Applications/TermTube.app"
+    local macos_dir="$app_bundle/Contents/MacOS"
+    local resources_dir="$app_bundle/Contents/Resources"
+
+    mkdir -p "$macos_dir" "$resources_dir"
+
+    # Executable — uses absolute path so GUI-launched Terminal finds it
+    cat > "$macos_dir/TermTube" <<EOF
+#!/bin/bash
+exec "${BIN_DIR}/termtube"
+EOF
+    chmod +x "$macos_dir/TermTube"
+
+    # Copy icon
+    if [[ -f "${APP_DIR}/assets/termtube.icns" ]]; then
+        cp "${APP_DIR}/assets/termtube.icns" "$resources_dir/termtube.icns"
+    fi
+
+    # Info.plist
+    cat > "$app_bundle/Contents/Info.plist" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>TermTube</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.termtube.app</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleExecutable</key>
+    <string>TermTube</string>
+    <key>CFBundleIconFile</key>
+    <string>termtube</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.15</string>
+</dict>
+</plist>
+EOF
+    success "macOS app bundle created: $app_bundle"
+    warn "First launch: right-click → Open to bypass Gatekeeper (unsigned app)."
+}
+
+# ── Write VERSION ─────────────────────────────────────────────────────────────
+write_version() {
+    local version_file="${APP_DIR}/VERSION"
+    local tag=""
+    if command -v git &>/dev/null && [[ -d "${ORIG_DIR}/.git" ]]; then
+        tag=$(git -C "${ORIG_DIR}" describe --tags --exact-match 2>/dev/null || echo "dev")
+    else
+        tag="dev"
+    fi
+    printf '%s' "$tag" > "$version_file"
+    info "Version: $tag"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     local title="TermTube Installer"
@@ -331,9 +387,6 @@ main() {
     # Check prerequisites
     header "Prerequisites"
     check_prerequisites
-
-    # Prompt for install mode
-    prompt_sync_mode
 
     # Install project files
     install_files
@@ -360,6 +413,12 @@ main() {
     header "Finishing Up"
     install_binary
 
+    # Write version file
+    write_version
+
+    # Desktop shortcut (prompted)
+    install_shortcut
+
     # Summary
     echo ""
     echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
@@ -369,12 +428,6 @@ main() {
     echo -e "  ${BOLD}Run:${RESET}     ${GREEN}termtube${RESET}"
     echo -e "  ${BOLD}Config:${RESET}  ${CONFIG_DIR}/config.yaml"
     echo -e "  ${BOLD}Cookies:${RESET} ${CONFIG_DIR}/cookies.txt"
-    echo ""
-    if [[ "$SYNC_MODE" == true ]]; then
-        echo -e "  ${DIM}Mode: developer sync (symlinked)${RESET}"
-    else
-        echo -e "  ${DIM}Mode: standard install (copied)${RESET}"
-    fi
     echo ""
 }
 

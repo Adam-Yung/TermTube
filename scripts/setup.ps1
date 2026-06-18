@@ -27,7 +27,6 @@
 
 [CmdletBinding()]
 param(
-    [switch]$Sync,
     [switch]$Deps,
     [switch]$NoDeps,
     [switch]$NoPrompt,
@@ -42,17 +41,6 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-# Path conventions (matters! — getting this wrong causes the "mpv vanishes
-# on reinstall" and "sync mode pollutes the source repo" bugs):
-#
-#   $AppDir   — code + .venv + launcher. May be a junction in sync mode.
-#               Lives under \Programs\ so it is SEPARATE from $DataDir.
-#   $DataDir  — bundled mpv binary + cache + history. Always a real dir.
-#               Must NOT live inside $AppDir or sync-mode reinstalls will
-#               wipe the bundled mpv and writes to cache will pollute the
-#               user's source repo.
-#   $ConfigDir — roaming config + cookies.
-#
 $Version = "0.2.0"
 $AppName = "TermTube"
 $AppDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
@@ -79,11 +67,7 @@ if ($Help) {
   TermTube Setup Script (Windows)
   ================================
 
-  Usage: .\setup.ps1 [OPTIONS]
-
-  Install Modes:
-    (default)     Copy project to %LOCALAPPDATA%\TermTube.
-    -Sync         Symlink (junction) to current directory for development.
+  Usage: .\scripts\setup.ps1 [OPTIONS]
 
   Options:
     -Deps         Auto-install dependencies via winget.
@@ -660,23 +644,6 @@ function Setup-Venv {
     return $true
 }
 
-# ── Sync Mode Prompt ──────────────────────────────────────────────────────────
-function Prompt-SyncMode {
-    if ($NoPrompt -or $Sync) { return $Sync }
-
-    Write-Host ""
-    Write-Host "  Choose installation mode:" -ForegroundColor White
-    Write-Host ""
-    Write-Host "    1) Standard (recommended)" -ForegroundColor Green
-    Write-Host "       Copies files to $AppDir"
-    Write-Host ""
-    Write-Host "    2) Developer sync" -ForegroundColor Green
-    Write-Host "       Junctions to current directory"
-    Write-Host ""
-    $choice = Read-Host "  Select [1/2]"
-    return ($choice -eq "2")
-}
-
 # ── File Installation ─────────────────────────────────────────────────────────
 function Install-Files {
     $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { Split-Path -Parent (Split-Path -Parent $MyInvocation.ScriptName) }
@@ -690,17 +657,11 @@ function Install-Files {
     # data dir. If we detect that old layout, salvage its .venv and clean it
     # up so the data dir (mpv binary, cache) is left intact at the same path.
     if (Test-Path $LegacyAppDir) {
-        $legacyIsJunction = Test-IsReparsePoint $LegacyAppDir
-        $legacyVenv       = Join-Path $LegacyAppDir ".venv"
-        $legacyHasCode    = (Test-Path (Join-Path $LegacyAppDir "src")) -or `
-                            (Test-Path (Join-Path $LegacyAppDir "termtube.cmd"))
-        if ($legacyIsJunction) {
-            Write-Warn "Removing legacy install junction at $LegacyAppDir."
-            Remove-PathSafe $LegacyAppDir | Out-Null
-        } elseif ($legacyHasCode) {
+        $legacyVenv    = Join-Path $LegacyAppDir ".venv"
+        $legacyHasCode = (Test-Path (Join-Path $LegacyAppDir "src")) -or `
+                         (Test-Path (Join-Path $LegacyAppDir "termtube.cmd"))
+        if ($legacyHasCode) {
             Write-Info "Migrating from legacy layout at $LegacyAppDir."
-            # Salvage .venv to the new $AppDir location below; then prune
-            # the legacy code dir but PRESERVE mpv/, cache/, history.json, etc.
             if (Test-Path $legacyVenv) {
                 $migrateStash = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
                 if (Test-Path $migrateStash) { Remove-PathSafe $migrateStash | Out-Null }
@@ -710,7 +671,6 @@ function Install-Files {
                     Write-Warn "Could not preserve legacy .venv: $($_.Exception.Message)"
                 }
             }
-            # Remove only the code/launcher artifacts from the legacy dir
             foreach ($name in @("src", "termtube", "termtube.cmd", "setup.sh", "setup.ps1",
                                 "uninstall.sh", "uninstall.ps1", "scripts", "requirements.txt")) {
                 $p = Join-Path $LegacyAppDir $name
@@ -721,52 +681,23 @@ function Install-Files {
     }
 
     # Preserve the previous install's .venv across reinstalls so users don't
-    # pay a 30-60s pip cost every time. Move it aside before tearing down the
-    # install dir, then restore it after. Only valid in standard mode — in
-    # sync mode the .venv lives inside the repo dir, not $AppDir.
+    # pay a 30-60s pip cost every time.
     $stashedVenv = $null
     $appVenv     = Join-Path $AppDir ".venv"
-    $existingIsJunction = (Test-Path $AppDir) -and (Test-IsReparsePoint $AppDir)
-    # If migration above stashed a venv, treat that as the existing one to restore.
     $migrateStash = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
     if ((Test-Path $migrateStash) -and -not (Test-Path $appVenv)) {
         $stashedVenv = $migrateStash
     }
 
-    # Ensure $AppDir's parent dir (%LOCALAPPDATA%\Programs\) exists — New-Item
-    # Junction will fail with an unhelpful error if it doesn't.
     $appParent = Split-Path -Parent $AppDir
     if ($appParent -and -not (Test-Path $appParent)) {
         New-Item -ItemType Directory -Path $appParent -Force | Out-Null
     }
 
-    if ($SyncMode) {
-        Write-Header "Developer Sync Mode"
-        # IMPORTANT: Remove-PathSafe so that if $AppDir was a previous
-        # standard install (a real dir) we recurse-delete it, but if it was
-        # a junction from a prior sync run we delete only the junction —
-        # NOT the user's source tree it points at.
-        if (Test-Path $AppDir) {
-            if (-not (Remove-PathSafe $AppDir)) { return }
-        }
-        # Junctions only work on same volume and cannot span network shares
-        try {
-            New-Item -ItemType Junction -Path $AppDir -Target $origDir -ErrorAction Stop | Out-Null
-        } catch {
-            Write-Err "Failed to create junction: $($_.Exception.Message)"
-            Write-Warn "Falling back to standard copy install."
-            $SyncMode = $false
-        }
-        if ($SyncMode) {
-            Write-Success "Junction: $AppDir -> $origDir"
-            return
-        }
-    }
-
     Write-Header "Standard Installation"
 
-    # Stash .venv if it exists in the previous standard install (not a junction)
-    if ((Test-Path $appVenv) -and -not $existingIsJunction -and -not (Test-IsReparsePoint $appVenv)) {
+    # Stash .venv if it exists in the previous standard install
+    if ((Test-Path $appVenv) -and -not (Test-IsReparsePoint $appVenv)) {
         $stashedVenv = Join-Path $env:LOCALAPPDATA "TermTube.venv.stash"
         if (Test-Path $stashedVenv) { Remove-PathSafe $stashedVenv | Out-Null }
         try {
@@ -793,6 +724,10 @@ function Install-Files {
     $scriptsDir = Join-Path $origDir "scripts"
     if (Test-Path $scriptsDir) {
         Copy-Item $scriptsDir -Destination $AppDir -Recurse -Force
+    }
+    $assetsDir = Join-Path $origDir "assets"
+    if (Test-Path $assetsDir) {
+        Copy-Item $assetsDir -Destination $AppDir -Recurse -Force
     }
     foreach ($f in $filesToCopy) {
         $src = Join-Path $origDir $f
@@ -888,6 +823,56 @@ function Bootstrap-Dependencies {
     }
 }
 
+# ── Write VERSION ────────────────────────────────────────────────────────────
+function Write-Version {
+    $versionFile = Join-Path $AppDir "VERSION"
+    $tag = "dev"
+    try {
+        $gitExe = Get-Command git -ErrorAction SilentlyContinue
+        if ($gitExe) {
+            $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { $AppDir }
+            $tag = & git -C $origDir describe --tags --exact-match 2>$null
+            if (-not $tag) { $tag = "dev" }
+        }
+    } catch {}
+    try { Set-Content -LiteralPath $versionFile -Value $tag.Trim() -NoNewline } catch {}
+    Write-Info "Version: $($tag.Trim())"
+}
+
+# ── Desktop Shortcut ─────────────────────────────────────────────────────────
+function Install-Shortcut {
+    if ($NoPrompt) { return }
+    Write-Host ""
+    $reply = Read-Host "  Install TermTube outside the terminal? (creates a Desktop shortcut) [Y/n]"
+    if ($reply -match '^[Nn]') {
+        Write-Info "Skipped desktop shortcut."
+        return
+    }
+    $icoPath = Join-Path $AppDir "assets\termtube.ico"
+    if (-not (Test-Path $icoPath)) {
+        Write-Warn "Icon file not found at $icoPath — shortcut will use default icon."
+        $icoPath = ""
+    }
+    $venvPython = Join-Path $AppDir ".venv\Scripts\python.exe"
+    try {
+        $wsh = New-Object -ComObject WScript.Shell
+        $sc  = $wsh.CreateShortcut("$HOME\Desktop\TermTube.lnk")
+        $wt  = Get-Command wt.exe -ErrorAction SilentlyContinue
+        if ($wt) {
+            $sc.TargetPath = "wt.exe"
+            $sc.Arguments  = "-- termtube"
+        } else {
+            $sc.TargetPath = "cmd.exe"
+            $sc.Arguments  = "/k termtube"
+        }
+        if ($icoPath) { $sc.IconLocation = "$icoPath,0" }
+        $sc.Save()
+        Write-Success "Desktop shortcut created: $HOME\Desktop\TermTube.lnk"
+    } catch {
+        Write-Warn "Could not create desktop shortcut: $($_.Exception.Message)"
+    }
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 function Main {
     Write-Host ""
@@ -914,22 +899,15 @@ function Main {
 
     Write-Info "Platform: Windows / $(if (Test-WinGet) {'winget available'} else {'winget not found'})"
 
-    $syncMode = Prompt-SyncMode
-
     if (-not $NoDeps) {
         Write-Header "Binary Dependencies"
         Bootstrap-Dependencies
     }
 
-    # Install code first, THEN download bundled mpv.
-    # mpv lives in $DataDir, which is intentionally outside $AppDir — so
-    # the order is no longer load-bearing for correctness, but doing code
-    # first matches the user-visible "set up the app, then add binaries"
-    # mental model.
-    Install-Files -SyncMode $syncMode
+    Install-Files
 
     # Download standalone mpv.exe for windowless audio playback (into
-    # $DataDir, NOT $AppDir — safe across reinstalls and sync mode).
+    # $DataDir, NOT $AppDir — safe across reinstalls).
     Install-MpvCli | Out-Null
 
     Write-Header "Python Environment"
@@ -951,6 +929,9 @@ function Main {
 
     Write-Header "Finishing Up"
     Install-Launcher
+
+    Write-Version
+    Install-Shortcut
 
     Write-Host ""
     Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor White
