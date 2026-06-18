@@ -78,6 +78,11 @@ class ActionBar(Widget):
         self._segments: list[Segment] = []
         self._wave_frame: int = 0
         self._wave_timer = None
+        # Pre-computed segment column map: list[bool] of length == last rendered width.
+        # Invalidated when _segments or _dur changes.
+        self._segment_cols: list[bool] = []
+        self._segment_cols_width: int = 0
+        self._segment_cols_dur: float = 0.0
 
     def compose(self) -> ComposeResult:
         yield Static(id="ab-actions")
@@ -151,6 +156,26 @@ class ActionBar(Widget):
 
         return table
 
+    def _build_segment_cols(self, width: int, dur: float) -> list[bool]:
+        """Pre-compute which columns fall inside a SponsorBlock segment."""
+        cols: list[bool] = []
+        for col in range(width):
+            t = (col / width) * dur
+            cols.append(any(s.start <= t < s.end for s in self._segments))
+        return cols
+
+    def _get_segment_cols(self, width: int, dur: float) -> list[bool]:
+        """Return cached segment-column map, rebuilding only when inputs change."""
+        if (
+            self._segment_cols_width != width
+            or self._segment_cols_dur != dur
+            or len(self._segment_cols) != width
+        ):
+            self._segment_cols = self._build_segment_cols(width, dur)
+            self._segment_cols_width = width
+            self._segment_cols_dur = dur
+        return self._segment_cols
+
     def _text_bar(self, pos: float, dur: float, width: int) -> str:
         width = max(4, width)
         if dur <= 0:
@@ -165,10 +190,10 @@ class ActionBar(Widget):
             empty = width - filled
             return f"[{color}]{'█' * filled}[/{color}][#2a2a40]{'░' * empty}[/#2a2a40]"
 
+        seg_cols = self._get_segment_cols(width, dur)
         parts: list[str] = []
         for col in range(width):
-            t = (col / width) * dur
-            in_segment = any(s.start <= t < s.end for s in self._segments)
+            in_segment = seg_cols[col]
             if col < filled:
                 c = sponsor_color if in_segment else color
                 parts.append(f"[{c}]█[/{c}]")
@@ -193,6 +218,7 @@ class ActionBar(Widget):
     def set_segments(self, segments: list[Segment]) -> None:
         """Set SponsorBlock segments for progress bar overlay."""
         self._segments = segments
+        self._segment_cols = []  # invalidate cache
 
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
@@ -205,6 +231,7 @@ class ActionBar(Widget):
         self._playing = False
         self._queue_len = 0
         self._segments = []
+        self._segment_cols = []
         if self._wave_timer is not None:
             self._wave_timer.stop()
             self._wave_timer = None

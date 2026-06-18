@@ -72,6 +72,10 @@ class WatchModal(ModalScreen[bool]):
         self._sb_next_idx: int = 0  # sorted pointer for O(1) segment scan
         self._dur: float = 0.0
         self._poll_timer = None
+        # Pre-computed segment column map for progress bar — invalidated on segments/dur change
+        self._segment_cols: list[bool] = []
+        self._segment_cols_width: int = 0
+        self._segment_cols_dur: float = 0.0
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or "Unknown"
@@ -116,6 +120,7 @@ class WatchModal(ModalScreen[bool]):
             self._segments = fetch_segments(vid, config.sponsorblock_categories)
             self._segments.sort(key=lambda s: s.start)
             self._sb_next_idx = 0
+            self._segment_cols = []  # invalidate pre-computed bar cache
 
         url = (
             self._entry.get("_local_path")
@@ -279,10 +284,23 @@ class WatchModal(ModalScreen[bool]):
                 f"[#2a2a40]{'░' * empty}[/#2a2a40]"
             )
 
+        # Rebuild segment column map only when width or duration changes
+        if (
+            self._segment_cols_width != width
+            or self._segment_cols_dur != dur
+            or len(self._segment_cols) != width
+        ):
+            cols: list[bool] = []
+            for col in range(width):
+                t = (col / width) * dur
+                cols.append(any(s.start <= t < s.end for s in self._segments))
+            self._segment_cols = cols
+            self._segment_cols_width = width
+            self._segment_cols_dur = dur
+
         parts: list[str] = []
         for col in range(width):
-            t = (col / width) * dur
-            in_segment = any(s.start <= t < s.end for s in self._segments)
+            in_segment = self._segment_cols[col]
             if col < filled:
                 c = sponsor_color if in_segment else progress_color
                 parts.append(f"[{c}]█[/{c}]")
