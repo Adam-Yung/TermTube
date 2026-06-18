@@ -243,12 +243,32 @@ class Cache:
             self._suppressed.add(video_id)
             self._save_suppressed()  # only write when threshold is crossed
             logger.debug("cache.register_focus suppressing %s after %d focuses", video_id, count)
+        self._prune_focus_counts()
+
+    def _prune_focus_counts(self) -> None:
+        """Cap _focus_counts at 5000 entries to prevent unbounded growth."""
+        if len(self._focus_counts) <= 5000:
+            return
+        # Remove entries already suppressed (they won't be incremented again)
+        self._focus_counts = {
+            k: v for k, v in self._focus_counts.items()
+            if k not in self._suppressed
+        }
+        if len(self._focus_counts) <= 5000:
+            return
+        # Still over cap: remove lowest-count entries
+        sorted_items = sorted(self._focus_counts.items(), key=lambda x: x[1])
+        keep = sorted_items[len(sorted_items) - 5000:]
+        self._focus_counts = dict(keep)
 
     def suppress_video(self, video_id: str) -> None:
         """Immediately suppress a video (e.g. after listening to it)."""
         self._load_suppressed()
         if video_id not in self._suppressed:
             self._suppressed.add(video_id)
+            if len(self._suppressed) > 2000:
+                trimmed = list(self._suppressed)[-1500:]
+                self._suppressed = set(trimmed)
             self._save_suppressed()
             logger.debug("cache.suppress_video %s", video_id)
 

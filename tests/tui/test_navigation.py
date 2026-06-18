@@ -26,8 +26,7 @@ def mock_all_externals(tmp_path, monkeypatch):
     ]
 
     with patch("src.ytdlp._stream_json_lines", return_value=iter(entries)), \
-         patch("src.ytdlp.fetch_full", return_value=entries[0]), \
-         patch("src.ytdlp.fetch_stream_urls", return_value=None), \
+               \
          patch("subprocess.Popen") as mock_popen:
         mock_proc = MagicMock()
         mock_proc.poll.return_value = None

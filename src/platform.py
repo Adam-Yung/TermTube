@@ -7,7 +7,6 @@ doing ad-hoc platform checks.
 
 from __future__ import annotations
 
-import functools
 import os
 import sys
 from pathlib import Path

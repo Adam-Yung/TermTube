@@ -1,12 +1,9 @@
 """yt-dlp interface — all yt-dlp subprocess calls live here.
 
 Progressive streaming design:
-  fetch_page_batch()  →  cache-first paged fetch: yields from disk cache instantly
-                         if fresh, otherwise fetches from yt-dlp and saves feed index.
+  fetch_page_batch()   →  cache-first paged fetch: yields from disk cache instantly
+                          if fresh, otherwise fetches from yt-dlp and saves feed index.
   fetch_search_batch() →  same, keyed by query hash.
-  fetch_full()         →  fetches complete metadata for one video (slower).
-                         Accepts on_proc_started so the caller can cancel the
-                         subprocess if the user moves on before it completes.
 """
 
 from __future__ import annotations
@@ -407,156 +404,6 @@ def fetch_search_batch(
     return results
 
 
-# ── Full metadata (for video detail page) ────────────────────────────────────
-def fetch_full(
-    video_id: str,
-    config,
-    cache: Cache,
-    *,
-    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
-) -> tuple[dict | None, dict | None]:
-    """Fetch complete metadata + stream URLs for a single video.
-
-    Returns (metadata_entry, stream_urls_dict). Both may be None on failure.
-    metadata_entry is also written to cache. stream_urls contains audio_url,
-    video_url, expire, fetched_at.
-
-    on_proc_started: optional callback that receives the underlying yt-dlp
-    Popen handle for cancellation support.
-    """
-    cached = cache.get_video(video_id)
-    if cached and cached.get("description") is not None:
-        logger.debug("fetch_full cache hit: %s", video_id)
-        return cached, None
-
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    cmd = [
-        "yt-dlp",
-        "--dump-json",
-        "--no-warnings",
-        "--quiet",
-        "--skip-download",
-        *config.cookie_args(),
-        url,
-    ]
-    logger.debug("fetch_full fetching: %s", video_id)
-    results = list(_stream_json_lines(
-        cmd,
-        capture_stderr=logger.is_debug(),
-        on_proc_started=on_proc_started,
-    ))
-    if not results:
-        logger.warning("fetch_full got no data for %s — falling back to flat cache", video_id)
-        return cache.get_video_raw(video_id), None
-    entry = results[0]
-    _normalise_entry(entry)
-    stream_urls = None
-    cache.put_video(entry)
-    return entry, stream_urls
-# ── Stream URL prefetch ───────────────────────────────────────────────────────
-
-def fetch_stream_urls(
-    video_id: str,
-    config,
-    *,
-    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
-) -> dict | None:
-    """Fetch direct stream URLs for best audio and best video formats.
-
-    Returns a dict with keys: audio_url, video_url, expire, fetched_at.
-    Returns None on failure. Does NOT use the skip=dash,hls flag so that
-    yt-dlp resolves actual streaming URLs.
-    """
-    import time
-
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    cmd = [
-        "yt-dlp",
-        "--dump-json",
-        "--no-warnings",
-        "--quiet",
-        "--skip-download",
-        *config.cookie_args(),
-        url,
-    ]
-    logger.debug("fetch_stream_urls: %s", video_id)
-    results = list(_stream_json_lines(
-        cmd,
-        capture_stderr=logger.is_debug(),
-        on_proc_started=on_proc_started,
-    ))
-    if not results:
-        logger.warning("fetch_stream_urls got no data for %s", video_id)
-        return None
-
-    info = results[0]
-    formats = info.get("formats") or []
-    if not formats:
-        logger.debug("fetch_stream_urls: no formats in response for %s", video_id)
-        return None
-
-    best_audio_url = _pick_best_audio_url(formats)
-    best_video_url = _pick_best_video_url(formats)
-
-    if not best_audio_url and not best_video_url:
-        return None
-
-    expire = _extract_expire(best_audio_url or best_video_url or "")
-
-    return {
-        "audio_url": best_audio_url,
-        "video_url": best_video_url,
-        "expire": expire,
-        "fetched_at": time.time(),
-    }
-
-
-def _pick_best_audio_url(formats: list[dict]) -> str | None:
-    """Select the best audio-only format URL, preferring original audio over auto-dubbed."""
-    audio_formats = [
-        f for f in formats
-        if f.get("acodec", "none") != "none"
-        and f.get("vcodec", "none") in ("none", None)
-        and f.get("url")
-    ]
-    if not audio_formats:
-        return None
-    # Prefer tracks marked as "original" (avoids YouTube auto-dub tracks)
-    original = [f for f in audio_formats if "original" in (f.get("format_note") or "").lower()]
-    candidates = original if original else audio_formats
-    candidates.sort(key=lambda f: f.get("abr") or f.get("tbr") or 0, reverse=True)
-    return candidates[0]["url"]
-
-
-def _pick_best_video_url(formats: list[dict]) -> str | None:
-    """Select the best video-only format URL from yt-dlp formats list."""
-    video_formats = [
-        f for f in formats
-        if f.get("vcodec", "none") != "none"
-        and f.get("acodec", "none") in ("none", None)
-        and f.get("url")
-    ]
-    if not video_formats:
-        return None
-    video_formats.sort(
-        key=lambda f: (f.get("height") or 0, f.get("tbr") or 0), reverse=True
-    )
-    return video_formats[0]["url"]
-
-
-def _extract_expire(url: str) -> int:
-    """Extract the expire= query parameter from a YouTube stream URL."""
-    from urllib.parse import urlparse, parse_qs
-    try:
-        parsed = urlparse(url)
-        expire_vals = parse_qs(parsed.query).get("expire", [])
-        if expire_vals:
-            return int(expire_vals[0])
-    except (ValueError, TypeError):
-        pass
-    return 0
-
-
 # ── Download ──────────────────────────────────────────────────────────────────
 
 # ── Quality helpers ───────────────────────────────────────────────────────────
@@ -839,7 +686,7 @@ def fetch_channel_playlists(
 
 
 def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> list[dict]:
-    """Fetch subscribed channels."""
+    """Fetch subscribed channels (with 60s timeout)."""
     url = "https://www.youtube.com/feed/channels"
     cache_key = "subs:channels"
     cached = cache.get_feed(cache_key)
@@ -860,8 +707,15 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
         _register_proc(proc)
         if on_proc_started: on_proc_started(proc)
         try:
-            for raw_line in proc.stdout:
-                line = raw_line.strip()
+            try:
+                stdout, _ = proc.communicate(timeout=60)
+            except subprocess.TimeoutExpired:
+                logger.warning("fetch_subscribed_channels: timeout (60s) — killing process")
+                proc.kill()
+                proc.wait(timeout=5)
+                return results
+            for line in stdout.splitlines():
+                line = line.strip()
                 if not line: continue
                 try:
                     data = json.loads(line)

@@ -39,6 +39,7 @@ class AppHeader(Widget):
         super().__init__(**kwargs)
         self._state = "IDLE"
         self._frame = 0
+        self._spinner_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-layout"):
@@ -48,7 +49,6 @@ class AppHeader(Widget):
 
     def on_mount(self) -> None:
         self.set_interval(1.0, self._update_clock)
-        self.set_interval(0.1, self._animate_spinner)
         self._update_clock()
 
     def _update_clock(self) -> None:
@@ -67,9 +67,14 @@ class AppHeader(Widget):
         self._frame = 0
         char = self._SPINNER[0]
         self.query_one("#header-status", Static).update(char)
+        if not self._spinner_timer:
+            self._spinner_timer = self.set_interval(0.1, self._animate_spinner)
 
     def set_status_idle(self) -> None:
         self._state = "IDLE"
+        if self._spinner_timer:
+            self._spinner_timer.stop()
+            self._spinner_timer = None
         self.query_one("#header-status", Static).update("")
 
     def set_status_error(self) -> None:
@@ -1225,7 +1230,6 @@ class MainScreen(Screen):
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args()
 
-        use_prefetched = False
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
@@ -1261,12 +1265,11 @@ class MainScreen(Screen):
             cmd += [f"--title={title}", f"--force-media-title={title}"]
         if ytdl_format:
             cmd += [f"--ytdl-format={ytdl_format}"]
-        elif not use_prefetched:
+        else:
             cmd += ["--ytdl-format=ba[format_note*=original]/ba"]
-        if not use_prefetched:
-            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
-            if ytdl_raw:
-                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
+        if ytdl_raw:
+            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
 
         _logger.debug("audio mpv cmd: %s", " ".join(cmd))

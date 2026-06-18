@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import math
+
 from rich.table import Table
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
 from src.sponsorblock import Segment
+
+_WAVE_CHARS = "▁▂▃▄▅▆▇█"
+_WAVE_SPEED = 0.4
 
 
 def _fmt_secs(s: float) -> str:
@@ -71,6 +76,8 @@ class ActionBar(Widget):
         self._playing: bool = False
         self._queue_len: int = 0
         self._segments: list[Segment] = []
+        self._wave_frame: int = 0
+        self._wave_timer = None
 
     def compose(self) -> ComposeResult:
         yield Static(id="ab-actions")
@@ -147,7 +154,7 @@ class ActionBar(Widget):
     def _text_bar(self, pos: float, dur: float, width: int) -> str:
         width = max(4, width)
         if dur <= 0:
-            return f"[#2a2a40]{'─' * width}[/#2a2a40]"
+            return self._wave_bar(width)
         frac = min(pos / dur, 1.0)
         filled = int(frac * width)
         color = self._get_progress_color()
@@ -198,6 +205,9 @@ class ActionBar(Widget):
         self._playing = False
         self._queue_len = 0
         self._segments = []
+        if self._wave_timer is not None:
+            self._wave_timer.stop()
+            self._wave_timer = None
         self._set_mode_actions()
 
     def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:
@@ -210,11 +220,17 @@ class ActionBar(Widget):
         self._dur = 0.0
         self._queue_len = queue_len
         self._buffering_since = time.monotonic()
+        self._wave_frame = 0
+        if self._wave_timer is None:
+            self._wave_timer = self.set_interval(0.12, self._animate_wave)
         self._set_mode_player()
 
     def update_progress(self, pos: float, dur: float, paused: bool) -> None:
         if not self._playing:
             return
+        if dur > 0 and self._wave_timer is not None:
+            self._wave_timer.stop()
+            self._wave_timer = None
         # Skip redundant redraws: ignore sub-quarter-second position drift while
         # pause state is unchanged — avoids ~2 renders/sec when paused.
         if (
@@ -237,6 +253,33 @@ class ActionBar(Widget):
         )
 
     # ── Private ───────────────────────────────────────────────────────────────
+
+    def _animate_wave(self) -> None:
+        """Animate the waveform while buffering (dur == 0)."""
+        if self._dur > 0:
+            if self._wave_timer is not None:
+                self._wave_timer.stop()
+                self._wave_timer = None
+            return
+        if not self._playing:
+            if self._wave_timer is not None:
+                self._wave_timer.stop()
+                self._wave_timer = None
+            return
+        self._wave_frame += 1
+        self._refresh_player()
+
+    def _wave_bar(self, width: int) -> str:
+        """Generate an animated sine-wave equalizer bar."""
+        color = self._get_progress_color()
+        chars = []
+        for col in range(width):
+            phase = (col + self._wave_frame * 1.2) * 0.3
+            val = (math.sin(phase) + math.sin(phase * 1.7 + 1.0) + 2.0) / 4.0
+            idx = int(val * (len(_WAVE_CHARS) - 1))
+            chars.append(_WAVE_CHARS[idx])
+        wave_text = "".join(chars)
+        return f"[{color}]{wave_text}[/{color}]"
 
     def _set_mode_actions(self) -> None:
         self.styles.height = self._HEIGHT_ACTIONS

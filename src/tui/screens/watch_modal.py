@@ -122,8 +122,6 @@ class WatchModal(ModalScreen[bool]):
 
         cookie_args = config.cookie_args() if config else []
 
-        use_prefetched = False
-        audio_file_url: str | None = None
 
         input_conf = player_mod._write_input_conf()
         cmd = [
@@ -138,14 +136,11 @@ class WatchModal(ModalScreen[bool]):
             cmd += [f"--title={title}", f"--force-media-title={title}"]
         if self._ytdl_format:
             cmd += [f"--ytdl-format={self._ytdl_format}"]
-        elif not use_prefetched:
+        else:
             cmd += ["--ytdl-format=bv+(ba[format_note*=original]/ba)"]
-        if use_prefetched and audio_file_url:
-            cmd += [f"--audio-file={audio_file_url}"]
-        if not use_prefetched:
-            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
-            if ytdl_raw:
-                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
+        if ytdl_raw:
+            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
         cmd += ["--", url]
 
         try:
