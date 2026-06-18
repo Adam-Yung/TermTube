@@ -22,6 +22,7 @@ from src import logger
 from src.tui.widgets.page_indicator import PageIndicator
 
 PAGE_SIZE = 20
+_MAX_PAGES_IN_MEMORY = 30
 
 
 # ── Private click messages (internal to this module) ──────────────────────────
@@ -77,11 +78,10 @@ class VideoListItem(ListItem):
         """Double click: focus this item then activate."""
         event.stop()
         event.prevent_default()
-        # Find our index and move the highlight so detail panel updates first
         try:
             lv = self.parent
             if lv is not None:
-                for i, child in enumerate(lv._nodes):  # type: ignore[attr-defined]
+                for i, child in enumerate(lv.children):
                     if child is self:
                         lv.index = i  # type: ignore[attr-defined]
                         break
@@ -263,6 +263,15 @@ class VideoListPanel(Widget):
                 self._seen_ids.add(vid)
             deduped.append(entry)
         self._pages[page_num] = deduped
+        # Evict oldest pages if we exceed the cap
+        if len(self._pages) > _MAX_PAGES_IN_MEMORY:
+            keep_min = max(1, self._current_page - 2)
+            keep_max = self._current_page + 2
+            for pn in sorted(self._pages.keys()):
+                if len(self._pages) <= _MAX_PAGES_IN_MEMORY:
+                    break
+                if pn < keep_min or pn > keep_max:
+                    del self._pages[pn]
         self._update_page_indicator()
         logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
 
@@ -438,7 +447,7 @@ class VideoListPanel(Widget):
         if already_focused:
             self.post_message(self.Activated(msg.entry))
         else:
-            for i, child in enumerate(self._lv._nodes):
+            for i, child in enumerate(self._lv.children):
                 if isinstance(child, VideoListItem) and child.entry.get("id") == msg.entry.get("id"):
                     self._lv.index = i
                     break

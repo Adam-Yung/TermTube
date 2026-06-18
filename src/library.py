@@ -11,19 +11,22 @@ from pathlib import Path
 from typing import Iterator
 
 
-def _load_sidecar(info_path: Path) -> dict | None:
+def _load_sidecar(info_path: Path, media_files: dict[str, Path] | None = None) -> dict | None:
     try:
         data = json.loads(info_path.read_text())
-        # Attach the path of the actual media file (same stem, different ext)
         stem = info_path.stem  # e.g. "Title_Channel.info"
-        # yt-dlp names sidecars as <title>.info.json — strip ".info"
         media_stem = stem.removesuffix(".info") if stem.endswith(".info") else stem
-        # Look for a media file alongside the sidecar
-        for sibling in info_path.parent.iterdir():
-            if sibling.stem == media_stem and sibling.suffix not in (".json", ".jpg", ".png", ".webp"):
-                data["_local_path"] = str(sibling)
-                data["_local_type"] = "video" if sibling.suffix in (".mp4", ".mkv", ".webm", ".avi", ".mov") else "audio"
-                break
+        if media_files is not None:
+            media = media_files.get(media_stem)
+            if media:
+                data["_local_path"] = str(media)
+                data["_local_type"] = "video" if media.suffix in (".mp4", ".mkv", ".webm", ".avi", ".mov") else "audio"
+        else:
+            for sibling in info_path.parent.iterdir():
+                if sibling.stem == media_stem and sibling.suffix not in (".json", ".jpg", ".png", ".webp"):
+                    data["_local_path"] = str(sibling)
+                    data["_local_type"] = "video" if sibling.suffix in (".mp4", ".mkv", ".webm", ".avi", ".mov") else "audio"
+                    break
         data["_sidecar_path"] = str(info_path)
         return data
     except (json.JSONDecodeError, OSError):
@@ -33,8 +36,16 @@ def _load_sidecar(info_path: Path) -> dict | None:
 def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
     if not directory.exists():
         return
+    # Build a lookup of media files by stem for O(1) matching
+    media_files: dict[str, Path] = {}
+    try:
+        for f in directory.iterdir():
+            if f.suffix not in (".json", ".jpg", ".png", ".webp") and f.is_file():
+                media_files[f.stem] = f
+    except OSError:
+        pass
     for info_path in directory.glob("**/*.info.json"):
-        entry = _load_sidecar(info_path)
+        entry = _load_sidecar(info_path, media_files)
         if entry:
             entry.setdefault("_local_type", media_type)
             yield entry

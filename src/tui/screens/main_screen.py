@@ -252,6 +252,7 @@ class MainScreen(Screen):
         self._freshness_timer: Timer | None = None
         # Active workers reference counter for honest header spinner.
         self._active_workers: int = 0
+        self._workers_lock = threading.Lock()
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -1175,7 +1176,8 @@ class MainScreen(Screen):
 
     def _worker_start(self) -> None:
         """Increment active worker count and show spinner."""
-        self._active_workers += 1
+        with self._workers_lock:
+            self._active_workers += 1
         try:
             self.app.call_from_thread(self.query_one(AppHeader).set_status_loading)
         except Exception:
@@ -1183,8 +1185,10 @@ class MainScreen(Screen):
 
     def _worker_end(self) -> None:
         """Decrement active worker count; hide spinner when all done."""
-        self._active_workers = max(0, self._active_workers - 1)
-        if self._active_workers == 0:
+        with self._workers_lock:
+            self._active_workers = max(0, self._active_workers - 1)
+            done = self._active_workers == 0
+        if done:
             try:
                 self.app.call_from_thread(self.query_one(AppHeader).set_status_idle)
             except Exception:
