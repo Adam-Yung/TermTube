@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# TermTube installer — cross-platform setup with dependency management.
+# TermTube installer — minimal setup that bootstraps dependencies from GitHub.
+#
+# Requirements: git, python3.11+, curl
+# All other dependencies (yt-dlp, deno, ffmpeg, mpv) are downloaded
+# automatically into ~/.local/termtube-deps/bin/ by src/bootstrap.py.
 
 set -euo pipefail
 
@@ -44,17 +48,20 @@ show_help() {
                   For development: edits are immediately live.
 
   Options:
-    --deps        Auto-install system dependencies (yt-dlp, mpv, ffmpeg)
-                  using your system's package manager.
-    --no-deps     Skip dependency checks entirely.
+    --no-deps     Skip dependency bootstrap (only set up Python venv).
     --no-prompt   Non-interactive mode (accept all defaults).
     --help, -h    Show this help message and exit.
 
-  Paths:
-    Install dir:  ~/.local/share/TermTube
-    Config:       ~/.config/TermTube/config.yaml  (created on first run)
-    Cookies:      ~/.config/TermTube/cookies.txt  (add manually)
-    Binary:       ~/.local/bin/termtube
+  Prerequisites:
+    git           Version control (already have it if you cloned this)
+    python3.11+   Python interpreter
+    curl          For downloading dependencies (used by bootstrap.py)
+
+  What gets installed:
+    ~/.local/share/TermTube/     App files + Python venv
+    ~/.local/termtube-deps/bin/  Binary deps (yt-dlp, deno, ffmpeg, mpv)
+    ~/.local/bin/termtube        CLI symlink
+    ~/.config/TermTube/          Config (created on first run)
 
 EOF
     exit 0
@@ -62,14 +69,12 @@ EOF
 
 # ── Argument Parsing ──────────────────────────────────────────────────────────
 SYNC_MODE=false
-AUTO_DEPS=false
 SKIP_DEPS=false
 INTERACTIVE=true
 
 for arg in "$@"; do
     case "$arg" in
         --sync)      SYNC_MODE=true ;;
-        --deps)      AUTO_DEPS=true ;;
         --no-deps)   SKIP_DEPS=true ;;
         --no-prompt) INTERACTIVE=false ;;
         --help|-h)   show_help ;;
@@ -79,254 +84,25 @@ done
 
 ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ── OS Detection ──────────────────────────────────────────────────────────────
-detect_os() {
-    local uname_s
-    uname_s="$(uname -s)"
-    case "$uname_s" in
-        Darwin)  OS="macos" ;;
-        Linux)   OS="linux" ;;
-        MINGW*|MSYS*|CYGWIN*) OS="windows" ;;
-        *)       OS="unknown" ;;
-    esac
-}
+# ── Prerequisite Checks ───────────────────────────────────────────────────────
+check_prerequisites() {
+    local missing=()
 
-detect_package_manager() {
-    if [[ "$OS" == "macos" ]]; then
-        if command -v brew &>/dev/null; then
-            PKG_MGR="brew"
-        else
-            PKG_MGR="none"
-        fi
-    elif [[ "$OS" == "linux" ]]; then
-        if command -v apt-get &>/dev/null; then
-            PKG_MGR="apt"
-        elif command -v dnf &>/dev/null; then
-            PKG_MGR="dnf"
-        elif command -v pacman &>/dev/null; then
-            PKG_MGR="pacman"
-        elif command -v zypper &>/dev/null; then
-            PKG_MGR="zypper"
-        elif command -v apk &>/dev/null; then
-            PKG_MGR="apk"
-        else
-            PKG_MGR="none"
-        fi
-    else
-        PKG_MGR="none"
-    fi
-}
-
-# ── Dependency Installation ───────────────────────────────────────────────────
-pkg_install() {
-    local pkg="$1"
-    case "$PKG_MGR" in
-        brew)    brew install "$pkg" ;;
-        apt)     sudo apt-get install -y "$pkg" ;;
-        dnf)     sudo dnf install -y "$pkg" ;;
-        pacman)  sudo pacman -S --noconfirm "$pkg" ;;
-        zypper)  sudo zypper install -y "$pkg" ;;
-        apk)     sudo apk add "$pkg" ;;
-        *)       return 1 ;;
-    esac
-}
-
-pkg_name() {
-    local tool="$1"
-    case "$PKG_MGR" in
-        apt)
-            case "$tool" in
-                yt-dlp)  echo "yt-dlp" ;;
-                mpv)     echo "mpv" ;;
-                ffmpeg)  echo "ffmpeg" ;;
-                deno)    echo "deno" ;;
-                *)       echo "$tool" ;;
-            esac ;;
-        pacman)
-            case "$tool" in
-                yt-dlp)  echo "yt-dlp" ;;
-                deno)    echo "deno" ;;
-                *)       echo "$tool" ;;
-            esac ;;
-        *)  echo "$tool" ;;
-    esac
-}
-
-install_hint() {
-    local tool="$1"
-    case "$tool" in
-        yt-dlp)
-            if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
-                echo "brew install yt-dlp"
-            elif [[ "$OS" == "macos" ]]; then
-                echo "curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp"
-            else
-                echo "curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o \$HOME/.local/bin/yt-dlp && chmod +x \$HOME/.local/bin/yt-dlp"
-            fi ;;
-        deno)
-            if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
-                echo "brew install deno"
-            else
-                echo "curl -fsSL https://deno.land/install.sh | sh"
-            fi ;;
-        *)
-            case "$PKG_MGR" in
-                brew)    echo "brew install $tool" ;;
-                apt)     echo "sudo apt install $(pkg_name "$tool")" ;;
-                dnf)     echo "sudo dnf install $(pkg_name "$tool")" ;;
-                pacman)  echo "sudo pacman -S $(pkg_name "$tool")" ;;
-                zypper)  echo "sudo zypper install $(pkg_name "$tool")" ;;
-                apk)     echo "sudo apk add $(pkg_name "$tool")" ;;
-                none)    echo "Install '$tool' using your system's package manager" ;;
-            esac ;;
-    esac
-}
-
-# Install yt-dlp nightly from GitHub nightly-builds (bypasses stale apt/brew packages
-# and gives the most up-to-date YouTube extractor fixes).
-install_ytdlp_github() {
-    local dest
-    # macOS install destination: /opt/homebrew/bin on Apple Silicon, /usr/local/bin on Intel
-    if [[ "$OS" == "macos" ]]; then
-        if [[ -d "/opt/homebrew/bin" ]]; then
-            dest="/opt/homebrew/bin/yt-dlp"
-        else
-            dest="/usr/local/bin/yt-dlp"
-        fi
-        local url="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos"
-    else
-        dest="$BIN_DIR/yt-dlp"
-        local url="https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp"
-    fi
-    mkdir -p "$(dirname "$dest")"
-    step "Downloading yt-dlp nightly from GitHub releases…"
-    if curl -fsSL "$url" -o "$dest" && chmod +x "$dest"; then
-        success "yt-dlp (nightly) installed to $dest"
-        return 0
-    else
-        error "Failed to download yt-dlp from GitHub."
-        return 1
-    fi
-}
-
-# Install Deno via the official installer script.
-install_deno_official() {
-    if [[ "$OS" == "macos" ]] && command -v brew &>/dev/null; then
-        step "Installing deno via Homebrew…"
-        if brew install deno; then
-            success "deno installed."
-            return 0
-        fi
-    fi
-    step "Installing deno via official installer…"
-    if curl -fsSL https://deno.land/install.sh | sh; then
-        # The installer puts deno in ~/.deno/bin; add to PATH for this session
-        export DENO_INSTALL="$HOME/.deno"
-        export PATH="$DENO_INSTALL/bin:$PATH"
-        success "deno installed to ~/.deno/bin"
-        warn "Add ~/.deno/bin to your PATH if it's not already:"
-        echo -e "    ${CYAN}export PATH=\"\$HOME/.deno/bin:\$PATH\"${RESET}"
-        return 0
-    else
-        error "Failed to install deno."
-        return 1
-    fi
-}
-
-check_and_install_deps() {
-    local -a required=(yt-dlp deno mpv)
-    local -a optional=(ffmpeg)
-    local missing_required=()
-    local missing_optional=()
-
-    for tool in "${required[@]}"; do
-        if ! command -v "$tool" &>/dev/null; then
-            missing_required+=("$tool")
-        else
-            success "$tool found ($(command -v "$tool"))"
-        fi
-    done
-
-    for tool in "${optional[@]}"; do
-        if ! command -v "$tool" &>/dev/null; then
-            missing_optional+=("$tool")
-        else
-            success "$tool found"
-        fi
-    done
-
-    if [[ ${#missing_required[@]} -eq 0 && ${#missing_optional[@]} -eq 0 ]]; then
-        success "All dependencies satisfied."
-        return 0
+    if ! command -v git &>/dev/null; then
+        missing+=("git")
     fi
 
-    if [[ ${#missing_required[@]} -gt 0 ]]; then
-        warn "Missing required: ${missing_required[*]}"
-    fi
-    if [[ ${#missing_optional[@]} -gt 0 ]]; then
-        info "Missing optional: ${missing_optional[*]}"
+    if ! command -v curl &>/dev/null; then
+        missing+=("curl")
     fi
 
-    local should_install=false
-    if [[ "$AUTO_DEPS" == true ]]; then
-        should_install=true
-    elif [[ "$INTERACTIVE" == true ]]; then
-        echo ""
-        echo -e "  Install missing dependencies?"
-        if [[ ${#missing_required[@]} -gt 0 ]]; then
-            echo -e "    Required: ${BOLD}${missing_required[*]}${RESET}"
-        fi
-        if [[ ${#missing_optional[@]} -gt 0 ]]; then
-            echo -e "    Optional: ${DIM}${missing_optional[*]}${RESET}"
-        fi
-        echo ""
-        read -r -p "  Install now? [Y/n] " reply
-        if [[ ! "${reply}" =~ ^[Nn]$ ]]; then
-            should_install=true
-        fi
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        error "Missing prerequisites: ${missing[*]}"
+        echo "  These must be installed before running setup."
+        exit 1
     fi
 
-    if [[ "$should_install" == true ]]; then
-        for tool in "${missing_required[@]}" "${missing_optional[@]}"; do
-            case "$tool" in
-                yt-dlp)
-                    install_ytdlp_github || {
-                        error "Failed to install yt-dlp."
-                        return 1
-                    } ;;
-                deno)
-                    install_deno_official || {
-                        error "Failed to install deno."
-                        return 1
-                    } ;;
-                *)
-                    if [[ "$PKG_MGR" == "none" ]]; then
-                        warn "No package manager. Install $tool manually: $(install_hint "$tool")"
-                    else
-                        step "Installing $(pkg_name "$tool") via $PKG_MGR…"
-                        if pkg_install "$(pkg_name "$tool")"; then
-                            success "$tool installed."
-                        else
-                            if [[ " ${missing_required[*]} " == *" $tool "* ]]; then
-                                error "Failed to install $tool."
-                                error "Try manually: $(install_hint "$tool")"
-                                return 1
-                            else
-                                warn "Could not install $tool (optional). $(install_hint "$tool")"
-                            fi
-                        fi
-                    fi ;;
-            esac
-        done
-    else
-        if [[ ${#missing_required[@]} -gt 0 ]]; then
-            echo ""
-            warn "Required dependencies not installed. You'll need them to run TermTube:"
-            for tool in "${missing_required[@]}"; do
-                echo "    $(install_hint "$tool")"
-            done
-        fi
-    fi
+    success "Prerequisites OK (git, curl)"
 }
 
 # ── Python Detection ──────────────────────────────────────────────────────────
@@ -361,13 +137,7 @@ setup_venv() {
     if ! py=$(find_python); then
         error "Python >= $PYTHON_MIN not found."
         echo ""
-        case "$PKG_MGR" in
-            brew)    echo "  Install: brew install python@3.12" ;;
-            apt)     echo "  Install: sudo apt install python3.12 python3.12-venv" ;;
-            dnf)     echo "  Install: sudo dnf install python3.12" ;;
-            pacman)  echo "  Install: sudo pacman -S python" ;;
-            *)       echo "  Install Python >= $PYTHON_MIN from https://python.org" ;;
-        esac
+        echo "  Install Python >= $PYTHON_MIN from https://python.org"
         return 1
     fi
 
@@ -421,7 +191,6 @@ prompt_sync_mode() {
         return
     fi
 
-    # If --sync was explicitly passed, don't prompt
     if [[ "$SYNC_MODE" == true ]]; then
         return
     fi
@@ -509,6 +278,31 @@ install_binary() {
     fi
 }
 
+# ── Bootstrap Dependencies ────────────────────────────────────────────────────
+bootstrap_deps() {
+    header "Binary Dependencies"
+    info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
+    info "Install path: ~/.local/termtube-deps/bin/"
+    echo ""
+
+    local venv_python="${APP_DIR}/.venv/bin/python"
+    if [[ ! -f "$venv_python" ]]; then
+        error "Python venv not found at ${APP_DIR}/.venv"
+        return 1
+    fi
+
+    "$venv_python" -m src.bootstrap
+    local rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+        success "All dependencies installed."
+    else
+        warn "Some dependencies failed to install."
+        echo "  You can retry later with: termtube --update"
+    fi
+    return $rc
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     local title="TermTube Installer"
@@ -530,18 +324,12 @@ main() {
     echo -e "${BOLD}│$(_center "$subtitle" $inner)│${RESET}"
     echo -e "${BOLD}└$(printf '─%.0s' $(seq 1 $inner))┘${RESET}"
 
-    detect_os
-    detect_package_manager
-    info "Detected: ${OS} / package manager: ${PKG_MGR:-none}"
+    # Check prerequisites
+    header "Prerequisites"
+    check_prerequisites
 
     # Prompt for install mode
     prompt_sync_mode
-
-    # System dependencies
-    if [[ "$SKIP_DEPS" != true ]]; then
-        header "System Dependencies"
-        check_and_install_deps || exit 1
-    fi
 
     # Install project files
     install_files
@@ -552,6 +340,11 @@ main() {
 
     header "Python Environment"
     setup_venv "$venv_dir" "$requirements" || exit 1
+
+    # Bootstrap binary dependencies
+    if [[ "$SKIP_DEPS" != true ]]; then
+        bootstrap_deps || true
+    fi
 
     # Config directory
     if [[ ! -d "${CONFIG_DIR}" ]]; then
