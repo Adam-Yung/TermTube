@@ -77,7 +77,7 @@ class AppHeader(Widget):
         char = self._SPINNER[0]
         self.query_one("#header-status", Static).update(char)
         if not self._spinner_timer:
-            self._spinner_timer = self.set_interval(0.1, self._animate_spinner)
+            self._spinner_timer = self.set_interval(0.2, self._animate_spinner)
 
     def set_status_idle(self) -> None:
         self._state = "IDLE"
