@@ -69,7 +69,7 @@ class WatchModal(ModalScreen[bool]):
         self._stopped = False
         self._buffering_since: float = 0.0
         self._segments: list[Segment] = []
-        self._skipped_indices: set[int] = set()
+        self._sb_next_idx: int = 0  # sorted pointer for O(1) segment scan
         self._dur: float = 0.0
         self._poll_timer = None
 
@@ -114,6 +114,8 @@ class WatchModal(ModalScreen[bool]):
         if config and config.sponsorblock_enabled and vid:
             from src.sponsorblock import fetch_segments
             self._segments = fetch_segments(vid, config.sponsorblock_categories)
+            self._segments.sort(key=lambda s: s.start)
+            self._sb_next_idx = 0
 
         url = (
             self._entry.get("_local_path")
@@ -220,14 +222,16 @@ class WatchModal(ModalScreen[bool]):
             dur_f = float(dur)
             self._dur = dur_f
 
-            # Auto-skip sponsor segments
+            # Auto-skip sponsor segments — O(1) via sorted pointer
             config = getattr(self.app, "config", None)
             if config and config.sponsorblock_auto_skip and self._segments:
-                for i, seg in enumerate(self._segments):
-                    if i in self._skipped_indices:
-                        continue
+                segs = self._segments
+                while self._sb_next_idx < len(segs) and segs[self._sb_next_idx].end <= pos_f:
+                    self._sb_next_idx += 1
+                if self._sb_next_idx < len(segs):
+                    seg = segs[self._sb_next_idx]
                     if seg.start <= pos_f < seg.end:
-                        self._skipped_indices.add(i)
+                        self._sb_next_idx += 1
                         skip_dur = int(seg.end - seg.start)
                         self._ipc(["seek", seg.end, "absolute"])
                         self.notify(

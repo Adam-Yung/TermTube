@@ -246,6 +246,7 @@ class MainScreen(Screen):
         self._audio_session: int = 0
         self._sb_segments: list = []
         self._sb_skipped: set[int] = set()
+        self._sb_next_idx: int = 0  # sorted-pointer for O(1) segment scan
         # ── Focus / thumbnail dwell-driven workers ────────────────────────────
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
@@ -1191,6 +1192,7 @@ class MainScreen(Screen):
         session = self._audio_session
         self._sb_segments = []
         self._sb_skipped = set()
+        self._sb_next_idx = 0
         self._log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
         self._action_bar().set_player_mode(entry, queue_len=len(self._audio_queue))
         self._refresh_queue_hint()
@@ -1202,6 +1204,7 @@ class MainScreen(Screen):
         self._audio_stopped = True
         self._sb_segments = []
         self._sb_skipped = set()
+        self._sb_next_idx = 0
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
 
@@ -1250,7 +1253,9 @@ class MainScreen(Screen):
         if vid and self.app.config.sponsorblock_enabled:
             from src.sponsorblock import fetch_segments
             segments = fetch_segments(vid, self.app.config.sponsorblock_categories)
+            segments.sort(key=lambda s: s.start)
             self._sb_segments = segments
+            self._sb_next_idx = 0
             self.app.call_from_thread(self._action_bar().set_segments, segments)
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
@@ -1449,13 +1454,16 @@ class MainScreen(Screen):
                 TermTubeApp.PlayerStateUpdated(pos, dur, paused, playing=True)
             )
 
-            # Auto-skip sponsor segments
+            # Auto-skip sponsor segments — O(1) via sorted pointer
             if self.app.config.sponsorblock_auto_skip and self._sb_segments:
-                for i, seg in enumerate(self._sb_segments):
-                    if i in self._sb_skipped:
-                        continue
+                segs = self._sb_segments
+                # Advance pointer past already-elapsed segments
+                while self._sb_next_idx < len(segs) and segs[self._sb_next_idx].end <= pos:
+                    self._sb_next_idx += 1
+                if self._sb_next_idx < len(segs):
+                    seg = segs[self._sb_next_idx]
                     if seg.start <= pos < seg.end:
-                        self._sb_skipped.add(i)
+                        self._sb_next_idx += 1
                         skip_dur = int(seg.end - seg.start)
                         from src.player import send_ipc_command
                         send_ipc_command(
@@ -1465,7 +1473,7 @@ class MainScreen(Screen):
                         self.notify(
                             f"Skipped: {seg.category} ({skip_dur}s)", timeout=3
                         )
-                        break
+                        return
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
