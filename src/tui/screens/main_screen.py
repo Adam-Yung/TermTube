@@ -888,11 +888,18 @@ class MainScreen(Screen):
     def on_detail_panel_rerender_requested(
         self, message: DetailPanel.RerenderRequested
     ) -> None:
-        """Re-render the thumbnail when the panel resizes or screen resumes."""
+        """Re-render the thumbnail when the panel resizes or screen resumes.
+
+        Debounced to 300ms to prevent subprocess storms during terminal resize.
+        """
         entry = message.entry
         vid = entry.get("id", "")
         if vid and not vid.startswith("__"):
-            self._kick_thumb(vid, entry)
+            if self._thumb_dwell_timer:
+                self._thumb_dwell_timer.stop()
+            self._thumb_dwell_timer = self.set_timer(
+                0.3, lambda: self._kick_thumb(vid, entry)
+            )
 
     def on_detail_panel_channel_clicked(
         self, message: DetailPanel.ChannelClicked

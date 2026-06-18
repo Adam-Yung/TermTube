@@ -310,18 +310,17 @@ class Cache:
         logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
 
     def prune_video_cache_fifo(self, max_count: int = 100) -> None:
-        """Enforce a hard cap on video metadata cache entries (FIFO by _cached_at).
+        """Enforce a hard cap on video metadata cache entries (FIFO by mtime).
 
-        Evicts the oldest entries by their _cached_at timestamp until
+        Evicts the oldest entries by file modification time until
         only max_count remain. Called after batch fetches to keep the
         cache lean.
         """
         files: list[tuple[float, Path]] = []
         for f in VIDEO_DIR.glob("*.json"):
             try:
-                cached_at = json.loads(f.read_text()).get("_cached_at", 0)
-                files.append((cached_at, f))
-            except (OSError, json.JSONDecodeError, ValueError):
+                files.append((f.stat().st_mtime, f))
+            except OSError:
                 pass
         if len(files) <= max_count:
             return
@@ -359,9 +358,9 @@ class Cache:
     def prune_old_videos(self, max_age_days: int = 3, max_count: int = 100) -> None:
         """Delete video JSONs older than max_age_days, then enforce max_count cap.
 
-        Uses the _cached_at timestamp stored inside the JSON rather than st_mtime.
-        st_mtime is reset on every enrichment write, which would otherwise make
-        every enriched file appear perpetually fresh.
+        Uses file mtime as a proxy for cache age. Since put_video() always
+        creates a new file via atomic write, mtime reflects when the entry
+        was last cached/refreshed.
         """
         now = time.time()
         cutoff = now - max_age_days * 86400
@@ -369,15 +368,15 @@ class Cache:
         deleted = 0
         for f in VIDEO_DIR.glob("*.json"):
             try:
-                cached_at = json.loads(f.read_text()).get("_cached_at", 0)
-                if cached_at < cutoff:
+                mtime = f.stat().st_mtime
+                if mtime < cutoff:
                     f.unlink(missing_ok=True)
                     deleted += 1
                 else:
-                    files.append((cached_at, f))
-            except (OSError, json.JSONDecodeError, ValueError):
+                    files.append((mtime, f))
+            except OSError:
                 pass
-        # Hard cap: evict oldest by _cached_at if still over limit.
+        # Hard cap: evict oldest by mtime if still over limit.
         capped = 0
         if len(files) > max_count:
             files.sort()
