@@ -376,16 +376,14 @@ class ChannelScreen(Screen):
             self._thumb_dwell_timer = None
         self._focus_session += 1
         self._detail_thumb_session += 1
-        for attr in ("_focus_proc", "_thumb_proc"):
-            proc = getattr(self, attr, None)
-            if proc is None:
-                continue
+        proc = self._focus_proc
+        if proc is not None:
             try:
                 if proc.poll() is None:
                     proc.terminate()
             except Exception:
                 pass
-            setattr(self, attr, None)
+            self._focus_proc = None
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         self._thumb_dwell_timer = None
