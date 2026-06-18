@@ -270,8 +270,13 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
             return None
 
         if asset.endswith(".tar.xz"):
-            with tarfile.open(archive_path, "r:xz") as tf:
-                tf.extractall(tmp)
+            try:
+                with tarfile.open(archive_path, "r:xz") as tf:
+                    tf.extractall(tmp)
+            except tarfile.CompressionError:
+                print("    [!] xz decompression not available (missing lzma module).", flush=True)
+                print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev + rebuild Python)", flush=True)
+                return None
         else:
             with zipfile.ZipFile(archive_path) as zf:
                 zf.extractall(tmp)
@@ -364,9 +369,14 @@ def _install_mpv(bin_dir: Path) -> str | None:
     Linux: no static binary available; user must install via system package manager.
     """
     if OS_NAME == "linux":
+        if shutil.which("mpv"):
+            return "system"
         print("    mpv: no static Linux build available.", flush=True)
-        print("    Install via package manager: sudo apt install mpv (or equivalent).", flush=True)
-        return "system"
+        print("    Install via your package manager:", flush=True)
+        print("      Ubuntu/Debian: sudo apt install mpv", flush=True)
+        print("      Fedora:        sudo dnf install mpv", flush=True)
+        print("      Arch:          sudo pacman -S mpv", flush=True)
+        return None
 
     tag = _github_latest_tag("mpv-player", "mpv")
     if not tag:
