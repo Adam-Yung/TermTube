@@ -71,6 +71,7 @@ class ChannelInfoPanel(Vertical):
         tw.set_ansi(ch_id, ansi)
 
     def update_info(self, info: dict) -> None:
+        self._info = info
         name = info.get("channel", "") or info.get("uploader", "")
         subs = _fmt_subs(info.get("subscriber_count"))
         url = info.get("channel_url", "") or info.get("uploader_url", "")
@@ -218,10 +219,7 @@ class ChannelScreen(Screen):
                     on_proc_started=_on_proc,
                 )
             else:
-                entries = ytdlp.fetch_channel_videos(
-                    self._channel_url, self.app.config, self.app.cache,
-                    sort=sort, on_proc_started=_on_proc,
-                )
+                entries = self._fetch_channel_videos_fast(sort, _on_proc)
             _logger.debug("channel tab=%s entries=%d", tab, len(entries))
             if session != self._content_session:
                 return
@@ -243,6 +241,47 @@ class ChannelScreen(Screen):
             _logger.debug("channel content error: %s", exc)
             if session == self._content_session:
                 self.app.call_from_thread(panel.set_error_message, str(exc))
+
+    def _fetch_channel_videos_fast(self, sort: str, on_proc) -> list[dict]:
+        """Try InnerTube /browse for channel videos (fast), fall back to yt-dlp."""
+        import src.ytdlp as ytdlp
+
+        # Try InnerTube first if we have a channel_id (UC... format)
+        channel_id = self._resolve_channel_id()
+        if channel_id and sort == "date":
+            from src.innertube import fetch_channel_videos as innertube_channel
+            entries = innertube_channel(channel_id, sort=sort)
+            if entries:
+                # Add channel info to entries for display
+                for e in entries:
+                    e.setdefault("channel", self._channel_name)
+                    e.setdefault("uploader", self._channel_name)
+                return entries
+            _logger.debug("InnerTube channel browse returned empty; falling back to yt-dlp")
+
+        # Fall back to yt-dlp (for popular sort, or when InnerTube fails)
+        return ytdlp.fetch_channel_videos(
+            self._channel_url, self.app.config, self.app.cache,
+            sort=sort, on_proc_started=on_proc,
+        )
+
+    def _resolve_channel_id(self) -> str | None:
+        """Extract UC... channel ID from the channel URL or cached info."""
+        url = self._channel_url
+        # Direct channel ID URL: /channel/UCxxxxxxx
+        if "/channel/UC" in url:
+            parts = url.split("/channel/")
+            if len(parts) > 1:
+                return parts[1].split("/")[0].split("?")[0]
+        # Check if we cached channel info with a channel_id
+        try:
+            panel = self.query_one("#ch-info-panel", ChannelInfoPanel)
+            info = getattr(panel, "_info", None)
+            if info and info.get("channel_id", "").startswith("UC"):
+                return info["channel_id"]
+        except Exception:
+            pass
+        return None
 
     # ── Channel thumbnail ─────────────────────────────────────────────────────
 
