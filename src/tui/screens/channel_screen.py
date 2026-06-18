@@ -135,7 +135,6 @@ class ChannelScreen(Screen):
         # Detail panel focus/thumb workers
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
-        self._focus_proc: subprocess.Popen | None = None
         self._focus_session: int = 0
         self._detail_thumb_session: int = 0
         self._last_focus_id: str = ""
@@ -376,14 +375,6 @@ class ChannelScreen(Screen):
             self._thumb_dwell_timer = None
         self._focus_session += 1
         self._detail_thumb_session += 1
-        proc = self._focus_proc
-        if proc is not None:
-            try:
-                if proc.poll() is None:
-                    proc.terminate()
-            except Exception:
-                pass
-            self._focus_proc = None
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         self._thumb_dwell_timer = None
@@ -411,27 +402,22 @@ class ChannelScreen(Screen):
 
     @work(thread=True, exclusive=True, group="ch_detail_focus")
     def _focus_worker(self, vid: str, entry: dict, session: int) -> None:
-        import src.ytdlp as ytdlp
-
-        def _on_proc(p: subprocess.Popen) -> None:
-            self._focus_proc = p
+        from src import innertube
 
         try:
-            full, _stream_urls = ytdlp.fetch_full(
-                vid, self.app.config, self.app.cache, on_proc_started=_on_proc
-            )
+            meta = innertube.fetch_video_details(vid)
         except Exception:
             return
-        finally:
-            self._focus_proc = None
 
-        if full is None or session != self._focus_session:
+        if meta is None or session != self._focus_session:
             return
+
+        merged = {**entry, **{k: v for k, v in meta.items() if v}}
         try:
             panel = self.query_one("#ch-video-list", VideoListPanel)
-            self.app.call_from_thread(panel.update_entry_by_id, vid, full)
+            self.app.call_from_thread(panel.update_entry_by_id, vid, merged)
             self.app.call_from_thread(
-                self.query_one("#ch-detail-panel", DetailPanel).refresh_metadata, full
+                self.query_one("#ch-detail-panel", DetailPanel).refresh_metadata, merged
             )
         except Exception:
             pass

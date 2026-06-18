@@ -235,13 +235,10 @@ class MainScreen(Screen):
         # ── Focus / thumbnail dwell-driven workers ────────────────────────────
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
-        self._focus_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._focus_session: int = 0
         self._thumb_session: int = 0
         self._last_focus_id: str = ""
-        # Prefetched direct stream URLs keyed by video ID
-        self._stream_urls: dict[str, dict] = {}
-        self._stream_url_ready: dict[str, threading.Event] = {}
+
         # In-RAM LRU of rendered thumbnail ANSI keyed by (vid, cols, rows).
         self._thumb_ram_cache: OrderedDict[tuple[str, int, int], str] = OrderedDict()
         # ── Feed loading state (paged) ────────────────────────────────────────
@@ -623,9 +620,6 @@ class MainScreen(Screen):
 
         self.app.call_from_thread(panel.finish_loading)
 
-        # Step 4 — schedule prefetch on the focus worker (keeps feed_loader clean)
-        self.app.call_from_thread(self._schedule_prefetch)
-
         # Prune cache to cap
         try:
             cache.prune_video_cache_fifo(100)
@@ -678,24 +672,6 @@ class MainScreen(Screen):
         self.app.call_from_thread(panel.add_page, 1, entries)
         self.app.call_from_thread(panel.load_page, 1)
         self.app.call_from_thread(panel.finish_loading)
-
-    def _schedule_prefetch(self) -> None:
-        """Schedule a prefetch of the next page's first entry on the focus worker."""
-        panel = self.query_one("#video-list-panel", VideoListPanel)
-        next_page = panel.current_page + 1
-        entries = panel.page_entries(next_page)
-        if not entries:
-            return
-        first_entry = entries[0]
-        vid = first_entry.get("id", "")
-        if not vid or vid.startswith("__"):
-            return
-        cached = self.app.cache.get_video(vid)
-        if cached and cached.get("description") is not None:
-            return
-        self._focus_session += 1
-        session = self._focus_session
-        self._batch_focus_worker([vid], vid, session)
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _fetch_more_pages(self) -> None:
@@ -927,7 +903,7 @@ class MainScreen(Screen):
     # ── Focus / thumbnail dwell-driven workers ────────────────────────────────
 
     def _cancel_pending_focus_and_thumb(self) -> None:
-        """Cancel pending dwell timers and best-effort kill in-flight subprocesses."""
+        """Cancel pending dwell timers."""
         if self._focus_dwell_timer is not None:
             self._focus_dwell_timer.stop()
             self._focus_dwell_timer = None
@@ -937,15 +913,6 @@ class MainScreen(Screen):
         # Bump session counters so any worker that already started bails on apply.
         self._focus_session += 1
         self._thumb_session += 1
-        # Best-effort kill of any subprocess still running.
-        proc = self._focus_proc
-        if proc is not None:
-            try:
-                if proc.poll() is None:
-                    proc.terminate()
-            except Exception:
-                pass
-            self._focus_proc = None
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         """Dwell timer fired — actually start the thumbnail render worker."""
@@ -957,34 +924,15 @@ class MainScreen(Screen):
         self._thumb_worker(vid, entry, session)
 
     def _kick_focus(self, vid: str, entry: dict) -> None:
-        """Dwell timer fired — start batch prefetch for focused video + neighbors."""
+        """Dwell timer fired — fetch video details via InnerTube."""
         self._focus_dwell_timer = None
         if self.query_one("#detail-panel", DetailPanel).current_id != vid:
             return
-        # Skip enrichment if we already have a description cached.
         if entry.get("description"):
             return
         self._focus_session += 1
         session = self._focus_session
-
-        # Collect focused video + up to 2 neighbors for batch prefetch
-        batch_ids: list[str] = [vid]
-        try:
-            panel = self.query_one("#video-list-panel", VideoListPanel)
-            page_entries = panel.page_entries(panel.current_page)
-            idx = panel.cursor_index()
-            if idx is not None and page_entries:
-                for offset in (1, 2):
-                    neighbor_idx = idx + offset
-                    if neighbor_idx < len(page_entries):
-                        n_entry = page_entries[neighbor_idx]
-                        n_vid = n_entry.get("id", "")
-                        if n_vid and not n_entry.get("description") and n_vid != vid:
-                            batch_ids.append(n_vid)
-        except Exception:
-            pass
-
-        self._batch_focus_worker(batch_ids, vid, session)
+        self._detail_worker(vid, entry, session)
 
     def _kick_channel_info(self, vid: str, entry: dict) -> None:
         if not vid or not entry.get("_is_channel"):
@@ -1017,66 +965,30 @@ class MainScreen(Screen):
         except Exception: pass
 
     @work(thread=True, exclusive=True, group="focus")
-    def _batch_focus_worker(self, batch_ids: list[str], primary_vid: str, session: int) -> None:
-        """Fetch full metadata + stream URLs for focused video + neighbors via batch-file.
-
-        The primary_vid (focused video) is always first in the batch so its
-        result applies to the UI immediately. Neighbors are prefetched for
-        instant enrichment when the user scrolls to them.
-        """
-        import src.ytdlp as ytdlp
-        from collections import OrderedDict
+    def _detail_worker(self, vid: str, entry: dict, session: int) -> None:
+        """Fetch video metadata via InnerTube API (~220ms) and update detail panel."""
+        from src import innertube
 
         self._worker_start()
-
-        def _on_proc(p: subprocess.Popen) -> None:
-            self._focus_proc = p
-
-        def _on_entry_ready(vid: str, entry: dict, stream_urls: dict | None) -> None:
+        try:
+            meta = innertube.fetch_video_details(vid)
             if session != self._focus_session:
                 return
-            if stream_urls and vid:
-                self._stream_urls[vid] = stream_urls
-                # LRU cap on stream URLs
-                if len(self._stream_urls) > 32:
-                    oldest = next(iter(self._stream_urls))
-                    del self._stream_urls[oldest]
-                self._signal_stream_ready(vid)
-            if vid == primary_vid:
+            if meta:
+                merged = {**entry, **meta}
+                self.app.cache.put_video(merged)
                 try:
                     panel = self.query_one("#video-list-panel", VideoListPanel)
-                    self.app.call_from_thread(panel.update_entry_by_id, vid, entry)
+                    self.app.call_from_thread(panel.update_entry_by_id, vid, merged)
                     self.app.call_from_thread(
-                        self.query_one("#detail-panel", DetailPanel).refresh_metadata, entry
+                        self.query_one("#detail-panel", DetailPanel).refresh_metadata, merged
                     )
                 except Exception:
                     pass
-            else:
-                try:
-                    panel = self.query_one("#video-list-panel", VideoListPanel)
-                    self.app.call_from_thread(panel.update_entry_by_id, vid, entry)
-                except Exception:
-                    pass
-
-        try:
-            ytdlp.fetch_full_batch(
-                batch_ids,
-                self.app.config,
-                self.app.cache,
-                on_proc_started=_on_proc,
-                on_entry_ready=_on_entry_ready,
-            )
         except Exception as exc:
-            _logger.debug("batch_focus_worker error: %s", exc)
+            _logger.debug("detail_worker error for %s: %s", vid, exc)
         finally:
-            self._focus_proc = None
             self._worker_end()
-
-    def _signal_stream_ready(self, vid: str) -> None:
-        """Signal that stream URL prefetch is complete (success or failure)."""
-        event = self._stream_url_ready.get(vid)
-        if event:
-            event.set()
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -1235,30 +1147,6 @@ class MainScreen(Screen):
 
     # ── Audio player ──────────────────────────────────────────────────────────
 
-    def _get_valid_stream_url(self, vid: str, kind: str = "audio") -> str | None:
-        """Return a prefetched stream URL if available and not expired.
-
-        kind: "audio" or "video"
-        Returns None if unavailable or expired (5-min safety margin).
-        """
-        import time
-        cached = self._stream_urls.get(vid)
-        if not cached:
-            return None
-        url_key = f"{kind}_url"
-        url = cached.get(url_key)
-        if not url:
-            return None
-        expire = cached.get("expire", 0)
-        if expire and (expire - time.time()) < 300:
-            _logger.debug("prefetched %s URL for %s expired, falling back", kind, vid)
-            return None
-        fetched_at = cached.get("fetched_at", 0)
-        if fetched_at and (time.time() - fetched_at) > 18000:
-            _logger.debug("prefetched %s URL for %s too old, falling back", kind, vid)
-            return None
-        return url
-
     @property
     def _audio_playing(self) -> bool:
         return self._audio_proc is not None and self._audio_proc.poll() is None
@@ -1337,20 +1225,7 @@ class MainScreen(Screen):
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args()
 
-        # Use prefetched audio URL if available and no custom quality selected
         use_prefetched = False
-        if not entry.get("_local_path") and not ytdl_format and vid:
-            prefetched_audio = self._get_valid_stream_url(vid, "audio")
-            # If not ready yet, wait for the in-flight prefetch (max 2s)
-            if not prefetched_audio:
-                event = self._stream_url_ready.get(vid)
-                if event:
-                    event.wait(timeout=2.0)
-                    prefetched_audio = self._get_valid_stream_url(vid, "audio")
-            if prefetched_audio:
-                url = prefetched_audio
-                use_prefetched = True
-                _logger.debug("audio: using prefetched URL for %s", vid)
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
@@ -1653,15 +1528,7 @@ class MainScreen(Screen):
         _logger.info("user action: watch %s (%s)", entry.get("id", "?"), (entry.get("title") or "")[:60])
         from src.tui.screens.watch_modal import WatchModal
 
-        vid = entry.get("id", "")
-        stream_urls = self._stream_urls.get(vid) if vid else None
-        stream_ready = self._stream_url_ready.get(vid) if vid else None
-        self.app.push_screen(WatchModal(
-            entry,
-            stream_urls=stream_urls,
-            stream_ready=stream_ready,
-            stream_urls_map=self._stream_urls,
-        ))
+        self.app.push_screen(WatchModal(entry))
 
     def action_watch_quality(self) -> None:
         entry = self._selected_entry()

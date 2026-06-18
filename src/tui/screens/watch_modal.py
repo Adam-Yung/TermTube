@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import threading
 
 from textual import work
 from textual.app import ComposeResult
@@ -62,13 +61,10 @@ class WatchModal(ModalScreen[bool]):
             cls._SOCKET = get_video_ipc_path()
         return cls._SOCKET
 
-    def __init__(self, entry: dict, *, ytdl_format: str = "", stream_urls: dict | None = None, stream_ready: threading.Event | None = None, stream_urls_map: dict | None = None) -> None:
+    def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
         super().__init__()
         self._entry = entry
         self._ytdl_format = ytdl_format
-        self._stream_urls = stream_urls
-        self._stream_ready = stream_ready
-        self._stream_urls_map = stream_urls_map
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._stopped = False
         self._buffering_since: float = 0.0
@@ -126,31 +122,8 @@ class WatchModal(ModalScreen[bool]):
 
         cookie_args = config.cookie_args() if config else []
 
-        # Use prefetched stream URLs if available, not expired, and no custom quality
         use_prefetched = False
         audio_file_url: str | None = None
-        if not self._entry.get("_local_path") and not self._ytdl_format:
-            stream_data = self._stream_urls
-            # Wait for in-flight prefetch if not yet available (max 2s)
-            if not stream_data and self._stream_ready:
-                self._stream_ready.wait(timeout=2.0)
-                if self._stream_urls_map:
-                    stream_data = self._stream_urls_map.get(vid)
-            if stream_data:
-                import time
-                expire = stream_data.get("expire", 0)
-                fetched_at = stream_data.get("fetched_at", 0)
-                is_fresh = (
-                    (not expire or (expire - time.time()) >= 300)
-                    and (not fetched_at or (time.time() - fetched_at) <= 18000)
-                )
-                if is_fresh:
-                    video_url = stream_data.get("video_url")
-                    audio_url = stream_data.get("audio_url")
-                    if video_url:
-                        url = video_url
-                        audio_file_url = audio_url
-                        use_prefetched = True
 
         input_conf = player_mod._write_input_conf()
         cmd = [
