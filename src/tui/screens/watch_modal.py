@@ -176,12 +176,14 @@ class WatchModal(ModalScreen[bool]):
         finally:
             from src.platform import ProcessRegistry
             ProcessRegistry.get().unregister(self._proc)
-            try:
-                os.unlink(input_conf)
-            except OSError:
-                pass
-            from src.platform import cleanup_ipc
-            cleanup_ipc(self._get_socket())
+        try:
+            os.unlink(input_conf)
+        except OSError:
+            pass
+        from src.player import close_persistent_socket
+        close_persistent_socket(self._get_socket())
+        from src.platform import cleanup_ipc
+        cleanup_ipc(self._get_socket())
 
         if not self._stopped:
             try:

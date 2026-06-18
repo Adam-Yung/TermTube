@@ -7,11 +7,20 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any
 
 from src import logger
 from src.platform import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup_ipc
+
+# ── Persistent IPC socket pool ────────────────────────────────────────────────
+# Keyed by socket_path → socket.socket (Unix only).
+# Windows named pipes don't support persistent connections so they stay
+# connect-per-call.  Each entry is created on first use and reused until
+# mpv closes the other end (EPIPE / ECONNRESET), at which point we reconnect.
+_persistent_sockets: dict[str, socket.socket] = {}
+_persistent_lock = threading.Lock()
 
 # Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
@@ -123,28 +132,63 @@ def _ipc_send_recv(data: bytes, *, socket_path: str = IPC_SOCKET, timeout: float
     return _ipc_send_recv_socket(data, socket_path=socket_path, timeout=timeout)
 
 
-def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:
-    """Unix domain socket transport."""
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(timeout)
-        s.connect(socket_path)
-        s.sendall(data)
-        buf = b""
+def _get_persistent_socket(socket_path: str, timeout: float) -> socket.socket | None:
+    """Return (or create) a persistent Unix domain socket for socket_path."""
+    with _persistent_lock:
+        s = _persistent_sockets.get(socket_path)
+        if s is not None:
+            return s
         try:
-            while True:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                buf += chunk
-                if b"\n" in buf:
-                    break
-        except socket.timeout:
-            pass
-        s.close()
-        return buf
-    except (OSError, ConnectionRefusedError, FileNotFoundError):
-        return b""
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(timeout)
+            s.connect(socket_path)
+            _persistent_sockets[socket_path] = s
+            return s
+        except (OSError, ConnectionRefusedError, FileNotFoundError):
+            return None
+
+
+def _drop_persistent_socket(socket_path: str) -> None:
+    """Close and remove a stale persistent socket so the next call reconnects."""
+    with _persistent_lock:
+        s = _persistent_sockets.pop(socket_path, None)
+        if s is not None:
+            try:
+                s.close()
+            except OSError:
+                pass
+
+
+def close_persistent_socket(socket_path: str) -> None:
+    """Public API: close the persistent socket for socket_path (e.g. on track end)."""
+    _drop_persistent_socket(socket_path)
+
+
+def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:
+    """Unix domain socket transport — reuses a persistent connection."""
+    for _attempt in range(2):
+        s = _get_persistent_socket(socket_path, timeout)
+        if s is None:
+            return b""
+        try:
+            s.settimeout(timeout)
+            s.sendall(data)
+            buf = b""
+            try:
+                while True:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        raise OSError("connection closed")
+                    buf += chunk
+                    if b"\n" in buf:
+                        break
+            except socket.timeout:
+                pass
+            return buf
+        except (OSError, BrokenPipeError, ConnectionResetError):
+            _drop_persistent_socket(socket_path)
+            # second attempt will reconnect
+    return b""
 
 
 def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes:
@@ -337,42 +381,46 @@ def _extract_poll_results(
 def _poll_audio_properties_batched(
     *, socket_path: str
 ) -> tuple[float | None, float | None, bool]:
-    """Unix: batch all three requests in one socket connection."""
-    try:
-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        s.connect(socket_path)
-        for i, prop in enumerate(("time-pos", "duration", "pause")):
-            s.sendall(
-                (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
-            )
-        data = b""
-        results: dict[int, dict] = {}
-        try:
-            while len(results) < 3:
-                chunk = s.recv(4096)
-                if not chunk:
-                    break
-                data += chunk
-                *complete_lines, data = data.split(b"\n")
-                for raw in complete_lines:
-                    raw = raw.strip()
-                    if not raw:
-                        continue
-                    try:
-                        resp = json.loads(raw)
-                        rid = resp.get("request_id")
-                        if rid is not None:
-                            results[rid] = resp
-                    except json.JSONDecodeError:
-                        pass
-        except socket.timeout:
-            pass
-        s.close()
+    """Unix: batch all three requests on the persistent socket connection."""
+    payload = b""
+    for i, prop in enumerate(("time-pos", "duration", "pause")):
+        payload += (
+            json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n"
+        ).encode()
 
-        return _extract_poll_results(results)
-    except (OSError, ConnectionRefusedError, FileNotFoundError):
-        return None, None, False
+    for _attempt in range(2):
+        s = _get_persistent_socket(socket_path, 1.0)
+        if s is None:
+            return None, None, False
+        try:
+            s.settimeout(1.0)
+            s.sendall(payload)
+            buf = b""
+            results: dict[int, dict] = {}
+            try:
+                while len(results) < 3:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        raise OSError("connection closed")
+                    buf += chunk
+                    *complete_lines, buf = buf.split(b"\n")
+                    for raw in complete_lines:
+                        raw = raw.strip()
+                        if not raw:
+                            continue
+                        try:
+                            resp = json.loads(raw)
+                            rid = resp.get("request_id")
+                            if rid is not None:
+                                results[rid] = resp
+                        except json.JSONDecodeError:
+                            pass
+            except socket.timeout:
+                pass
+            return _extract_poll_results(results)
+        except (OSError, BrokenPipeError, ConnectionResetError):
+            _drop_persistent_socket(socket_path)
+    return None, None, False
 
 
 def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:

@@ -1209,6 +1209,8 @@ class MainScreen(Screen):
             self._audio_poll_timer = None
         if not keep_player_mode:
             self._action_bar().set_actions_mode()
+        from src.player import close_persistent_socket
+        close_persistent_socket(_get_audio_socket())
         from src.platform import cleanup_ipc
         cleanup_ipc(_get_audio_socket())
 
