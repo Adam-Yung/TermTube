@@ -366,9 +366,12 @@ def _install_mpv(bin_dir: Path) -> str | None:
     """Install mpv from official releases. Returns version or None.
 
     macOS: downloads .app bundle from mpv-player/mpv, extracts binary + lib/.
-    Windows: downloads zip with mpv.exe from mpv-player/mpv.
+    Windows: downloads zip with mpv.exe from mpv-player/mpv MSVC builds.
     Linux: no static binary available; user must install via system package manager.
     """
+    # Last-known-good version used as fallback when the GitHub API is rate-limited.
+    _MPV_FALLBACK = "v0.39.0"
+
     if OS_NAME == "linux":
         if shutil.which("mpv"):
             return "system"
@@ -381,8 +384,8 @@ def _install_mpv(bin_dir: Path) -> str | None:
 
     tag = _github_latest_tag("mpv-player", "mpv")
     if not tag:
-        print("    [!] Could not determine latest mpv version", flush=True)
-        return None
+        print(f"    [!] GitHub API unavailable — using fallback mpv {_MPV_FALLBACK}", flush=True)
+        tag = _MPV_FALLBACK
 
     if OS_NAME == "macos":
         if ARCH == "aarch64":
@@ -401,7 +404,6 @@ def _install_mpv(bin_dir: Path) -> str | None:
         zip_path = Path(tmp) / asset
         if not _download(url, zip_path, desc=f"mpv {tag}"):
             return None
-
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(tmp)
 

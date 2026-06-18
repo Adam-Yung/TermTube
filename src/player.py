@@ -78,8 +78,8 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
     """
     if headless and IS_WINDOWS:
         localappdata = os.environ.get("LOCALAPPDATA", "")
-        # 1. TermTube's bundled standalone CLI mpv (installed by setup.ps1)
-        termtube_mpv = Path(localappdata) / "TermTube" / "mpv" / "mpv.exe"
+        # 1. TermTube's bundled standalone CLI mpv (installed by bootstrap.py)
+        termtube_mpv = Path(localappdata) / "termtube-deps" / "bin" / "mpv.exe"
         exists = termtube_mpv.exists()
         logger.debug(
             "mpv probe: LOCALAPPDATA=%r bundled=%s exists=%s",

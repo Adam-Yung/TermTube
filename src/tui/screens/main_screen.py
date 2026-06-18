@@ -1246,7 +1246,7 @@ class MainScreen(Screen):
         if not mpv_exe:
             from src.platform import install_hint, IS_WINDOWS
             hint = (
-                "re-run setup.ps1 (it downloads a standalone headless mpv.exe). "
+                "run 'termtube --update' to install a standalone headless mpv.exe. "
                 "mpv.net opens a GUI window and cannot be used for background audio."
                 if IS_WINDOWS else install_hint('mpv')
             )

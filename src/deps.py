@@ -100,7 +100,7 @@ def _has_mpv() -> bool:
         return True
     if IS_WINDOWS:
         import os
-        bundled = Path(os.environ.get("LOCALAPPDATA", "")) / "TermTube" / "mpv" / "mpv.exe"
+        bundled = Path(os.environ.get("LOCALAPPDATA", "")) / "termtube-deps" / "bin" / "mpv.exe"
         return bundled.exists()
     return False
 
