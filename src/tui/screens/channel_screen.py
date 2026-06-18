@@ -842,7 +842,12 @@ class ChannelScreen(Screen):
 
     # ── Focus guard ───────────────────────────────────────────────────────────
 
-    def on_key(self) -> None:
+    def on_key(self, event) -> None:
+        if event.key not in (
+            "j", "k", "up", "down", "enter", "g", "G",
+            "left_square_bracket", "right_square_bracket", "left", "right",
+        ):
+            return
         from textual.widgets import ListView
         focused = self.app.focused
         if focused is None or not isinstance(focused, ListView):

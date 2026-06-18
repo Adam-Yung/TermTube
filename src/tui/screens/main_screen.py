@@ -416,13 +416,17 @@ class MainScreen(Screen):
 
     # ── Focus guard ───────────────────────────────────────────────────────────
 
-    def on_key(self) -> None:
-        """Ensure focus stays on the video list during normal browsing.
+    def on_key(self, event) -> None:
+        """Ensure focus stays on the video list during navigation keystrokes.
 
-        Textual can drift focus to the Tabs widget when the ListView DOM is
-        mutated (clear/append). If focus has escaped to anything other than the
-        list, reclaim it so keystrokes work as expected.
+        Only reclaim focus for navigation/action keys — not every keypress — to
+        avoid burning CPU on keys like modifier combinations or text input.
         """
+        if event.key not in (
+            "j", "k", "up", "down", "enter", "g", "G",
+            "left_square_bracket", "right_square_bracket", "left", "right",
+        ):
+            return
         focused = self.app.focused
         if focused is None or not isinstance(focused, ListView):
             try:
