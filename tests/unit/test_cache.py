@@ -200,21 +200,24 @@ class TestPruneVideoCacheFifo:
 
 class TestPruneOldVideos:
     def test_removes_expired_entries(self, temp_cache):
+        import os
         from src.cache import VIDEO_DIR
 
         old_time = time.time() - 4 * 86400  # 4 days old
         fresh_time = time.time() - 1 * 86400  # 1 day old
 
-        (VIDEO_DIR / "old.json").write_text(
-            json.dumps({"id": "old", "_cached_at": old_time})
-        )
-        (VIDEO_DIR / "fresh.json").write_text(
-            json.dumps({"id": "fresh", "_cached_at": fresh_time})
-        )
+        old_path = VIDEO_DIR / "old.json"
+        fresh_path = VIDEO_DIR / "fresh.json"
+        old_path.write_text(json.dumps({"id": "old", "_cached_at": old_time}))
+        fresh_path.write_text(json.dumps({"id": "fresh", "_cached_at": fresh_time}))
+
+        # Set file mtime to match intended age (prune uses mtime, not JSON field)
+        os.utime(old_path, (old_time, old_time))
+        os.utime(fresh_path, (fresh_time, fresh_time))
 
         temp_cache.prune_old_videos(max_age_days=3, max_count=100)
 
-        assert not (VIDEO_DIR / "old.json").exists()
+        assert not old_path.exists()
         assert (VIDEO_DIR / "fresh.json").exists()
 
     def test_enforces_max_count(self, temp_cache):

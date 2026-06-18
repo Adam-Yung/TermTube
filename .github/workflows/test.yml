@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest pytest-asyncio
+        run: pip install -r requirements.txt pytest pytest-asyncio pytest-timeout
       - name: Run TUI interaction tests
         run: pytest tests/tui/ -v --tb=short --timeout=30
         env:

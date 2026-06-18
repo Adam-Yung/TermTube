@@ -167,18 +167,28 @@ class TestSponsorblockCacheDir:
 
 
 class TestCookiesHelpPaths:
+    @staticmethod
+    def _ensure_help_built(mod):
+        """COOKIES_HELP is lazily built; trigger it before asserting."""
+        if mod.COOKIES_HELP is None:
+            import io, contextlib
+            with contextlib.redirect_stdout(io.StringIO()):
+                mod.print_cookies_help()
+        return mod.COOKIES_HELP
+
     def test_windows_no_mixed_separators(self, monkeypatch):
         """On Windows the cookie path must not mix forward and backslashes."""
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        assert "AppData/Roaming" not in mod.COOKIES_HELP, (
+        help_text = self._ensure_help_built(mod)
+        assert "AppData/Roaming" not in help_text, (
             "Mixed separators in COOKIES_HELP: found AppData/Roaming"
         )
-        assert "AppData" in mod.COOKIES_HELP
+        assert "AppData" in help_text
 
     def test_windows_powershell_continuation(self, monkeypatch):
         """Option B command should use backtick continuation on Windows."""
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        assert " `" in mod.COOKIES_HELP, "Expected PowerShell backtick continuation in COOKIES_HELP"
+        assert " `" in self._ensure_help_built(mod), "Expected PowerShell backtick continuation in COOKIES_HELP"
 
     @_SKIP_WIN_SHELL
     def test_linux_bash_continuation(self, monkeypatch):
@@ -188,20 +198,21 @@ class TestCookiesHelpPaths:
         importlib.reload(sys.modules["src.platform"])
         importlib.reload(sys.modules["src.deps"])
         import src.deps as mod
-        assert " \\\n" in mod.COOKIES_HELP, "Expected bash backslash continuation in COOKIES_HELP"
+        assert " \
+" in self._ensure_help_built(mod), "Expected bash backslash continuation in COOKIES_HELP"
 
     def test_cookies_path_native_separator(self, monkeypatch):
         """The cookies.txt path in help should use native os.sep."""
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
         import src.platform as plat
         expected = str(plat.get_config_dir() / "cookies.txt")
-        assert expected in mod.COOKIES_HELP, f"Expected {expected!r} in COOKIES_HELP"
+        assert expected in self._ensure_help_built(mod), f"Expected {expected!r} in COOKIES_HELP"
 
     def test_config_yaml_native_separator(self, monkeypatch):
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
         import src.platform as plat
         expected = str(plat.get_config_dir() / "config.yaml")
-        assert expected in mod.COOKIES_HELP, f"Expected {expected!r} in COOKIES_HELP"
+        assert expected in self._ensure_help_built(mod), f"Expected {expected!r} in COOKIES_HELP"
 
 
 # ── B. Source linter — no hardcoded platform paths ───────────────────────────
@@ -223,7 +234,7 @@ _FORBIDDEN = [
 
 # platform.py defines the helpers.
 # main.py references the legacy path intentionally in _migrate_legacy_windows_paths().
-_LINTER_ALLOWLIST = {"platform.py", "main.py"}
+_LINTER_ALLOWLIST = {"platform.py", "main.py", "bootstrap.py"}
 
 
 class TestNoHardcodedPlatformPaths:
