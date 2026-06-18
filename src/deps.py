@@ -14,7 +14,6 @@ DEPS: list[tuple[str, str, str, str | None, bool]] = [
     ("yt-dlp",  "yt-dlp",  "yt-dlp",  "yt-dlp.yt-dlp",   True),
     ("deno",    "deno",    "deno",    "DenoLand.Deno",    True),   # required by yt-dlp for YouTube (JS runtime)
     ("mpv",     "mpv",     "mpv",     None,               True),   # Windows: bundled by setup.ps1
-    ("chafa",   "chafa",   "chafa",   "hpjansson.Chafa",  False),  # optional: thumbnails
     ("ffmpeg",  "ffmpeg",  "ffmpeg",  "Gyan.FFmpeg",      False),  # optional: audio conversion
 ]
 
@@ -111,12 +110,6 @@ def _has_mpv() -> bool:
     return False
 
 
-def _has_chafa() -> bool:
-    """Check for chafa, accounting for winget installs not yet in PATH on Windows."""
-    from src.platform import has_chafa as _platform_has_chafa
-    return _platform_has_chafa()
-
-
 def _brew_available() -> bool:
     return _has("brew")
 
@@ -149,8 +142,6 @@ def check_dependencies(auto_install: bool = False) -> bool:
     for tool, brew, apt, winget, required in DEPS:
         if tool == "mpv":
             present = _has_mpv()
-        elif tool == "chafa":
-            present = _has_chafa()
         else:
             present = _has(tool)
         if not present:
@@ -162,7 +153,7 @@ def check_dependencies(auto_install: bool = False) -> bool:
     if missing_optional:
         print("\n\033[33m⚠ Optional tools not found:\033[0m")
         for tool, _, _ in missing_optional:
-            note = "(thumbnails disabled)" if tool == "chafa" else ""
+            note = ""
             print(f"  • {tool}  {note}")
         print()
 
@@ -251,6 +242,3 @@ def _print_manual_install(missing: list[tuple[str, str, str | None]]) -> None:
                 fallback = f"sudo apt install {tool}  # or equivalent"
                 print(f"  brew install {brew}" if _brew_available() else f"  {fallback}")
 
-
-def print_cookies_help() -> None:
-    print(COOKIES_HELP)

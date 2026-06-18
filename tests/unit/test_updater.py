@@ -231,11 +231,10 @@ class TestRunAllUpdates:
 
         assert ["yt-dlp", "--update-to", "nightly"] in run_calls
         assert ["deno", "upgrade"] in run_calls
-        # mpv / ffmpeg / chafa should NOT appear on Linux
+        # mpv / ffmpeg should NOT appear on Linux
         flat = [c for cmd in run_calls for c in cmd]
         assert "mpv" not in flat
         assert "ffmpeg" not in flat
-        assert "chafa" not in flat
 
     def test_macos_brew_runs_all_tools(self, tmp_path):
         mod = _make_updater(tmp_path)
@@ -261,7 +260,7 @@ class TestRunAllUpdates:
         assert ["brew", "upgrade", "deno"] in run_calls
         assert ["brew", "upgrade", "mpv"] in run_calls
         assert ["brew", "upgrade", "ffmpeg"] in run_calls
-        assert ["brew", "upgrade", "chafa"] in run_calls
+
 
     def test_verbose_mode_does_not_suppress_output(self, tmp_path, capsys):
         mod = _make_updater(tmp_path)

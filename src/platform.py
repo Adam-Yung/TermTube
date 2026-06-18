@@ -197,40 +197,6 @@ def in_windows_terminal() -> bool:
     return IS_WINDOWS and bool(os.environ.get("WT_SESSION"))
 
 
-@functools.cache
-def has_chafa() -> bool:
-    """True if chafa is available for thumbnail rendering (cached per process)."""
-    import shutil
-    if shutil.which("chafa"):
-        return True
-    if IS_WINDOWS:
-        # chafa via winget installs into a versioned subdirectory under WinGet packages
-        winget_base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
-        if winget_base.is_dir():
-            for pkg_dir in winget_base.iterdir():
-                if pkg_dir.name.startswith("hpjansson.Chafa"):
-                    for chafa_exe in pkg_dir.rglob("chafa.exe"):
-                        return True
-    return False
-
-
-@functools.cache
-def get_chafa_exe() -> str | None:
-    """Return the chafa executable path, probing winget install dirs on Windows (cached per process)."""
-    import shutil
-    found = shutil.which("chafa")
-    if found:
-        return found
-    if IS_WINDOWS:
-        winget_base = Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Packages"
-        if winget_base.is_dir():
-            for pkg_dir in winget_base.iterdir():
-                if pkg_dir.name.startswith("hpjansson.Chafa"):
-                    for chafa_exe in pkg_dir.rglob("chafa.exe"):
-                        return str(chafa_exe)
-    return None
-
-
 def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
     """Download a file using Python stdlib urllib (cross-platform, no subprocess).
 
@@ -287,7 +253,7 @@ import threading
 class ProcessRegistry:
     """Global registry of all child processes spawned by TermTube.
 
-    Tracks mpv (audio/video), yt-dlp, chafa, and any other subprocesses so they
+    Tracks mpv (audio/video), yt-dlp, and any other subprocesses so they
     can all be killed on exit — regardless of exit path (normal quit, Ctrl+C,
     SIGTERM, os._exit failsafe).
     """
@@ -414,11 +380,6 @@ _INSTALL_HINTS: dict[str, dict[str, str]] = {
         "windows": "re-run setup.ps1 (bundles standalone mpv)",
         "macos":   "brew install mpv",
         "linux":   "sudo apt install mpv",
-    },
-    "chafa": {
-        "windows": "winget install hpjansson.Chafa",
-        "macos":   "brew install chafa",
-        "linux":   "sudo apt install chafa",
     },
     "ffmpeg": {
         "windows": "winget install Gyan.FFmpeg",

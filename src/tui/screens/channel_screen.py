@@ -26,7 +26,7 @@ _PAGE_SIZE = 20
 _SAFE_ID_RE = re.compile(r"[^A-Za-z0-9_\-]")
 _FOCUS_DWELL_S = 0.10
 _THUMB_DWELL_S = 0.15
-_CHAFA_RAM_CACHE_MAX = 64
+_THUMB_RAM_CACHE_MAX = 64
 
 
 def _safe_ch_id(info: dict) -> str:
@@ -136,11 +136,10 @@ class ChannelScreen(Screen):
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
         self._focus_proc: subprocess.Popen | None = None
-        self._thumb_proc: subprocess.Popen | None = None
         self._focus_session: int = 0
         self._detail_thumb_session: int = 0
         self._last_focus_id: str = ""
-        self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
+        self._thumb_ram_cache: OrderedDict[tuple[str, int, int], str] = OrderedDict()
         # Audio poll timer for syncing ActionBar with MainScreen playback
         self._audio_poll_timer: Timer | None = None
 
@@ -469,7 +468,7 @@ class ChannelScreen(Screen):
                 self.app.call_from_thread(detail.set_thumbnail_placeholder)
             return
 
-        # chafa branch
+        # PIL half-block branch
         try:
             thumb_widget = detail.query_one("#thumbnail")
             cols = thumb_widget.size.width if thumb_widget.size.width > 0 else 38
@@ -477,35 +476,23 @@ class ChannelScreen(Screen):
         except Exception:
             cols, rows = 38, 20
 
-        config = getattr(self.app, "config", None)
-        fmt = thumb_mod._chafa_format_for_tui(config)
-        cache_key_fmt = "ascii" if fmt == "ascii" else "symbols"
-        ram_key = (vid, cols, rows, cache_key_fmt)
+        ram_key = (vid, cols, rows)
 
-        ansi = self._chafa_ram_cache.get(ram_key)
+        ansi = self._thumb_ram_cache.get(ram_key)
         if ansi is not None:
-            self._chafa_ram_cache.move_to_end(ram_key)
+            self._thumb_ram_cache.move_to_end(ram_key)
             self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
             return
 
-        def _on_chafa_proc(p: subprocess.Popen) -> None:
-            self._thumb_proc = p
-
-        try:
-            ansi = thumb_mod.render(
-                vid, entry, cols=cols, rows=rows, config=config,
-                on_proc_started=_on_chafa_proc,
-            )
-        finally:
-            self._thumb_proc = None
+        ansi = thumb_mod.render_pil_halfblock(vid, entry, cols=cols, rows=rows)
 
         if session != self._detail_thumb_session:
             return
 
         if ansi:
-            self._chafa_ram_cache[ram_key] = ansi
-            if len(self._chafa_ram_cache) > _CHAFA_RAM_CACHE_MAX:
-                self._chafa_ram_cache.popitem(last=False)
+            self._thumb_ram_cache[ram_key] = ansi
+            if len(self._thumb_ram_cache) > _THUMB_RAM_CACHE_MAX:
+                self._thumb_ram_cache.popitem(last=False)
             self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
         else:
             self.app.call_from_thread(detail.set_thumbnail_placeholder)

@@ -140,7 +140,7 @@ _FRESHNESS_REFRESH_S = 60.0
 _FEED_TABS = ("home",)
 _PAGED_TABS = ("home", "search")
 _CHANNEL_TABS = ("subscriptions",)
-_CHAFA_RAM_CACHE_MAX = 64
+_THUMB_RAM_CACHE_MAX = 64
 
 
 class MainScreen(Screen):
@@ -236,15 +236,14 @@ class MainScreen(Screen):
         self._focus_dwell_timer: Timer | None = None
         self._thumb_dwell_timer: Timer | None = None
         self._focus_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
-        self._thumb_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._focus_session: int = 0
         self._thumb_session: int = 0
         self._last_focus_id: str = ""
         # Prefetched direct stream URLs keyed by video ID
         self._stream_urls: dict[str, dict] = {}
         self._stream_url_ready: dict[str, threading.Event] = {}
-        # In-RAM LRU of rendered chafa output keyed by (vid, cols, rows, fmt).
-        self._chafa_ram_cache: OrderedDict[tuple[str, int, int, str], str] = OrderedDict()
+        # In-RAM LRU of rendered thumbnail ANSI keyed by (vid, cols, rows).
+        self._thumb_ram_cache: OrderedDict[tuple[str, int, int], str] = OrderedDict()
         # ── Feed loading state (paged) ────────────────────────────────────────
         self._home_loading: bool = False
         self._freshness_timer: Timer | None = None
@@ -939,16 +938,14 @@ class MainScreen(Screen):
         self._focus_session += 1
         self._thumb_session += 1
         # Best-effort kill of any subprocess still running.
-        for attr in ("_focus_proc", "_thumb_proc"):
-            proc = getattr(self, attr, None)
-            if proc is None:
-                continue
+        proc = self._focus_proc
+        if proc is not None:
             try:
                 if proc.poll() is None:
                     proc.terminate()
             except Exception:
                 pass
-            setattr(self, attr, None)
+            self._focus_proc = None
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         """Dwell timer fired — actually start the thumbnail render worker."""
@@ -1085,11 +1082,10 @@ class MainScreen(Screen):
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
         """Render and apply a thumbnail. Two paths:
 
-          • textual-image available → ensure JPEG on disk, hand path to widget.
-          • else → chafa render with (vid, cols, rows) cache, hand ANSI to widget.
+          - textual-image available: ensure JPEG on disk, hand path to widget.
+          - else: PIL half-block render with RAM+disk cache, hand ANSI to widget.
 
-        Both paths are latest-wins via session counter and best-effort cancel
-        the previous chafa subprocess.
+        Both paths are latest-wins via session counter.
         """
         from src.ui import thumbnail as thumb_mod
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
@@ -1105,8 +1101,6 @@ class MainScreen(Screen):
             if session != self._thumb_session:
                 return
             if local and local.exists():
-                # Validate the JPEG fully in this thread before handing to
-                # textual-image — avoids a noisy OSError deep in PIL.
                 try:
                     from PIL import Image as _PILImage
                     with _PILImage.open(local) as _pil_img:
@@ -1121,7 +1115,7 @@ class MainScreen(Screen):
                 self.app.call_from_thread(detail.set_thumbnail_placeholder)
             return
 
-        # ── chafa branch ─────────────────────────────────────────────────────
+        # ── PIL half-block branch ─────────────────────────────────────────────
         try:
             thumb_widget = detail.query_one("#thumbnail")
             cols = thumb_widget.size.width if thumb_widget.size.width > 0 else max(30, (detail.size.width or 80) - 4)
@@ -1129,45 +1123,23 @@ class MainScreen(Screen):
         except Exception:
             cols, rows = 38, 20
 
-        config = getattr(self.app, "config", None)
-        fmt = thumb_mod._chafa_format_for_tui(config)
-        cache_key_fmt = "ascii" if fmt == "ascii" else "symbols"
-        ram_key = (vid, cols, rows, cache_key_fmt)
+        ram_key = (vid, cols, rows)
 
-        # RAM cache hit — instant.
-        ansi = self._chafa_ram_cache.get(ram_key)
+        ansi = self._thumb_ram_cache.get(ram_key)
         if ansi is not None:
-            self._chafa_ram_cache.move_to_end(ram_key)
+            self._thumb_ram_cache.move_to_end(ram_key)
             self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
             return
 
-        def _on_chafa_proc(p: subprocess.Popen) -> None:
-            self._thumb_proc = p
-
-        try:
-            ansi = thumb_mod.render(
-                vid, entry, cols=cols, rows=rows, config=config,
-                on_proc_started=_on_chafa_proc,
-            )
-        finally:
-            self._thumb_proc = None
+        ansi = thumb_mod.render_pil_halfblock(vid, entry, cols=cols, rows=rows)
 
         if session != self._thumb_session:
             return
 
-        # PIL half-block fallback: used on Windows when chafa is not installed
-        # (render() returns "" when _has_chafa() is False). Pillow is always
-        # available (hard dependency), so this gives thumbnails in any terminal
-        # that supports 24-bit ANSI color (including the Cursor IDE terminal).
-        if not ansi:
-            ansi = thumb_mod.render_pil_halfblock(vid, entry, cols=cols, rows=rows)
-            if session != self._thumb_session:
-                return
-
         if ansi:
-            self._chafa_ram_cache[ram_key] = ansi
-            if len(self._chafa_ram_cache) > _CHAFA_RAM_CACHE_MAX:
-                self._chafa_ram_cache.popitem(last=False)
+            self._thumb_ram_cache[ram_key] = ansi
+            if len(self._thumb_ram_cache) > _THUMB_RAM_CACHE_MAX:
+                self._thumb_ram_cache.popitem(last=False)
             self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
         else:
             self.app.call_from_thread(detail.set_thumbnail_placeholder)

@@ -44,7 +44,7 @@ show_help() {
                   For development: edits are immediately live.
 
   Options:
-    --deps        Auto-install system dependencies (yt-dlp, mpv, chafa, ffmpeg)
+    --deps        Auto-install system dependencies (yt-dlp, mpv, ffmpeg)
                   using your system's package manager.
     --no-deps     Skip dependency checks entirely.
     --no-prompt   Non-interactive mode (accept all defaults).
@@ -138,7 +138,6 @@ pkg_name() {
             case "$tool" in
                 yt-dlp)  echo "yt-dlp" ;;
                 mpv)     echo "mpv" ;;
-                chafa)   echo "chafa" ;;
                 ffmpeg)  echo "ffmpeg" ;;
                 deno)    echo "deno" ;;
                 *)       echo "$tool" ;;
@@ -236,7 +235,7 @@ install_deno_official() {
 
 check_and_install_deps() {
     local -a required=(yt-dlp deno mpv)
-    local -a optional=(chafa ffmpeg)
+    local -a optional=(ffmpeg)
     local missing_required=()
     local missing_optional=()
 

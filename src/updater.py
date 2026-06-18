@@ -195,7 +195,6 @@ def _update_commands() -> list[list[str]]:
         cmds.append(["brew", "upgrade", "deno"])
         cmds.append(["brew", "upgrade", "mpv"])
         cmds.append(["brew", "upgrade", "ffmpeg"])
-        cmds.append(["brew", "upgrade", "chafa"])
     elif IS_WINDOWS:
         winget = shutil.which("winget")
         if winget:
@@ -206,7 +205,6 @@ def _update_commands() -> list[list[str]]:
                 ]
             cmds.append(_winget_upgrade("DenoLand.Deno"))
             cmds.append(_winget_upgrade("Gyan.FFmpeg"))
-            cmds.append(_winget_upgrade("hpjansson.Chafa"))
     elif IS_LINUX:
         if shutil.which("deno"):
             cmds.append(["deno", "upgrade"])

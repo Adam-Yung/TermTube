@@ -89,14 +89,14 @@ class TermTubeApp(App):
             return
         self._housekeeping_done.set()
         try:
-            logger.debug("Housekeeping: pruning thumbnails + video JSON + chafa cache")
+            logger.debug("Housekeeping: pruning thumbnails + video JSON + rendered cache")
             # Pin playlist videos before pruning to protect them
             self.cache.pin_all_playlist_videos()
             self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
             self.cache.prune_old_videos(max_age_days=3, max_count=400)
             try:
-                from src.ui.thumbnail import prune_old_chafa
-                prune_old_chafa(max_age_days=7, max_count=600)
+                from src.ui.thumbnail import prune_old_rendered
+                prune_old_rendered(max_age_days=7, max_count=600)
             except Exception:
                 pass
         except Exception as exc:

@@ -26,12 +26,10 @@ DEFAULT_CONFIG: dict = {
     },
     "thumbnail_cols": 38,
     "thumbnail_rows": 20,
-    # thumbnail_format: how chafa renders thumbnails in the Textual TUI.
-    # "auto"    (default) = high-quality Unicode block/sextant art (best Textual-compatible mode).
+    # thumbnail_format: rendering mode for thumbnails when textual-image is unavailable.
+    # "auto"    (default) = PIL half-block art with 24-bit color.
     # "symbols"           = same as auto.
-    # "ascii"             = restrict to ASCII-only symbols (most compatible fallback).
-    # Note: sixel/kitty graphics protocols are incompatible with Textual's
-    # cell-based renderer and are silently mapped to "symbols".
+    # "ascii"             = reserved for future ASCII-only fallback.
     "thumbnail_format": "auto",
     # theme: UI color theme. Options: crimson | amber | ocean | midnight
     "theme": "crimson",

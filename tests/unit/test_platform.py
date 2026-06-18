@@ -140,7 +140,7 @@ class TestInstallHint:
         assert "nonexistent_tool_xyz" in result
 
     def test_all_known_tools_have_hints(self):
-        for tool in ("yt-dlp", "mpv", "chafa", "ffmpeg"):
+        for tool in ("yt-dlp", "mpv", "ffmpeg"):
             hint = install_hint(tool)
             assert isinstance(hint, str)
             assert len(hint) > 0

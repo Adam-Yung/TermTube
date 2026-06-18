@@ -1,6 +1,6 @@
-"""ThumbnailWidget — high-quality thumbnail display via textual-image (TGP/sixel/halfcell).
+"""ThumbnailWidget — high-quality thumbnail display via textual-image (TGP/sixel).
 
-Falls back to chafa ANSI symbol art when textual-image is not available.
+Falls back to PIL half-block ANSI art when textual-image is not available.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ from textual.widgets import Static
 # are running). main.py does this import at the right moment.
 #
 # Image rendering is disabled when:
-#   • textual-image is not installed
-#   • running inside tmux (TMUX env var set) — sixel/TGP passthrough is
-#     unreliable in tmux and causes flickering; symbols are safer there
-#   • terminal reports no image protocol support (textual-image auto-detects
+#   - textual-image is not installed
+#   - running inside tmux (TMUX env var set) — sixel/TGP passthrough is
+#     unreliable in tmux and causes flickering; PIL half-block is safer there
+#   - terminal reports no image protocol support (textual-image auto-detects
 #     this and falls back to halfcell/unicode, which we accept as "supported")
 #
 # Override: set MYYOUTUBE_IMAGES=1 to force images even inside tmux.
@@ -40,21 +40,17 @@ if not _IN_TMUX or _FORCE_IMAGES:
         if _AutoRenderable is not _UnicodeRenderable:
             _HAS_TEXTUAL_IMAGE = True
         elif _IS_WINDOWS and bool(_os.environ.get("WT_SESSION")):
-            # Windows Terminal supports Sixel natively; textual-image may
-            # fall back to unicode renderer if detection didn't run pre-startup,
-            # but we trust WT to handle image protocols.
             _HAS_TEXTUAL_IMAGE = True
     except ImportError:
         pass
 
 
 class ThumbnailWidget(Widget):
-    """
-    Thumbnail display widget.
+    """Thumbnail display widget.
 
     When textual-image is installed it renders via TGP (Kitty) or sixel (other
-    terminals) — real pixel-quality images. Otherwise falls back to chafa ANSI
-    symbol art passed in via set_ansi().
+    terminals) — real pixel-quality images. Otherwise falls back to PIL
+    half-block ANSI art passed in via set_ansi().
     """
 
     DEFAULT_CSS = """
@@ -89,7 +85,6 @@ class ThumbnailWidget(Widget):
             yield _TIImage(id="thumb-image")  # type: ignore[call-arg]
 
     def on_mount(self) -> None:
-        # Hide the image widget until we have an image to show
         if _HAS_TEXTUAL_IMAGE:
             try:
                 self.query_one("#thumb-image").display = False
@@ -129,7 +124,7 @@ class ThumbnailWidget(Widget):
             self.set_placeholder()
 
     def set_ansi(self, video_id: str, ansi: str) -> None:
-        """Fallback: display chafa ANSI art inside the status Static.
+        """Display PIL half-block ANSI art inside the status Static.
 
         Used when textual-image is not installed. When textual-image IS present
         this is a no-op (set_image_path handles display instead).
@@ -137,7 +132,7 @@ class ThumbnailWidget(Widget):
         if video_id != self._current_id:
             return
         if _HAS_TEXTUAL_IMAGE:
-            return  # textual-image handles rendering
+            return
         if ansi:
             try:
                 from rich.text import Text
