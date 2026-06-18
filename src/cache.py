@@ -6,6 +6,7 @@ import json
 import os
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 
 from src import logger
@@ -50,16 +51,30 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 class Cache:
+    _RAM_CACHE_MAX = 64
+
     def __init__(self, ttl_map: dict[str, int]) -> None:
         self._ttl = ttl_map  # e.g. {"home": 3600, "metadata": 86400}
         self._suppressed: set[str] = set()
         self._focus_counts: dict[str, int] = {}
         self._suppression_loaded = False
         self._suppression_lock = threading.Lock()
+        self._ram_cache: OrderedDict[str, dict] = OrderedDict()
+        self._ram_lock = threading.Lock()
 
     # ── Video metadata ────────────────────────────────────────────────────────
 
     def get_video(self, video_id: str) -> dict | None:
+        with self._ram_lock:
+            if video_id in self._ram_cache:
+                self._ram_cache.move_to_end(video_id)
+                data = self._ram_cache[video_id]
+                age = time.time() - data.get("_cached_at", 0)
+                ttl = self._ttl.get("metadata", 86400)
+                if age <= ttl:
+                    return data
+                del self._ram_cache[video_id]
+
         path = VIDEO_DIR / f"{video_id}.json"
         if not path.exists():
             return None
@@ -69,6 +84,10 @@ class Cache:
             ttl = self._ttl.get("metadata", 86400)
             if age > ttl:
                 return None
+            with self._ram_lock:
+                self._ram_cache[video_id] = data
+                if len(self._ram_cache) > self._RAM_CACHE_MAX:
+                    self._ram_cache.popitem(last=False)
             return data
         except (json.JSONDecodeError, OSError):
             return None
@@ -94,6 +113,10 @@ class Cache:
         path = VIDEO_DIR / f"{vid}.json"
         with _write_lock:
             _atomic_write(path, json.dumps(slim, ensure_ascii=False))
+        with self._ram_lock:
+            self._ram_cache[vid] = slim
+            if len(self._ram_cache) > self._RAM_CACHE_MAX:
+                self._ram_cache.popitem(last=False)
         logger.debug("cache.put_video %s (%d keys)", vid, len(slim))
 
     def get_video_raw(self, video_id: str) -> dict | None:

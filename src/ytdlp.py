@@ -409,23 +409,49 @@ def fetch_search_batch(
 
 # ── Full metadata (for video detail page) ────────────────────────────────────
 
+def _extract_stream_urls_from_entry(info: dict) -> dict | None:
+    """Extract best audio/video stream URLs from a yt-dlp entry with formats."""
+    import time as _t
+
+    formats = info.get("formats") or []
+    if not formats:
+        return None
+
+    best_audio_url = _pick_best_audio_url(formats)
+    best_video_url = _pick_best_video_url(formats)
+
+    if not best_audio_url and not best_video_url:
+        return None
+
+    expire = _extract_expire(best_audio_url or best_video_url or "")
+    return {
+        "audio_url": best_audio_url,
+        "video_url": best_video_url,
+        "expire": expire,
+        "fetched_at": _t.time(),
+    }
+
+
 def fetch_full(
     video_id: str,
     config,
     cache: Cache,
     *,
     on_proc_started: Callable[[subprocess.Popen], None] | None = None,
-) -> dict | None:
-    """Fetch complete metadata for a single video. Returns cached if fresh.
+) -> tuple[dict | None, dict | None]:
+    """Fetch complete metadata + stream URLs for a single video.
+
+    Returns (metadata_entry, stream_urls_dict). Both may be None on failure.
+    metadata_entry is also written to cache. stream_urls contains audio_url,
+    video_url, expire, fetched_at.
 
     on_proc_started: optional callback that receives the underlying yt-dlp
-    Popen handle. Use this from the caller to support cancellation when the
-    user navigates away before the fetch completes.
+    Popen handle for cancellation support.
     """
     cached = cache.get_video(video_id)
     if cached and cached.get("description") is not None:
         logger.debug("fetch_full cache hit: %s", video_id)
-        return cached
+        return cached, None
 
     url = f"https://www.youtube.com/watch?v={video_id}"
     cmd = [
@@ -434,7 +460,6 @@ def fetch_full(
         "--no-warnings",
         "--quiet",
         "--skip-download",
-        "--extractor-args", "youtube:skip=dash,hls",
         *config.cookie_args(),
         url,
     ]
@@ -446,11 +471,91 @@ def fetch_full(
     ))
     if not results:
         logger.warning("fetch_full got no data for %s — falling back to flat cache", video_id)
-        return cache.get_video_raw(video_id)
+        return cache.get_video_raw(video_id), None
     entry = results[0]
     _normalise_entry(entry)
+    stream_urls = _extract_stream_urls_from_entry(entry)
     cache.put_video(entry)
-    return entry
+    return entry, stream_urls
+
+
+def fetch_full_batch(
+    video_ids: list[str],
+    config,
+    cache: Cache,
+    *,
+    on_proc_started: Callable[[subprocess.Popen], None] | None = None,
+    on_entry_ready: Callable[[str, dict, dict | None], None] | None = None,
+) -> dict[str, tuple[dict, dict | None]]:
+    """Fetch full metadata + stream URLs for multiple videos in one subprocess.
+
+    Uses --batch-file for efficiency (one yt-dlp process, sequential requests,
+    HTTP keep-alive). Filters out IDs that already have description in cache.
+
+    on_entry_ready: called as each video's result arrives with (vid, entry, stream_urls).
+    Returns: {video_id: (entry, stream_urls)} for all successfully fetched videos.
+    """
+    import tempfile
+
+    results: dict[str, tuple[dict, dict | None]] = {}
+
+    # Filter out already-enriched videos
+    to_fetch: list[str] = []
+    for vid in video_ids:
+        cached = cache.get_video(vid)
+        if cached and cached.get("description") is not None:
+            results[vid] = (cached, None)
+            if on_entry_ready:
+                on_entry_ready(vid, cached, None)
+        else:
+            to_fetch.append(vid)
+
+    if not to_fetch:
+        return results
+
+    urls = [f"https://www.youtube.com/watch?v={vid}" for vid in to_fetch]
+    fd, batch_path = tempfile.mkstemp(suffix=".txt", prefix="termtube_batch_")
+    try:
+        os.write(fd, "\n".join(urls).encode("utf-8"))
+        os.close(fd)
+        fd = -1
+
+        cmd = [
+            "yt-dlp",
+            "--dump-json",
+            "--no-warnings",
+            "--quiet",
+            "--skip-download",
+            *config.cookie_args(),
+            "--batch-file", batch_path,
+        ]
+        logger.debug("fetch_full_batch: fetching %d videos", len(to_fetch))
+
+        for entry in _stream_json_lines(
+            cmd,
+            capture_stderr=logger.is_debug(),
+            on_proc_started=on_proc_started,
+        ):
+            _normalise_entry(entry)
+            vid = entry.get("id", "")
+            if not vid:
+                continue
+            stream_urls = _extract_stream_urls_from_entry(entry)
+            cache.put_video(entry)
+            results[vid] = (entry, stream_urls)
+            if on_entry_ready:
+                on_entry_ready(vid, entry, stream_urls)
+    except Exception as exc:
+        logger.debug("fetch_full_batch error: %s", exc)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        try:
+            os.unlink(batch_path)
+        except OSError:
+            pass
+
+    return results
 
 
 # ── Stream URL prefetch ───────────────────────────────────────────────────────

@@ -420,7 +420,7 @@ class ChannelScreen(Screen):
             self._focus_proc = p
 
         try:
-            full = ytdlp.fetch_full(
+            full, _stream_urls = ytdlp.fetch_full(
                 vid, self.app.config, self.app.cache, on_proc_started=_on_proc
             )
         except Exception:
