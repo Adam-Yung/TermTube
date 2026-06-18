@@ -23,9 +23,18 @@ if "%~1"=="--uninstall" (
     exit /b 1
 )
 
+if not exist "%PYTHON%" goto :try_install_dir
+goto :run
+
+:try_install_dir
+set "PYTHON=%LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe"
+set "SCRIPT_DIR=%LOCALAPPDATA%\Programs\TermTube"
 if not exist "%PYTHON%" (
     echo TermTube is not set up. Run setup.ps1 first.
-    echo   Looked for venv at: %PYTHON%
+    echo   Looked for venv at: %~dp0.venv\Scripts\python.exe
+    echo   Also tried:         %LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe
     exit /b 1
 )
+
+:run
 "%PYTHON%" "%SCRIPT_DIR%\src\main.py" %*

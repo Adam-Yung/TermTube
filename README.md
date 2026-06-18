@@ -23,7 +23,7 @@ Browse your home feed, search, listen in the background, and watch videos — al
 |---|---|
 | **Instant startup** | Cached feeds load in milliseconds — no browser overhead |
 | **Background audio** | Listen to YouTube while you work, with seek/pause/queue controls |
-| **Native thumbnails** | High-res images via Kitty/Sixel protocols, with universal chafa fallback |
+| **Native thumbnails** | High-res images via Kitty/Sixel protocols, with pure-Python PIL fallback |
 | **Keyboard-driven** | Vim-style navigation, page-based browsing, zero mouse required |
 | **Privacy-respecting** | Runs locally, no telemetry, no accounts beyond your existing YouTube cookies |
 | **Cross-platform** | macOS, Linux, and Windows — one codebase |
@@ -35,17 +35,17 @@ Browse your home feed, search, listen in the background, and watch videos — al
 
 ### Prerequisites
 
-| Tool | Purpose | macOS | Linux | Windows |
-|------|---------|-------|-------|---------|
-| Python 3.11+ | Runtime | `brew install python@3.12` | `sudo apt install python3.12` | `winget install Python.Python.3.12` |
-| yt-dlp (nightly) | YouTube data | auto-installed | auto-installed | auto-installed |
-| Deno | JS challenge solver | auto-installed | auto-installed | auto-installed |
-| mpv | Video/audio playback | `brew install mpv` | `sudo apt install mpv` | bundled by setup |
-| chafa | Thumbnails (optional) | `brew install chafa` | `sudo apt install chafa` | `winget install hpjansson.Chafa` |
-| ffmpeg | Audio conversion (optional) | `brew install ffmpeg` | `sudo apt install ffmpeg` | `winget install Gyan.FFmpeg` |
+The only things you need to install yourself:
 
-> **Note:** TermTube uses **yt-dlp nightly** rather than the stable release, because YouTube's extractor changes daily. The setup script downloads it automatically.  
-> **Deno** is required by yt-dlp (since November 2025) to solve YouTube's JavaScript challenges. The setup script handles this too.
+| Tool | Purpose | Install |
+|------|---------|---------|
+| Python 3.11+ | Runtime | [python.org](https://python.org/downloads/) or `winget install Python.Python.3.12` |
+| git | To clone the repo | Usually pre-installed; [git-scm.com](https://git-scm.com) |
+
+Everything else — **yt-dlp, Deno, ffmpeg, and mpv** — is downloaded automatically from GitHub releases by the setup script. No package manager required.
+
+> **Why yt-dlp nightly?** YouTube's extractor changes daily. The nightly build tracks fixes as they land, whereas the stable release often lags by weeks.  
+> **Why Deno?** yt-dlp requires it (since November 2025) to solve YouTube's JavaScript challenges.
 
 ---
 
@@ -58,20 +58,19 @@ bash setup.sh
 ```
 
 The installer will:
-1. Detect your package manager (brew, apt, dnf, pacman, zypper, apk)
-2. Download **yt-dlp nightly** directly from GitHub
-3. Install **Deno** via the official installer
-4. Offer to install remaining dependencies via your package manager
-5. Create a Python virtual environment and install packages
-6. Add `termtube` to your PATH
+1. Create a Python virtual environment and install Python packages
+2. Download **yt-dlp nightly**, **Deno**, **ffmpeg**, and **mpv** directly from GitHub into `~/.local/termtube-deps/bin/`
+3. Add `termtube` to your PATH
 
 **Options:**
 ```bash
 bash setup.sh              # Interactive install (recommended)
 bash setup.sh --sync       # Developer mode (symlink, edits are live)
-bash setup.sh --deps       # Auto-install all dependencies without prompting
+bash setup.sh --no-deps    # Skip binary dependency download (Python venv only)
 bash setup.sh --no-prompt  # Non-interactive (accept all defaults)
 ```
+
+> **Linux note:** mpv has no static Linux build. If `mpv` isn't already installed on your system, the setup script will print the correct `apt`/`dnf`/`pacman` command to install it.
 
 ---
 
@@ -84,9 +83,9 @@ cd $HOME\termtube
 ```
 
 The installer will:
-1. Download yt-dlp nightly and Deno from GitHub automatically
-2. Bundle a standalone headless `mpv.exe` for audio playback
-3. Create a Python virtual environment and install packages
+1. Download **yt-dlp nightly**, **Deno**, **ffmpeg**, and **mpv** directly from GitHub into `%LOCALAPPDATA%\termtube-deps\bin\`
+2. Bundle a standalone headless `mpv.exe` for audio playback (from [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild))
+3. Create a Python virtual environment and install Python packages
 4. Add `termtube` to your user PATH
 
 > **Recommended:** Use [Windows Terminal](https://aka.ms/terminal) for full Sixel graphics and best thumbnail quality.
@@ -95,7 +94,7 @@ The installer will:
 ```powershell
 .\setup.ps1              # Interactive install (recommended)
 .\setup.ps1 -Sync        # Developer mode (NTFS junction)
-.\setup.ps1 -Deps        # Auto-install via winget
+.\setup.ps1 -NoDeps      # Skip binary dependency download
 .\setup.ps1 -NoPrompt    # Non-interactive
 ```
 
@@ -260,10 +259,9 @@ On each clean exit, TermTube silently checks if tools need updating (once per we
 | Tool | Update method |
 |------|---------------|
 | yt-dlp | `yt-dlp --update-to nightly` |
-| Deno | `deno upgrade` / `brew upgrade` / winget |
-| mpv | `brew upgrade mpv` / winget |
-| ffmpeg | `brew upgrade ffmpeg` / winget |
-| chafa | `brew upgrade chafa` / winget |
+| Deno | `deno upgrade` |
+| ffmpeg | Re-downloaded from GitHub releases |
+| mpv | Re-downloaded from GitHub releases |
 
 A brief notification appears on next launch: `yt-dlp updated 2026.03.17 → 2026.05.05`.
 
@@ -277,19 +275,28 @@ termtube --update
 ## Platform Notes
 
 ### macOS
-Works out of the box. Homebrew is the recommended package manager.
+Works out of the box. All binary dependencies are downloaded directly from GitHub — no Homebrew required.
 
 ### Linux
-Tested on Ubuntu, Fedora, and Arch. The setup script auto-detects apt, dnf, pacman, zypper, and apk.
+Tested on Ubuntu, Fedora, and Arch. All binary dependencies except mpv are downloaded from GitHub. mpv must be installed via your system package manager:
+```bash
+# Ubuntu / Debian
+sudo apt install mpv
 
-For best thumbnail quality, use a terminal that supports Sixel or the Kitty graphics protocol (kitty, WezTerm, foot, iTerm2).
+# Fedora
+sudo dnf install mpv
+
+# Arch
+sudo pacman -S mpv
+```
+
+For best thumbnail quality, use a terminal that supports Sixel or the Kitty graphics protocol (kitty, WezTerm, foot, iTerm2). All other terminals get full-color thumbnails via the built-in PIL half-block renderer.
 
 ### Windows
-- **Windows Terminal** (recommended) — full Sixel graphics for high-quality thumbnails
-- **PowerShell 7** — full TUI support, chafa symbol thumbnails
-- **Legacy cmd.exe** — basic support
+- **Windows Terminal** (recommended) — full Sixel graphics for pixel-perfect thumbnails
+- **PowerShell 7 / cmd.exe** — full TUI support with 24-bit color half-block thumbnails
 
-mpv on Windows uses named pipes for IPC (instead of Unix sockets) — handled automatically.
+All binary dependencies (yt-dlp, Deno, ffmpeg, mpv) are downloaded from GitHub by the setup script. mpv uses named pipes for IPC instead of Unix sockets — handled automatically.
 
 ---
 

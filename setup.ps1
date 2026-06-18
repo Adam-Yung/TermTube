@@ -864,7 +864,7 @@ function Bootstrap-Dependencies {
         releases using src/bootstrap.py. This replaces the old winget-based install.
     #>
     Write-Info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
-    Write-Info "Install path: $env:LOCALAPPDATA	ermtube-depsin"
+    Write-Info "Install path: $env:LOCALAPPDATA\termtube-deps\bin"
     Write-Host ""
 
     $venvPython = Join-Path $AppDir ".venv\Scripts\python.exe"
