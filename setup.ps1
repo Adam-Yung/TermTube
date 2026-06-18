@@ -35,6 +35,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
+$script:DeferBootstrap = $false
 $ErrorActionPreference = "Stop"
 
 # Ensure the console can render Unicode box-drawing characters
@@ -215,7 +216,6 @@ $WinGetPackages = @{
     # even with --no-video / --force-window=no, which breaks the background
     # audio player. Install-MpvCli downloads the real upstream CLI build.
     "ffmpeg"  = "Gyan.FFmpeg"
-    "chafa"   = "hpjansson.Chafa"
     "python"  = "Python.Python.3.13"
 }
 
@@ -855,6 +855,39 @@ function Install-Launcher {
     }
 }
 
+
+# ── Bootstrap Dependencies (via Python) ──────────────────────────────────────
+function Bootstrap-Dependencies {
+    <#
+    .SYNOPSIS
+        Download all binary dependencies (yt-dlp, deno, ffmpeg, mpv) from GitHub
+        releases using src/bootstrap.py. This replaces the old winget-based install.
+    #>
+    Write-Info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
+    Write-Info "Install path: $env:LOCALAPPDATA	ermtube-depsin"
+    Write-Host ""
+
+    $venvPython = Join-Path $AppDir ".venv\Scripts\python.exe"
+    if (-not (Test-Path $venvPython)) {
+        # Venv not set up yet — will bootstrap after venv creation
+        Write-Warn "Python venv not ready yet; dependencies will be installed after venv setup."
+        $script:DeferBootstrap = $true
+        return
+    }
+
+    try {
+        & $venvPython -m src.bootstrap
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "All dependencies installed."
+        } else {
+            Write-Warn "Some dependencies failed. Run 'termtube --update' to retry."
+        }
+    } catch {
+        Write-Err "Bootstrap failed: $($_.Exception.Message)"
+        Write-Warn "Run 'termtube --update' to retry later."
+    }
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 function Main {
     Write-Host ""
@@ -884,8 +917,8 @@ function Main {
     $syncMode = Prompt-SyncMode
 
     if (-not $NoDeps) {
-        Write-Header "System Dependencies"
-        Test-Dependencies | Out-Null
+        Write-Header "Binary Dependencies"
+        Bootstrap-Dependencies
     }
 
     # Install code first, THEN download bundled mpv.
@@ -904,6 +937,12 @@ function Main {
     $requirements = Join-Path $AppDir "requirements.txt"
     $result = Setup-Venv -VenvDir $venvDir -Requirements $requirements
     if (-not $result) { exit 1 }
+
+    # Run deferred bootstrap now that venv is ready
+    if ($script:DeferBootstrap) {
+        Write-Header "Binary Dependencies"
+        Bootstrap-Dependencies
+    }
 
     if (-not (Test-Path $ConfigDir)) {
         New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null

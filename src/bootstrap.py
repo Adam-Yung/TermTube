@@ -3,19 +3,25 @@
 Only uses Python stdlib (urllib, zipfile, tarfile, json) so it can run
 immediately after creating the venv, without any pip packages.
 
-Install location: ~/.local/termtube-deps/bin/ (Unix) or %LOCALAPPDATA%/termtube-deps/bin/ (Windows)
+Install location: ~/.local/termtube-deps/bin/ (Unix) or %LOCALAPPDATA%\\termtube-deps\\bin\\ (Windows)
+
+All 4 tools (yt-dlp, deno, ffmpeg, mpv) are required for full functionality:
+  - yt-dlp: video/audio metadata extraction and stream URL resolution
+  - deno: JavaScript runtime required by yt-dlp for YouTube challenges
+  - ffmpeg: audio/video muxing and format conversion (required for downloads)
+  - mpv: media playback via IPC
 """
 
 from __future__ import annotations
 
 import json
 import os
-import platform
 import shutil
 import stat
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -34,7 +40,24 @@ def _detect_platform() -> tuple[str, str]:
     elif os_name == "win32":
         os_name = "windows"
 
-    machine = platform.machine().lower()
+    import struct
+    if sys.platform == "darwin":
+        import subprocess as _sp
+        try:
+            machine = _sp.check_output(["uname", "-m"], text=True).strip().lower()
+        except Exception:
+            machine = "arm64" if struct.calcsize("P") == 8 else "x86_64"
+    elif sys.platform == "win32":
+        machine = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower()
+        if machine == "amd64":
+            machine = "x86_64"
+    else:
+        import subprocess as _sp
+        try:
+            machine = _sp.check_output(["uname", "-m"], text=True).strip().lower()
+        except Exception:
+            machine = "x86_64"
+
     if machine in ("x86_64", "amd64"):
         arch = "x86_64"
     elif machine in ("aarch64", "arm64"):
@@ -86,29 +109,45 @@ def _write_versions(data: dict) -> None:
 
 # ── Download helpers ──────────────────────────────────────────────────────────
 
-def _download(url: str, dest: Path, *, desc: str = "") -> bool:
-    """Download a URL to a local file. Returns True on success."""
+_MAX_RETRIES = 3
+_RETRY_DELAY = 2  # seconds
+
+
+def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRIES) -> bool:
+    """Download a URL to a local file with retry logic. Returns True on success."""
     label = desc or url.split("/")[-1]
-    print(f"    Downloading {label}...", flush=True)
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            total = int(resp.headers.get("Content-Length", 0))
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            downloaded = 0
-            with open(dest, "wb") as f:
-                while chunk := resp.read(65536):
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total > 0:
-                        pct = downloaded * 100 // total
-                        print(f"\r    Downloading {label}... {pct}%", end="", flush=True)
-            print(f"\r    Downloading {label}... done ({downloaded // 1024 // 1024}MB)", flush=True)
-        return True
-    except (urllib.error.URLError, OSError, TimeoutError) as exc:
-        print(f"\n    [!] Download failed: {exc}", flush=True)
-        dest.unlink(missing_ok=True)
-        return False
+
+    for attempt in range(1, retries + 1):
+        if attempt > 1:
+            print(f"    Retry {attempt}/{retries}...", flush=True)
+            time.sleep(_RETRY_DELAY * attempt)
+
+        print(f"    Downloading {label}...", flush=True)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                total = int(resp.headers.get("Content-Length", 0))
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                downloaded = 0
+                with open(dest, "wb") as f:
+                    while chunk := resp.read(65536):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total > 0 and sys.stdout.isatty():
+                            pct = downloaded * 100 // total
+                            print(f"\r    Downloading {label}... {pct}%", end="", flush=True)
+                if sys.stdout.isatty():
+                    print(f"\r    Downloading {label}... done ({downloaded // 1024 // 1024}MB)", flush=True)
+                else:
+                    print(f"    Downloaded {label} ({downloaded // 1024 // 1024}MB)", flush=True)
+            return True
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
+            print(f"\n    [!] Download failed: {exc}", flush=True)
+            dest.unlink(missing_ok=True)
+            if attempt == retries:
+                return False
+
+    return False
 
 
 def _make_executable(path: Path) -> None:
@@ -172,7 +211,10 @@ def _install_deno(bin_dir: Path) -> str | None:
         else:
             asset = "deno-x86_64-unknown-linux-gnu.zip"
     else:
-        asset = "deno-x86_64-pc-windows-msvc.zip"
+        if ARCH == "aarch64":
+            asset = "deno-aarch64-pc-windows-msvc.zip"
+        else:
+            asset = "deno-x86_64-pc-windows-msvc.zip"
 
     url = f"https://github.com/denoland/deno/releases/download/{tag}/{asset}"
 
@@ -198,19 +240,27 @@ def _install_deno(bin_dir: Path) -> str | None:
 
 
 def _install_ffmpeg(bin_dir: Path) -> str | None:
-    """Install ffmpeg + ffprobe from BtbN static builds. Returns version or None."""
+    """Install ffmpeg + ffprobe static builds. Returns version or None.
+
+    Sources:
+      - Linux/Windows: BtbN/FFmpeg-Builds (GitHub, always available)
+      - macOS: evermeet.cx static builds (with retry)
+    """
+    if OS_NAME == "macos":
+        return _install_ffmpeg_macos(bin_dir)
+
     base_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
 
-    if OS_NAME == "macos":
-        # BtbN doesn't provide macOS builds; use evermeet.cx
-        return _install_ffmpeg_macos(bin_dir)
-    elif OS_NAME == "linux":
+    if OS_NAME == "linux":
         if ARCH == "aarch64":
             asset = "ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
         else:
             asset = "ffmpeg-master-latest-linux64-gpl.tar.xz"
     else:
-        asset = "ffmpeg-master-latest-win64-gpl.zip"
+        if ARCH == "aarch64":
+            asset = "ffmpeg-master-latest-winarm64-gpl.zip"
+        else:
+            asset = "ffmpeg-master-latest-win64-gpl.zip"
 
     url = f"{base_url}/{asset}"
 
@@ -226,11 +276,10 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
             with zipfile.ZipFile(archive_path) as zf:
                 zf.extractall(tmp)
 
-        # Find ffmpeg/ffprobe in extracted directory
         tmp_path = Path(tmp)
-        for exe_name in ("ffmpeg", "ffprobe"):
-            if OS_NAME == "windows":
-                exe_name += ".exe"
+        installed_count = 0
+        for base_name in ("ffmpeg", "ffprobe"):
+            exe_name = f"{base_name}.exe" if OS_NAME == "windows" else base_name
             found = list(tmp_path.rglob(f"bin/{exe_name}"))
             if not found:
                 found = list(tmp_path.rglob(exe_name))
@@ -238,19 +287,63 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
                 dest = bin_dir / exe_name
                 shutil.move(str(found[0]), str(dest))
                 _make_executable(dest)
+                installed_count += 1
             else:
                 print(f"    [!] {exe_name} not found in archive", flush=True)
+
+        if installed_count == 0:
+            return None
 
     return "master-latest"
 
 
 def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
-    """Install ffmpeg on macOS from evermeet.cx static builds."""
+    """Install ffmpeg on macOS from eugeneware/ffmpeg-static GitHub releases.
+
+    Uses .gz compressed binaries from GitHub (reliable, always available).
+    Falls back to evermeet.cx if GitHub source fails.
+    """
+    import gzip
+
+    tag = _github_latest_tag("eugeneware", "ffmpeg-static")
+    if not tag:
+        tag = "b6.1.1"  # known working fallback
+
+    arch_suffix = "darwin-arm64" if ARCH == "aarch64" else "darwin-x64"
+
+    for tool in ("ffmpeg", "ffprobe"):
+        asset = f"{tool}-{arch_suffix}.gz"
+        url = f"https://github.com/eugeneware/ffmpeg-static/releases/download/{tag}/{asset}"
+
+        with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
+            gz_path = Path(tmp) / asset
+            if not _download(url, gz_path, desc=f"{tool} (macOS {arch_suffix})"):
+                # Fall back to evermeet.cx
+                return _install_ffmpeg_macos_evermeet(bin_dir)
+
+            dest = bin_dir / tool
+            try:
+                with gzip.open(gz_path, "rb") as gz_in:
+                    with open(dest, "wb") as f_out:
+                        shutil.copyfileobj(gz_in, f_out)
+            except Exception as exc:
+                print(f"    [!] Failed to decompress {tool}: {exc}", flush=True)
+                dest.unlink(missing_ok=True)
+                return None
+            _make_executable(dest)
+
+    return tag
+
+
+def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
+    """Fallback: install ffmpeg on macOS from evermeet.cx."""
     for tool in ("ffmpeg", "ffprobe"):
         url = f"https://evermeet.cx/ffmpeg/get/{tool}/zip"
         with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
             zip_path = Path(tmp) / f"{tool}.zip"
-            if not _download(url, zip_path, desc=f"{tool} (macOS)"):
+            if not _download(url, zip_path, desc=f"{tool} (evermeet.cx)"):
+                print(f"    [!] All ffmpeg sources failed.", flush=True)
+                print(f"    Install manually: brew install ffmpeg", flush=True)
                 return None
             with zipfile.ZipFile(zip_path) as zf:
                 zf.extractall(tmp)
@@ -265,7 +358,16 @@ def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
 
 
 def _install_mpv(bin_dir: Path) -> str | None:
-    """Install mpv from official releases. Returns version or None."""
+    """Install mpv from official releases. Returns version or None.
+
+    macOS/Windows: download from mpv-player/mpv GitHub releases.
+    Linux: no static binary available; user must install via system package manager.
+    """
+    if OS_NAME == "linux":
+        print("    mpv: no static Linux build available.", flush=True)
+        print("    Install via package manager: sudo apt install mpv (or equivalent).", flush=True)
+        return "system"
+
     tag = _github_latest_tag("mpv-player", "mpv")
     if not tag:
         print("    [!] Could not determine latest mpv version", flush=True)
@@ -273,21 +375,14 @@ def _install_mpv(bin_dir: Path) -> str | None:
 
     if OS_NAME == "macos":
         if ARCH == "aarch64":
-            # Try macOS 15 arm first, then 14
             asset = f"mpv-{tag}-macos-15-arm.zip"
         else:
             asset = f"mpv-{tag}-macos-15-intel.zip"
-    elif OS_NAME == "windows":
+    else:
         if ARCH == "aarch64":
             asset = f"mpv-{tag}-aarch64-pc-windows-msvc.zip"
         else:
             asset = f"mpv-{tag}-x86_64-pc-windows-msvc.zip"
-    else:
-        # Linux: official mpv doesn't ship static binaries.
-        # Skip installation; user must have mpv from their package manager.
-        print("    mpv: Linux users should install via package manager (apt/dnf/pacman).", flush=True)
-        print("    Skipping mpv download for Linux.", flush=True)
-        return "system"
 
     url = f"https://github.com/mpv-player/mpv/releases/download/{tag}/{asset}"
 
@@ -300,18 +395,20 @@ def _install_mpv(bin_dir: Path) -> str | None:
             zf.extractall(tmp)
 
         if OS_NAME == "macos":
-            # macOS zip contains mpv.app bundle; the binary is inside
-            app_path = list(Path(tmp).rglob("mpv"))
-            # Filter for the actual binary (not directory)
+            # macOS zip contains mpv.tar.gz which holds the .app bundle
+            inner_tar = Path(tmp) / "mpv.tar.gz"
+            if inner_tar.exists():
+                with tarfile.open(inner_tar, "r:gz") as tf:
+                    tf.extractall(tmp)
+            # Find mpv binary inside the .app/Contents/MacOS/ structure
             binary = None
-            for p in app_path:
-                if p.is_file() and not p.suffix:
+            for p in Path(tmp).rglob("MacOS/mpv"):
+                if p.is_file():
                     binary = p
                     break
             if binary is None:
-                # Try inside .app bundle
-                for p in Path(tmp).rglob("MacOS/mpv"):
-                    if p.is_file():
+                for p in Path(tmp).rglob("mpv"):
+                    if p.is_file() and not p.suffix and p.name == "mpv":
                         binary = p
                         break
             if binary is None:
@@ -321,7 +418,7 @@ def _install_mpv(bin_dir: Path) -> str | None:
             shutil.move(str(binary), str(dest))
             _make_executable(dest)
         else:
-            # Windows
+            # Windows: find mpv.exe in the extracted directory
             exe_name = "mpv.exe"
             found = list(Path(tmp).rglob(exe_name))
             if not found:
@@ -344,15 +441,29 @@ TOOLS = {
 
 
 def is_tool_installed(name: str) -> bool:
-    """Check if a tool is available in the deps bin dir."""
+    """Check if a tool is available in the deps bin dir or on system PATH."""
     bin_dir = get_deps_bin()
-    exe_name = f"{name}.exe" if OS_NAME == "windows" else name
-    # yt-dlp special case for Windows
-    if name == "yt-dlp" and OS_NAME == "windows":
-        exe_name = "yt-dlp.exe"
+
     if name == "ffmpeg":
-        return (bin_dir / exe_name).exists()
-    return (bin_dir / exe_name).exists()
+        exe = "ffmpeg.exe" if OS_NAME == "windows" else "ffmpeg"
+    elif name == "yt-dlp":
+        exe = "yt-dlp.exe" if OS_NAME == "windows" else "yt-dlp"
+    elif name == "deno":
+        exe = "deno.exe" if OS_NAME == "windows" else "deno"
+    elif name == "mpv":
+        exe = "mpv.exe" if OS_NAME == "windows" else "mpv"
+    else:
+        exe = f"{name}.exe" if OS_NAME == "windows" else name
+
+    # Check our managed bin dir first
+    if (bin_dir / exe).exists():
+        return True
+
+    # Also check system PATH (user may have installed via brew/apt/winget)
+    if shutil.which(name):
+        return True
+
+    return False
 
 
 def install_tool(name: str, *, force: bool = False) -> bool:
@@ -414,13 +525,13 @@ def install_all(*, force: bool = False) -> bool:
         print("  All dependencies installed successfully.", flush=True)
     else:
         print("  Some dependencies failed to install.", flush=True)
-        print("  TermTube may not work correctly without them.", flush=True)
+        print("  Run 'termtube --update' to retry.", flush=True)
 
     return all_ok
 
 
 def check_all() -> dict[str, bool]:
-    """Check which tools are installed in the deps bin. Returns {tool: installed}."""
+    """Check which tools are installed in the deps bin or system PATH."""
     return {name: is_tool_installed(name) for name in TOOLS}
 
 

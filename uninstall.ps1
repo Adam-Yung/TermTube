@@ -39,6 +39,7 @@ $LegacyAppDir = $DataDir                                  # pre-fix code dir
 $ConfigDir    = Join-Path $env:APPDATA "TermTube"
 $CacheDir     = Join-Path $DataDir "cache"
 $MpvDir       = Join-Path $DataDir "mpv"                  # bundled standalone mpv
+$DepsDir      = Join-Path $env:LOCALAPPDATA "termtube-deps"  # bootstrap-managed deps
 $TempDir      = Join-Path $env:TEMP "TermTube"
 
 # ── Output Helpers ────────────────────────────────────────────────────────────
@@ -224,6 +225,7 @@ if ((Test-Path $LegacyAppDir) -and -not ($LegacyAppDir -eq $AppDir) -and `
     }
 }
 Remove-SafeItem $MpvDir "Bundled mpv binary"
+Remove-SafeItem $DepsDir "Bootstrap dependencies (yt-dlp, deno, ffmpeg, mpv)"
 
 if ($Purge) {
     Remove-SafeItem $ConfigDir "Configuration & cookies"
