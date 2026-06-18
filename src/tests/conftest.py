@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 # Ensure project root is importable
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 # ── Static fixture data ──────────────────────────────────────────────────────

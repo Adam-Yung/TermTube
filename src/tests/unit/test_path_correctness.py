@@ -239,10 +239,14 @@ _LINTER_ALLOWLIST = {"platform.py", "main.py", "bootstrap.py"}
 
 class TestNoHardcodedPlatformPaths:
     def test_no_hardcoded_unix_paths_in_src(self):
-        src_root = Path(__file__).parents[2] / "src"
+        src_root = Path(__file__).parents[2]
         violations: list[str] = []
         for py_file in sorted(src_root.rglob("*.py")):
             if py_file.name in _LINTER_ALLOWLIST:
+                continue
+            # Skip the tests subtree — test files legitimately reference path
+            # strings in assertions and fixture names that match the patterns.
+            if "tests" in py_file.parts:
                 continue
             try:
                 text = py_file.read_text(encoding="utf-8", errors="replace")
