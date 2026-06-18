@@ -1,15 +1,23 @@
 # TermTube — AI Agent Instructions
 
 ## Project Overview
-TermTube is a native Python TUI for YouTube. It utilizes the `Textual` framework for the UI, `yt-dlp` for data extraction, `mpv` for media playback (via IPC), and `textual-image`/`chafa` for terminal graphics.
+TermTube is a native Python TUI for YouTube. It utilizes the `Textual` framework for the UI, `yt-dlp` for data extraction, `mpv` for media playback (via IPC), and `textual-image`/PIL for terminal graphics.
 
 **Core philosophy:** Lightning-fast cold starts, non-blocking asynchronous UI, and a native terminal feel without relying on shell wrappers (fzf/gum are deprecated).
 
 ## Project Structure
 ```text
-termtube                    # Executable entry point (resolves .venv, runs main.py)
-setup.sh                    # Installation script (--sync for dev, default copies to ~/.local/share/TermTube)
-uninstall.sh                # Uninstaller script
+termtube                    # Executable entry point (resolves .venv, runs main.py — auto-installs on first run)
+termtube.cmd                # Windows launcher (same logic, cmd batch)
+scripts/
+  setup.sh                  # Installation script (macOS/Linux)
+  setup.ps1                 # Installation script (Windows)
+  uninstall.sh              # Uninstaller (macOS/Linux)
+  uninstall.ps1             # Uninstaller (Windows)
+assets/
+  termtube.png              # Brand image
+  termtube.icns             # macOS app icon (multi-resolution)
+  termtube.ico              # Windows shortcut icon (multi-resolution)
 src/
   main.py                   # App launch script
   config.py                 # PyYAML configuration manager (~/.config/TermTube/config.yaml)
@@ -20,11 +28,15 @@ src/
   player.py                 # mpv IPC controller (--input-ipc-server)
   bootstrap.py              # Binary dependency installer (downloads from GitHub releases)
   deps.py                   # Dependency validation + bootstrap prompt
+  updater.py                # Tool updater + app-code self-update via GitHub releases
+  tests/                    # Test suite (unit, integration, tui, snapshots)
   tui/
     app.py                  # Textual App root (TermTubeApp)
     theme.tcss              # App styling
     screens/                # Textual Screens (Main, Modals)
     widgets/                # Custom Textual Widgets (VideoList, DetailPanel, Thumbnails)
+memory/                     # AI agent session memory (architecture decisions, active context)
+```
 memory/                     # AI agent session memory (architecture decisions, active context)
 ```
 
@@ -33,7 +45,7 @@ memory/                     # AI agent session memory (architecture decisions, a
 |------|------|
 | Config | `~/.config/TermTube/config.yaml` |
 | Cookies | `~/.config/TermTube/cookies.txt` |
-| App install | `~/.local/share/TermTube/` (copy) or symlink to dev dir (--sync) |
+| App install | `~/.local/share/TermTube/` |
 | CLI symlink | `~/.local/bin/termtube` |
 | Python env | `<install_dir>/.venv/` |
 | Thumbnails/cache | `~/.cache/termtube/` (managed by cache.py) |
@@ -55,9 +67,9 @@ memory/                     # AI agent session memory (architecture decisions, a
 ---
 
 ## Setup Modes
-- **`bash setup.sh`** — copies project to `~/.local/share/TermTube`, creates `.venv` there.
-- **`bash setup.sh --sync`** — symlinks `~/.local/share/TermTube` → current repo dir. `.venv` lives in the repo. Use for development so edits are immediately live.
-- **`bash setup.sh --help`** — full usage documentation.
+- **`bash scripts/setup.sh`** — copies project to `~/.local/share/TermTube`, creates `.venv` there.
+- **`.\scripts\setup.ps1`** — Windows equivalent. Creates `.venv` at `%LOCALAPPDATA%\Programs\TermTube\.venv`.
+- **First-run auto-install**: running `./termtube` or `.\termtube.cmd` from a fresh clone automatically runs the appropriate setup script with `--no-prompt`.
 
 ---
 

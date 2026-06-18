@@ -54,7 +54,7 @@ Everything else — **yt-dlp, Deno, ffmpeg, and mpv** — is downloaded automati
 ```bash
 git clone --depth 1 https://github.com/Adam-Yung/TermTube.git ~/termtube
 cd ~/termtube
-bash setup.sh
+bash scripts/setup.sh
 ```
 
 The installer will:
@@ -64,10 +64,9 @@ The installer will:
 
 **Options:**
 ```bash
-bash setup.sh              # Interactive install (recommended)
-bash setup.sh --sync       # Developer mode (symlink, edits are live)
-bash setup.sh --no-deps    # Skip binary dependency download (Python venv only)
-bash setup.sh --no-prompt  # Non-interactive (accept all defaults)
+bash scripts/setup.sh              # Interactive install (recommended)
+bash scripts/setup.sh --no-deps    # Skip binary dependency download (Python venv only)
+bash scripts/setup.sh --no-prompt  # Non-interactive (accept all defaults)
 ```
 
 > **Linux note:** mpv has no static Linux build. If `mpv` isn't already installed on your system, the setup script will print the correct `apt`/`dnf`/`pacman` command to install it.
@@ -79,7 +78,7 @@ bash setup.sh --no-prompt  # Non-interactive (accept all defaults)
 ```powershell
 git clone --depth 1 https://github.com/Adam-Yung/TermTube.git $HOME\termtube
 cd $HOME\termtube
-.\setup.ps1
+.\scripts\setup.ps1
 ```
 
 The installer will:
@@ -92,24 +91,21 @@ The installer will:
 
 **Options:**
 ```powershell
-.\setup.ps1              # Interactive install (recommended)
-.\setup.ps1 -Sync        # Developer mode (NTFS junction)
-.\setup.ps1 -NoDeps      # Skip binary dependency download
-.\setup.ps1 -NoPrompt    # Non-interactive
+.\scripts\setup.ps1              # Interactive install (recommended)
+.\scripts\setup.ps1 -NoDeps      # Skip binary dependency download
+.\scripts\setup.ps1 -NoPrompt    # Non-interactive
 ```
 
 ---
 
-### Developer Mode
+### First-Run Auto-Install
 
-For active development — edits take effect immediately without re-running setup:
+Running `./termtube` or `.\termtube.cmd` from a fresh clone will automatically run setup without any prompts:
 
 ```bash
-# macOS / Linux
-bash setup.sh --sync
-
-# Windows
-.\setup.ps1 -Sync
+git clone --depth 1 https://github.com/Adam-Yung/TermTube.git ~/termtube
+cd ~/termtube
+./termtube       # auto-runs scripts/setup.sh on first run, then launches the app
 ```
 
 ---
@@ -118,12 +114,12 @@ bash setup.sh --sync
 
 ```bash
 # macOS / Linux
-bash uninstall.sh            # Preserve config and data
-bash uninstall.sh --purge    # Remove everything
+bash scripts/uninstall.sh            # Preserve config and data
+bash scripts/uninstall.sh --purge    # Remove everything
 
 # Windows
-.\uninstall.ps1
-.\uninstall.ps1 -Purge
+.\scripts\uninstall.ps1
+.\scripts\uninstall.ps1 -Purge
 
 # Or from anywhere:
 termtube --uninstall
@@ -262,10 +258,11 @@ On each clean exit, TermTube silently checks if tools need updating (once per we
 | Deno | `deno upgrade` |
 | ffmpeg | Re-downloaded from GitHub releases |
 | mpv | Re-downloaded from GitHub releases |
+| **app code** | Downloaded from latest GitHub release tag |
 
 A brief notification appears on next launch: `yt-dlp updated 2026.03.17 → 2026.05.05`.
 
-To update immediately:
+To update everything immediately (tools + app code):
 ```bash
 termtube --update
 ```
