@@ -236,3 +236,24 @@ The cookies.txt path covers the authentication need without needing
 OAuth2 token persistence. The Authentication section in Settings has
 been removed entirely; cookie status (path + freshness) is now shown
 as a subtitle in the Cookie Browser section.
+
+## Unified Process Registry and Structured Shutdown (Jun 2026)
+
+The exit system was redesigned to eliminate orphaned child processes across all exit paths.
+
+**Problem:** Three overlapping cleanup mechanisms (on_unmount, atexit, _emergency_cleanup) each covered different subsets of processes. The 600ms os._exit(0) bomb bypassed atexit entirely. mpv video processes had NO backstop in any exit handler.
+
+**Solution:** A singleton ProcessRegistry in src/platform.py that ALL subprocess-spawning code registers into:
+- yt-dlp processes: via _register_proc/_unregister_proc wrappers
+- mpv audio: registered on Popen, unregistered in _stop_audio
+- mpv video: registered in WatchModal._launch_video, unregistered in finally/action_stop
+- ProcessRegistry.kill_all(timeout) sends SIGTERM, waits, then SIGKILL for stragglers
+
+Exit paths are now layered:
+1. action_quit_app: _stop_audio() + app.exit() + 2s failsafe timer
+2. The 2s failsafe calls ProcessRegistry.kill_all() before os._exit(0)
+3. on_unmount: ProcessRegistry.kill_all() + ytdlp.kill_all_active()
+4. atexit: same as on_unmount
+5. SIGTERM/SIGHUP: signal handler calls ProcessRegistry.kill_all() + sys.exit()
+
+The startup reap_orphans() handles the SIGKILL case (no cleanup possible): it cleans stale /tmp/termtube-mpv*.sock files and kills orphaned mpv processes found via pgrep.
