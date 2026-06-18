@@ -71,6 +71,7 @@ class WatchModal(ModalScreen[bool]):
         self._segments: list[Segment] = []
         self._skipped_indices: set[int] = set()
         self._dur: float = 0.0
+        self._poll_timer = None
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or "Unknown"
@@ -96,7 +97,7 @@ class WatchModal(ModalScreen[bool]):
         import time
         self._buffering_since = time.monotonic()
         self._launch_video()
-        self.set_interval(0.5, self._poll_mpv)
+        self._poll_timer = self.set_interval(0.5, self._poll_mpv)
 
     # ── Background mpv launcher ───────────────────────────────────────────────
 
@@ -327,6 +328,9 @@ class WatchModal(ModalScreen[bool]):
         if self._stopped:
             return
         self._stopped = True
+        if self._poll_timer is not None:
+            self._poll_timer.stop()
+            self._poll_timer = None
         self._ipc(["quit"])
         from src.platform import terminate_process, ProcessRegistry
         terminate_process(self._proc, timeout=2.0)

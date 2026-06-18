@@ -1209,6 +1209,11 @@ class MainScreen(Screen):
             self._audio_poll_timer = None
         if not keep_player_mode:
             self._action_bar().set_actions_mode()
+        # Notify other screens (e.g. ChannelScreen) that playback has stopped
+        from src.tui.app import TermTubeApp
+        self.app.post_message(
+            TermTubeApp.PlayerStateUpdated(0.0, 0.0, False, playing=False)
+        )
         from src.player import close_persistent_socket
         close_persistent_socket(_get_audio_socket())
         from src.platform import cleanup_ipc
@@ -1430,6 +1435,10 @@ class MainScreen(Screen):
         pos, dur, paused = poll_audio_properties(socket_path=_get_audio_socket())
         if pos is not None and dur is not None:
             self._action_bar().update_progress(pos, dur, paused)
+            from src.tui.app import TermTubeApp
+            self.app.post_message(
+                TermTubeApp.PlayerStateUpdated(pos, dur, paused, playing=True)
+            )
 
             # Auto-skip sponsor segments
             if self.app.config.sponsorblock_auto_skip and self._sb_segments:

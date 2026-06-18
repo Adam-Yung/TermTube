@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 
 from textual.app import App, ComposeResult
+from textual.message import Message
 
 from src import logger
 from src.cache import Cache
@@ -26,6 +27,19 @@ class TermTubeApp(App):
     config and cache are stored on the App so any widget can access them via
     self.app.config / self.app.cache.
     """
+
+    class PlayerStateUpdated(Message):
+        """Broadcast from the App after each audio IPC poll.
+
+        Other screens (e.g. ChannelScreen) subscribe to this message to sync
+        their ActionBar without needing their own independent IPC poll timer.
+        """
+        def __init__(self, pos: float, dur: float, paused: bool, playing: bool) -> None:
+            super().__init__()
+            self.pos = pos
+            self.dur = dur
+            self.paused = paused
+            self.playing = playing
 
     TITLE = "TermTube"
     CSS_PATH = Path(__file__).parent / "theme.tcss"

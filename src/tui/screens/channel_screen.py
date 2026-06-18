@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 import subprocess
 from collections import OrderedDict
+from typing import TYPE_CHECKING
 
 from textual import work
 from textual.app import ComposeResult
@@ -21,6 +22,9 @@ from src import logger as _logger
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
+
+if TYPE_CHECKING:
+    from src.tui.app import TermTubeApp
 
 _PAGE_SIZE = 20
 _SAFE_ID_RE = re.compile(r"[^A-Za-z0-9_\-]")
@@ -140,7 +144,9 @@ class ChannelScreen(Screen):
         self._detail_thumb_session: int = 0
         self._last_focus_id: str = ""
         self._thumb_ram_cache: OrderedDict[tuple[str, int, int], str] = OrderedDict()
-        # Audio poll timer for syncing ActionBar with MainScreen playback
+        # Audio poll timer — REMOVED: ChannelScreen now receives PlayerStateUpdated
+        # messages from MainScreen instead of polling the IPC socket independently.
+        # Keeping the attribute to avoid AttributeError from any existing references.
         self._audio_poll_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
@@ -598,8 +604,6 @@ class ChannelScreen(Screen):
             return
         ms._start_audio(entry)
         self._ch_action_bar().set_player_mode(entry, queue_len=len(ms._audio_queue))
-        if self._audio_poll_timer is None:
-            self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
@@ -616,8 +620,6 @@ class ChannelScreen(Screen):
             return
         ms._start_audio(entry, ytdl_format=fmt)
         self._ch_action_bar().set_player_mode(entry, queue_len=len(ms._audio_queue))
-        if self._audio_poll_timer is None:
-            self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
 
     def _watch_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
@@ -786,34 +788,24 @@ class ChannelScreen(Screen):
     # ── Audio state sync ──────────────────────────────────────────────────────
 
     def _sync_audio_state(self) -> None:
+        """Sync ActionBar with MainScreen's current playback state on screen mount."""
         ms = self._get_main_screen()
         if ms and ms._audio_playing and ms._audio_entry:
             self._ch_action_bar().set_player_mode(
                 ms._audio_entry, queue_len=len(ms._audio_queue)
             )
-            if self._audio_poll_timer is None:
-                self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
-        elif not (ms and ms._audio_playing):
+        elif ms and not ms._audio_playing:
             self._ch_action_bar().set_actions_mode()
-            if self._audio_poll_timer:
-                self._audio_poll_timer.stop()
-                self._audio_poll_timer = None
 
-    def _poll_audio(self) -> None:
-        ms = self._get_main_screen()
-        if ms is None or not ms._audio_playing:
+    def on_term_tube_app_player_state_updated(
+        self, message: "TermTubeApp.PlayerStateUpdated"
+    ) -> None:
+        """React to MainScreen's IPC poll results — no separate socket polling needed."""
+        if message.playing:
+            bar = self._ch_action_bar()
+            bar.update_progress(message.pos, message.dur, message.paused)
+        else:
             self._ch_action_bar().set_actions_mode()
-            if self._audio_poll_timer:
-                self._audio_poll_timer.stop()
-                self._audio_poll_timer = None
-            return
-        from src.player import poll_audio_properties
-        from src.platform import get_audio_ipc_path
-        pos, dur, paused = poll_audio_properties(
-            socket_path=get_audio_ipc_path()
-        )
-        if pos is not None and dur is not None:
-            self._ch_action_bar().update_progress(pos, dur, paused)
 
     # ── Audio control actions ─────────────────────────────────────────────────
 
