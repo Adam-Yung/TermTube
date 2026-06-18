@@ -83,6 +83,34 @@ class AppHeader(Widget):
 from src.tui.fmt import fmt_age_seconds as _fmt_age_seconds
 
 
+# ── mpv error translation ─────────────────────────────────────────────────────
+
+_MPV_ERROR_MAP: list[tuple[str, str]] = [
+    ("could not open/read", "Network error — video unavailable or region-blocked"),
+    ("http error 403", "Access denied — cookies may be expired (try --refresh-cookies)"),
+    ("http error 429", "Rate limited by YouTube — wait a moment and try again"),
+    ("no video", "No playable video stream found"),
+    ("no audio", "No playable audio stream found"),
+    ("connection refused", "Network connection failed"),
+    ("timed out", "Connection timed out"),
+    ("does not exist", "Video not found or deleted"),
+    ("drm", "DRM-protected content cannot be played"),
+    ("login required", "Video requires login — check cookies"),
+    ("private video", "This video is private"),
+    ("age-restricted", "Age-restricted — cookies needed for verification"),
+]
+
+
+def _friendly_mpv_error(raw: str) -> str:
+    """Translate raw mpv/yt-dlp stderr into a user-friendly message."""
+    lower = raw.lower()
+    for pattern, friendly in _MPV_ERROR_MAP:
+        if pattern in lower:
+            return friendly
+    # Truncate long raw messages
+    return raw[:100] if len(raw) > 100 else raw
+
+
 # ── Tab definitions ────────────────────────────────────────────────────────────
 
 _TABS = [
@@ -1502,7 +1530,7 @@ class MainScreen(Screen):
             if line:
                 first_err = line
                 break
-        detail = first_err or f"exit code {returncode}"
+        detail = _friendly_mpv_error(first_err) if first_err else f"exit code {returncode}"
 
         self._log(f"[red]Audio failed: {title[:50]} — {detail}[/red]")
         self.notify(

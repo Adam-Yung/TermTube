@@ -71,6 +71,7 @@ class WatchModal(ModalScreen[bool]):
         self._stream_urls_map = stream_urls_map
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
         self._stopped = False
+        self._buffering_since: float = 0.0
         self._segments: list[Segment] = []
         self._skipped_indices: set[int] = set()
         self._dur: float = 0.0
@@ -96,6 +97,8 @@ class WatchModal(ModalScreen[bool]):
             )
 
     def on_mount(self) -> None:
+        import time
+        self._buffering_since = time.monotonic()
         self._launch_video()
         self.set_interval(0.5, self._poll_mpv)
 
@@ -269,6 +272,14 @@ class WatchModal(ModalScreen[bool]):
                 self.query_one("#np-time", Static).update(
                     f"{_fmt_secs(pos_f)}  /  {_fmt_secs(dur_f)}{pause_indicator}"
                 )
+            except Exception:
+                pass
+        elif self._buffering_since > 0:
+            import time
+            wait_s = int(time.monotonic() - self._buffering_since)
+            buf_text = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
+            try:
+                self.query_one("#np-time", Static).update(buf_text)
             except Exception:
                 pass
 

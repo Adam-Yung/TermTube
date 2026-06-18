@@ -201,6 +201,7 @@ class ActionBar(Widget):
         self._set_mode_actions()
 
     def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:
+        import time
         self._title = (entry.get("title") or "Unknown")[:52]
         self._channel = entry.get("uploader") or entry.get("channel") or ""
         self._playing = True
@@ -208,6 +209,7 @@ class ActionBar(Widget):
         self._pos = 0.0
         self._dur = 0.0
         self._queue_len = queue_len
+        self._buffering_since = time.monotonic()
         self._set_mode_player()
 
     def update_progress(self, pos: float, dur: float, paused: bool) -> None:
@@ -277,5 +279,7 @@ class ActionBar(Widget):
             pct = int(min(self._pos / self._dur, 1.0) * 100)
             time_str = f"{elapsed}  /  {total}  ({pct}%)"
         else:
-            time_str = "Loading…"
+            import time
+            wait_s = int(time.monotonic() - getattr(self, "_buffering_since", time.monotonic()))
+            time_str = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
         self.query_one("#np-time-line", Static).update(f"[dim]{time_str}[/dim]")

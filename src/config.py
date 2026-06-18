@@ -183,8 +183,9 @@ class Config:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "w") as f:
                 yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            from src import logger
+            logger.warning("Config.save() failed: %s (path=%s)", exc, self.path)
 
     def cache_ttl(self, key: str) -> int:
         return int(self._data["cache_ttl"].get(key, 3600))
