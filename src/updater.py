@@ -1,4 +1,4 @@
-"""Updater for TermTube system tools (yt-dlp, mpv, deno, ffmpeg).
+"""Updater for TermTube system tools (yt-dlp, mpv, deno, ffmpeg) and app code.
 
 Update policy: don't update until something breaks. When a tool failure is
 detected, re-bootstrap that tool from GitHub releases. If it still fails
@@ -10,6 +10,10 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.request
+import zipfile
 from pathlib import Path
 
 from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
@@ -19,6 +23,7 @@ from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
 _CACHE_DIR: Path = get_cache_dir()
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
 _LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
+_GITHUB_REPO = "Adam-Yung/TermTube"
 
 
 
@@ -187,6 +192,132 @@ def _cleanup_tmp(tmp_path: Path) -> None:
         pass
 
 
+# -- App code self-update ------------------------------------------------------
+
+def _github_latest_release(repo: str) -> tuple[str, str] | None:
+    """Return (tag_name, zip_url) for the latest GitHub release, or None."""
+    url = f"https://api.github.com/repos/{repo}/releases/latest"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Updater/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            import json
+            data = json.loads(resp.read())
+            tag = data.get("tag_name", "").strip()
+            if not tag:
+                return None
+            zip_url = f"https://github.com/{repo}/archive/refs/tags/{tag}.zip"
+            return tag, zip_url
+    except Exception:
+        return None
+
+
+def _read_installed_version(install_dir: Path) -> str:
+    version_file = install_dir / "VERSION"
+    try:
+        return version_file.read_text().strip()
+    except OSError:
+        return ""
+
+
+def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
+    """Download the latest TermTube release from GitHub and update src/ and scripts/.
+
+    Skips if the installed VERSION matches the latest tag, or if VERSION is
+    'dev' (developer installs never auto-update over themselves).
+    Returns True if already up-to-date or update succeeded, False on failure.
+    """
+    if verbose:
+        _safe_print("  Checking for TermTube app updates...")
+
+    result = _github_latest_release(_GITHUB_REPO)
+    if result is None:
+        if verbose:
+            _safe_print("  [!] Could not reach GitHub to check for updates.")
+        return False
+
+    latest_tag, zip_url = result
+    installed = _read_installed_version(install_dir)
+
+    if installed == "dev":
+        if verbose:
+            _safe_print("  [ok] app: dev install — skipping auto-update.")
+        return True
+
+    if installed == latest_tag:
+        if verbose:
+            _safe_print(f"  [ok] app: already on {latest_tag}")
+        return True
+
+    if verbose:
+        _safe_print(f"  app: {installed or 'unknown'} → {latest_tag}")
+        _safe_print("  Downloading update...")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="termtube_appupdate_"))
+    zip_path = tmp_dir / "release.zip"
+    try:
+        req = urllib.request.Request(zip_url, headers={"User-Agent": "TermTube-Updater/1.0"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            zip_path.write_bytes(resp.read())
+
+        with zipfile.ZipFile(zip_path) as zf:
+            zf.extractall(tmp_dir)
+
+        # GitHub names the extracted folder TermTube-{tag} (strips leading 'v')
+        tag_stripped = latest_tag.lstrip("v")
+        extracted = tmp_dir / f"TermTube-{tag_stripped}"
+        if not extracted.exists():
+            candidates = [d for d in tmp_dir.iterdir() if d.is_dir() and d.name != "__MACOSX"]
+            extracted = candidates[0] if candidates else None
+        if extracted is None or not extracted.exists():
+            if verbose:
+                _safe_print("  [!] Could not find extracted directory.")
+            return False
+
+        # Atomically replace src/ and scripts/
+        for subdir in ("src", "scripts"):
+            src = extracted / subdir
+            dst = install_dir / subdir
+            if not src.is_dir():
+                continue
+            dst_tmp = install_dir / f"{subdir}.new"
+            dst_old = install_dir / f"{subdir}.old"
+            if dst_tmp.exists():
+                shutil.rmtree(str(dst_tmp))
+            shutil.copytree(str(src), str(dst_tmp))
+            if dst_old.exists():
+                shutil.rmtree(str(dst_old))
+            if dst.exists():
+                dst.rename(dst_old)
+            dst_tmp.rename(dst)
+            if dst_old.exists():
+                shutil.rmtree(str(dst_old))
+
+        # Re-run pip if requirements.txt changed
+        req_file = extracted / "requirements.txt"
+        if IS_WINDOWS:
+            pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
+        else:
+            pip_exe = install_dir / ".venv" / "bin" / "pip3"
+        if pip_exe.exists() and req_file.exists():
+            subprocess.run(
+                [str(pip_exe), "install", "-r", str(req_file), "--quiet"],
+                check=False,
+            )
+
+        # Write new version
+        (install_dir / "VERSION").write_text(latest_tag)
+        if verbose:
+            _safe_print(f"  [ok] app: updated to {latest_tag}")
+        return True
+
+    except Exception as exc:
+        if verbose:
+            _safe_print(f"  [!] App update failed: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp_dir), ignore_errors=True)
+
+
 # -- Bootstrap-based update ----------------------------------------------------
 
 def _safe_print(msg: str) -> None:
@@ -198,12 +329,14 @@ def _safe_print(msg: str) -> None:
 
 
 def run_all_updates(verbose: bool = False) -> bool:
-    """Re-bootstrap all tools from GitHub releases.
+    """Re-bootstrap all tools from GitHub releases and update app code.
 
     Called directly for ``termtube --update`` (verbose=True, foreground).
     Returns True if all tools were successfully updated.
     """
     from src.bootstrap import install_all
+
+    install_dir = Path(__file__).parent.parent
 
     if verbose:
         _safe_print("  Re-downloading all tools from GitHub releases...")
@@ -229,6 +362,11 @@ def run_all_updates(verbose: bool = False) -> bool:
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             pass
 
+    # Update app code from latest GitHub release
+    app_ok = update_app_code(install_dir, verbose=verbose)
+    if not app_ok:
+        success = False
+
     if verbose:
         if success:
             _safe_print("  All tools updated successfully.")
@@ -251,116 +389,11 @@ def update_tool(name: str, verbose: bool = False) -> bool:
 # -- Self-update (termtube --update) ------------------------------------------
 
 def self_update() -> None:
-    """Download latest TermTube source from GitHub and replace the current install.
-
-    Steps:
-      1. Download main.zip from GitHub
-      2. Extract to a temp directory
-      3. Install Python requirements via pip in the venv
-      4. Run run_all_updates(verbose=True) for external tools
-      5. Generate and execute a platform script to copy new source files over
-    """
-    import os
-    import tempfile
-    import urllib.request
-    import zipfile
-
+    """Update TermTube app code and all tools. Delegates to update_app_code + run_all_updates."""
     install_dir = Path(__file__).parent.parent
-    zip_url = "https://github.com/Adam-Yung/TermTube/archive/refs/heads/main.zip"
-
-    print("  Downloading latest TermTube...", flush=True)
-    tmp_dir = Path(tempfile.mkdtemp(prefix="termtube_update_"))
-    zip_path = tmp_dir / "main.zip"
-
-    try:
-        urllib.request.urlretrieve(zip_url, zip_path)
-    except Exception as exc:
-        print(f"  [!] Download failed: {exc}")
-        sys.exit(1)
-
-    print("  Extracting...", flush=True)
-    try:
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(tmp_dir)
-    except Exception as exc:
-        print(f"  [!] Extraction failed: {exc}")
-        sys.exit(1)
-
-    extracted = tmp_dir / "TermTube-main"
-    if not extracted.exists():
-        candidates = [d for d in tmp_dir.iterdir() if d.is_dir()]
-        if candidates:
-            extracted = candidates[0]
-        else:
-            print("  [!] Could not find extracted directory.")
-            sys.exit(1)
-
-    # Install requirements via venv pip
-    if IS_WINDOWS:
-        pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
-    else:
-        pip_exe = install_dir / ".venv" / "bin" / "pip3"
-
-    req_file = extracted / "requirements.txt"
-    if pip_exe.exists() and req_file.exists():
-        print("  Installing requirements...", flush=True)
-        result = subprocess.run(
-            [str(pip_exe), "install", "-r", str(req_file), "--quiet"],
-            cwd=str(extracted),
-        )
-        if result.returncode != 0:
-            print("  [!] pip install failed -- continuing anyway.", flush=True)
-
-    # Run external tool updates via bootstrap
-    print("  Updating external tools...", flush=True)
+    _safe_print("  Updating TermTube...")
+    update_app_code(install_dir, verbose=True)
     run_all_updates(verbose=True)
-
-    # Generate and execute copy script
-    print("  Copying new source files...", flush=True)
-    copy_files = "requirements.txt termtube termtube.cmd"
-
-    if IS_WINDOWS:
-        script_path = tmp_dir / "_update.cmd"
-        script_lines = [
-            "@echo off\r\n",
-            f'robocopy "{extracted}\\src" "{install_dir}\\src" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul\r\n',
-            "if %ERRORLEVEL% GEQ 8 (echo [!] Source copy failed & exit /b 1)\r\n",
-            f'robocopy "{extracted}\\scripts" "{install_dir}\\scripts" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul\r\n',
-        ]
-        for f in copy_files.split():
-            script_lines.append(
-                f'if exist "{extracted}\\{f}" copy /y "{extracted}\\{f}" "{install_dir}\\" >nul\r\n'
-            )
-        script_lines.append("echo TermTube updated successfully.\r\n")
-        script_path.write_text("".join(script_lines))
-        result = subprocess.run(["cmd", "/c", str(script_path)], check=False)
-        if result.returncode >= 8:
-            print("  [!] File copy step failed.", flush=True)
-            sys.exit(1)
-        try:
-            import shutil as _shutil
-            _shutil.rmtree(str(tmp_dir), ignore_errors=True)
-        except Exception:
-            pass
-        sys.exit(0)
-    else:
-        script_path = tmp_dir / "_update.sh"
-        script_content = (
-            "#!/bin/bash\n"
-            f'cp -rf "{extracted}/src" "{install_dir}/"\n'
-            f'cp -rf "{extracted}/scripts" "{install_dir}/"\n'
-        )
-        for f in copy_files.split():
-            script_content += (
-                f'[ -f "{extracted}/{f}" ] && cp -f "{extracted}/{f}" "{install_dir}/"\n'
-            )
-        script_content += (
-            f'rm -rf "{tmp_dir}"\n'
-            'echo "TermTube updated successfully."\n'
-        )
-        script_path.write_text(script_content)
-        script_path.chmod(0o755)
-        os.execv("/bin/bash", ["/bin/bash", str(script_path)])
 
 
 # -- __main__ (direct invocation: python -m src.updater --run) ----------------

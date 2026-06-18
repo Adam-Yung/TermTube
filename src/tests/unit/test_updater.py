@@ -130,6 +130,7 @@ class TestRunAllUpdates:
             patch("shutil.which", return_value="/usr/bin/yt-dlp"),
             patch("subprocess.run", return_value=MagicMock(returncode=0)),
             patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
+            patch.object(mod, "update_app_code", return_value=True),
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is True
@@ -139,6 +140,7 @@ class TestRunAllUpdates:
         with (
             patch("src.bootstrap.install_all", return_value=False),
             patch("shutil.which", return_value=None),
+            patch.object(mod, "update_app_code", return_value=True),
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is False
@@ -150,6 +152,7 @@ class TestRunAllUpdates:
             patch("shutil.which", return_value="/usr/bin/yt-dlp"),
             patch("subprocess.run", return_value=MagicMock(returncode=0)),
             patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
+            patch.object(mod, "update_app_code", return_value=True),
         ):
             mod.run_all_updates(verbose=True)
         out = capsys.readouterr().out
