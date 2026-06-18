@@ -679,10 +679,7 @@ function Prompt-SyncMode {
 
 # ── File Installation ─────────────────────────────────────────────────────────
 function Install-Files {
-    param([bool]$SyncMode)
-
-    $origDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.ScriptName }
-
+    $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { Split-Path -Parent (Split-Path -Parent $MyInvocation.ScriptName) }
     if ($origDir -eq $AppDir) {
         Write-Info "Already running from install directory."
         return
@@ -715,7 +712,7 @@ function Install-Files {
             }
             # Remove only the code/launcher artifacts from the legacy dir
             foreach ($name in @("src", "termtube", "termtube.cmd", "setup.sh", "setup.ps1",
-                                "uninstall.sh", "uninstall.ps1", "requirements.txt")) {
+                                "uninstall.sh", "uninstall.ps1", "scripts", "requirements.txt")) {
                 $p = Join-Path $LegacyAppDir $name
                 if (Test-Path $p) { Remove-PathSafe $p | Out-Null }
             }
@@ -787,12 +784,15 @@ function Install-Files {
     New-Item -ItemType Directory -Path $AppDir -Force | Out-Null
 
     $filesToCopy = @(
-        "requirements.txt", "termtube", "termtube.cmd",
-        "setup.sh", "setup.ps1", "uninstall.sh", "uninstall.ps1"
+        "requirements.txt", "termtube", "termtube.cmd"
     )
     $srcDir = Join-Path $origDir "src"
     if (Test-Path $srcDir) {
         Copy-Item $srcDir -Destination $AppDir -Recurse -Force
+    }
+    $scriptsDir = Join-Path $origDir "scripts"
+    if (Test-Path $scriptsDir) {
+        Copy-Item $scriptsDir -Destination $AppDir -Recurse -Force
     }
     foreach ($f in $filesToCopy) {
         $src = Join-Path $origDir $f
@@ -816,7 +816,7 @@ function Install-Files {
 
 # ── Create Launcher Batch File ────────────────────────────────────────────────
 function Install-Launcher {
-    $origDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.ScriptName }
+    $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { Split-Path -Parent (Split-Path -Parent $MyInvocation.ScriptName) }
     $srcCmd  = Join-Path $origDir "termtube.cmd"
 
     if (-not (Test-Path $srcCmd)) {

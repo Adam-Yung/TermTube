@@ -82,7 +82,7 @@ for arg in "$@"; do
     esac
 done
 
-ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ── Prerequisite Checks ───────────────────────────────────────────────────────
 check_prerequisites() {
@@ -236,7 +236,11 @@ install_files() {
             cp -a "${ORIG_DIR}/src" "${APP_DIR}/"
         fi
 
-        for f in requirements.txt termtube termtube.cmd setup.sh setup.ps1 uninstall.sh uninstall.ps1; do
+        if [[ -d "${ORIG_DIR}/scripts" ]]; then
+            cp -a "${ORIG_DIR}/scripts" "${APP_DIR}/"
+        fi
+
+        for f in requirements.txt termtube termtube.cmd; do
             if [[ -f "${ORIG_DIR}/$f" ]]; then
                 cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
             fi

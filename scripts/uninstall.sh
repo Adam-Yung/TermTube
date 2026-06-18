@@ -38,7 +38,7 @@ for arg in "$@"; do
   TermTube Uninstaller
   ════════════════════
 
-  Usage: bash uninstall.sh [OPTIONS]
+    Usage: bash scripts/uninstall.sh [OPTIONS]
 
   Options:
     (default)      Remove app files and binary symlink.

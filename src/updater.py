@@ -317,7 +317,7 @@ def self_update() -> None:
 
     # Generate and execute copy script
     print("  Copying new source files...", flush=True)
-    copy_files = "requirements.txt termtube termtube.cmd setup.sh setup.ps1 uninstall.sh uninstall.ps1"
+    copy_files = "requirements.txt termtube termtube.cmd"
 
     if IS_WINDOWS:
         script_path = tmp_dir / "_update.cmd"
@@ -325,6 +325,7 @@ def self_update() -> None:
             "@echo off\r\n",
             f'robocopy "{extracted}\\src" "{install_dir}\\src" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul\r\n',
             "if %ERRORLEVEL% GEQ 8 (echo [!] Source copy failed & exit /b 1)\r\n",
+            f'robocopy "{extracted}\\scripts" "{install_dir}\\scripts" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul\r\n',
         ]
         for f in copy_files.split():
             script_lines.append(
@@ -347,6 +348,7 @@ def self_update() -> None:
         script_content = (
             "#!/bin/bash\n"
             f'cp -rf "{extracted}/src" "{install_dir}/"\n'
+            f'cp -rf "{extracted}/scripts" "{install_dir}/"\n'
         )
         for f in copy_files.split():
             script_content += (

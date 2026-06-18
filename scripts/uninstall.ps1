@@ -219,7 +219,7 @@ Remove-SafeItem $AppDir  "Application files"
 if ((Test-Path $LegacyAppDir) -and -not ($LegacyAppDir -eq $AppDir) -and `
     -not ((Get-Item $LegacyAppDir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
     foreach ($name in @("src", "termtube", "termtube.cmd", "setup.sh", "setup.ps1",
-                        "uninstall.sh", "uninstall.ps1", "requirements.txt", ".venv")) {
+                        "uninstall.sh", "uninstall.ps1", "scripts", "requirements.txt", ".venv")) {
         $p = Join-Path $LegacyAppDir $name
         if (Test-Path $p) { Remove-SafeItem $p "Legacy: $name" }
     }
