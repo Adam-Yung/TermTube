@@ -18,7 +18,8 @@ src/
   library.py                # Local saved-video DB manager
   history.py                # Local watch history manager
   player.py                 # mpv IPC controller (--input-ipc-server)
-  deps.py                   # Dependency validation
+  bootstrap.py              # Binary dependency installer (downloads from GitHub releases)
+  deps.py                   # Dependency validation + bootstrap prompt
   tui/
     app.py                  # Textual App root (TermTubeApp)
     theme.tcss              # App styling
@@ -36,6 +37,7 @@ memory/                     # AI agent session memory (architecture decisions, a
 | CLI symlink | `~/.local/bin/termtube` |
 | Python env | `<install_dir>/.venv/` |
 | Thumbnails/cache | `~/.cache/termtube/` (managed by cache.py) |
+| Binary deps | `~/.local/termtube-deps/bin/` (managed by bootstrap.py) |
 
 ## Key Technical Decisions
 - **Framework**: Pure `Textual`. No shell subprocesses for UI (no fzf/gum).
@@ -46,8 +48,9 @@ memory/                     # AI agent session memory (architecture decisions, a
 - **Media Playback**:
   - **Audio**: `mpv` runs headlessly via socket IPC (`/tmp/termtube-mpv-audio.sock`).
   - **Video**: Uses `app.suspend()` to yield the terminal to `mpv`, restoring the TUI upon exit.
-- **Thumbnails**: Uses `textual-image` (Sixel/Kitty graphics) falling back to `chafa` (ANSI blocks). Downloads happen in background workers.
+- **Thumbnails**: Uses `textual-image` (Sixel/Kitty graphics) falling back to PIL half-block (24-bit ANSI color). Downloads happen in background workers.
 - **Config**: Single source of truth at `~/.config/TermTube/config.yaml`. Created automatically on first save. No config file ships in the repo.
+- **Bundled Dependencies**: All binary deps (yt-dlp, deno, ffmpeg, mpv) are downloaded from GitHub releases into `~/.local/termtube-deps/bin/` (or `%LOCALAPPDATA%\termtube-deps\bin\` on Windows) by `src/bootstrap.py`. This directory is prepended to PATH at app startup. **Always prefer the bundled binaries over system-installed versions.** This gives us full control over versions and updates, and prevents silent breakage if a user removes a system package. Never fall back to or prefer system PATH versions over our managed copies.
 
 ---
 
