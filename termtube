@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# TermTube entry point — resolves the .venv created by setup.sh and runs main.py.
+# TermTube entry point — finds the Python venv and launches the app.
+# On first run from a cloned repo, automatically runs setup.
 
 set -euo pipefail
 
@@ -14,36 +15,55 @@ SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
 # ── Handle Uninstall ───────────────────────────────────────────────────────
 if [[ "${1:-}" == "--uninstall" ]]; then
-    UNINSTALLER="$SCRIPT_DIR/uninstall.sh"
+    UNINSTALLER="$SCRIPT_DIR/scripts/uninstall.sh"
+    if [[ ! -f "$UNINSTALLER" ]]; then
+        UNINSTALLER="$HOME/.local/share/TermTube/scripts/uninstall.sh"
+    fi
     if [[ -f "$UNINSTALLER" ]]; then
         exec "$UNINSTALLER"
     else
-        echo "Error: Uninstaller script not found at $UNINSTALLER"
+        echo "Error: Uninstaller not found." >&2
         exit 1
     fi
 fi
 
-# ── Find Python ────────────────────────────────────────────────────────────
+# ── Locate Python (4-step) ────────────────────────────────────────────────
+# 1. Venv next to this script
+PYTHON="$SCRIPT_DIR/.venv/bin/python3"
 
-find_python() {
-    local venv_py="$SCRIPT_DIR/.venv/bin/python3"
-    if [[ -f "$venv_py" ]]; then
-        echo "$venv_py"
-        return 0
+# 2. Fallback to standard install location
+if [[ ! -f "$PYTHON" ]]; then
+    INSTALL_PYTHON="$HOME/.local/share/TermTube/.venv/bin/python3"
+    if [[ -f "$INSTALL_PYTHON" ]]; then
+        PYTHON="$INSTALL_PYTHON"
+        SCRIPT_DIR="$HOME/.local/share/TermTube"
     fi
-    return 1
-}
+fi
 
-# ── Main ───────────────────────────────────────────────────────────────────
-
-if ! PYTHON=$(find_python 2>/dev/null); then
-    echo ""
-    echo -e "  \033[1;31m✗ No TermTube Python environment found.\033[0m"
-    echo ""
-    echo "  Run the one-time setup script first:"
-    echo -e "    \033[1;32mbash setup.sh\033[0m"
-    echo ""
-    exit 1
+# 3. Auto-install if still no venv found
+if [[ ! -f "$PYTHON" ]]; then
+    SETUP="$SCRIPT_DIR/scripts/setup.sh"
+    if [[ ! -f "$SETUP" ]]; then
+        SETUP="$HOME/.local/share/TermTube/scripts/setup.sh"
+    fi
+    if [[ -f "$SETUP" ]]; then
+        echo ""
+        echo "  TermTube is not set up. Running setup..."
+        echo ""
+        bash "$SETUP" --no-prompt
+        PYTHON="$HOME/.local/share/TermTube/.venv/bin/python3"
+        SCRIPT_DIR="$HOME/.local/share/TermTube"
+        if [[ ! -f "$PYTHON" ]]; then
+            echo "  Setup did not complete successfully." >&2
+            exit 1
+        fi
+    else
+        # 4. No setup script found anywhere
+        echo "" >&2
+        echo -e "  \033[1;31m✗ TermTube is not set up and no setup script was found.\033[0m" >&2
+        echo "  Clone the repo and run: bash scripts/setup.sh" >&2
+        exit 1
+    fi
 fi
 
 exec "$PYTHON" "$SCRIPT_DIR/src/main.py" "$@"

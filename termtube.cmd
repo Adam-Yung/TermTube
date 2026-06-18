@@ -1,40 +1,54 @@
 @echo off
 setlocal
-rem Self-locate via %~dp0 so the launcher works regardless of install path
-rem (Programs\TermTube\, a sync-mode junction, or the source repo directly).
+rem TermTube launcher — finds the Python venv and launches the app.
+rem On first run from a cloned repo, automatically runs setup.
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-set "PYTHON=%SCRIPT_DIR%\.venv\Scripts\python.exe"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
+rem ── Handle Uninstall ──────────────────────────────────────────────────────
 if "%~1"=="--uninstall" (
-    if exist "%SCRIPT_DIR%\uninstall.ps1" (
-        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\uninstall.ps1"
+    if exist "%SCRIPT_DIR%\scripts\uninstall.ps1" (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\uninstall.ps1"
         exit /b %ERRORLEVEL%
     )
-    if exist "%LOCALAPPDATA%\Programs\TermTube\uninstall.ps1" (
-        powershell -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\Programs\TermTube\uninstall.ps1"
+    if exist "%LOCALAPPDATA%\Programs\TermTube\scripts\uninstall.ps1" (
+        powershell -NoProfile -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\Programs\TermTube\scripts\uninstall.ps1"
         exit /b %ERRORLEVEL%
     )
     echo Uninstaller not found.
-    echo   Checked: %SCRIPT_DIR%\uninstall.ps1
-    echo   Checked: %LOCALAPPDATA%\Programs\TermTube\uninstall.ps1
     exit /b 1
 )
 
-if not exist "%PYTHON%" goto :try_install_dir
-goto :run
+rem ── 1. Venv next to this script ───────────────────────────────────────────
+set "PYTHON=%SCRIPT_DIR%\.venv\Scripts\python.exe"
+if exist "%PYTHON%" goto :run
 
+rem ── 2. Fallback to standard install location ──────────────────────────────
 :try_install_dir
 set "PYTHON=%LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe"
 set "SCRIPT_DIR=%LOCALAPPDATA%\Programs\TermTube"
-if not exist "%PYTHON%" (
-    echo TermTube is not set up. Run setup.ps1 first.
-    echo   Looked for venv at: %~dp0.venv\Scripts\python.exe
-    echo   Also tried:         %LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe
-    exit /b 1
-)
+if exist "%PYTHON%" goto :run
+
+rem ── 3. Auto-install if still no venv ─────────────────────────────────────
+:auto_install
+set "SETUP=%SCRIPT_DIR%\scripts\setup.ps1"
+if not exist "%SETUP%" set "SETUP=%LOCALAPPDATA%\Programs\TermTube\scripts\setup.ps1"
+if not exist "%SETUP%" goto :no_setup
+echo.
+echo   TermTube is not set up. Running setup...
+echo.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SETUP%" -NoPrompt
+set "PYTHON=%LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe"
+set "SCRIPT_DIR=%LOCALAPPDATA%\Programs\TermTube"
+if exist "%PYTHON%" goto :run
+
+rem ── 4. No setup script found ──────────────────────────────────────────────
+:no_setup
+echo TermTube is not set up and no setup script was found.
+echo   Clone the repo and run: .\scripts\setup.ps1
+exit /b 1
 
 :run
 "%PYTHON%" "%SCRIPT_DIR%\src\main.py" %*
