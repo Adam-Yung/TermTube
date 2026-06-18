@@ -258,11 +258,12 @@ class ActionBar(Widget):
         if dur > 0 and self._wave_timer is not None:
             self._wave_timer.stop()
             self._wave_timer = None
-        # Skip redundant redraws: ignore sub-quarter-second position drift while
-        # pause state is unchanged — avoids ~2 renders/sec when paused.
+        # Skip redundant redraws: ignore sub-half-second position drift while
+        # pause state is unchanged — suppresses renders when paused and avoids
+        # re-renders when position has barely changed since the last poll.
         if (
             paused == self._paused
-            and abs(pos - self._pos) < 0.25
+            and abs(pos - self._pos) < 0.5
             and abs(dur - self._dur) < 1.0
         ):
             return
