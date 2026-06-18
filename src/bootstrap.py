@@ -365,7 +365,8 @@ def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
 def _install_mpv(bin_dir: Path) -> str | None:
     """Install mpv from official releases. Returns version or None.
 
-    macOS/Windows: download from mpv-player/mpv GitHub releases.
+    macOS: downloads .app bundle from mpv-player/mpv, extracts binary + lib/.
+    Windows: downloads zip with mpv.exe from mpv-player/mpv.
     Linux: no static binary available; user must install via system package manager.
     """
     if OS_NAME == "linux":
@@ -405,30 +406,33 @@ def _install_mpv(bin_dir: Path) -> str | None:
             zf.extractall(tmp)
 
         if OS_NAME == "macos":
-            # macOS zip contains mpv.tar.gz which holds the .app bundle
+            # macOS zip contains mpv.tar.gz holding an .app bundle.
+            # The binary at Contents/MacOS/mpv links to @executable_path/lib/
+            # so we must keep both the binary and lib/ directory together.
             inner_tar = Path(tmp) / "mpv.tar.gz"
             if inner_tar.exists():
                 with tarfile.open(inner_tar, "r:gz") as tf:
                     tf.extractall(tmp)
-            # Find mpv binary inside the .app/Contents/MacOS/ structure
-            binary = None
-            for p in Path(tmp).rglob("MacOS/mpv"):
-                if p.is_file():
-                    binary = p
+            macos_dir = None
+            for p in Path(tmp).rglob("MacOS"):
+                if p.is_dir() and (p / "mpv").exists():
+                    macos_dir = p
                     break
-            if binary is None:
-                for p in Path(tmp).rglob("mpv"):
-                    if p.is_file() and not p.suffix and p.name == "mpv":
-                        binary = p
-                        break
-            if binary is None:
-                print("    [!] mpv binary not found in archive", flush=True)
+            if macos_dir is None:
+                print("    [!] mpv binary not found in .app bundle", flush=True)
                 return None
             dest = bin_dir / "mpv"
-            shutil.move(str(binary), str(dest))
+            shutil.copy2(str(macos_dir / "mpv"), str(dest))
             _make_executable(dest)
+            # Copy lib/ alongside the binary for @executable_path/lib/ resolution
+            src_lib = macos_dir / "lib"
+            if src_lib.is_dir():
+                dest_lib = bin_dir / "lib"
+                if dest_lib.exists():
+                    shutil.rmtree(str(dest_lib))
+                shutil.copytree(str(src_lib), str(dest_lib))
         else:
-            # Windows: find mpv.exe in the extracted directory
+            # Windows
             exe_name = "mpv.exe"
             found = list(Path(tmp).rglob(exe_name))
             if not found:
@@ -438,6 +442,7 @@ def _install_mpv(bin_dir: Path) -> str | None:
             shutil.move(str(found[0]), str(dest))
 
     return tag
+
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

@@ -13,9 +13,12 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 
-# Prepend TermTube-managed deps bin to PATH so shutil.which() finds them
-from src.bootstrap import get_deps_bin as _get_deps_bin
-_deps_bin = _get_deps_bin()
+# Prepend TermTube-managed deps bin to PATH so shutil.which() finds them.
+# Inlined to avoid importing the full bootstrap module (heavy stdlib imports).
+if sys.platform == "win32":
+    _deps_bin = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "termtube-deps" / "bin"
+else:
+    _deps_bin = Path.home() / ".local" / "termtube-deps" / "bin"
 if _deps_bin.is_dir():
     os.environ["PATH"] = str(_deps_bin) + os.pathsep + os.environ.get("PATH", "")
 
