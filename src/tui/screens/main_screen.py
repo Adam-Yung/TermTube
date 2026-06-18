@@ -635,7 +635,18 @@ class MainScreen(Screen):
         import src.ytdlp as ytdlp
         entries = ytdlp.fetch_subscribed_channels(config, cache)
         if not entries:
-            self.app.call_from_thread(panel.set_empty_message, "No subscriptions found.")
+            if config.cookies_file:
+                self.app.call_from_thread(
+                    panel.set_empty_message,
+                    "No subscriptions found. Your cookies may be expired.\n"
+                    "Run: termtube --refresh-cookies",
+                )
+            else:
+                self.app.call_from_thread(
+                    panel.set_empty_message,
+                    "No subscriptions found.\n"
+                    "No cookies configured. Run: termtube --refresh-cookies",
+                )
             return
         self.app.call_from_thread(self._apply_channel_mode_to_detail)
         for i in range(0, len(entries), _PAGE_SIZE):

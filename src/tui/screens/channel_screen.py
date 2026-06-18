@@ -558,7 +558,9 @@ class ChannelScreen(Screen):
         if ms is None:
             return
         ms._start_audio(entry)
-        self._sync_audio_state()
+        self._ch_action_bar().set_player_mode(entry, queue_len=len(ms._audio_queue))
+        if self._audio_poll_timer is None:
+            self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
 
     def _listen_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
@@ -574,7 +576,9 @@ class ChannelScreen(Screen):
         if ms is None:
             return
         ms._start_audio(entry, ytdl_format=fmt)
-        self._sync_audio_state()
+        self._ch_action_bar().set_player_mode(entry, queue_len=len(ms._audio_queue))
+        if self._audio_poll_timer is None:
+            self._audio_poll_timer = self.set_interval(0.5, self._poll_audio)
 
     def _watch_quality(self, entry: dict) -> None:
         from src.tui.screens.quality_modal import QualityModal
