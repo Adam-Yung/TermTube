@@ -86,11 +86,18 @@ def _build_cookies_help() -> str:
     )
 
 
-COOKIES_HELP = _build_cookies_help()
+COOKIES_HELP: str | None = None
 
 
 def _has(cmd: str) -> bool:
     return shutil.which(cmd) is not None
+
+
+def print_cookies_help() -> None:
+    global COOKIES_HELP
+    if COOKIES_HELP is None:
+        COOKIES_HELP = _build_cookies_help()
+    print(COOKIES_HELP)
 
 
 def _has_mpv() -> bool:
@@ -167,6 +174,9 @@ def check_dependencies(auto_install: bool = False) -> bool:
         print(f"  • {tool}")
 
     if _winget_available():
+        if not sys.stdin.isatty():
+            _print_manual_install(missing_required)
+            return False
         print()
         try:
             ans = input("Install missing tools via winget? [Y/n] ").strip().lower()
@@ -186,6 +196,9 @@ def check_dependencies(auto_install: bool = False) -> bool:
             _print_manual_install(missing_required)
             return False
     elif _brew_available():
+        if not sys.stdin.isatty():
+            _print_manual_install(missing_required)
+            return False
         print()
         try:
             ans = input("Install missing tools via Homebrew? [Y/n] ").strip().lower()

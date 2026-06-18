@@ -167,7 +167,7 @@ class ChannelScreen(Screen):
         for tab in tabs.query(Tab):
             tab.can_focus = False
         self._load_channel_info()
-        self.set_timer(0.15, self._ensure_content_loaded)
+        self.set_timer(0.05, self._ensure_content_loaded)
         self._sync_audio_state()
 
     def _ensure_content_loaded(self) -> None:
