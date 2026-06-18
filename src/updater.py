@@ -1,4 +1,9 @@
-"""Updater for TermTube system tools (yt-dlp, mpv, deno, etc.)."""
+"""Updater for TermTube system tools (yt-dlp, mpv, deno, ffmpeg).
+
+Update policy: don't update until something breaks. When a tool failure is
+detected, re-bootstrap that tool from GitHub releases. If it still fails
+after update, suggest the user file a bug report.
+"""
 
 from __future__ import annotations
 
@@ -182,56 +187,7 @@ def _cleanup_tmp(tmp_path: Path) -> None:
         pass
 
 
-# -- Update command list -------------------------------------------------------
-
-def _update_commands() -> list[list[str]]:
-    """Return the list of update commands for the current platform."""
-    cmds: list[list[str]] = []
-
-    if shutil.which("yt-dlp"):
-        cmds.append(["yt-dlp", "--update-to", "nightly"])
-
-    if IS_MACOS and shutil.which("brew"):
-        cmds.append(["brew", "upgrade", "deno"])
-        cmds.append(["brew", "upgrade", "mpv"])
-        cmds.append(["brew", "upgrade", "ffmpeg"])
-    elif IS_WINDOWS:
-        winget = shutil.which("winget")
-        if winget:
-            def _winget_upgrade(pkg_id: str) -> list[str]:
-                return [
-                    "winget", "upgrade", "--id", pkg_id,
-                    "--accept-source-agreements", "--accept-package-agreements",
-                ]
-            cmds.append(_winget_upgrade("DenoLand.Deno"))
-            cmds.append(_winget_upgrade("Gyan.FFmpeg"))
-    elif IS_LINUX:
-        if shutil.which("deno"):
-            cmds.append(["deno", "upgrade"])
-
-    return cmds
-
-
-# -- Core update runner (synchronous) -----------------------------------------
-
-def _is_brew_already_uptodate(cmd: list[str], returncode: int) -> bool:
-    """Homebrew returns exit 1 when a package is already at latest version."""
-    return returncode == 1 and len(cmd) >= 2 and cmd[0] == "brew" and cmd[1] == "upgrade"
-
-
-# winget exit code 0x8A15002B = 2316632107 means "no upgrade available"
-_WINGET_NO_UPGRADE_CODES: frozenset[int] = frozenset({
-    2316632107,
-    -1978335189,  # same value as signed int32
-})
-
-
-def _is_winget_already_uptodate(cmd: list[str], returncode: int) -> bool:
-    """winget upgrade exits with a specific code when no upgrade is available."""
-    if len(cmd) < 2 or cmd[0] != "winget" or cmd[1] != "upgrade":
-        return False
-    return returncode in _WINGET_NO_UPGRADE_CODES or (returncode & 0xFFFFFFFF) == 2316632107
-
+# -- Bootstrap-based update ----------------------------------------------------
 
 def _safe_print(msg: str) -> None:
     """Print a message, falling back to ASCII-safe output on Windows cp1252."""
@@ -242,62 +198,54 @@ def _safe_print(msg: str) -> None:
 
 
 def run_all_updates(verbose: bool = False) -> bool:
-    """Run all update commands synchronously.
+    """Re-bootstrap all tools from GitHub releases.
 
     Called directly for ``termtube --update`` (verbose=True, foreground).
-
-    Returns True if all commands succeeded (or were skipped because the tool
-    was not installed), False if any command returned a non-zero exit code.
-
-    Does NOT refresh cookies -- call refresh_cookies() explicitly when desired.
-    Mixing cookie extraction into tool-update runs causes silent failures on
-    systems without a GUI browser available (CI, headless servers).
+    Returns True if all tools were successfully updated.
     """
-    all_ok = True
+    from src.bootstrap import install_all
 
-    for cmd in _update_commands():
-        tool = cmd[0]
+    if verbose:
+        _safe_print("  Re-downloading all tools from GitHub releases...")
+
+    success = install_all(force=True)
+
+    # Also try yt-dlp's own self-update for the absolute latest nightly
+    if shutil.which("yt-dlp"):
         if verbose:
-            _safe_print(f"  Updating {tool}...")
+            _safe_print("  Running yt-dlp self-update...")
         try:
-            if verbose:
-                result = subprocess.run(cmd)
-            else:
-                result = subprocess.run(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    **({"creationflags": subprocess.CREATE_NO_WINDOW} if IS_WINDOWS else {}),
-                )
-            if result.returncode != 0:
-                if _is_brew_already_uptodate(cmd, result.returncode):
-                    if verbose:
-                        _safe_print(f"  [ok] {tool} already up to date")
-                elif _is_winget_already_uptodate(cmd, result.returncode):
-                    if verbose:
-                        _safe_print(f"  [ok] {tool} already up to date")
-                else:
-                    if verbose:
-                        _safe_print(f"  [!] {tool} update exited {result.returncode}")
-                    all_ok = False
-        except FileNotFoundError:
+            result = subprocess.run(
+                ["yt-dlp", "--update-to", "nightly"],
+                capture_output=not verbose,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                new_ver = get_ytdlp_version()
+                if new_ver:
+                    _write_last_version(new_ver)
+                if verbose:
+                    _safe_print(f"  [ok] yt-dlp updated to {new_ver or 'latest'}")
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             pass
-        except Exception as exc:
-            if verbose:
-                _safe_print(f"  [!] {tool}: {exc}")
-            all_ok = False
 
-    if all_ok:
-        new_ver = get_ytdlp_version()
-        if new_ver:
-            _write_last_version(new_ver)
-        if verbose:
-            _safe_print("  All tools up to date.")
-    else:
-        if verbose:
+    if verbose:
+        if success:
+            _safe_print("  All tools updated successfully.")
+        else:
             _safe_print("  Some updates failed -- check output above.")
 
-    return all_ok
+    return success
+
+
+def update_tool(name: str, verbose: bool = False) -> bool:
+    """Re-bootstrap a single tool. Called on failure detection."""
+    from src.bootstrap import install_tool
+
+    if verbose:
+        _safe_print(f"  Re-downloading {name} from GitHub releases...")
+
+    return install_tool(name, force=True)
 
 
 # -- Self-update (termtube --update) ------------------------------------------
@@ -363,7 +311,7 @@ def self_update() -> None:
         if result.returncode != 0:
             print("  [!] pip install failed -- continuing anyway.", flush=True)
 
-    # Run external tool updates
+    # Run external tool updates via bootstrap
     print("  Updating external tools...", flush=True)
     run_all_updates(verbose=True)
 
@@ -373,7 +321,6 @@ def self_update() -> None:
 
     if IS_WINDOWS:
         script_path = tmp_dir / "_update.cmd"
-        # robocopy exit codes 0-7 = success (0=no change, 1=copied, etc.)
         script_lines = [
             "@echo off\r\n",
             f'robocopy "{extracted}\\src" "{install_dir}\\src" /E /NFL /NDL /NJH /NJS /NC /NS /NP >nul\r\n',
@@ -386,11 +333,9 @@ def self_update() -> None:
         script_lines.append("echo TermTube updated successfully.\r\n")
         script_path.write_text("".join(script_lines))
         result = subprocess.run(["cmd", "/c", str(script_path)], check=False)
-        # robocopy uses 0-7 for success; CMD script exits 0 unless the GEQ 8 check triggers
         if result.returncode >= 8:
             print("  [!] File copy step failed.", flush=True)
             sys.exit(1)
-        # Best-effort cleanup
         try:
             import shutil as _shutil
             _shutil.rmtree(str(tmp_dir), ignore_errors=True)
