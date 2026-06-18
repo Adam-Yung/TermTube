@@ -617,7 +617,7 @@ def fetch_stream_urls(
 
 
 def _pick_best_audio_url(formats: list[dict]) -> str | None:
-    """Select the best audio-only format URL from yt-dlp formats list."""
+    """Select the best audio-only format URL, preferring original audio over auto-dubbed."""
     audio_formats = [
         f for f in formats
         if f.get("acodec", "none") != "none"
@@ -626,8 +626,11 @@ def _pick_best_audio_url(formats: list[dict]) -> str | None:
     ]
     if not audio_formats:
         return None
-    audio_formats.sort(key=lambda f: f.get("abr") or f.get("tbr") or 0, reverse=True)
-    return audio_formats[0]["url"]
+    # Prefer tracks marked as "original" (avoids YouTube auto-dub tracks)
+    original = [f for f in audio_formats if "original" in (f.get("format_note") or "").lower()]
+    candidates = original if original else audio_formats
+    candidates.sort(key=lambda f: f.get("abr") or f.get("tbr") or 0, reverse=True)
+    return candidates[0]["url"]
 
 
 def _pick_best_video_url(formats: list[dict]) -> str | None:

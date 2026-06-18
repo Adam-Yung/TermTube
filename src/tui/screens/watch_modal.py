@@ -162,9 +162,11 @@ class WatchModal(ModalScreen[bool]):
             "--msg-level=all=no",
         ]
         if title:
-            cmd += [f"--title={title}"]
+            cmd += [f"--title={title}", f"--force-media-title={title}"]
         if self._ytdl_format:
             cmd += [f"--ytdl-format={self._ytdl_format}"]
+        elif not use_prefetched:
+            cmd += ["--ytdl-format=bv+(ba[format_note*=original]/ba)"]
         if use_prefetched and audio_file_url:
             cmd += [f"--audio-file={audio_file_url}"]
         if not use_prefetched:

@@ -1411,9 +1411,11 @@ class MainScreen(Screen):
             "--demuxer-readahead-secs=30",
         ]
         if title:
-            cmd += [f"--title={title}"]
+            cmd += [f"--title={title}", f"--force-media-title={title}"]
         if ytdl_format:
             cmd += [f"--ytdl-format={ytdl_format}"]
+        elif not use_prefetched:
+            cmd += ["--ytdl-format=ba[format_note*=original]/ba"]
         if not use_prefetched:
             ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
             if ytdl_raw:
