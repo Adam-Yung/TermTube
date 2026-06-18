@@ -4,6 +4,7 @@ rem TermTube launcher — finds the Python venv and launches the app.
 rem On first run from a cloned repo, automatically runs setup.
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set "REPO_DIR=%SCRIPT_DIR%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
@@ -33,7 +34,7 @@ if exist "%PYTHON%" goto :run
 
 rem ── 3. Auto-install if still no venv ─────────────────────────────────────
 :auto_install
-set "SETUP=%SCRIPT_DIR%\scripts\setup.ps1"
+set "SETUP=%REPO_DIR%\scripts\setup.ps1"
 if not exist "%SETUP%" set "SETUP=%LOCALAPPDATA%\Programs\TermTube\scripts\setup.ps1"
 if not exist "%SETUP%" goto :no_setup
 echo.
