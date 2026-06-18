@@ -9,6 +9,7 @@ readonly BIN_LINK="$HOME/.local/bin/termtube"
 readonly CONFIG_DIR="$HOME/.config/TermTube"
 readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/TermTube"
 readonly LOG_DIR="${TMPDIR:-/tmp}/TermTube"
+readonly DEPS_DIR="$HOME/.local/termtube-deps"
 
 # ── Colours & Output ──────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -105,6 +106,8 @@ echo ""
 check_item "$APP_DIR"  "Application files"
 check_item "$BIN_LINK" "CLI symlink"
 
+check_item "$DEPS_DIR"  "Binary dependencies (yt-dlp, deno, ffmpeg, mpv)"
+
 if [[ "$PURGE" == true ]]; then
     check_item "$CONFIG_DIR" "Configuration & cookies"
     check_item "$CACHE_DIR"  "Cache data"
@@ -169,6 +172,7 @@ remove_item() {
 
 remove_item "$BIN_LINK" "CLI symlink"
 remove_item "$APP_DIR"  "Application files"
+remove_item "$DEPS_DIR" "Binary dependencies"
 
 if [[ "$PURGE" == true ]]; then
     remove_item "$CONFIG_DIR" "Configuration & cookies"
