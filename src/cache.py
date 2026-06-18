@@ -121,13 +121,23 @@ class Cache:
 
     def get_video_raw(self, video_id: str) -> dict | None:
         """Get cached entry regardless of TTL (used by preview script)."""
+        with self._ram_lock:
+            if video_id in self._ram_cache:
+                self._ram_cache.move_to_end(video_id)
+                return self._ram_cache[video_id]
+
         path = VIDEO_DIR / f"{video_id}.json"
         if not path.exists():
             path = PLAYLIST_VIDEO_DIR / f"{video_id}.json"
         if not path.exists():
             return None
         try:
-            return json.loads(path.read_text())
+            data = json.loads(path.read_text())
+            with self._ram_lock:
+                self._ram_cache[video_id] = data
+                if len(self._ram_cache) > self._RAM_CACHE_MAX:
+                    self._ram_cache.popitem(last=False)
+            return data
         except (json.JSONDecodeError, OSError):
             return None
 
@@ -169,12 +179,9 @@ class Cache:
         if not path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
-            cached_at = data.get("_cached_at", 0)
-            if not cached_at:
-                return None
-            return max(0.0, time.time() - cached_at)
-        except (json.JSONDecodeError, OSError):
+            mtime = path.stat().st_mtime
+            return max(0.0, time.time() - mtime)
+        except OSError:
             return None
 
     def put_feed(self, key: str, ids: list[str]) -> None:
