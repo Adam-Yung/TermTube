@@ -48,8 +48,17 @@ class AppHeader(Widget):
             yield Static("", id="header-status")
 
     def on_mount(self) -> None:
-        self.set_interval(1.0, self._update_clock)
         self._update_clock()
+        # Clock only has minute precision — align the first tick to the next
+        # :00 second then fire every 60s.  This eliminates 59 pointless
+        # re-renders per minute that produced identical output.
+        now = datetime.now()
+        secs_until_next_minute = 60 - now.second
+        self.set_timer(secs_until_next_minute, self._start_minute_clock)
+
+    def _start_minute_clock(self) -> None:
+        self._update_clock()
+        self.set_interval(60.0, self._update_clock)
 
     def _update_clock(self) -> None:
         now = datetime.now().strftime("%I:%M %p")
