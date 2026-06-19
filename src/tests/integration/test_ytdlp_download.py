@@ -48,7 +48,7 @@ class TestDownloadVideoWithProgress:
             download_video_with_progress("abc123def45", fake_config, quality_format="bestvideo+bestaudio/best")
 
         cmd = mock_popen.call_args[0][0]
-        assert "yt-dlp" == cmd[0]
+        assert cmd[0].endswith("yt-dlp")
         assert "--format" in cmd
         fmt_idx = cmd.index("--format")
         assert cmd[fmt_idx + 1] == "bestvideo+bestaudio/best"

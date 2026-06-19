@@ -169,7 +169,7 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser
 
     tmp_path = path.with_suffix(".tmp")
     cmd = [
-        "yt-dlp",
+        _ytdlp_bin(),
         "--cookies-from-browser", browser,
         "--cookies", str(tmp_path),
         "--skip-download",

@@ -13,6 +13,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static
 
 from src.sponsorblock import Segment
+from src import logger as _logger
 
 
 def _fmt_secs(s: float) -> str:
@@ -130,10 +131,30 @@ class WatchModal(ModalScreen[bool]):
 
         cookie_args = config.cookie_args() if config else []
 
+        # Pre-resolve the direct stream URL using bundled yt-dlp so mpv doesn't
+        # need to spawn its own yt-dlp via ytdl_hook (saves 2-5s startup delay).
+        resolved_urls: list[str] | None = None
+        if not self._entry.get("_local_path") and vid and config:
+            import src.ytdlp as ytdlp
+            fmt = self._ytdl_format or "bv+(ba[format_note*=original]/ba)"
+            resolved_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
+            if resolved_urls:
+                _logger.debug("video pre-resolved %d URL(s) for %s", len(resolved_urls), vid)
+
+        mpv_exe = player_mod._mpv_exe()
+        if not mpv_exe:
+            from src.platform import install_hint
+            self.app.call_from_thread(
+                self.app.notify,
+                f"mpv not found — install with: {install_hint('mpv')}",
+                severity="error",
+            )
+            self.app.call_from_thread(self.dismiss, False)
+            return
 
         input_conf = player_mod._write_input_conf()
         cmd = [
-            player_mod._mpv_exe() or "mpv",
+            mpv_exe,
             f"--input-conf={input_conf}",
             f"--input-ipc-server={self._get_socket()}",
             "--no-terminal",
@@ -142,14 +163,18 @@ class WatchModal(ModalScreen[bool]):
         ]
         if title:
             cmd += [f"--title={title}", f"--force-media-title={title}"]
-        if self._ytdl_format:
-            cmd += [f"--ytdl-format={self._ytdl_format}"]
+        if resolved_urls:
+            cmd += ["--no-ytdl", "--"]
+            cmd += resolved_urls
         else:
-            cmd += ["--ytdl-format=bv+(ba[format_note*=original]/ba)"]
-        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-        cmd += ["--", url]
+            if self._ytdl_format:
+                cmd += [f"--ytdl-format={self._ytdl_format}"]
+            else:
+                cmd += ["--ytdl-format=bv+(ba[format_note*=original]/ba)"]
+            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
+            if ytdl_raw:
+                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+            cmd += ["--", url]
 
         try:
             from src.platform import get_popen_kwargs, ProcessRegistry

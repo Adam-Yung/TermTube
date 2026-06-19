@@ -107,8 +107,15 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
         #    spawning mpvnet (which pops a window).
         return None
 
-    if shutil.which("mpv"):
-        return "mpv"
+    # Check bundled mpv first (explicit path, not PATH-dependent)
+    from src.bootstrap import get_deps_bin
+    bundled_mpv = get_deps_bin() / ("mpv.exe" if IS_WINDOWS else "mpv")
+    if bundled_mpv.exists():
+        return str(bundled_mpv)
+    # Fall back to PATH
+    which_mpv = shutil.which("mpv")
+    if which_mpv:
+        return which_mpv
     if IS_WINDOWS:
         mpvnet_dir = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "mpv.net"
         mpvnet = mpvnet_dir / "mpvnet.exe"

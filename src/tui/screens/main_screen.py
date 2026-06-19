@@ -1266,6 +1266,16 @@ class MainScreen(Screen):
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args()
 
+        # Pre-resolve the direct stream URL using bundled yt-dlp so mpv doesn't
+        # need to spawn its own yt-dlp via ytdl_hook (saves 2-5s startup delay).
+        resolved_url = None
+        if not entry.get("_local_path") and vid:
+            import src.ytdlp as ytdlp
+            fmt = ytdl_format or "ba[format_note*=original]/ba"
+            urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
+            if urls:
+                resolved_url = urls[0]
+                _logger.debug("audio pre-resolved URL for %s", vid)
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
@@ -1299,14 +1309,17 @@ class MainScreen(Screen):
         ]
         if title:
             cmd += [f"--title={title}", f"--force-media-title={title}"]
-        if ytdl_format:
-            cmd += [f"--ytdl-format={ytdl_format}"]
+        if resolved_url:
+            cmd += ["--no-ytdl", "--", resolved_url]
         else:
-            cmd += ["--ytdl-format=ba[format_note*=original]/ba"]
-        ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
-        if ytdl_raw:
-            cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-        cmd += ["--", url]
+            if ytdl_format:
+                cmd += [f"--ytdl-format={ytdl_format}"]
+            else:
+                cmd += ["--ytdl-format=ba[format_note*=original]/ba"]
+            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
+            if ytdl_raw:
+                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
+            cmd += ["--", url]
 
         _logger.debug("audio mpv cmd: %s", " ".join(cmd))
 

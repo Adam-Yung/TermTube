@@ -19,6 +19,20 @@ from typing import Callable, Generator
 from src.cache import Cache
 from src import logger
 
+
+# ── Bundled binary resolution ─────────────────────────────────────────────────
+
+def _ytdlp_cmd() -> str:
+    """Return the absolute path to the bundled yt-dlp binary.
+
+    Uses the managed deps directory directly instead of relying on PATH ordering,
+    ensuring we always invoke our own controlled version.
+    """
+    from src.bootstrap import get_deps_bin
+    bin_path = get_deps_bin() / ("yt-dlp.exe" if sys.platform == "win32" else "yt-dlp")
+    return str(bin_path) if bin_path.exists() else "yt-dlp"
+
+
 # ── Active process registry (for clean shutdown) ──────────────────────────────
 
 _active_procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
@@ -298,7 +312,7 @@ def fetch_page_batch(
 
     # Fresh fetch (with retry on empty results)
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
-    cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
+    cmd = [_ytdlp_cmd(), *_FAST_FLAGS, *config.cookie_args(), url]
     results: list[dict] = []
     all_ids: list[str] = []
 
@@ -367,7 +381,7 @@ def fetch_search_batch(
     # Fresh fetch (with retry on empty results)
     url = f"ytsearch{count}:{query}"
     cmd = [
-        "yt-dlp",
+        _ytdlp_cmd(),
         "--dump-json",
         "--no-warnings",
         "--quiet",
@@ -513,7 +527,7 @@ def download_video_with_progress(
     logger.info("download_video %s (format=%s)", video_id, fmt)
 
     cmd = [
-        "yt-dlp",
+        _ytdlp_cmd(),
         "--format", fmt,
         "--merge-output-format", "mp4",
         "--output", str(config.video_dir / config.video_format),
@@ -540,7 +554,7 @@ def download_audio_with_progress(
     logger.info("download_audio %s", video_id)
 
     cmd = [
-        "yt-dlp",
+        _ytdlp_cmd(),
         "--format", "bestaudio/best",
         "--extract-audio",
         "--audio-format", "mp3",
@@ -585,7 +599,7 @@ def fetch_channel_info(
     if cached:
         return cached
     cmd = [
-        "yt-dlp",
+        _ytdlp_cmd(),
         "--dump-single-json",
         "--flat-playlist",
         "--playlist-items", "0",
@@ -668,7 +682,7 @@ def fetch_channel_playlists(
     """Fetch playlist entries from a channel."""
     url = _normalise_channel_url(channel_url) + "/playlists"
     logger.debug("fetch_channel_playlists: url=%s", url)
-    cmd = ["yt-dlp", *_FAST_FLAGS, *config.cookie_args(), url]
+    cmd = [_ytdlp_cmd(), *_FAST_FLAGS, *config.cookie_args(), url]
     results: list[dict] = []
     for entry in _stream_json_lines(cmd, capture_stderr=logger.is_debug(), on_proc_started=on_proc_started):
         if len(results) >= count:
@@ -696,7 +710,7 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
             for e in entries: e["_is_channel"] = True
             return entries
     flat = "--flat-playlist"
-    cmd = ["yt-dlp", flat, "--dump-json", "--no-warnings", "--quiet",
+    cmd = [_ytdlp_cmd(), flat, "--dump-json", "--no-warnings", "--quiet",
            *config.cookie_args(), url]
     results: list[dict] = []
     seen: list[str] = []
@@ -737,3 +751,40 @@ def fetch_subscribed_channels(config, cache: Cache, *, on_proc_started=None) -> 
         logger.debug("subs ch exc: %s", exc)
     if seen: cache.put_feed(cache_key, seen)
     return results
+
+
+# ── Stream URL pre-resolution ─────────────────────────────────────────────────
+
+def resolve_stream_url(
+    video_id: str,
+    config,
+    format_spec: str = "ba[format_note*=original]/ba",
+) -> list[str] | None:
+    """Resolve a YouTube video ID to direct playable stream URL(s).
+
+    Uses yt-dlp --get-url which prints the direct CDN URL without downloading.
+    Returns a list of URLs (may be 1 for audio-only, or 2 for video+audio)
+    or None on failure.
+    """
+    from src.platform import get_popen_kwargs
+    cmd = [
+        _ytdlp_cmd(), "--get-url",
+        "-f", format_spec,
+        "--no-warnings",
+        *config.cookie_args(),
+        f"https://www.youtube.com/watch?v={video_id}",
+    ]
+    logger.debug("resolve_stream_url cmd: %s", " ".join(cmd))
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30,
+            **get_popen_kwargs(headless=True),
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            urls = [u.strip() for u in result.stdout.strip().splitlines() if u.strip()]
+            return urls if urls else None
+        logger.debug("resolve_stream_url failed: rc=%d stderr=%s", result.returncode, result.stderr[:200])
+        return None
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.debug("resolve_stream_url exception: %s", exc)
+        return None
