@@ -7,8 +7,23 @@ these sidecars to populate the Library page.
 
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 from typing import Iterator
+
+# Module-level result cache keyed by (video_dir, audio_dir).
+# Each value is (mtime_video, mtime_audio, entries).
+# We compare directory mtime before returning cached results — on most
+# filesystems a newly created/deleted file bumps the parent dir mtime,
+# making this a cheap O(1) staleness check.
+_cache: dict[tuple[str, str], tuple[float, float, list[dict]]] = {}
+
+
+def _dir_mtime(directory: Path) -> float:
+    try:
+        return directory.stat().st_mtime if directory.exists() else 0.0
+    except OSError:
+        return 0.0
 
 
 def _load_sidecar(info_path: Path, media_files: dict[str, Path] | None = None) -> dict | None:
@@ -52,7 +67,21 @@ def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
 
 
 def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
-    """Return all library entries (video + audio), sorted newest first."""
+    """Return all library entries (video + audio), sorted newest first.
+
+    Results are cached in memory and invalidated when either directory's
+    mtime changes (i.e. a file is added or removed).
+    """
+    cache_key = (str(video_dir), str(audio_dir))
+    cur_v_mtime = _dir_mtime(video_dir)
+    cur_a_mtime = _dir_mtime(audio_dir)
+
+    cached = _cache.get(cache_key)
+    if cached is not None:
+        cached_v_mtime, cached_a_mtime, cached_entries = cached
+        if cached_v_mtime == cur_v_mtime and cached_a_mtime == cur_a_mtime:
+            return cached_entries
+
     seen_ids: set[str] = set()
     entries: list[dict] = []
 
@@ -77,5 +106,11 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
 
     # Sort by upload_date desc (yt-dlp uses YYYYMMDD strings)
     entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)
+
+    _cache[cache_key] = (cur_v_mtime, cur_a_mtime, entries)
     return entries
 
+
+def invalidate_cache() -> None:
+    """Force a rescan on next all_entries() call (e.g. after a download completes)."""
+    _cache.clear()

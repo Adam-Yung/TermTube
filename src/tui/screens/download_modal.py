@@ -168,6 +168,12 @@ class DownloadModal(ModalScreen[bool]):
                 bar.update(total=100, progress=100)
             except Exception:
                 pass
+            # Invalidate library cache so next Library tab open reflects new file
+            try:
+                from src import library as lib
+                lib.invalidate_cache()
+            except Exception:
+                pass
             self.dismiss(True)
         else:
             # Show the error inline so the user knows what went wrong
