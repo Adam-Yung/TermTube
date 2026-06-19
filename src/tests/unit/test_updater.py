@@ -53,12 +53,10 @@ class TestGetYtdlpVersion:
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             ver = mod.get_ytdlp_version()
         assert ver == "2026.05.05.233942"
-        mock_run.assert_called_once_with(
-            ["yt-dlp", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[-1] == "--version"
+        assert "yt-dlp" in cmd[0]
 
     def test_returns_none_when_not_found(self, tmp_path):
         mod = _make_updater(tmp_path)
@@ -188,7 +186,8 @@ class TestUpdateYtdlp:
 
     def test_not_found_returns_false(self, tmp_path):
         mod = _make_updater(tmp_path)
-        with patch("shutil.which", return_value=None):
+        with patch.object(mod, "_ytdlp_bin", return_value="/nonexistent/yt-dlp"), \
+             patch("shutil.which", return_value=None):
             ok = mod.update_ytdlp(verbose=False)
         assert ok is False
 
@@ -209,7 +208,10 @@ class TestRefreshCookies:
         cookies_tmp = config.cookies_file_path.with_suffix(".tmp")
 
         def _fake_run(cmd, **kw):
-            cookies_tmp.write_text("# Netscape cookies\nfoo\tbar\n")
+            cookies_tmp.write_text(
+                "# Netscape HTTP Cookie File\n"
+                ".youtube.com\tTRUE\t/\tTRUE\t0\tSID\tabc123\n"
+            )
             return MagicMock(returncode=0)
 
         with patch("subprocess.run", side_effect=_fake_run):

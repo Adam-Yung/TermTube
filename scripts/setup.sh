@@ -203,6 +203,7 @@ install_files() {
     done
 
     chmod +x "${APP_DIR}/termtube" 2>/dev/null || true
+    chmod +x "${APP_DIR}"/scripts/*.sh 2>/dev/null || true
     success "Project files installed to ${APP_DIR}"
 }
 

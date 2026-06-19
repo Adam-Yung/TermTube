@@ -30,11 +30,18 @@ _GITHUB_REPO = "Adam-Yung/TermTube"
 
 # -- Version tracking ----------------------------------------------------------
 
+def _ytdlp_bin() -> str:
+    """Return the absolute path to the bundled yt-dlp binary."""
+    from src.bootstrap import get_deps_bin
+    bin_path = get_deps_bin() / ("yt-dlp.exe" if IS_WINDOWS else "yt-dlp")
+    return str(bin_path) if bin_path.exists() else "yt-dlp"
+
+
 def get_ytdlp_version() -> str | None:
     """Return the currently installed yt-dlp version string, or None on failure."""
     try:
         result = subprocess.run(
-            ["yt-dlp", "--version"],
+            [_ytdlp_bin(), "--version"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -77,10 +84,11 @@ def check_for_update_notification() -> str | None:
 
 def update_ytdlp(verbose: bool = False) -> bool:
     """Update yt-dlp to latest nightly. Returns True on success."""
-    if not shutil.which("yt-dlp"):
+    ytdlp = _ytdlp_bin()
+    if not Path(ytdlp).exists() and not shutil.which("yt-dlp"):
         return False
     old_ver = get_ytdlp_version()
-    cmd = ["yt-dlp", "--update-to", "nightly"]
+    cmd = [ytdlp, "--update-to", "nightly"]
     try:
         result = subprocess.run(
             cmd,
@@ -171,6 +179,27 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL) -> bool
         return False
 
     if result.returncode == 0 and tmp_path.exists() and tmp_path.stat().st_size > 0:
+        # Validate that the file contains actual YouTube/Google session cookies,
+        # not just the Netscape header comment block (~180 bytes, no real data).
+        try:
+            cookie_text = tmp_path.read_text(errors="replace")
+        except OSError:
+            _cleanup_tmp(tmp_path)
+            return False
+
+        has_youtube_cookies = any(
+            line.strip() and not line.startswith("#")
+            and (".youtube.com" in line or ".google.com" in line)
+            for line in cookie_text.splitlines()
+        )
+        if not has_youtube_cookies:
+            if verbose:
+                print("  [!] Cookie extraction produced no YouTube session cookies.")
+                print("  The browser may not be logged in, or the cookie store is locked.")
+                print("  Try: termtube --cookies-help")
+            _cleanup_tmp(tmp_path)
+            return False
+
         try:
             tmp_path.replace(path)
         except OSError:
@@ -351,12 +380,13 @@ def run_all_updates(verbose: bool = False) -> bool:
     success = install_all(force=True)
 
     # Also try yt-dlp's own self-update for the absolute latest nightly
-    if shutil.which("yt-dlp"):
+    ytdlp = _ytdlp_bin()
+    if Path(ytdlp).exists():
         if verbose:
             _safe_print("  Running yt-dlp self-update...")
         try:
             result = subprocess.run(
-                ["yt-dlp", "--update-to", "nightly"],
+                [ytdlp, "--update-to", "nightly"],
                 capture_output=not verbose,
                 timeout=120,
             )

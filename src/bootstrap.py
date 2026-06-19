@@ -104,8 +104,14 @@ _RETRY_DELAY = 2  # seconds
 
 
 def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRIES) -> bool:
-    """Download a URL to a local file with retry logic. Returns True on success."""
+    """Download a URL to a local file with retry logic. Returns True on success.
+
+    Downloads to a .tmp sibling file first, then atomically replaces the
+    destination on success. This prevents corruption of existing binaries
+    if the download is interrupted.
+    """
     label = desc or url.split("/")[-1]
+    tmp_dest = dest.with_suffix(dest.suffix + ".tmp")
 
     for attempt in range(1, retries + 1):
         if attempt > 1:
@@ -119,7 +125,7 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
                 total = int(resp.headers.get("Content-Length", 0))
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 downloaded = 0
-                with open(dest, "wb") as f:
+                with open(tmp_dest, "wb") as f:
                     while chunk := resp.read(65536):
                         f.write(chunk)
                         downloaded += len(chunk)
@@ -130,10 +136,11 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
                     print(f"\r    Downloading {label}... done ({downloaded // 1024 // 1024}MB)", flush=True)
                 else:
                     print(f"    Downloaded {label} ({downloaded // 1024 // 1024}MB)", flush=True)
+            os.replace(tmp_dest, dest)
             return True
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
             print(f"\n    [!] Download failed: {exc}", flush=True)
-            dest.unlink(missing_ok=True)
+            tmp_dest.unlink(missing_ok=True)
             if attempt == retries:
                 return False
 
