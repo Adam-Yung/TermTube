@@ -120,7 +120,7 @@ def _run_tests() -> None:
     import datetime
 
     project_root = Path(__file__).parent.parent
-    tests_dir = project_root / "tests"
+    tests_dir = project_root / "src" / "tests"
 
     if not tests_dir.exists():
         print("\033[31mError: tests/ directory not found.\033[0m")

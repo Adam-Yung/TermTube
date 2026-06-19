@@ -262,7 +262,7 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
         if asset.endswith(".tar.xz"):
             try:
                 with tarfile.open(archive_path, "r:xz") as tf:
-                    tf.extractall(tmp)
+                    tf.extractall(tmp, filter="data" if hasattr(tarfile, "data_filter") else None)
             except tarfile.CompressionError:
                 print("    [!] xz decompression not available (missing lzma module).", flush=True)
                 print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev + rebuild Python)", flush=True)
@@ -378,10 +378,13 @@ def _install_mpv(bin_dir: Path) -> str | None:
         tag = _MPV_FALLBACK
 
     if OS_NAME == "macos":
+        import platform as _plat
+        mac_ver = _plat.mac_ver()[0]
+        mac_major = int(mac_ver.split('.')[0]) if mac_ver else 15
         if ARCH == "aarch64":
-            asset = f"mpv-{tag}-macos-15-arm.zip"
+            asset = f"mpv-{tag}-macos-{mac_major}-arm.zip"
         else:
-            asset = f"mpv-{tag}-macos-15-intel.zip"
+            asset = f"mpv-{tag}-macos-{mac_major}-intel.zip"
     else:
         if ARCH == "aarch64":
             asset = f"mpv-{tag}-aarch64-pc-windows-msvc.zip"
@@ -404,7 +407,7 @@ def _install_mpv(bin_dir: Path) -> str | None:
             inner_tar = Path(tmp) / "mpv.tar.gz"
             if inner_tar.exists():
                 with tarfile.open(inner_tar, "r:gz") as tf:
-                    tf.extractall(tmp)
+                    tf.extractall(tmp, filter="data" if hasattr(tarfile, "data_filter") else None)
             macos_dir = None
             for p in Path(tmp).rglob("MacOS"):
                 if p.is_dir() and (p / "mpv").exists():
@@ -448,7 +451,11 @@ TOOLS = {
 
 
 def is_tool_installed(name: str) -> bool:
-    """Check if a tool is available in the deps bin dir or on system PATH."""
+    """Check if a tool is available in the TermTube-managed deps bin dir.
+
+    Only checks our managed directory — system PATH versions are ignored to
+    ensure we always have full control over binary versions and updates.
+    """
     bin_dir = get_deps_bin()
 
     if name == "ffmpeg":
@@ -462,15 +469,7 @@ def is_tool_installed(name: str) -> bool:
     else:
         exe = f"{name}.exe" if OS_NAME == "windows" else name
 
-    # Check our managed bin dir first
-    if (bin_dir / exe).exists():
-        return True
-
-    # Also check system PATH (user may have installed via brew/apt/winget)
-    if shutil.which(name):
-        return True
-
-    return False
+    return (bin_dir / exe).exists()
 
 
 def install_tool(name: str, *, force: bool = False) -> bool:

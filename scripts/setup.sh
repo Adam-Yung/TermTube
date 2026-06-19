@@ -272,7 +272,7 @@ install_shortcut() {
             return
         fi
     else
-        return
+        return 0
     fi
 
     if [[ "$(uname)" == "Darwin" ]]; then

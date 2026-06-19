@@ -21,6 +21,8 @@ def _make_updater(tmp_path: Path):
 
     mod._CACHE_DIR = tmp_path
     mod._LAST_VERSION = tmp_path / "LAST_VERSION"
+    mod._PENDING_VERSION_NOTIFY = tmp_path / "PENDING_VERSION_NOTIFY"
+    mod._LAST_COOKIE_REFRESH = tmp_path / "LAST_COOKIE_REFRESH"
     return mod
 
 
@@ -82,42 +84,36 @@ class TestGetYtdlpVersion:
 # ── check_for_update_notification ─────────────────────────────────────────────
 
 class TestCheckForUpdateNotification:
-    def test_first_run_records_version_no_notification(self, tmp_path):
+    def test_no_pending_file_returns_none(self, tmp_path):
         mod = _make_updater(tmp_path)
-        with patch.object(mod, "get_ytdlp_version", return_value="2026.03.17"):
-            result = mod.check_for_update_notification()
-        assert result is None
-        assert mod._LAST_VERSION.read_text() == "2026.03.17"
-
-    def test_same_version_no_notification(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.03.17")
-        with patch.object(mod, "get_ytdlp_version", return_value="2026.03.17"):
-            result = mod.check_for_update_notification()
+        result = mod.check_for_update_notification()
         assert result is None
 
-    def test_new_version_returns_notification_string(self, tmp_path):
+    def test_pending_file_returns_message_and_deletes(self, tmp_path):
         mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.03.17")
-        with patch.object(mod, "get_ytdlp_version", return_value="2026.05.05.233942"):
-            result = mod.check_for_update_notification()
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        mod._PENDING_VERSION_NOTIFY.write_text("yt-dlp updated  2026.03.17 -> 2026.05.05")
+        result = mod.check_for_update_notification()
         assert result is not None
         assert "2026.03.17" in result
-        assert "2026.05.05.233942" in result
+        assert "2026.05.05" in result
+        assert not mod._PENDING_VERSION_NOTIFY.exists()
 
-    def test_new_version_updates_stored_version(self, tmp_path):
+    def test_empty_pending_file_returns_none(self, tmp_path):
         mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.03.17")
-        with patch.object(mod, "get_ytdlp_version", return_value="2026.05.05.233942"):
-            mod.check_for_update_notification()
-        assert mod._read_last_version() == "2026.05.05.233942"
-
-    def test_undetectable_version_returns_none(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.03.17")
-        with patch.object(mod, "get_ytdlp_version", return_value=None):
-            result = mod.check_for_update_notification()
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        mod._PENDING_VERSION_NOTIFY.write_text("")
+        result = mod.check_for_update_notification()
         assert result is None
+
+    def test_only_fires_once(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        mod._PENDING_VERSION_NOTIFY.write_text("yt-dlp updated  old -> new")
+        first = mod.check_for_update_notification()
+        second = mod.check_for_update_notification()
+        assert first is not None
+        assert second is None
 
 
 # ── run_all_updates ────────────────────────────────────────────────────────────

@@ -179,7 +179,8 @@ class TestPollAudioProperties:
         assert dur is None
         assert paused is False
 
-    def test_sends_three_batched_requests(self):
+    def test_sends_single_batched_request(self):
+        """All 3 property requests are batched into a single sendall call."""
         responses = [
             {"error": "success", "data": 0.0, "request_id": 0},
             {"error": "success", "data": 60.0, "request_id": 1},
@@ -193,12 +194,15 @@ class TestPollAudioProperties:
         mock_sock.recv.side_effect = [response_bytes, b""]
 
         with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+             patch("src.player._get_persistent_socket", return_value=mock_sock):
             _poll_audio_properties_batched(socket_path="/tmp/test.sock")
 
-        assert mock_sock.sendall.call_count == 3
+        assert mock_sock.sendall.call_count == 1
+        payload = mock_sock.sendall.call_args[0][0].decode()
+        lines_sent = [l for l in payload.strip().split("\n") if l]
+        assert len(lines_sent) == 3
         for i, prop in enumerate(("time-pos", "duration", "pause")):
-            sent = json.loads(mock_sock.sendall.call_args_list[i][0][0].decode().strip())
+            sent = json.loads(lines_sent[i])
             assert sent["command"] == ["get_property", prop]
             assert sent["request_id"] == i
 
