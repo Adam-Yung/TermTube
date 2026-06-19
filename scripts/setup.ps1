@@ -4,14 +4,8 @@
     TermTube installer for Windows.
 
 .DESCRIPTION
-    Installs TermTube, sets up a Python virtual environment, and optionally
-    installs system dependencies via winget.
-
-.PARAMETER Sync
-    Developer mode: symlinks install directory to the source.
-
-.PARAMETER Deps
-    Auto-install system dependencies via winget.
+    Installs TermTube, sets up a Python virtual environment, and bootstraps
+    binary dependencies (yt-dlp, deno, ffmpeg, mpv) from GitHub releases.
 
 .PARAMETER NoDeps
     Skip all dependency checks.
@@ -466,12 +460,13 @@ function Install-Shortcut {
         $wsh = New-Object -ComObject WScript.Shell
         $sc  = $wsh.CreateShortcut("$HOME\Desktop\TermTube.lnk")
         $wt  = Get-Command wt.exe -ErrorAction SilentlyContinue
+        $batPath = Join-Path $AppDir "termtube.cmd"
         if ($wt) {
             $sc.TargetPath = "wt.exe"
-            $sc.Arguments  = "-- termtube"
+            $sc.Arguments  = "-- `"$batPath`""
         } else {
             $sc.TargetPath = "cmd.exe"
-            $sc.Arguments  = "/k termtube"
+            $sc.Arguments  = "/k `"$batPath`""
         }
         if ($icoPath) { $sc.IconLocation = "$icoPath,0" }
         $sc.Save()
