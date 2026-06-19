@@ -32,6 +32,7 @@ from pathlib import Path
 
 def _detect_platform() -> tuple[str, str]:
     """Return (os_name, arch) normalized for download URL construction."""
+    import platform as _platform
     os_name = sys.platform
     if os_name == "darwin":
         os_name = "macos"
@@ -40,22 +41,11 @@ def _detect_platform() -> tuple[str, str]:
     elif os_name == "win32":
         os_name = "windows"
 
-    import struct
-    if sys.platform == "darwin":
-        import subprocess as _sp
-        try:
-            machine = _sp.check_output(["uname", "-m"], text=True).strip().lower()
-        except Exception:
-            machine = "arm64" if struct.calcsize("P") == 8 else "x86_64"
-    elif sys.platform == "win32":
-        machine = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower()
-        if machine == "amd64":
-            machine = "x86_64"
-    else:
-        import subprocess as _sp
-        try:
-            machine = _sp.check_output(["uname", "-m"], text=True).strip().lower()
-        except Exception:
+    # platform.machine() returns the CPU architecture without spawning a subprocess.
+    machine = _platform.machine().lower()
+    if sys.platform == "win32":
+        proc_arch = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower()
+        if proc_arch == "amd64":
             machine = "x86_64"
 
     if machine in ("x86_64", "amd64"):

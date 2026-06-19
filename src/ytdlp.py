@@ -160,7 +160,7 @@ def _stream_json_lines(
             stdout=subprocess.PIPE,
             stderr=stderr_dest,
             text=False,
-            bufsize=0,
+            bufsize=8192,
             **get_popen_kwargs(headless=True),
         )
         _register_proc(proc)

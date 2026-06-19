@@ -22,6 +22,7 @@ from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
 
 _CACHE_DIR: Path = get_cache_dir()
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
+_PENDING_VERSION_NOTIFY: Path = _CACHE_DIR / "PENDING_VERSION_NOTIFY"
 _LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
 _GITHUB_REPO = "Adam-Yung/TermTube"
 
@@ -56,23 +57,20 @@ def _write_last_version(version: str) -> None:
 
 
 def check_for_update_notification() -> str | None:
-    """Compare current yt-dlp version against the recorded post-update version.
+    """Return a pending update notification string and clear it, or None.
 
-    Returns a human-readable notification string if the version changed since
-    the last update run, or None if unchanged / version undetectable.
-    Called at TUI startup from a background timer in MainScreen.
+    After update_ytdlp() succeeds it writes a PENDING_VERSION_NOTIFY file with
+    the "old -> new" message.  We read and delete it here (called once at startup)
+    so the notification fires exactly once without spawning yt-dlp --version.
     """
-    current = get_ytdlp_version()
-    if current is None:
+    if not _PENDING_VERSION_NOTIFY.exists():
         return None
-    last = _read_last_version()
-    if last is None:
-        _write_last_version(current)
+    try:
+        msg = _PENDING_VERSION_NOTIFY.read_text().strip()
+        _PENDING_VERSION_NOTIFY.unlink(missing_ok=True)
+        return msg or None
+    except OSError:
         return None
-    if current != last:
-        _write_last_version(current)
-        return f"yt-dlp updated  {last} -> {current}"
-    return None
 
 
 
@@ -81,6 +79,7 @@ def update_ytdlp(verbose: bool = False) -> bool:
     """Update yt-dlp to latest nightly. Returns True on success."""
     if not shutil.which("yt-dlp"):
         return False
+    old_ver = get_ytdlp_version()
     cmd = ["yt-dlp", "--update-to", "nightly"]
     try:
         result = subprocess.run(
@@ -92,6 +91,14 @@ def update_ytdlp(verbose: bool = False) -> bool:
             new_ver = get_ytdlp_version()
             if new_ver:
                 _write_last_version(new_ver)
+                if old_ver and new_ver != old_ver:
+                    try:
+                        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                        _PENDING_VERSION_NOTIFY.write_text(
+                            f"yt-dlp updated  {old_ver} -> {new_ver}"
+                        )
+                    except OSError:
+                        pass
             return True
         return False
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
