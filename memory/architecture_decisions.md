@@ -257,3 +257,27 @@ Exit paths are now layered:
 5. SIGTERM/SIGHUP: signal handler calls ProcessRegistry.kill_all() + sys.exit()
 
 The startup reap_orphans() handles the SIGKILL case (no cleanup possible): it cleans stale /tmp/termtube-mpv*.sock files and kills orphaned mpv processes found via pgrep.
+
+
+## Browser auto-detection for cookie refresh (Jun 2026)
+
+The `browser` config key now defaults to `"auto"` instead of `"chrome"`.
+When set to auto/null/empty, `refresh_cookies()` calls `detect_installed_browsers()`
+from the new `src/browsers.py` module.
+
+**Detection strategy (zero dependencies):**
+- macOS: checks for `.app` bundles in /Applications and ~/Applications
+- Windows: checks for known exe paths under ProgramFiles, ProgramFiles(x86), and LOCALAPPDATA
+- Linux: uses `shutil.which()` for known executable names
+
+**Why filesystem checks instead of a library:**
+- No additional dependency needed
+- Same approach yt-dlp uses internally (it checks browser data dirs)
+- Highly reliable on macOS/Windows where paths are vendor-standardized
+- Fast (just stat calls, no subprocess spawning)
+
+**Interactive CLI selection:**
+When `--refresh-cookies` is invoked with multiple browsers detected, a numbered
+menu is presented on stdin. Non-interactive callers (TUI worker, piped input) get
+the first detected browser. Explicit `browser` param or config value always
+overrides detection entirely.

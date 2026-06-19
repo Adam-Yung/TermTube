@@ -15,7 +15,7 @@ class TestDefaultConfig:
 
         assert cfg["preferred_quality"] == "best"
         assert cfg["preferred_player"] == "mpv"
-        assert cfg["browser"] == "chrome"
+        assert cfg["browser"] == "auto"
         assert cfg["thumbnail_cols"] == 38
         assert cfg["thumbnail_rows"] == 20
         assert cfg["theme"] == "crimson"

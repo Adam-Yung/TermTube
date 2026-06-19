@@ -274,8 +274,31 @@ def main() -> None:
         from src.config import Config
         cfg = Config(args.config)
         from src.updater import refresh_cookies
+        from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
         color = _supports_color()
-        success = refresh_cookies(cfg, verbose=True)
+
+        chosen_browser: str | None = None
+        raw_browser = cfg.get("browser")
+        if is_auto_browser(raw_browser):
+            detected = detect_installed_browsers()
+            if len(detected) > 1 and sys.stdin.isatty():
+                print(_c("1", "Detected browsers:", color=color))
+                for i, b in enumerate(detected, 1):
+                    print(f"  {i}) {b['label']}")
+                print()
+                try:
+                    choice = input("Select browser [1]: ").strip()
+                    idx = int(choice) - 1 if choice else 0
+                    if 0 <= idx < len(detected):
+                        chosen_browser = detected[idx]["name"]
+                    else:
+                        print(_c("1;33", "Invalid selection, using default.", color=color))
+                        chosen_browser = detected[0]["name"]
+                except (ValueError, EOFError, KeyboardInterrupt):
+                    chosen_browser = detected[0]["name"]
+                print()
+
+        success = refresh_cookies(cfg, verbose=True, browser=chosen_browser)
         if success:
             print(_c("1;32", "Cookie refresh complete.", color=color))
         else:

@@ -11,7 +11,7 @@ _DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
 
 DEFAULT_CONFIG: dict = {
     "cookies_file": str(_CONFIG_DIR / "cookies.txt"),
-    "browser": "chrome",
+    "browser": "auto",
     "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
     "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
     "video_format": "%(title)s_%(uploader)s.%(ext)s",
@@ -108,7 +108,8 @@ class Config:
 
     @property
     def browser(self) -> str:
-        return self._data.get("browser", "chrome")
+        """Return configured browser, or 'auto' for auto-detection."""
+        return self._data.get("browser", "auto")
 
     @property
     def video_dir(self) -> Path:

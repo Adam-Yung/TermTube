@@ -123,11 +123,12 @@ def _load_config_lazy():
 _RICK_ROLL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 
 
-def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL) -> bool:
+def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser: str | None = None) -> bool:
     """Extract cookies from the configured browser into cookies_file.
 
     Writes to a .tmp file first, then atomically renames on success.
     Existing cookies.txt is preserved on failure.
+    If *browser* is passed, it overrides both config and auto-detection.
     Returns True on success.
     """
     if config is None:
@@ -139,7 +140,31 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL) -> bool
             print("  No cookies_file configured -- skipping cookie refresh.")
         return False
 
-    browser = config.get("browser") or "chrome"
+    from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
+
+    if browser:
+        pass  # explicit override from caller
+    elif not is_auto_browser(config.get("browser")):
+        browser = config.get("browser")
+    else:
+        detected = detect_installed_browsers()
+        if not detected:
+            if verbose:
+                print("  [!] No supported browsers detected on this system.")
+                print("  Set 'browser' in config to one of: brave, chrome, chromium, edge, firefox, opera, safari, vivaldi, whale")
+            return False
+        if len(detected) == 1:
+            browser = detected[0]["name"]
+            if verbose:
+                print(f"  Auto-detected browser: {get_browser_label(browser)}")
+        else:
+            # Multiple browsers found — use first as default for non-interactive,
+            # or let the caller handle interactive selection via the 'browser' param.
+            browser = detected[0]["name"]
+            if verbose:
+                print(f"  Auto-detected browser: {get_browser_label(browser)} (from {len(detected)} installed)")
+    if not browser:
+        browser = "chrome"  # ultimate fallback
     path.parent.mkdir(parents=True, exist_ok=True)
 
     tmp_path = path.with_suffix(".tmp")

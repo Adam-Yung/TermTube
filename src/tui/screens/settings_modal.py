@@ -118,12 +118,25 @@ class SettingsModal(ModalScreen[None]):
             cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not configured[/yellow]"
         self.query_one("#s-cookie-status", Static).update(cookie_line)
 
-        # Browser list
+        # Browser list — dynamically populated from detected browsers
+        from src.browsers import detect_installed_browsers, YTDLP_SUPPORTED_BROWSERS, get_browser_label
         bl = self.query_one("#browser-list", ListView)
-        cur_b = config.get("browser", "chrome")
-        for val, label in [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]:
+        cur_b = config.get("browser", "auto")
+        detected = detect_installed_browsers()
+        detected_names = {b["name"] for b in detected}
+
+        # Build options: "auto" first, then installed browsers, then unavailable ones dimmed
+        browser_opts: list[tuple[str, str]] = [("auto", "Auto-detect")]
+        for b in detected:
+            browser_opts.append((b["name"], b["label"]))
+        for name in YTDLP_SUPPORTED_BROWSERS:
+            if name not in detected_names:
+                browser_opts.append((name, f"{get_browser_label(name)} (not found)"))
+
+        for val, label in browser_opts:
             item = _ChoiceItem(val, ("▶ " if val == cur_b else "  ") + label)
             bl.append(item)
+        self._browser_opts = browser_opts
 
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
@@ -149,8 +162,7 @@ class SettingsModal(ModalScreen[None]):
 
         elif lv_id == "browser-list":
             config._data["browser"] = event.item.value
-            browsers = [("chrome","Chrome"), ("firefox","Firefox"), ("brave","Brave"), ("safari","Safari")]
-            self._refresh_list("browser-list", browsers, event.item.value)
+            self._refresh_list("browser-list", getattr(self, "_browser_opts", []), event.item.value)
 
 
         # Persist immediately
