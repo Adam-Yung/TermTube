@@ -532,7 +532,11 @@ class ChannelScreen(Screen):
         entry = message.entry
         vid = entry.get("id", "")
         if vid and not vid.startswith("__"):
-            self._kick_thumb(vid, entry)
+            if self._thumb_dwell_timer:
+                self._thumb_dwell_timer.stop()
+            self._thumb_dwell_timer = self.set_timer(
+                0.3, lambda: self._kick_thumb(vid, entry)
+            )
 
     def on_detail_panel_channel_clicked(
         self, message: DetailPanel.ChannelClicked
