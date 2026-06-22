@@ -13,6 +13,8 @@ from pathlib import Path
 from src import logger
 from src.platform import get_cache_dir
 
+_UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+
 _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
 _CACHE_DIR = get_cache_dir() / "sb"
 _CACHE_TTL = 86400  # 24 hours
@@ -126,7 +128,7 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
     logger.debug("SponsorBlock fetch: %s", url)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "TermTube/0.2"})
+        req = urllib.request.Request(url, headers={"User-Agent": f"TermTube/{_UA_VERSION}"})
         ctx = _cached_ssl_context()
         with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ctx) as resp:
             data = json.loads(resp.read().decode())

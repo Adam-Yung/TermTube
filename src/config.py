@@ -137,11 +137,17 @@ class Config:
 
     @property
     def thumbnail_cols(self) -> int:
-        return int(self._data.get("thumbnail_cols", 38))
+        try:
+            return int(self._data.get("thumbnail_cols", 38))
+        except (ValueError, TypeError):
+            return 38
 
     @property
     def thumbnail_rows(self) -> int:
-        return int(self._data.get("thumbnail_rows", 20))
+        try:
+            return int(self._data.get("thumbnail_rows", 20))
+        except (ValueError, TypeError):
+            return 20
 
     @property
     def thumbnail_format(self) -> str:

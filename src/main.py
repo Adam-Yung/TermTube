@@ -22,7 +22,7 @@ else:
 if _deps_bin.is_dir():
     os.environ["PATH"] = str(_deps_bin) + os.pathsep + os.environ.get("PATH", "")
 
-_VERSION = "0.2.0"
+_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
 
 
 # ── Colour helpers ─────────────────────────────────────────────────────────────

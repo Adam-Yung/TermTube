@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-$Version = "0.2.0"
+$Version = (Get-Content "$PSScriptRoot\..\VERSION" -Raw).Trim()
 $AppName = "TermTube"
 $AppDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
 $DataDir = Join-Path $env:LOCALAPPDATA $AppName

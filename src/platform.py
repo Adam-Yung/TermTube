@@ -54,29 +54,43 @@ def get_log_dir() -> Path:
 # ── IPC Paths ─────────────────────────────────────────────────────────────────
 
 
+def _unix_ipc_dir() -> str:
+    """Return the directory for IPC sockets, namespaced per user."""
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime_dir:
+        return runtime_dir
+    return f"/tmp/termtube-{os.getuid()}"
+
+
 def get_ipc_path() -> str:
     """Return the mpv IPC socket/pipe path for this platform.
 
-    Unix: /tmp/termtube-mpv.sock (AF_UNIX socket)
+    Unix: $XDG_RUNTIME_DIR/termtube-mpv.sock or /tmp/termtube-<uid>/termtube-mpv.sock
     Windows: \\\\.\\pipe\\termtube-mpv (named pipe)
     """
     if IS_WINDOWS:
         return r"\\.\pipe\termtube-mpv"
-    return "/tmp/termtube-mpv.sock"
+    ipc_dir = _unix_ipc_dir()
+    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
+    return os.path.join(ipc_dir, "termtube-mpv.sock")
 
 
 def get_audio_ipc_path() -> str:
     """IPC path for the background audio mpv instance."""
     if IS_WINDOWS:
         return r"\\.\pipe\termtube-mpv-audio"
-    return "/tmp/termtube-mpv-audio.sock"
+    ipc_dir = _unix_ipc_dir()
+    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
+    return os.path.join(ipc_dir, "termtube-mpv-audio.sock")
 
 
 def get_video_ipc_path() -> str:
-    """IPC path for the video playback mpv instance."""
+    """IPC path for the video mpv instance."""
     if IS_WINDOWS:
         return r"\\.\pipe\termtube-mpv-video"
-    return "/tmp/termtube-mpv-video.sock"
+    ipc_dir = _unix_ipc_dir()
+    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
+    return os.path.join(ipc_dir, "termtube-mpv-video.sock")
 
 
 # ── Clipboard ─────────────────────────────────────────────────────────────────
@@ -336,8 +350,9 @@ def reap_orphans() -> None:
     """
     import glob as _glob
 
-    for pattern in ("/tmp/termtube-mpv*.sock",):
-        for sock in _glob.glob(pattern):
+    ipc_dir = _unix_ipc_dir()
+    if os.path.isdir(ipc_dir):
+        for sock in _glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
             try:
                 os.unlink(sock)
             except OSError:

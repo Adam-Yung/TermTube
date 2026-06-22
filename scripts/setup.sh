@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-readonly VERSION="0.2.0"
+readonly VERSION="$(cat "$(dirname "$0")/../VERSION")"
 readonly APP_NAME="TermTube"
 readonly APP_DIR="$HOME/.local/share/TermTube"
 readonly BIN_DIR="$HOME/.local/bin"
