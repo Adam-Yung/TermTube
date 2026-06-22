@@ -293,12 +293,14 @@ class VideoListPanel(Widget):
             self._anim.display = False
             self._lv.display = True
 
+        items_to_mount: list[VideoListItem] = []
         for entry in entries:
             item = VideoListItem(entry)
             vid = entry.get("id", "")
             if vid:
                 self._items_by_id[vid] = item
-            self._lv.append(item)
+            items_to_mount.append(item)
+        self._lv.extend(items_to_mount)
 
         if entries:
             self._lv.call_after_refresh(lambda: setattr(self._lv, "index", 0))

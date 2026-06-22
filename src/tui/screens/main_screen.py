@@ -1461,20 +1461,24 @@ class MainScreen(Screen):
     def _poll_audio_ipc(self) -> None:
         if not self._audio_playing:
             return
+        self._poll_audio_ipc_threaded()
+
+    @work(thread=True, exclusive=True, group="audio_poll")
+    def _poll_audio_ipc_threaded(self) -> None:
         from src.player import poll_audio_properties
 
         pos, dur, paused = poll_audio_properties(socket_path=_get_audio_socket())
         if pos is not None and dur is not None:
-            self._action_bar().update_progress(pos, dur, paused)
+            self.app.call_from_thread(self._action_bar().update_progress, pos, dur, paused)
             from src.tui.app import TermTubeApp
-            self.app.post_message(
-                TermTubeApp.PlayerStateUpdated(pos, dur, paused, playing=True)
+            self.app.call_from_thread(
+                self.app.post_message,
+                TermTubeApp.PlayerStateUpdated(pos, dur, paused, playing=True),
             )
 
             # Auto-skip sponsor segments — O(1) via sorted pointer
             if self.app.config.sponsorblock_auto_skip and self._sb_segments:
                 segs = self._sb_segments
-                # Advance pointer past already-elapsed segments
                 while self._sb_next_idx < len(segs) and segs[self._sb_next_idx].end <= pos:
                     self._sb_next_idx += 1
                 if self._sb_next_idx < len(segs):
@@ -1487,8 +1491,10 @@ class MainScreen(Screen):
                             {"command": ["seek", seg.end, "absolute"]},
                             socket_path=_get_audio_socket(),
                         )
-                        self.notify(
-                            f"Skipped: {seg.category} ({skip_dur}s)", timeout=3
+                        self.app.call_from_thread(
+                            self.notify,
+                            f"Skipped: {seg.category} ({skip_dur}s)",
+                            timeout=3,
                         )
                         return
 

@@ -243,7 +243,10 @@ class WatchModal(ModalScreen[bool]):
                 except Exception:
                     pass
             return
+        self._poll_mpv_threaded()
 
+    @work(thread=True, exclusive=True, group="mpv_poll")
+    def _poll_mpv_threaded(self) -> None:
         from src.player import poll_audio_properties
 
         pos, dur, paused = poll_audio_properties(socket_path=self._get_socket())
@@ -264,31 +267,37 @@ class WatchModal(ModalScreen[bool]):
                         self._sb_next_idx += 1
                         skip_dur = int(seg.end - seg.start)
                         self._ipc(["seek", seg.end, "absolute"])
-                        self.notify(
+                        self.app.call_from_thread(
+                            self.notify,
                             f"Skipped: {seg.category} ({skip_dur}s)",
                             timeout=3,
                         )
                         return
 
-            try:
-                bar_width = max(8, (self.query_one("#watch-dialog").size.width or 60) - 6)
-                self.query_one("#np-progress", Static).update(
-                    self._render_bar(pos_f, dur_f, bar_width)
-                )
-                pause_indicator = "  ⏸ paused" if paused else ""
-                self.query_one("#np-time", Static).update(
-                    f"{_fmt_secs(pos_f)}  /  {_fmt_secs(dur_f)}{pause_indicator}"
-                )
-            except Exception:
-                pass
+            def _update_ui():
+                try:
+                    bar_width = max(8, (self.query_one("#watch-dialog").size.width or 60) - 6)
+                    self.query_one("#np-progress", Static).update(
+                        self._render_bar(pos_f, dur_f, bar_width)
+                    )
+                    pause_indicator = "  ⏸ paused" if paused else ""
+                    self.query_one("#np-time", Static).update(
+                        f"{_fmt_secs(pos_f)}  /  {_fmt_secs(dur_f)}{pause_indicator}"
+                    )
+                except Exception:
+                    pass
+
+            self.app.call_from_thread(_update_ui)
         elif self._buffering_since > 0:
-            import time
-            wait_s = int(time.monotonic() - self._buffering_since)
+            import time as time_mod
+            wait_s = int(time_mod.monotonic() - self._buffering_since)
             buf_text = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
-            try:
-                self.query_one("#np-time", Static).update(buf_text)
-            except Exception:
-                pass
+            def _update_buf():
+                try:
+                    self.query_one("#np-time", Static).update(buf_text)
+                except Exception:
+                    pass
+            self.app.call_from_thread(_update_buf)
 
     # ── Progress bar rendering ─────────────────────────────────────────────
 
@@ -324,14 +333,25 @@ class WatchModal(ModalScreen[bool]):
             self._segment_cols_dur = dur
 
         parts: list[str] = []
+        prev_color: str | None = None
+        run: list[str] = []
         for col in range(width):
             in_segment = self._segment_cols[col]
             if col < filled:
                 c = sponsor_color if in_segment else progress_color
-                parts.append(f"[{c}]█[/{c}]")
+                char = "█"
             else:
                 c = sponsor_dim if in_segment else "#2a2a40"
-                parts.append(f"[{c}]░[/{c}]")
+                char = "░"
+            if c != prev_color:
+                if run:
+                    parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
+                run = [char]
+                prev_color = c
+            else:
+                run.append(char)
+        if run and prev_color:
+            parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
         return "".join(parts)
 
     # ── IPC helper ────────────────────────────────────────────────────────────

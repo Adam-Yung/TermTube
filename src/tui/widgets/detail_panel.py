@@ -100,7 +100,7 @@ class DetailPanel(Widget):
     # ── Public update API (called from MainScreen) ────────────────────────────
 
     def update_basic(self, entry: dict) -> None:
-        """Synchronously paint title / channel / stats / playlists from cached entry.
+        """Synchronously paint title / channel / stats from cached entry.
 
         Called immediately on cursor move. Does not start any workers.
         Description is left as 'Loading…' if not present in the entry; the
@@ -139,7 +139,7 @@ class DetailPanel(Widget):
             self.query_one("#video-desc-header", Static).update("")
             self.query_one("#video-desc", Static).update("")
 
-        self._update_playlists(vid)
+        self.query_one("#video-playlists", Static).update("")
 
     def set_description(self, desc: str, *, vid: str | None = None) -> None:
         """Set the description text. If vid is given and doesn't match current, no-op."""
@@ -147,6 +147,7 @@ class DetailPanel(Widget):
             return
         if desc:
             self._set_description(desc)
+        self._update_playlists(self._current_id)
 
     def refresh_metadata(self, entry: dict) -> None:
         """Update channel/stats/description from a freshly enriched entry."""

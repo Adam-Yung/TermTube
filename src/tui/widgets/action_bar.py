@@ -192,14 +192,25 @@ class ActionBar(Widget):
 
         seg_cols = self._get_segment_cols(width, dur)
         parts: list[str] = []
+        prev_color: str | None = None
+        run: list[str] = []
         for col in range(width):
             in_segment = seg_cols[col]
             if col < filled:
                 c = sponsor_color if in_segment else color
-                parts.append(f"[{c}]█[/{c}]")
+                char = "█"
             else:
                 c = sponsor_dim if in_segment else "#2a2a40"
-                parts.append(f"[{c}]░[/{c}]")
+                char = "░"
+            if c != prev_color:
+                if run:
+                    parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
+                run = [char]
+                prev_color = c
+            else:
+                run.append(char)
+        if run and prev_color:
+            parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
         return "".join(parts)
 
     def _update_np_keys(self) -> None:
