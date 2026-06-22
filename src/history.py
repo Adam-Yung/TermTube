@@ -1,9 +1,10 @@
-"""Local watch history — tracks videos watched via this TUI (not Google account)."""
+"""Local watch history â tracks videos watched via this TUI (not Google account)."""
 
 from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Iterator
@@ -12,9 +13,11 @@ from src.platform import get_config_dir
 
 HISTORY_PATH = get_config_dir() / "history.json"
 
-# Module-level in-memory cache — populated on first load, mutated on add().
+# Module-level in-memory cache â populated on first load, mutated on add().
 # Avoids a full JSON read + write round-trip for every play event.
 _cache: list[dict] | None = None
+
+_lock = threading.Lock()
 
 
 def _load() -> list[dict]:
@@ -52,35 +55,38 @@ def _save(entries: list[dict]) -> None:
 
 def add(entry: dict) -> None:
     """Record a video as watched. entry should be a video metadata dict."""
-    entries = _load()
-    vid = entry.get("id") or entry.get("webpage_url_basename")
-    if not vid:
-        return
-    # Remove any existing entry for this video so it moves to top
-    entries = [e for e in entries if e.get("id") != vid]
-    entries.insert(0, {
-        **entry,
-        "id": vid,
-        "_watched_at": time.time(),
-    })
-    # Keep last 500 entries
-    trimmed = entries[:500]
-    global _cache
-    _cache = trimmed
-    _save(trimmed)
+    with _lock:
+        entries = _load()
+        vid = entry.get("id") or entry.get("webpage_url_basename")
+        if not vid:
+            return
+        entries = [e for e in entries if e.get("id") != vid]
+        entries.insert(0, {
+            **entry,
+            "id": vid,
+            "_watched_at": time.time(),
+        })
+        trimmed = entries[:500]
+        global _cache
+        _cache = trimmed
+        _save(trimmed)
 
 
 def all_entries() -> list[dict]:
     """Return watch history, most recent first."""
-    return list(_load())
+    with _lock:
+        return list(_load())
 
 
 def iter_entries() -> Iterator[dict]:
-    for e in _load():
+    with _lock:
+        snapshot = list(_load())
+    for e in snapshot:
         yield e
 
 
 def invalidate_cache() -> None:
     """Force reload from disk on next access (e.g. if modified externally)."""
-    global _cache
-    _cache = None
+    with _lock:
+        global _cache
+        _cache = None

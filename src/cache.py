@@ -55,7 +55,7 @@ class Cache:
 
     def __init__(self, ttl_map: dict[str, int]) -> None:
         self._ttl = ttl_map  # e.g. {"home": 3600, "metadata": 86400}
-        self._suppressed: set[str] = set()
+        self._suppressed: OrderedDict[str, None] = OrderedDict()
         self._focus_counts: dict[str, int] = {}
         self._suppression_loaded = False
         self._suppression_lock = threading.Lock()
@@ -215,7 +215,7 @@ class Cache:
                 return
             try:
                 data = json.loads(_SUPPRESSED_PATH.read_text())
-                self._suppressed = set(data.get("ids", []))
+                self._suppressed = OrderedDict.fromkeys(data.get("ids", []))
                 self._focus_counts = {
                     k: v for k, v in data.get("focus_counts", {}).items()
                 }
@@ -242,15 +242,16 @@ class Cache:
         suppression threshold is crossed — no disk I/O on every cursor move.
         """
         self._load_suppressed()
-        if video_id in self._suppressed:
-            return
-        count = self._focus_counts.get(video_id, 0) + 1
-        self._focus_counts[video_id] = count
-        if count >= 3:
-            self._suppressed.add(video_id)
-            self._save_suppressed()  # only write when threshold is crossed
-            logger.debug("cache.register_focus suppressing %s after %d focuses", video_id, count)
-        self._prune_focus_counts()
+        with self._suppression_lock:
+            if video_id in self._suppressed:
+                return
+            count = self._focus_counts.get(video_id, 0) + 1
+            self._focus_counts[video_id] = count
+            if count >= 3:
+                self._suppressed[video_id] = None
+                self._save_suppressed()
+                logger.debug("cache.register_focus suppressing %s after %d focuses", video_id, count)
+            self._prune_focus_counts()
 
     def _prune_focus_counts(self) -> None:
         """Cap _focus_counts at 5000 entries to prevent unbounded growth."""
@@ -271,13 +272,15 @@ class Cache:
     def suppress_video(self, video_id: str) -> None:
         """Immediately suppress a video (e.g. after listening to it)."""
         self._load_suppressed()
-        if video_id not in self._suppressed:
-            self._suppressed.add(video_id)
-            if len(self._suppressed) > 2000:
-                trimmed = list(self._suppressed)[-1500:]
-                self._suppressed = set(trimmed)
-            self._save_suppressed()
-            logger.debug("cache.suppress_video %s", video_id)
+        with self._suppression_lock:
+            if video_id not in self._suppressed:
+                self._suppressed[video_id] = None
+                if len(self._suppressed) > 2000:
+                    # Evict oldest entries (first in insertion order)
+                    while len(self._suppressed) > 1500:
+                        self._suppressed.popitem(last=False)
+                self._save_suppressed()
+                logger.debug("cache.suppress_video %s", video_id)
 
     def is_suppressed(self, video_id: str) -> bool:
         self._load_suppressed()

@@ -22,6 +22,21 @@ from src.platform import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup
 _persistent_sockets: dict[str, socket.socket] = {}
 _persistent_lock = threading.Lock()
 
+# Per-socket-path locks for serializing IPC send/recv operations.
+_ipc_locks: dict[str, threading.Lock] = {}
+_ipc_locks_lock = threading.Lock()
+
+
+def _get_ipc_lock(socket_path: str) -> threading.Lock:
+    """Return (or create) a per-path lock for serializing IPC operations."""
+    with _ipc_locks_lock:
+        lock = _ipc_locks.get(socket_path)
+        if lock is None:
+            lock = threading.Lock()
+            _ipc_locks[socket_path] = lock
+        return lock
+
+
 # Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
 # TermTube seek bindings
@@ -173,29 +188,31 @@ def close_persistent_socket(socket_path: str) -> None:
 
 def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:
     """Unix domain socket transport — reuses a persistent connection."""
-    for _attempt in range(2):
-        s = _get_persistent_socket(socket_path, timeout)
-        if s is None:
-            return b""
-        try:
-            s.settimeout(timeout)
-            s.sendall(data)
-            buf = b""
+    lock = _get_ipc_lock(socket_path)
+    with lock:
+        for _attempt in range(2):
+            s = _get_persistent_socket(socket_path, timeout)
+            if s is None:
+                return b""
             try:
-                while True:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        raise OSError("connection closed")
-                    buf += chunk
-                    if b"\n" in buf:
-                        break
-            except socket.timeout:
-                pass
-            return buf
-        except (OSError, BrokenPipeError, ConnectionResetError):
-            _drop_persistent_socket(socket_path)
-            # second attempt will reconnect
-    return b""
+                s.settimeout(timeout)
+                s.sendall(data)
+                buf = b""
+                try:
+                    while True:
+                        chunk = s.recv(4096)
+                        if not chunk:
+                            raise OSError("connection closed")
+                        buf += chunk
+                        if b"\n" in buf:
+                            break
+                except socket.timeout:
+                    pass
+                return buf
+            except (OSError, BrokenPipeError, ConnectionResetError):
+                _drop_persistent_socket(socket_path)
+                # second attempt will reconnect
+        return b""
 
 
 def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes:
@@ -395,39 +412,41 @@ def _poll_audio_properties_batched(
             json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n"
         ).encode()
 
-    for _attempt in range(2):
-        s = _get_persistent_socket(socket_path, 1.0)
-        if s is None:
-            return None, None, False
-        try:
-            s.settimeout(1.0)
-            s.sendall(payload)
-            buf = b""
-            results: dict[int, dict] = {}
+    lock = _get_ipc_lock(socket_path)
+    with lock:
+        for _attempt in range(2):
+            s = _get_persistent_socket(socket_path, 1.0)
+            if s is None:
+                return None, None, False
             try:
-                while len(results) < 3:
-                    chunk = s.recv(4096)
-                    if not chunk:
-                        raise OSError("connection closed")
-                    buf += chunk
-                    *complete_lines, buf = buf.split(b"\n")
-                    for raw in complete_lines:
-                        raw = raw.strip()
-                        if not raw:
-                            continue
-                        try:
-                            resp = json.loads(raw)
-                            rid = resp.get("request_id")
-                            if rid is not None:
-                                results[rid] = resp
-                        except json.JSONDecodeError:
-                            pass
-            except socket.timeout:
-                pass
-            return _extract_poll_results(results)
-        except (OSError, BrokenPipeError, ConnectionResetError):
-            _drop_persistent_socket(socket_path)
-    return None, None, False
+                s.settimeout(1.0)
+                s.sendall(payload)
+                buf = b""
+                results: dict[int, dict] = {}
+                try:
+                    while len(results) < 3:
+                        chunk = s.recv(4096)
+                        if not chunk:
+                            raise OSError("connection closed")
+                        buf += chunk
+                        *complete_lines, buf = buf.split(b"\n")
+                        for raw in complete_lines:
+                            raw = raw.strip()
+                            if not raw:
+                                continue
+                            try:
+                                resp = json.loads(raw)
+                                rid = resp.get("request_id")
+                                if rid is not None:
+                                    results[rid] = resp
+                            except json.JSONDecodeError:
+                                pass
+                except socket.timeout:
+                    pass
+                return _extract_poll_results(results)
+            except (OSError, BrokenPipeError, ConnectionResetError):
+                _drop_persistent_socket(socket_path)
+        return None, None, False
 
 
 def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:

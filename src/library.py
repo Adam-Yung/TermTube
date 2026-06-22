@@ -8,6 +8,7 @@ these sidecars to populate the Library page.
 from __future__ import annotations
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Iterator
 
@@ -17,6 +18,7 @@ from typing import Iterator
 # filesystems a newly created/deleted file bumps the parent dir mtime,
 # making this a cheap O(1) staleness check.
 _cache: dict[tuple[str, str], tuple[float, float, list[dict]]] = {}
+_lock = threading.Lock()
 
 
 def _dir_mtime(directory: Path) -> float:
@@ -72,45 +74,47 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
     Results are cached in memory and invalidated when either directory's
     mtime changes (i.e. a file is added or removed).
     """
-    cache_key = (str(video_dir), str(audio_dir))
-    cur_v_mtime = _dir_mtime(video_dir)
-    cur_a_mtime = _dir_mtime(audio_dir)
+    with _lock:
+        cache_key = (str(video_dir), str(audio_dir))
+        cur_v_mtime = _dir_mtime(video_dir)
+        cur_a_mtime = _dir_mtime(audio_dir)
 
-    cached = _cache.get(cache_key)
-    if cached is not None:
-        cached_v_mtime, cached_a_mtime, cached_entries = cached
-        if cached_v_mtime == cur_v_mtime and cached_a_mtime == cur_a_mtime:
-            return cached_entries
+        cached = _cache.get(cache_key)
+        if cached is not None:
+            cached_v_mtime, cached_a_mtime, cached_entries = cached
+            if cached_v_mtime == cur_v_mtime and cached_a_mtime == cur_a_mtime:
+                return cached_entries
 
-    seen_ids: set[str] = set()
-    entries: list[dict] = []
+        seen_ids: set[str] = set()
+        entries: list[dict] = []
 
-    for entry in _scan_dir(video_dir, "video"):
-        vid = entry.get("id", "")
-        if vid not in seen_ids:
-            seen_ids.add(vid)
-            entries.append(entry)
+        for entry in _scan_dir(video_dir, "video"):
+            vid = entry.get("id", "")
+            if vid not in seen_ids:
+                seen_ids.add(vid)
+                entries.append(entry)
 
-    for entry in _scan_dir(audio_dir, "audio"):
-        vid = entry.get("id", "")
-        if vid not in seen_ids:
-            seen_ids.add(vid)
-            entries.append(entry)
-        else:
-            # Already have this video — mark it as having both
-            for e in entries:
-                if e.get("id") == vid:
-                    e["_has_audio"] = True
-                    e["_audio_path"] = entry.get("_local_path")
-                    break
+        for entry in _scan_dir(audio_dir, "audio"):
+            vid = entry.get("id", "")
+            if vid not in seen_ids:
+                seen_ids.add(vid)
+                entries.append(entry)
+            else:
+                # Already have this video — mark it as having both
+                for e in entries:
+                    if e.get("id") == vid:
+                        e["_has_audio"] = True
+                        e["_audio_path"] = entry.get("_local_path")
+                        break
 
-    # Sort by upload_date desc (yt-dlp uses YYYYMMDD strings)
-    entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)
+        # Sort by upload_date desc (yt-dlp uses YYYYMMDD strings)
+        entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)
 
-    _cache[cache_key] = (cur_v_mtime, cur_a_mtime, entries)
-    return entries
+        _cache[cache_key] = (cur_v_mtime, cur_a_mtime, entries)
+        return entries
 
 
 def invalidate_cache() -> None:
     """Force a rescan on next all_entries() call (e.g. after a download completes)."""
-    _cache.clear()
+    with _lock:
+        _cache.clear()
