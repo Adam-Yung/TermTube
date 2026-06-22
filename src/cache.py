@@ -38,10 +38,15 @@ _ensure_dirs()
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write text to path atomically via a tmp file + os.replace()."""
+    """Write text to path atomically via a tmp file + fsync + os.replace()."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
-        tmp.write_text(text, encoding="utf-8")
+        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        try:
+            os.write(fd, text.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
         os.replace(tmp, path)
     except OSError:
         try:
@@ -348,9 +353,11 @@ class Cache:
 
     def clear_feed(self, key: str) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
-        if path.exists():
-            path.unlink()
+        try:
+            path.unlink(missing_ok=True)
             logger.debug("cache.clear_feed %s", key)
+        except OSError:
+            pass
 
     def clear_all(self) -> None:
         feeds = videos = thumbs = 0

@@ -67,7 +67,7 @@ class Config:
     def _load(self) -> None:
         if not self.path.exists():
             return
-        with open(self.path) as f:
+        with open(self.path, encoding="utf-8") as f:
             loaded = yaml.safe_load(f) or {}
         # Deep merge cache_ttl
         if "cache_ttl" in loaded and isinstance(loaded["cache_ttl"], dict):

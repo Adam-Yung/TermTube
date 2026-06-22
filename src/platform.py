@@ -363,16 +363,22 @@ def reap_orphans() -> None:
 
     try:
         import signal
+        my_pid = os.getpid()
         result = subprocess.run(
             ["pgrep", "-f", "mpv.*termtube-mpv"],
             capture_output=True, text=True, timeout=3,
         )
         for pid_str in result.stdout.strip().split("\n"):
-            if pid_str.strip():
-                try:
-                    os.kill(int(pid_str.strip()), signal.SIGTERM)
-                except (ProcessLookupError, PermissionError, ValueError):
-                    pass
+            pid_str = pid_str.strip()
+            if not pid_str:
+                continue
+            try:
+                pid = int(pid_str)
+                if pid == my_pid:
+                    continue
+                os.kill(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError, ValueError):
+                pass
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
