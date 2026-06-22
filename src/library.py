@@ -53,15 +53,19 @@ def _load_sidecar(info_path: Path, media_files: dict[str, Path] | None = None) -
 def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
     if not directory.exists():
         return
-    # Build a lookup of media files by stem for O(1) matching
     media_files: dict[str, Path] = {}
+    info_files: list[Path] = []
     try:
-        for f in directory.iterdir():
-            if f.suffix not in (".json", ".jpg", ".png", ".webp") and f.is_file():
+        for f in directory.rglob("*"):
+            if not f.is_file():
+                continue
+            if f.name.endswith(".info.json"):
+                info_files.append(f)
+            elif f.suffix not in (".json", ".jpg", ".png", ".webp"):
                 media_files[f.stem] = f
     except OSError:
         pass
-    for info_path in directory.glob("**/*.info.json"):
+    for info_path in info_files:
         entry = _load_sidecar(info_path, media_files)
         if entry:
             entry.setdefault("_local_type", media_type)
@@ -94,18 +98,17 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
                 seen_ids.add(vid)
                 entries.append(entry)
 
+        entries_by_id: dict[str, dict] = {e.get("id", ""): e for e in entries if e.get("id")}
         for entry in _scan_dir(audio_dir, "audio"):
             vid = entry.get("id", "")
             if vid not in seen_ids:
                 seen_ids.add(vid)
                 entries.append(entry)
             else:
-                # Already have this video — mark it as having both
-                for e in entries:
-                    if e.get("id") == vid:
-                        e["_has_audio"] = True
-                        e["_audio_path"] = entry.get("_local_path")
-                        break
+                existing = entries_by_id.get(vid)
+                if existing is not None:
+                    existing["_has_audio"] = True
+                    existing["_audio_path"] = entry.get("_local_path")
 
         # Sort by upload_date desc (yt-dlp uses YYYYMMDD strings)
         entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)

@@ -222,7 +222,11 @@ class DetailPanel(Widget):
 
     def on_resize(self, event: Resize) -> None:
         if self._last_entry:
-            self.post_message(self.RerenderRequested(self._last_entry))
+            if hasattr(self, '_resize_timer') and self._resize_timer:
+                self._resize_timer.stop()
+            self._resize_timer = self.set_timer(
+                0.15, lambda: self.post_message(self.RerenderRequested(self._last_entry))
+            )
 
     def set_channel_mode(self) -> None:
         self._channel_mode = True

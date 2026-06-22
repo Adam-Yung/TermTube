@@ -260,7 +260,7 @@ class ActionBar(Widget):
         self._buffering_since = time.monotonic()
         self._wave_frame = 0
         if self._wave_timer is None:
-            self._wave_timer = self.set_interval(0.2, self._animate_wave)
+            self._wave_timer = self.set_interval(0.4, self._animate_wave)
         self._set_mode_player()
 
     def update_progress(self, pos: float, dur: float, paused: bool) -> None:

@@ -36,7 +36,7 @@ def _load() -> list[dict]:
 
 def _save(entries: list[dict]) -> None:
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    data = json.dumps(entries, ensure_ascii=False, indent=2).encode("utf-8")
+    data = json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     fd, tmp = tempfile.mkstemp(dir=HISTORY_PATH.parent, suffix=".tmp")
     try:
         os.write(fd, data)

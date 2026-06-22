@@ -271,7 +271,11 @@ class VideoListPanel(Widget):
                 if len(self._pages) <= _MAX_PAGES_IN_MEMORY:
                     break
                 if pn < keep_min or pn > keep_max:
-                    del self._pages[pn]
+                    evicted = self._pages.pop(pn)
+                    for e in evicted:
+                        eid = e.get("id", "")
+                        if eid:
+                            self._seen_ids.discard(eid)
         self._update_page_indicator()
         logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
 
