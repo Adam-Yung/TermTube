@@ -63,6 +63,8 @@ q quit
 
 IPC_SOCKET = get_ipc_path()
 
+_temp_input_confs: set[str] = set()
+
 
 def _write_input_conf() -> str:
     """Write input.conf to a temp file and return its path."""
@@ -70,6 +72,7 @@ def _write_input_conf() -> str:
     f.write(_INPUT_CONF)
     f.flush()
     f.close()
+    _temp_input_confs.add(f.name)
     return f.name
 
 
@@ -184,6 +187,23 @@ def _drop_persistent_socket(socket_path: str) -> None:
 def close_persistent_socket(socket_path: str) -> None:
     """Public API: close the persistent socket for socket_path (e.g. on track end)."""
     _drop_persistent_socket(socket_path)
+
+
+def close_all_sockets() -> None:
+    """Close all persistent IPC sockets and clean temp files (called on app exit)."""
+    with _persistent_lock:
+        for s in _persistent_sockets.values():
+            try:
+                s.close()
+            except OSError:
+                pass
+        _persistent_sockets.clear()
+    for path in list(_temp_input_confs):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    _temp_input_confs.clear()
 
 
 def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:

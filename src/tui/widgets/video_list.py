@@ -398,7 +398,10 @@ class VideoListPanel(Widget):
             for i, e in enumerate(page_entries):
                 if e.get("id") == vid_id:
                     self._pages[pn][i] = entry
-                    return  # stop scanning all pages once found
+                    break
+            else:
+                continue
+            break
 
         item = self._items_by_id.get(vid_id)
         if item is None:

@@ -350,6 +350,11 @@ def main() -> None:
         except Exception:
             pass
         try:
+            from src.player import close_all_sockets
+            close_all_sockets()
+        except Exception:
+            pass
+        try:
             _ytdlp.cancel_all()
         except Exception:
             pass

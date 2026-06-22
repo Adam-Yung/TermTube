@@ -610,22 +610,28 @@ def resolve_stream_url(
     video_id: str,
     config,
     format_spec: str = "ba[format_note*=original]/ba",
+    cancel_event: threading.Event | None = None,
 ) -> list[str] | None:
     """Resolve a YouTube video ID to direct playable stream URL(s).
 
     Returns a list of URLs (may be 1 for audio-only, or 2 for video+audio)
-    or None on failure.
+    or None on failure. Pass cancel_event to allow early abort.
     """
+    cancel = cancel_event or _new_cancel_event()
     opts = _base_opts(config)
     opts['format'] = format_spec
 
     logger.debug("resolve_stream_url: video_id=%s format=%s", video_id, format_spec)
     try:
+        if cancel.is_set():
+            return None
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(
                 f"https://www.youtube.com/watch?v={video_id}",
                 download=False,
             )
+            if cancel.is_set():
+                return None
             if not info:
                 return None
             if info.get('requested_formats'):
@@ -636,4 +642,7 @@ def resolve_stream_url(
         logger.debug("resolve_stream_url failed: %s", exc)
     except Exception as exc:
         logger.debug("resolve_stream_url exception: %s", exc)
+    finally:
+        if cancel_event is None:
+            _release_cancel_event(cancel)
     return None
