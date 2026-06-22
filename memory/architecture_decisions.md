@@ -281,3 +281,21 @@ When `--refresh-cookies` is invoked with multiple browsers detected, a numbered
 menu is presented on stdin. Non-interactive callers (TUI worker, piped input) get
 the first detected browser. Explicit `browser` param or config value always
 overrides detection entirely.
+
+## Why yt-dlp as a Python library instead of standalone binary (June 2026)
+
+The bundled `yt-dlp_macos` was a PyInstaller "onefile" binary that extracted ~35MB of Python + dependencies into `/tmp/_MEIxxxxxx` on every invocation. macOS XProtect scanned these freshly-extracted files each time (they appear "new" since the temp dir changes), adding 10-15 seconds of unavoidable overhead per call. This was the single largest bottleneck in the app — every feed fetch, search, URL resolution, and download paid this penalty.
+
+**Solution:** Install yt-dlp as a pip package (`yt-dlp` + `yt-dlp-ejs`) in the app's venv. Use `yt_dlp.YoutubeDL` directly as a Python library (no subprocess). This:
+- Eliminates the extraction penalty entirely (0ms overhead vs 10-15s)
+- Removes all platform-specific subprocess code (Unix select() pipe reader, Windows threaded reader, CREATE_NO_WINDOW flags, binary name branching)
+- Gives a single code path across macOS/Linux/Windows
+- Enables more robust deno discovery via explicit `js_runtimes: {'deno': {'path': ...}}` instead of PATH search
+
+**Dependencies:**
+- `yt-dlp` (pip) — core library
+- `yt-dlp-ejs` (pip) — YouTube JS challenge solver scripts (bundled in standalone binary, but not in pip package)
+- `deno` (binary, bootstrap.py) — JS runtime that executes yt-dlp-ejs challenges
+- `ffmpeg` (binary, bootstrap.py) — format merging for downloads (called by yt-dlp internally)
+
+**Thread safety:** `YoutubeDL` is NOT thread-safe. Each concurrent operation creates its own instance, matching the old model where each worker thread spawned its own subprocess.

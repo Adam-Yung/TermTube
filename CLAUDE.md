@@ -62,7 +62,8 @@ memory/                     # AI agent session memory (architecture decisions, a
   - **Video**: Uses `app.suspend()` to yield the terminal to `mpv`, restoring the TUI upon exit.
 - **Thumbnails**: Uses `textual-image` (Sixel/Kitty graphics) falling back to PIL half-block (24-bit ANSI color). Downloads happen in background workers.
 - **Config**: Single source of truth at `~/.config/TermTube/config.yaml`. Created automatically on first save. No config file ships in the repo.
-- **Bundled Dependencies**: All binary deps (yt-dlp, deno, ffmpeg, mpv) are downloaded from GitHub releases into `~/.local/termtube-deps/bin/` (or `%LOCALAPPDATA%\termtube-deps\bin\` on Windows) by `src/bootstrap.py`. This directory is prepended to PATH at app startup. **Always prefer the bundled binaries over system-installed versions.** This gives us full control over versions and updates, and prevents silent breakage if a user removes a system package. Never fall back to or prefer system PATH versions over our managed copies.
+- **yt-dlp Integration**: yt-dlp is installed as a Python library (`pip install yt-dlp yt-dlp-ejs`) in the app's venv. It is imported directly (`import yt_dlp`) — no subprocess spawning. The `yt-dlp-ejs` package provides YouTube JS challenge solver scripts. A JS runtime (Deno) is still needed and is managed as a binary dependency.
+- **Bundled Dependencies**: Binary deps (deno, ffmpeg, mpv) are downloaded from GitHub releases into `~/.local/termtube-deps/bin/` (or `%LOCALAPPDATA%\termtube-deps\bin\` on Windows) by `src/bootstrap.py`. This directory is prepended to PATH at app startup. **Always prefer the bundled binaries over system-installed versions.** This gives us full control over versions and updates, and prevents silent breakage if a user removes a system package. Never fall back to or prefer system PATH versions over our managed copies.
 
 ---
 
