@@ -30,24 +30,12 @@ _GITHUB_REPO = "Adam-Yung/TermTube"
 
 # -- Version tracking ----------------------------------------------------------
 
-def _ytdlp_bin() -> str:
-    """Return the absolute path to the bundled yt-dlp binary."""
-    from src.bootstrap import get_deps_bin
-    bin_path = get_deps_bin() / ("yt-dlp.exe" if IS_WINDOWS else "yt-dlp")
-    return str(bin_path) if bin_path.exists() else "yt-dlp"
-
-
 def get_ytdlp_version() -> str | None:
-    """Return the currently installed yt-dlp version string, or None on failure."""
+    """Return the currently installed yt-dlp version string, or None."""
     try:
-        result = subprocess.run(
-            [_ytdlp_bin(), "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        return result.stdout.strip() if result.returncode == 0 else None
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        import yt_dlp
+        return yt_dlp.version.__version__
+    except (ImportError, AttributeError):
         return None
 
 
@@ -83,18 +71,20 @@ def check_for_update_notification() -> str | None:
 
 
 def update_ytdlp(verbose: bool = False) -> bool:
-    """Update yt-dlp to latest nightly. Returns True on success."""
-    ytdlp = _ytdlp_bin()
-    if not Path(ytdlp).exists() and not shutil.which("yt-dlp"):
-        return False
+    """Update yt-dlp and yt-dlp-ejs to latest via pip. Returns True on success."""
     old_ver = get_ytdlp_version()
-    cmd = [ytdlp, "--update-to", "nightly"]
+
+    # Find pip in same venv as current Python
+    if sys.platform == "win32":
+        pip_path = Path(sys.executable).parent / "pip.exe"
+    else:
+        pip_path = Path(sys.executable).parent / "pip3"
+    if not pip_path.exists():
+        pip_path = Path(sys.executable).parent / "pip"
+
+    cmd = [str(pip_path), "install", "-U", "yt-dlp", "yt-dlp-ejs", "--quiet"]
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=not verbose,
-            timeout=120,
-        )
+        result = subprocess.run(cmd, capture_output=not verbose, timeout=120)
         if result.returncode == 0:
             new_ver = get_ytdlp_version()
             if new_ver:
@@ -143,7 +133,7 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser
     from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
 
     if browser:
-        pass  # explicit override from caller
+        pass
     elif not is_auto_browser(config.get("browser")):
         browser = config.get("browser")
     else:
@@ -158,44 +148,33 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser
             if verbose:
                 print(f"  Auto-detected browser: {get_browser_label(browser)}")
         else:
-            # Multiple browsers found — use first as default for non-interactive,
-            # or let the caller handle interactive selection via the 'browser' param.
             browser = detected[0]["name"]
             if verbose:
                 print(f"  Auto-detected browser: {get_browser_label(browser)} (from {len(detected)} installed)")
     if not browser:
-        browser = "chrome"  # ultimate fallback
-    path.parent.mkdir(parents=True, exist_ok=True)
+        browser = "chrome"
 
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(".tmp")
-    cmd = [
-        _ytdlp_bin(),
-        "--cookies-from-browser", browser,
-        "--cookies", str(tmp_path),
-        "--skip-download",
-        "--no-playlist",
-        "--quiet",
-        _RICK_ROLL,
-    ]
 
     if verbose:
         print(f"  Refreshing cookies from {browser}...", flush=True)
 
     try:
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL if not verbose else None,
-            timeout=120,
-        )
-    except FileNotFoundError:
+        import yt_dlp
+        ydl_opts = {
+            'cookiesfrombrowser': (browser, None, None, None),
+            'cookiefile': str(tmp_path),
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'extract_flat': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(link, download=False)
+    except ImportError:
         if verbose:
-            print("  [!] yt-dlp not found -- cannot refresh cookies.")
-        return False
-    except subprocess.TimeoutExpired:
-        if verbose:
-            print("  [!] Cookie extraction timed out.")
-        _cleanup_tmp(tmp_path)
+            print("  [!] yt-dlp not installed -- cannot refresh cookies.")
         return False
     except Exception as exc:
         if verbose:
@@ -203,9 +182,7 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser
         _cleanup_tmp(tmp_path)
         return False
 
-    if result.returncode == 0 and tmp_path.exists() and tmp_path.stat().st_size > 0:
-        # Validate that the file contains actual YouTube/Google session cookies,
-        # not just the Netscape header comment block (~180 bytes, no real data).
+    if tmp_path.exists() and tmp_path.stat().st_size > 0:
         try:
             cookie_text = tmp_path.read_text(errors="replace")
         except OSError:
@@ -404,25 +381,13 @@ def run_all_updates(verbose: bool = False) -> bool:
 
     success = install_all(force=True)
 
-    # Also try yt-dlp's own self-update for the absolute latest nightly
-    ytdlp = _ytdlp_bin()
-    if Path(ytdlp).exists():
-        if verbose:
-            _safe_print("  Running yt-dlp self-update...")
-        try:
-            result = subprocess.run(
-                [ytdlp, "--update-to", "nightly"],
-                capture_output=not verbose,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                new_ver = get_ytdlp_version()
-                if new_ver:
-                    _write_last_version(new_ver)
-                if verbose:
-                    _safe_print(f"  [ok] yt-dlp updated to {new_ver or 'latest'}")
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            pass
+    # Update yt-dlp and yt-dlp-ejs via pip
+    if verbose:
+        _safe_print("  Updating yt-dlp via pip...")
+    ytdlp_ok = update_ytdlp(verbose=verbose)
+    if ytdlp_ok and verbose:
+        ver = get_ytdlp_version()
+        _safe_print(f"  [ok] yt-dlp {ver or 'updated'}")
 
     # Update app code from latest GitHub release
     app_ok = update_app_code(install_dir, verbose=verbose)
