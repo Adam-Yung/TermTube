@@ -84,7 +84,7 @@ class TermTubeApp(App):
             pass
         try:
             import src.ytdlp as ytdlp
-            ytdlp.kill_all_active()
+            ytdlp.cancel_all()
         except Exception:
             pass
         # Backstop: if the user quits before the 60 s timer fires, still prune
@@ -127,6 +127,6 @@ class TermTubeApp(App):
             pass
         try:
             import src.ytdlp as ytdlp
-            ytdlp.kill_all_active()
+            ytdlp.cancel_all()
         except Exception:
             pass

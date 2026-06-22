@@ -60,9 +60,6 @@ class DownloadModal(ModalScreen[bool]):
         app = self.app  # type: ignore[attr-defined]
         error_lines: list[str] = []
 
-        def on_proc_started(proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
-            self._download_proc = proc
-
         def on_progress(line: str, pct: float) -> None:
             if self._cancelled:
                 return
@@ -83,7 +80,6 @@ class DownloadModal(ModalScreen[bool]):
                     self._video_id,
                     app.config,
                     on_progress=on_progress,
-                    on_proc_started=on_proc_started,
                 )
             else:
                 success = ytdlp.download_video_with_progress(
@@ -91,7 +87,6 @@ class DownloadModal(ModalScreen[bool]):
                     app.config,
                     quality_format=self._fmt,
                     on_progress=on_progress,
-                    on_proc_started=on_proc_started,
                 )
         except RuntimeError as exc:
             success = False

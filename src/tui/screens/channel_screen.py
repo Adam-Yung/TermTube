@@ -194,11 +194,8 @@ class ChannelScreen(Screen):
     def _load_channel_info(self) -> None:
         import src.ytdlp as ytdlp
         try:
-            def _on_proc(p: subprocess.Popen) -> None:
-                self._info_proc = p
             info = ytdlp.fetch_channel_info(
                 self._channel_url, self.app.config, self.app.cache,
-                on_proc_started=_on_proc,
             )
             if info:
                 self.app.call_from_thread(self._apply_info, info)
@@ -217,15 +214,12 @@ class ChannelScreen(Screen):
         if panel is None:
             return
         try:
-            def _on_proc(p: subprocess.Popen) -> None:
-                self._content_proc = p
             if tab == "playlists":
                 entries = ytdlp.fetch_channel_playlists(
                     self._channel_url, self.app.config, self.app.cache,
-                    on_proc_started=_on_proc,
                 )
             else:
-                entries = self._fetch_channel_videos_fast(sort, _on_proc)
+                entries = self._fetch_channel_videos_fast(sort)
             _logger.debug("channel tab=%s entries=%d", tab, len(entries))
             if session != self._content_session:
                 return
@@ -248,7 +242,7 @@ class ChannelScreen(Screen):
             if session == self._content_session:
                 self.app.call_from_thread(panel.set_error_message, str(exc))
 
-    def _fetch_channel_videos_fast(self, sort: str, on_proc) -> list[dict]:
+    def _fetch_channel_videos_fast(self, sort: str) -> list[dict]:
         """Try InnerTube /browse for channel videos (fast), fall back to yt-dlp."""
         import src.ytdlp as ytdlp
 
@@ -268,7 +262,7 @@ class ChannelScreen(Screen):
         # Fall back to yt-dlp (for popular sort, or when InnerTube fails)
         return ytdlp.fetch_channel_videos(
             self._channel_url, self.app.config, self.app.cache,
-            sort=sort, on_proc_started=on_proc,
+            sort=sort,
         )
 
     def _resolve_channel_id(self) -> str | None:

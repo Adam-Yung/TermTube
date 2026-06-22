@@ -350,7 +350,7 @@ def main() -> None:
         except Exception:
             pass
         try:
-            _ytdlp.kill_all_active()
+            _ytdlp.cancel_all()
         except Exception:
             pass
 
