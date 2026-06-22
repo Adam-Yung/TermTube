@@ -5,8 +5,7 @@ immediately after creating the venv, without any pip packages.
 
 Install location: ~/.local/termtube-deps/bin/ (Unix) or %LOCALAPPDATA%\\termtube-deps\\bin\\ (Windows)
 
-All 4 tools (yt-dlp, deno, ffmpeg, mpv) are required for full functionality:
-  - yt-dlp: video/audio metadata extraction and stream URL resolution
+All 3 tools (deno, ffmpeg, mpv) are required for full functionality:
   - deno: JavaScript runtime required by yt-dlp for YouTube challenges
   - ffmpeg: audio/video muxing and format conversion (required for downloads)
   - mpv: media playback via IPC
@@ -166,29 +165,6 @@ def _github_latest_tag(owner: str, repo: str) -> str | None:
 
 
 # ── Tool Installers ───────────────────────────────────────────────────────────
-
-def _install_ytdlp(bin_dir: Path) -> str | None:
-    """Install yt-dlp nightly binary. Returns version string or None."""
-    base_url = "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download"
-    if OS_NAME == "macos":
-        asset = "yt-dlp_macos"
-        dest_name = "yt-dlp"
-    elif OS_NAME == "linux":
-        asset = "yt-dlp"
-        dest_name = "yt-dlp"
-    else:
-        asset = "yt-dlp.exe"
-        dest_name = "yt-dlp.exe"
-
-    dest = bin_dir / dest_name
-    url = f"{base_url}/{asset}"
-
-    if not _download(url, dest, desc="yt-dlp (nightly)"):
-        return None
-
-    _make_executable(dest)
-    return "nightly-latest"
-
 
 def _install_deno(bin_dir: Path) -> str | None:
     """Install Deno from GitHub releases. Returns version string or None."""
@@ -450,7 +426,6 @@ def _install_mpv(bin_dir: Path) -> str | None:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 TOOLS = {
-    "yt-dlp": _install_ytdlp,
     "deno": _install_deno,
     "ffmpeg": _install_ffmpeg,
     "mpv": _install_mpv,
@@ -467,8 +442,6 @@ def is_tool_installed(name: str) -> bool:
 
     if name == "ffmpeg":
         exe = "ffmpeg.exe" if OS_NAME == "windows" else "ffmpeg"
-    elif name == "yt-dlp":
-        exe = "yt-dlp.exe" if OS_NAME == "windows" else "yt-dlp"
     elif name == "deno":
         exe = "deno.exe" if OS_NAME == "windows" else "deno"
     elif name == "mpv":

@@ -15,6 +15,10 @@ rich>=13.4.0
 textual-image>=0.12.0
 Pillow>=10.3.0
 
+# YouTube data extraction (library, not CLI binary)
+yt-dlp>=2024.0
+yt-dlp-ejs>=0.8.0
+
 # Testing
 pytest>=8.0
 pytest-asyncio>=0.23
@@ -22,8 +26,7 @@ pytest-asyncio>=0.23
 # Windows IPC (named pipes) — only needed on Windows
 pywin32>=306; sys_platform == "win32"
 
-# System tools expected on PATH (install via brew / apt / winget, not pip):
-#   yt-dlp      brew install yt-dlp       / winget install yt-dlp.yt-dlp
-#   mpv         brew install mpv          / bundled by setup.ps1 on Windows
-#   chafa       brew install chafa        (optional, Unix only — skipped on Windows)
-#   ffmpeg      brew install ffmpeg       / winget install Gyan.FFmpeg (optional)
+# System tools managed by bootstrap.py (downloaded into ~/.local/termtube-deps/bin/):
+#   deno        JavaScript runtime for yt-dlp YouTube challenge solving
+#   ffmpeg      audio/video muxing and format conversion
+#   mpv         media playback via IPC

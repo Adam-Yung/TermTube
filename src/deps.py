@@ -9,7 +9,7 @@ from pathlib import Path
 from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
 
 # Required tools and their purposes
-REQUIRED_TOOLS: list[str] = ["yt-dlp", "deno", "mpv", "ffmpeg"]
+REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]
 OPTIONAL_TOOLS: list[str] = []
 
 
