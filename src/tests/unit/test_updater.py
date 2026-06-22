@@ -1,13 +1,13 @@
 """Unit tests for src/updater.py.
 
-All subprocess calls and filesystem I/O are mocked so these tests run
-fully offline with no external tools required.
+Mocks yt_dlp imports and filesystem I/O so tests run fully offline.
 """
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 import pytest
 
@@ -49,33 +49,30 @@ class TestVersionHelpers:
 class TestGetYtdlpVersion:
     def test_returns_version_string(self, tmp_path):
         mod = _make_updater(tmp_path)
-        mock_result = MagicMock(returncode=0, stdout="2026.05.05.233942\n")
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
+        mock_version = MagicMock()
+        mock_version.__version__ = "2026.05.05.233942"
+        mock_yt_dlp = MagicMock()
+        mock_yt_dlp.version = mock_version
+
+        with patch.dict("sys.modules", {"yt_dlp": mock_yt_dlp, "yt_dlp.version": mock_version}):
             ver = mod.get_ytdlp_version()
         assert ver == "2026.05.05.233942"
-        mock_run.assert_called_once()
-        cmd = mock_run.call_args[0][0]
-        assert cmd[-1] == "--version"
-        assert "yt-dlp" in cmd[0]
 
-    def test_returns_none_when_not_found(self, tmp_path):
+    def test_returns_none_when_import_fails(self, tmp_path):
         mod = _make_updater(tmp_path)
-        with patch("subprocess.run", side_effect=FileNotFoundError):
-            ver = mod.get_ytdlp_version()
+        with patch.dict("sys.modules", {"yt_dlp": None}):
+            with patch("builtins.__import__", side_effect=ImportError("no yt_dlp")):
+                ver = mod.get_ytdlp_version()
         assert ver is None
 
-    def test_returns_none_on_nonzero_exit(self, tmp_path):
+    def test_returns_none_on_attribute_error(self, tmp_path):
         mod = _make_updater(tmp_path)
-        mock_result = MagicMock(returncode=1, stdout="")
-        with patch("subprocess.run", return_value=mock_result):
-            ver = mod.get_ytdlp_version()
-        assert ver is None
+        mock_yt_dlp = MagicMock(spec=[])
+        del mock_yt_dlp.version
 
-    def test_returns_none_on_timeout(self, tmp_path):
-        import subprocess
-        mod = _make_updater(tmp_path)
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("yt-dlp", 5)):
-            ver = mod.get_ytdlp_version()
+        with patch.dict("sys.modules", {"yt_dlp": mock_yt_dlp}):
+            with patch("builtins.__import__", side_effect=AttributeError("no version")):
+                ver = mod.get_ytdlp_version()
         assert ver is None
 
 
@@ -114,6 +111,57 @@ class TestCheckForUpdateNotification:
         assert second is None
 
 
+# ── update_ytdlp ──────────────────────────────────────────────────────────────
+
+class TestUpdateYtdlp:
+    def test_success_writes_version(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        with (
+            patch("subprocess.run", return_value=MagicMock(returncode=0)),
+            patch.object(mod, "get_ytdlp_version", return_value="2026.06.01"),
+        ):
+            ok = mod.update_ytdlp(verbose=False)
+        assert ok is True
+        assert mod._read_last_version() == "2026.06.01"
+
+    def test_pip_failure_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        with patch("subprocess.run", return_value=MagicMock(returncode=1)):
+            ok = mod.update_ytdlp(verbose=False)
+        assert ok is False
+
+    def test_pip_not_found_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            ok = mod.update_ytdlp(verbose=False)
+        assert ok is False
+
+    def test_timeout_returns_false(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("pip", 120)):
+            ok = mod.update_ytdlp(verbose=False)
+        assert ok is False
+
+    def test_version_change_writes_notification(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        call_count = [0]
+        def _fake_version():
+            call_count[0] += 1
+            if call_count[0] <= 1:
+                return "2026.01.01"
+            return "2026.06.01"
+
+        with (
+            patch("subprocess.run", return_value=MagicMock(returncode=0)),
+            patch.object(mod, "get_ytdlp_version", side_effect=_fake_version),
+        ):
+            ok = mod.update_ytdlp(verbose=False)
+        assert ok is True
+        assert mod._PENDING_VERSION_NOTIFY.exists()
+        assert "2026.01.01" in mod._PENDING_VERSION_NOTIFY.read_text()
+        assert "2026.06.01" in mod._PENDING_VERSION_NOTIFY.read_text()
+
+
 # ── run_all_updates ────────────────────────────────────────────────────────────
 
 class TestRunAllUpdates:
@@ -121,8 +169,7 @@ class TestRunAllUpdates:
         mod = _make_updater(tmp_path)
         with (
             patch("src.bootstrap.install_all", return_value=True),
-            patch("shutil.which", return_value="/usr/bin/yt-dlp"),
-            patch("subprocess.run", return_value=MagicMock(returncode=0)),
+            patch.object(mod, "update_ytdlp", return_value=True),
             patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
             patch.object(mod, "update_app_code", return_value=True),
         ):
@@ -133,8 +180,9 @@ class TestRunAllUpdates:
         mod = _make_updater(tmp_path)
         with (
             patch("src.bootstrap.install_all", return_value=False),
-            patch("shutil.which", return_value=None),
-            patch.object(mod, "update_app_code", return_value=True),
+            patch.object(mod, "update_ytdlp", return_value=True),
+            patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
+            patch.object(mod, "update_app_code", return_value=False),
         ):
             ok = mod.run_all_updates(verbose=False)
         assert ok is False
@@ -143,8 +191,7 @@ class TestRunAllUpdates:
         mod = _make_updater(tmp_path)
         with (
             patch("src.bootstrap.install_all", return_value=True),
-            patch("shutil.which", return_value="/usr/bin/yt-dlp"),
-            patch("subprocess.run", return_value=MagicMock(returncode=0)),
+            patch.object(mod, "update_ytdlp", return_value=True),
             patch.object(mod, "get_ytdlp_version", return_value="2026.05.05"),
             patch.object(mod, "update_app_code", return_value=True),
         ):
@@ -170,28 +217,6 @@ class TestUpdateTool:
         assert result is False
 
 
-# ── update_ytdlp ──────────────────────────────────────────────────────────────
-
-class TestUpdateYtdlp:
-    def test_success_writes_version(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        with (
-            patch("shutil.which", return_value="/usr/bin/yt-dlp"),
-            patch("subprocess.run", return_value=MagicMock(returncode=0)),
-            patch.object(mod, "get_ytdlp_version", return_value="2026.06.01"),
-        ):
-            ok = mod.update_ytdlp(verbose=False)
-        assert ok is True
-        assert mod._read_last_version() == "2026.06.01"
-
-    def test_not_found_returns_false(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        with patch.object(mod, "_ytdlp_bin", return_value="/nonexistent/yt-dlp"), \
-             patch("shutil.which", return_value=None):
-            ok = mod.update_ytdlp(verbose=False)
-        assert ok is False
-
-
 # ── refresh_cookies ───────────────────────────────────────────────────────────
 
 class TestRefreshCookies:
@@ -205,21 +230,29 @@ class TestRefreshCookies:
     def test_success_writes_cookies_and_touches_sentinel(self, tmp_path):
         mod = _make_updater(tmp_path)
         config = self._make_config(tmp_path)
-        cookies_tmp = config.cookies_file_path.with_suffix(".tmp")
+        tmp_cookie = config.cookies_file_path.with_suffix(".tmp")
 
-        def _fake_run(cmd, **kw):
-            cookies_tmp.write_text(
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl.__exit__ = MagicMock(return_value=False)
+
+        def fake_extract(url, download=False):
+            tmp_cookie.parent.mkdir(parents=True, exist_ok=True)
+            tmp_cookie.write_text(
                 "# Netscape HTTP Cookie File\n"
                 ".youtube.com\tTRUE\t/\tTRUE\t0\tSID\tabc123\n"
             )
-            return MagicMock(returncode=0)
+            return {}
 
-        with patch("subprocess.run", side_effect=_fake_run):
+        mock_ydl.extract_info = fake_extract
+
+        with patch("yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.browsers.is_auto_browser", return_value=False):
             result = mod.refresh_cookies(config, verbose=False)
 
         assert result is True
         assert config.cookies_file_path.exists()
-        assert not cookies_tmp.exists()
+        assert not tmp_cookie.exists()
         assert mod._LAST_COOKIE_REFRESH.exists()
 
     def test_failure_preserves_existing_cookies(self, tmp_path):
@@ -227,8 +260,13 @@ class TestRefreshCookies:
         config = self._make_config(tmp_path)
         config.cookies_file_path.write_text("# existing cookies")
 
-        mock_result = MagicMock(returncode=1)
-        with patch("subprocess.run", return_value=mock_result):
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl.__exit__ = MagicMock(return_value=False)
+        mock_ydl.extract_info.side_effect = Exception("browser locked")
+
+        with patch("yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.browsers.is_auto_browser", return_value=False):
             result = mod.refresh_cookies(config, verbose=False)
 
         assert result is False
@@ -242,25 +280,24 @@ class TestRefreshCookies:
         result = mod.refresh_cookies(config, verbose=False)
         assert result is False
 
-    def test_ytdlp_not_found_returns_false(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        config = self._make_config(tmp_path)
-
-        with patch("subprocess.run", side_effect=FileNotFoundError):
-            result = mod.refresh_cookies(config, verbose=False)
-
-        assert result is False
-
     def test_empty_output_returns_false(self, tmp_path):
         mod = _make_updater(tmp_path)
         config = self._make_config(tmp_path)
-        cookies_tmp = config.cookies_file_path.with_suffix(".tmp")
+        tmp_cookie = config.cookies_file_path.with_suffix(".tmp")
 
-        def _fake_run(cmd, **kw):
-            cookies_tmp.write_text("")
-            return MagicMock(returncode=0)
+        mock_ydl = MagicMock()
+        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
+        mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("subprocess.run", side_effect=_fake_run):
+        def fake_extract(url, download=False):
+            tmp_cookie.parent.mkdir(parents=True, exist_ok=True)
+            tmp_cookie.write_text("")
+            return {}
+
+        mock_ydl.extract_info = fake_extract
+
+        with patch("yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.browsers.is_auto_browser", return_value=False):
             result = mod.refresh_cookies(config, verbose=False)
 
         assert result is False
