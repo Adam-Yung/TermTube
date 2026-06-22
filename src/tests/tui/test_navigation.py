@@ -25,15 +25,13 @@ def mock_all_externals(tmp_path, monkeypatch):
         for i in range(1, 11)
     ]
 
-    with patch("src.ytdlp._stream_json_lines", return_value=iter(entries)), \
-               \
-         patch("subprocess.Popen") as mock_popen:
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_proc.returncode = 0
-        mock_proc.communicate.return_value = ("", "")
-        mock_popen.return_value = mock_proc
-        yield {"entries": entries, "popen": mock_popen, "proc": mock_proc}
+    mock_ydl = MagicMock()
+    mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
+    mock_ydl.__exit__ = MagicMock(return_value=False)
+    mock_ydl.extract_info.return_value = {"entries": iter(entries)}
+
+    with patch("yt_dlp.YoutubeDL", return_value=mock_ydl):
+        yield {"entries": entries, "ydl": mock_ydl}
 
 
 @pytest.fixture
