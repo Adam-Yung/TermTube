@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src import logger
-from src.platform import get_cache_dir
+from src.plat import get_cache_dir
 
 _UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
 

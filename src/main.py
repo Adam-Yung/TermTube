@@ -197,7 +197,7 @@ def _migrate_legacy_windows_paths() -> None:
     if os.sys.platform != "win32":
         return
     from pathlib import Path
-    from src.platform import get_config_dir
+    from src.plat import get_config_dir
     correct = get_config_dir()
     legacy  = Path.home() / ".config" / "TermTube"
     if not legacy.exists():
@@ -341,7 +341,7 @@ def main() -> None:
     import atexit
     import signal
     from src import ytdlp as _ytdlp
-    from src.platform import ProcessRegistry
+    from src.plat import ProcessRegistry
 
     def _emergency_cleanup() -> None:
         """Kill all tracked subprocesses (mpv, yt-dlp, etc.) on exit."""

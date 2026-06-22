@@ -54,7 +54,7 @@ class TermTubeApp(App):
 
     def on_mount(self) -> None:
         # Clean up any orphaned processes/sockets from a previous crash
-        from src.platform import reap_orphans
+        from src.plat import reap_orphans
         try:
             reap_orphans()
         except Exception:
@@ -78,7 +78,7 @@ class TermTubeApp(App):
     def on_unmount(self) -> None:
         # Kill all tracked subprocesses so they don't orphan on exit.
         try:
-            from src.platform import ProcessRegistry
+            from src.plat import ProcessRegistry
             ProcessRegistry.get().kill_all(timeout=1.5)
         except Exception:
             pass
@@ -121,7 +121,7 @@ class TermTubeApp(App):
     def _atexit_cleanup() -> None:
         """Last-resort cleanup: kill any orphaned subprocesses on exit."""
         try:
-            from src.platform import ProcessRegistry
+            from src.plat import ProcessRegistry
             ProcessRegistry.get().kill_all(timeout=1.5)
         except Exception:
             pass

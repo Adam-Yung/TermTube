@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from src.platform import get_config_dir
+from src.plat import get_config_dir
 
 _PLAYLISTS_PATH = get_config_dir() / "playlists.json"
 

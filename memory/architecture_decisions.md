@@ -243,7 +243,7 @@ The exit system was redesigned to eliminate orphaned child processes across all 
 
 **Problem:** Three overlapping cleanup mechanisms (on_unmount, atexit, _emergency_cleanup) each covered different subsets of processes. The 600ms os._exit(0) bomb bypassed atexit entirely. mpv video processes had NO backstop in any exit handler.
 
-**Solution:** A singleton ProcessRegistry in src/platform.py that ALL subprocess-spawning code registers into:
+**Solution:** A singleton ProcessRegistry in src/plat.py that ALL subprocess-spawning code registers into:
 - yt-dlp processes: via _register_proc/_unregister_proc wrappers
 - mpv audio: registered on Popen, unregistered in _stop_audio
 - mpv video: registered in WatchModal._launch_video, unregistered in finally/action_stop

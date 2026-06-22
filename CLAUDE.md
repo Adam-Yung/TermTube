@@ -26,6 +26,7 @@ src/
   library.py                # Local saved-video DB manager
   history.py                # Local watch history manager
   player.py                 # mpv IPC controller (--input-ipc-server)
+  plat.py                   # Platform abstraction layer (paths, IPC, clipboard, process mgmt)
   bootstrap.py              # Binary dependency installer (downloads from GitHub releases)
   deps.py                   # Dependency validation + bootstrap prompt
   updater.py                # Tool updater + app-code self-update via GitHub releases

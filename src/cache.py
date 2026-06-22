@@ -10,7 +10,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 from src import logger
-from src.platform import get_cache_dir
+from src.plat import get_cache_dir
 
 CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"

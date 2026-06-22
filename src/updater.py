@@ -16,7 +16,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from src.platform import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
+from src.plat import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
 
 # -- Constants -----------------------------------------------------------------
 

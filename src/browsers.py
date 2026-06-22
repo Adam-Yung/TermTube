@@ -10,7 +10,7 @@ import os
 import sys
 from pathlib import Path
 
-from src.platform import IS_MACOS, IS_WINDOWS, IS_LINUX
+from src.plat import IS_MACOS, IS_WINDOWS, IS_LINUX
 
 # All browsers supported by yt-dlp's --cookies-from-browser
 YTDLP_SUPPORTED_BROWSERS: list[str] = [

@@ -656,7 +656,7 @@ class ChannelScreen(Screen):
             self.notify("No URL available", severity="warning")
             return
         url = f"https://www.youtube.com/watch?v={vid}"
-        from src.platform import clipboard_copy
+        from src.plat import clipboard_copy
         if clipboard_copy(url):
             self.notify("URL copied to clipboard")
         else:

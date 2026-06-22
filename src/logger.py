@@ -31,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-from src.platform import get_log_dir
+from src.plat import get_log_dir
 
 # Accepted level names for the --level CLI flag. "ALL" is an alias for DEBUG.
 LEVEL_CHOICES = ("ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")

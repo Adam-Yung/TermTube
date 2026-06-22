@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Iterator
 
-from src.platform import get_config_dir
+from src.plat import get_config_dir
 
 HISTORY_PATH = get_config_dir() / "history.json"
 

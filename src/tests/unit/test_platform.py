@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.platform import (
+from src.plat import (
     IS_WINDOWS,
     IS_MACOS,
     IS_LINUX,
@@ -50,14 +50,14 @@ class TestGetCacheDir:
         assert isinstance(result, Path)
 
     def test_respects_xdg_cache_home(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         monkeypatch.setenv("XDG_CACHE_HOME", "/custom/cache")
 
         result = get_cache_dir()
         assert result == Path("/custom/cache/termtube")
 
     def test_falls_back_to_dot_cache(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
 
         result = get_cache_dir()
@@ -65,7 +65,7 @@ class TestGetCacheDir:
         assert result.name == "termtube"
 
     def test_windows_uses_localappdata(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         monkeypatch.setenv("LOCALAPPDATA", "C:\\Users\\Test\\AppData\\Local")
 
         result = get_cache_dir()
@@ -90,22 +90,22 @@ class TestIPCPaths:
         assert get_audio_ipc_path() != get_video_ipc_path()
 
     def test_unix_audio_path(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         result = get_audio_ipc_path()
         assert result.endswith(".sock")
 
     def test_unix_video_path(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         result = get_video_ipc_path()
         assert result.endswith(".sock")
 
     def test_windows_audio_path(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         result = get_audio_ipc_path()
         assert "pipe" in result
 
     def test_windows_video_path(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         result = get_video_ipc_path()
         assert "pipe" in result
 
@@ -120,22 +120,22 @@ class TestInstallHint:
         assert len(result) > 0
 
     def test_known_tool_macos(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS", True)
         assert "brew" in install_hint("mpv")
 
     def test_known_tool_linux(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS", False)
         assert "apt" in install_hint("mpv")
 
     def test_known_tool_windows(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         assert "setup.ps1" in install_hint("mpv")
 
     def test_unknown_tool_returns_fallback(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS", True)
         result = install_hint("nonexistent_tool_xyz")
         assert "nonexistent_tool_xyz" in result
 
@@ -192,13 +192,13 @@ class TestTerminateProcess:
 
 class TestSubprocessFlags:
     def test_unix_returns_empty_dict(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         result = get_subprocess_flags()
         assert result == {}
 
     def test_windows_returns_creation_flags(self, monkeypatch):
         import subprocess
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         if not hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
             setattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
             setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
@@ -216,18 +216,18 @@ class TestSubprocessFlags:
 
 class TestCleanupIPC:
     def test_unix_removes_socket_file(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         sock_file = tmp_path / "test.sock"
         sock_file.write_text("")
         cleanup_ipc(str(sock_file))
         assert not sock_file.exists()
 
     def test_unix_ignores_missing_file(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         cleanup_ipc("/tmp/nonexistent_socket_file_xyz.sock")
 
     def test_windows_does_nothing(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         sock_file = tmp_path / "test.sock"
         sock_file.write_text("")
         cleanup_ipc(str(sock_file))
@@ -246,7 +246,7 @@ class TestGetConfigDir:
         assert get_config_dir().name == "TermTube"
 
     def test_windows_uses_appdata_not_dot_config(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         monkeypatch.setenv("APPDATA", r"C:\Users\Test\AppData\Roaming")
         result = get_config_dir()
         assert "AppData" in str(result)
@@ -254,22 +254,22 @@ class TestGetConfigDir:
 
     def test_windows_does_not_use_localappdata(self, monkeypatch):
         """Config (not cache) should be under APPDATA (Roaming), not LOCALAPPDATA."""
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         monkeypatch.setenv("APPDATA",      r"C:\Roaming")
         monkeypatch.setenv("LOCALAPPDATA", r"C:\Local")
         result = get_config_dir()
         assert str(result).startswith(r"C:\Roaming")
 
     def test_linux_uses_dot_config(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         result = get_config_dir()
         assert ".config" in str(result)
         assert "AppData" not in str(result)
 
     def test_respects_xdg_config_home(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         monkeypatch.setenv("XDG_CONFIG_HOME", "/custom/config")
         result = get_config_dir()
         assert result == Path("/custom/config/TermTube")
@@ -280,7 +280,7 @@ class TestGetConfigDir:
 
 class TestGetCacheDirExtended:
     def test_windows_does_not_use_dot_cache(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Test\AppData\Local")
         result = get_cache_dir()
         assert ".cache" not in str(result)
@@ -288,7 +288,7 @@ class TestGetCacheDirExtended:
 
     def test_config_and_cache_are_distinct_dirs(self, monkeypatch):
         """On all platforms the config dir and cache dir must differ."""
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         monkeypatch.delenv("XDG_CACHE_HOME",  raising=False)
         assert get_config_dir() != get_cache_dir()
@@ -299,23 +299,23 @@ class TestGetCacheDirExtended:
 
 class TestInstallHintDeno:
     def test_deno_windows_uses_winget(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
         assert "winget" in install_hint("deno")
 
     def test_deno_macos_uses_brew(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   True)
         assert "brew" in install_hint("deno")
 
     def test_deno_linux_uses_official_installer(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
         hint = install_hint("deno")
         assert "deno.land" in hint or "deno" in hint
 
     def test_ytdlp_linux_uses_nightly_url(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
         hint = install_hint("yt-dlp")
         assert "nightly" in hint or "github.com" in hint

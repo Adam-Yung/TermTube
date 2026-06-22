@@ -6,7 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from src.platform import IS_WINDOWS, IS_MACOS, get_config_dir
+from src.plat import IS_WINDOWS, IS_MACOS, get_config_dir
 
 # Required tools and their purposes
 REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]

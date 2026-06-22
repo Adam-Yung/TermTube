@@ -31,7 +31,7 @@ def _restore_modules():
     """
     yield
     import importlib as _il, sys as _sys
-    for _name in ("src.platform", "src.history", "src.playlist", "src.deps"):
+    for _name in ("src.plat", "src.history", "src.playlist", "src.deps"):
         if _name in _sys.modules:
             try:
                 _il.reload(_sys.modules[_name])
@@ -47,8 +47,8 @@ def _reload_as_windows(monkeypatch, module_name: str, appdata: str, localappdata
     monkeypatch.setenv("LOCALAPPDATA", localappdata)
     # Patch sys.platform before reloading so IS_WINDOWS computes True at import
     monkeypatch.setattr(sys, "platform", "win32")
-    if "src.platform" in sys.modules:
-        importlib.reload(sys.modules["src.platform"])
+    if "src.plat" in sys.modules:
+        importlib.reload(sys.modules["src.plat"])
     mod = sys.modules.get(module_name)
     if mod:
         importlib.reload(mod)
@@ -84,11 +84,11 @@ class TestHistoryPath:
 
     @_SKIP_WIN
     def test_linux_uses_dot_config(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        monkeypatch.setattr("src.platform.IS_LINUX",   True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_LINUX",   True)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-        importlib.reload(sys.modules["src.platform"])
+        importlib.reload(sys.modules["src.plat"])
         importlib.reload(sys.modules["src.history"])
         import src.history as mod
         s = str(mod.HISTORY_PATH)
@@ -97,7 +97,7 @@ class TestHistoryPath:
     def test_parent_matches_config_dir(self, monkeypatch):
         """HISTORY_PATH.parent must equal get_config_dir() on any platform."""
         mod = _reload_as_windows(monkeypatch, "src.history", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        import src.platform as plat
+        import src.plat as plat
         assert mod.HISTORY_PATH.parent == plat.get_config_dir()
 
 
@@ -111,11 +111,11 @@ class TestPlaylistPath:
 
     @_SKIP_WIN
     def test_linux_uses_dot_config(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        monkeypatch.setattr("src.platform.IS_LINUX",   True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_LINUX",   True)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-        importlib.reload(sys.modules["src.platform"])
+        importlib.reload(sys.modules["src.plat"])
         importlib.reload(sys.modules["src.playlist"])
         import src.playlist as mod
         s = str(mod._PLAYLISTS_PATH)
@@ -123,7 +123,7 @@ class TestPlaylistPath:
 
     def test_parent_matches_config_dir(self, monkeypatch):
         mod = _reload_as_windows(monkeypatch, "src.playlist", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        import src.platform as plat
+        import src.plat as plat
         assert mod._PLAYLISTS_PATH.parent == plat.get_config_dir()
 
 
@@ -132,8 +132,8 @@ class TestSponsorblockCacheDir:
         monkeypatch.setenv("APPDATA",      _WIN_APPDATA)
         monkeypatch.setenv("LOCALAPPDATA", _WIN_LOCALAPPDATA)
         monkeypatch.setattr(sys, "platform", "win32")
-        importlib.reload(sys.modules["src.platform"])
-        import src.platform as plat
+        importlib.reload(sys.modules["src.plat"])
+        import src.plat as plat
         cache = plat.get_cache_dir()
         s = str(cache / "sb")
         assert "AppData" in s, f"Expected AppData in cache/sb path, got: {s}"
@@ -142,25 +142,26 @@ class TestSponsorblockCacheDir:
 
     @_SKIP_WIN
     def test_linux_uses_dot_cache(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        monkeypatch.setattr("src.platform.IS_LINUX",   True)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_LINUX",   True)
         monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
-        importlib.reload(sys.modules["src.platform"])
+        importlib.reload(sys.modules["src.plat"])
+        import src.sponsorblock
         importlib.reload(sys.modules["src.sponsorblock"])
         import src.sponsorblock as mod
         s = str(mod._CACHE_DIR)
         assert ".cache" in s and "AppData" not in s and s.endswith("sb")
 
     def test_parent_matches_cache_dir(self, monkeypatch):
-        monkeypatch.setattr("src.platform.IS_WINDOWS", True)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        monkeypatch.setattr("src.platform.IS_LINUX",   False)
+        monkeypatch.setattr("src.plat.IS_WINDOWS", True)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
+        monkeypatch.setattr("src.plat.IS_LINUX",   False)
         monkeypatch.setenv("APPDATA",      _WIN_APPDATA)
         monkeypatch.setenv("LOCALAPPDATA", _WIN_LOCALAPPDATA)
         import importlib, sys
-        importlib.reload(sys.modules["src.platform"])
-        import src.platform as plat
+        importlib.reload(sys.modules["src.plat"])
+        import src.plat as plat
         # sponsorblock._CACHE_DIR = get_cache_dir() / "sb", so its parent is get_cache_dir()
         assert plat.get_cache_dir() / "sb" == plat.get_cache_dir() / "sb"  # tautology guard
         assert (plat.get_cache_dir() / "sb").parent == plat.get_cache_dir()
@@ -193,9 +194,9 @@ class TestCookiesHelpPaths:
     @_SKIP_WIN_SHELL
     def test_linux_bash_continuation(self, monkeypatch):
         """Option B command should use backslash continuation on Linux."""
-        monkeypatch.setattr("src.platform.IS_WINDOWS", False)
-        monkeypatch.setattr("src.platform.IS_MACOS",   False)
-        importlib.reload(sys.modules["src.platform"])
+        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
+        monkeypatch.setattr("src.plat.IS_MACOS",   False)
+        importlib.reload(sys.modules["src.plat"])
         importlib.reload(sys.modules["src.deps"])
         import src.deps as mod
         assert " \
@@ -204,13 +205,13 @@ class TestCookiesHelpPaths:
     def test_cookies_path_native_separator(self, monkeypatch):
         """The cookies.txt path in help should use native os.sep."""
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        import src.platform as plat
+        import src.plat as plat
         expected = str(plat.get_config_dir() / "cookies.txt")
         assert expected in self._ensure_help_built(mod), f"Expected {expected!r} in COOKIES_HELP"
 
     def test_config_yaml_native_separator(self, monkeypatch):
         mod = _reload_as_windows(monkeypatch, "src.deps", _WIN_APPDATA, _WIN_LOCALAPPDATA)
-        import src.platform as plat
+        import src.plat as plat
         expected = str(plat.get_config_dir() / "config.yaml")
         assert expected in self._ensure_help_built(mod), f"Expected {expected!r} in COOKIES_HELP"
 
@@ -232,9 +233,9 @@ _FORBIDDEN = [
     ),
 ]
 
-# platform.py defines the helpers.
+# plat.py defines the helpers.
 # main.py references the legacy path intentionally in _migrate_legacy_windows_paths().
-_LINTER_ALLOWLIST = {"platform.py", "main.py", "bootstrap.py"}
+_LINTER_ALLOWLIST = {"plat.py", "main.py", "bootstrap.py"}
 
 
 class TestNoHardcodedPlatformPaths:

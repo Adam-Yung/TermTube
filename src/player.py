@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from src import logger
-from src.platform import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup_ipc
+from src.plat import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup_ipc
 
 # ── Persistent IPC socket pool ────────────────────────────────────────────────
 # Keyed by socket_path → socket.socket (Unix only).

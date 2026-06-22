@@ -143,7 +143,7 @@ _AUDIO_SOCKET = None  # Lazy-initialized from platform module
 def _get_audio_socket() -> str:
     global _AUDIO_SOCKET
     if _AUDIO_SOCKET is None:
-        from src.platform import get_audio_ipc_path
+        from src.plat import get_audio_ipc_path
         _AUDIO_SOCKET = get_audio_ipc_path()
     return _AUDIO_SOCKET
 
@@ -1213,10 +1213,10 @@ class MainScreen(Screen):
             from src.player import send_ipc_command
 
             send_ipc_command({"command": ["quit"]}, socket_path=_get_audio_socket())
-            from src.platform import terminate_process
+            from src.plat import terminate_process
             terminate_process(self._audio_proc, timeout=2.0)
         if self._audio_proc:
-            from src.platform import ProcessRegistry
+            from src.plat import ProcessRegistry
             ProcessRegistry.get().unregister(self._audio_proc)
         self._audio_proc = None
         self._audio_entry = None
@@ -1232,7 +1232,7 @@ class MainScreen(Screen):
         )
         from src.player import close_persistent_socket
         close_persistent_socket(_get_audio_socket())
-        from src.platform import cleanup_ipc
+        from src.plat import cleanup_ipc
         cleanup_ipc(_get_audio_socket())
 
     @work(thread=True, exclusive=True, group="audio_player")
@@ -1279,7 +1279,7 @@ class MainScreen(Screen):
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
-            from src.platform import install_hint, IS_WINDOWS
+            from src.plat import install_hint, IS_WINDOWS
             hint = (
                 "run 'termtube --update' to install a standalone headless mpv.exe. "
                 "mpv.net opens a GUI window and cannot be used for background audio."
@@ -1326,7 +1326,7 @@ class MainScreen(Screen):
         stderr_text = ""
         returncode: int | None = None
         try:
-            from src.platform import get_popen_kwargs, ProcessRegistry
+            from src.plat import get_popen_kwargs, ProcessRegistry
             self._audio_proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
@@ -1346,7 +1346,7 @@ class MainScreen(Screen):
                 stderr_text = ""
             returncode = proc.returncode
         except FileNotFoundError:
-            from src.platform import install_hint
+            from src.plat import install_hint
             hint = install_hint('mpv')
             self.app.call_from_thread(
                 self._log, f"[red]Error: mpv not found — install with: {hint}[/red]"
@@ -1707,7 +1707,7 @@ class MainScreen(Screen):
             self.notify("No URL available", severity="warning")
             return
         url = f"https://www.youtube.com/watch?v={vid}"
-        from src.platform import clipboard_copy
+        from src.plat import clipboard_copy
         if clipboard_copy(url):
             self.notify("URL copied to clipboard")
         else:
@@ -1991,7 +1991,7 @@ class MainScreen(Screen):
 
         def _force_exit() -> None:
             """Structured shutdown: kill all tracked procs, then force-exit."""
-            from src.platform import ProcessRegistry
+            from src.plat import ProcessRegistry
             try:
                 ProcessRegistry.get().kill_all(timeout=1.5)
             except Exception:

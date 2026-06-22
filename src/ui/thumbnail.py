@@ -48,7 +48,7 @@ def download(video_id: str, url: str) -> Path | None:
         logger.debug("Thumbnail cache dir create failed for %s: %s", video_id, exc)
         return None
     try:
-        from src.platform import download_thumbnail
+        from src.plat import download_thumbnail
         if download_thumbnail(url, str(dest)):
             logger.debug("Downloaded thumbnail for %s", video_id)
             return dest

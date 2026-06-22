@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import yaml
 
-from src.platform import get_config_dir
+from src.plat import get_config_dir
 
 _CONFIG_DIR = get_config_dir()
 _DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"

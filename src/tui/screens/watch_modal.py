@@ -58,7 +58,7 @@ class WatchModal(ModalScreen[bool]):
     @classmethod
     def _get_socket(cls) -> str:
         if cls._SOCKET is None:
-            from src.platform import get_video_ipc_path
+            from src.plat import get_video_ipc_path
             cls._SOCKET = get_video_ipc_path()
         return cls._SOCKET
 
@@ -143,7 +143,7 @@ class WatchModal(ModalScreen[bool]):
 
         mpv_exe = player_mod._mpv_exe()
         if not mpv_exe:
-            from src.platform import install_hint
+            from src.plat import install_hint
             self.app.call_from_thread(
                 self.app.notify,
                 f"mpv not found — install with: {install_hint('mpv')}",
@@ -177,7 +177,7 @@ class WatchModal(ModalScreen[bool]):
             cmd += ["--", url]
 
         try:
-            from src.platform import get_popen_kwargs, ProcessRegistry
+            from src.plat import get_popen_kwargs, ProcessRegistry
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
@@ -186,7 +186,7 @@ class WatchModal(ModalScreen[bool]):
             )
             ProcessRegistry.get().register(self._proc)
         except FileNotFoundError:
-            from src.platform import install_hint
+            from src.plat import install_hint
             self.app.call_from_thread(
                 self.app.notify,
                 f"mpv not found — install with: {install_hint('mpv')}",
@@ -207,7 +207,7 @@ class WatchModal(ModalScreen[bool]):
         try:
             self._proc.wait()
         finally:
-            from src.platform import ProcessRegistry
+            from src.plat import ProcessRegistry
             ProcessRegistry.get().unregister(self._proc)
         try:
             os.unlink(input_conf)
@@ -215,7 +215,7 @@ class WatchModal(ModalScreen[bool]):
             pass
         from src.player import close_persistent_socket
         close_persistent_socket(self._get_socket())
-        from src.platform import cleanup_ipc
+        from src.plat import cleanup_ipc
         cleanup_ipc(self._get_socket())
 
         if not self._stopped:
@@ -399,7 +399,7 @@ class WatchModal(ModalScreen[bool]):
             self._poll_timer.stop()
             self._poll_timer = None
         self._ipc(["quit"])
-        from src.platform import terminate_process, ProcessRegistry
+        from src.plat import terminate_process, ProcessRegistry
         terminate_process(self._proc, timeout=2.0)
         if self._proc:
             ProcessRegistry.get().unregister(self._proc)
