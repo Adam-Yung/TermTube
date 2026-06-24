@@ -596,6 +596,7 @@ class MainScreen(Screen):
                     stash_ids = {e.get("id", "") for e in filtered if e.get("id")}
                     self.app.call_from_thread(panel.add_page, 1, filtered)
                     self.app.call_from_thread(panel.load_page, 1)
+                    self.app.call_from_thread(panel.finish_loading)
                     stash_loaded = True
                     _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
 

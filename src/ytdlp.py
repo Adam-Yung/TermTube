@@ -42,6 +42,31 @@ def _base_opts(config) -> dict:
     return opts
 
 
+def _playback_opts(config) -> dict:
+    """Build YoutubeDL options for playback/download (needs full format info).
+
+    Unlike _base_opts(), this does NOT skip DASH/HLS manifest parsing because
+    resolve_stream_url() and download functions need format data to work.
+    """
+    from src.bootstrap import get_deps_bin
+    import sys
+
+    deno_name = "deno.exe" if sys.platform == "win32" else "deno"
+    deno_path = get_deps_bin() / deno_name
+
+    opts: dict = {
+        'quiet': True,
+        'no_warnings': True,
+        'socket_timeout': 30,
+    }
+    if deno_path.exists():
+        opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
+    cf = config.cookies_file
+    if cf:
+        opts['cookiefile'] = str(cf)
+    return opts
+
+
 # ── Cancellation infrastructure ───────────────────────────────────────────────
 
 _cancel_events: set[threading.Event] = set()
@@ -365,7 +390,7 @@ def download_video_with_progress(
 
     logger.info("download_video %s (format=%s)", video_id, fmt)
 
-    opts = _base_opts(config)
+    opts = _playback_opts(config)
     opts['format'] = fmt
     opts['merge_output_format'] = 'mp4'
     opts['outtmpl'] = str(config.video_dir / config.video_format)
@@ -397,7 +422,7 @@ def download_audio_with_progress(
     url = f"https://www.youtube.com/watch?v={video_id}"
     logger.info("download_audio %s", video_id)
 
-    opts = _base_opts(config)
+    opts = _playback_opts(config)
     opts['format'] = 'bestaudio/best'
     opts['outtmpl'] = str(config.audio_dir / config.audio_format)
     opts['postprocessors'] = [{
@@ -618,10 +643,13 @@ def resolve_stream_url(
     or None on failure. Pass cancel_event to allow early abort.
     """
     cancel = cancel_event or _new_cancel_event()
-    opts = _base_opts(config)
+    # Use lightweight opts for audio-only formats (skip DASH/HLS is fine),
+    # full opts for video formats that need DASH manifest data.
+    is_audio_only = format_spec.startswith('ba') and 'bv' not in format_spec
+    opts = _base_opts(config) if is_audio_only else _playback_opts(config)
     opts['format'] = format_spec
 
-    logger.debug("resolve_stream_url: video_id=%s format=%s", video_id, format_spec)
+    logger.debug("resolve_stream_url: video_id=%s format=%s audio_only=%s", video_id, format_spec, is_audio_only)
     try:
         if cancel.is_set():
             return None
@@ -646,3 +674,26 @@ def resolve_stream_url(
         if cancel_event is None:
             _release_cancel_event(cancel)
     return None
+
+
+# ── Extractor warmup ──────────────────────────────────────────────────────────
+
+_warmup_done = threading.Event()
+
+
+def warmup() -> None:
+    """Pre-initialize yt-dlp extractor registry in a background thread.
+
+    The first YoutubeDL() instantiation loads ~1800 extractors. Doing this
+    eagerly in a background thread means the home feed fetch doesn't pay the
+    ~200-400ms init cost on cold start.
+    """
+    if _warmup_done.is_set():
+        return
+    try:
+        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as _ydl:
+            pass
+    except Exception:
+        pass
+    finally:
+        _warmup_done.set()

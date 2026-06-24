@@ -66,6 +66,9 @@ class TermTubeApp(App):
         if theme in _VALID_THEMES and theme != "crimson":
             self.add_class(f"theme-{theme}")
 
+        # Warm up yt-dlp extractors in background so the first feed fetch is faster
+        threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
+
         # Defer housekeeping until 60 s after launch so it doesn't compete with
         # the home feed render. If the app is closed earlier, on_unmount runs
         # the same prune as a backstop.
@@ -91,6 +94,15 @@ class TermTubeApp(App):
         # before exit. Synchronous run is fine — process is exiting anyway.
         if not self._housekeeping_done.is_set():
             self._run_housekeeping()
+
+    @staticmethod
+    def _warmup_ytdlp() -> None:
+        """Background warmup of yt-dlp extractor registry."""
+        try:
+            from src.ytdlp import warmup
+            warmup()
+        except Exception:
+            pass
 
     def _launch_housekeeping(self) -> None:
         if self._housekeeping_done.is_set():
