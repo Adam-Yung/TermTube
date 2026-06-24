@@ -299,3 +299,16 @@ The bundled `yt-dlp_macos` was a PyInstaller "onefile" binary that extracted ~35
 - `ffmpeg` (binary, bootstrap.py) — format merging for downloads (called by yt-dlp internally)
 
 **Thread safety:** `YoutubeDL` is NOT thread-safe. Each concurrent operation creates its own instance, matching the old model where each worker thread spawned its own subprocess.
+
+## Why _base_opts vs _playback_opts split (Jun 2026)
+
+`_base_opts()` includes `'extractor_args': {'youtube': {'skip': ['dash', 'hls']}}` which tells yt-dlp to skip parsing DASH/HLS manifests. This is optimal for flat/metadata-only extraction (feed listing, search, channel browsing) where no stream URLs are needed — it saves ~1-2s per call.
+
+However, `resolve_stream_url()` and download functions need format data from DASH manifests to select the correct video/audio streams. Sharing `_base_opts` across all calls meant format resolution was degraded — either picking suboptimal formats or failing to find specific quality levels.
+
+**Solution:** `_playback_opts()` provides the same base configuration (cookies, deno path, quiet mode) but omits the skip directive. `resolve_stream_url()` additionally optimizes by using the fast path for audio-only formats (where DASH skip doesn't affect resolution) and the full path only for video formats.
+
+Measured impact:
+- Audio resolution: ~1.9s (fast path with skip)
+- Video resolution: ~2.4s (full path without skip)
+- Feed fetching: unchanged (still uses _base_opts with skip)
