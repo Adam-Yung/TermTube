@@ -1036,10 +1036,21 @@ class MainScreen(Screen):
                     )
                 except Exception:
                     pass
+                # Pre-resolve audio stream URL in background for instant playback
+                self._prefetch_stream_worker(vid)
         except Exception as exc:
             _logger.debug("detail_worker error for %s: %s", vid, exc)
         finally:
             self._worker_end()
+
+    @work(thread=True, exclusive=True, group="stream_prefetch")
+    def _prefetch_stream_worker(self, vid: str) -> None:
+        """Pre-resolve audio stream URL so listen/watch starts instantly."""
+        import src.ytdlp as ytdlp
+        try:
+            ytdlp.prefetch_stream_url(vid, self.app.config)
+        except Exception as exc:
+            _logger.debug("prefetch_stream error for %s: %s", vid, exc)
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
@@ -1287,16 +1298,22 @@ class MainScreen(Screen):
         title = entry.get("title", "")
         cookie_args = self.app.config.cookie_args()
 
-        # Pre-resolve the direct stream URL using bundled yt-dlp so mpv doesn't
-        # need to spawn its own yt-dlp via ytdl_hook (saves 2-5s startup delay).
+        # Use pre-cached stream URL if available (from background prefetch),
+        # otherwise resolve on-demand.
         resolved_url = None
         if not entry.get("_local_path") and vid:
             import src.ytdlp as ytdlp
             fmt = ytdl_format or "ba[format_note*=original]/ba"
-            urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
-            if urls:
-                resolved_url = urls[0]
-                _logger.debug("audio pre-resolved URL for %s", vid)
+            cached = ytdlp.get_cached_stream_url(vid, fmt)
+            if cached:
+                resolved_url = cached[0]
+                _logger.debug("audio using pre-cached URL for %s", vid)
+            else:
+                urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
+                if urls:
+                    resolved_url = urls[0]
+                    ytdlp.put_cached_stream_url(vid, fmt, urls)
+                    _logger.debug("audio resolved URL for %s", vid)
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:

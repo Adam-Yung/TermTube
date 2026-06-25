@@ -697,3 +697,51 @@ def warmup() -> None:
         pass
     finally:
         _warmup_done.set()
+
+# ── Stream URL pre-resolution cache ───────────────────────────────────────────
+
+import time as _time
+
+_stream_cache: dict[str, tuple[float, list[str]]] = {}
+_stream_cache_lock = threading.Lock()
+_STREAM_URL_TTL = 3600 * 5  # 5 hours (YouTube CDN URLs expire in ~6h)
+
+
+def get_cached_stream_url(video_id: str, format_spec: str) -> list[str] | None:
+    """Return pre-resolved stream URLs if cached and fresh, else None."""
+    key = f"{video_id}:{format_spec}"
+    with _stream_cache_lock:
+        entry = _stream_cache.get(key)
+        if entry is None:
+            return None
+        ts, urls = entry
+        if _time.time() - ts > _STREAM_URL_TTL:
+            del _stream_cache[key]
+            return None
+        return urls
+
+
+def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> None:
+    """Cache resolved stream URLs for later instant playback."""
+    key = f"{video_id}:{format_spec}"
+    with _stream_cache_lock:
+        _stream_cache[key] = (_time.time(), urls)
+        # Cap cache size (LRU eviction not needed — just cap at 20 entries)
+        if len(_stream_cache) > 20:
+            oldest_key = min(_stream_cache, key=lambda k: _stream_cache[k][0])
+            del _stream_cache[oldest_key]
+
+
+def prefetch_stream_url(video_id: str, config, format_spec: str = "ba[format_note*=original]/ba") -> None:
+    """Pre-resolve and cache a stream URL in the background.
+
+    Called by the focus-dwell worker after InnerTube metadata is fetched.
+    If the URL is already cached and fresh, this is a no-op.
+    """
+    if get_cached_stream_url(video_id, format_spec) is not None:
+        return
+    urls = resolve_stream_url(video_id, config, format_spec=format_spec)
+    if urls:
+        put_cached_stream_url(video_id, format_spec, urls)
+        logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)
+

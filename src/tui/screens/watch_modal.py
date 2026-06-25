@@ -131,15 +131,20 @@ class WatchModal(ModalScreen[bool]):
 
         cookie_args = config.cookie_args() if config else []
 
-        # Pre-resolve the direct stream URL using bundled yt-dlp so mpv doesn't
-        # need to spawn its own yt-dlp via ytdl_hook (saves 2-5s startup delay).
+        # Use pre-cached stream URL if available, otherwise resolve on-demand.
         resolved_urls: list[str] | None = None
         if not self._entry.get("_local_path") and vid and config:
             import src.ytdlp as ytdlp
             fmt = self._ytdl_format or "bv+(ba[format_note*=original]/ba)"
-            resolved_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
-            if resolved_urls:
-                _logger.debug("video pre-resolved %d URL(s) for %s", len(resolved_urls), vid)
+            cached = ytdlp.get_cached_stream_url(vid, fmt)
+            if cached:
+                resolved_urls = cached
+                _logger.debug("video using pre-cached %d URL(s) for %s", len(cached), vid)
+            else:
+                resolved_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
+                if resolved_urls:
+                    ytdlp.put_cached_stream_url(vid, fmt, resolved_urls)
+                    _logger.debug("video resolved %d URL(s) for %s", len(resolved_urls), vid)
 
         mpv_exe = player_mod._mpv_exe()
         if not mpv_exe:
