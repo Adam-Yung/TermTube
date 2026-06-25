@@ -164,8 +164,11 @@ class WatchModal(ModalScreen[bool]):
         if title:
             cmd += [f"--title={title}", f"--force-media-title={title}"]
         if resolved_urls:
-            cmd += ["--no-ytdl", "--"]
-            cmd += resolved_urls
+            cmd += ["--no-ytdl"]
+            if len(resolved_urls) == 2:
+                cmd += [f"--audio-file={resolved_urls[1]}", "--", resolved_urls[0]]
+            else:
+                cmd += ["--", resolved_urls[0]]
         else:
             if self._ytdl_format:
                 cmd += [f"--ytdl-format={self._ytdl_format}"]

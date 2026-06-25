@@ -600,7 +600,27 @@ class MainScreen(Screen):
                     stash_loaded = True
                     _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
 
-        # Step 2 — fresh fetch (skip stash IDs to avoid duplicates)
+        # Step 2 — if stash loaded and cache fresh, serve from disk (no network)
+        if stash_loaded and cache.is_feed_fresh(feed_key):
+            cached_ids = cache.get_feed(feed_key)
+            if cached_ids:
+                entries = []
+                for vid_id in cached_ids:
+                    if vid_id in stash_ids:
+                        continue
+                    if len(entries) >= _BATCH_FETCH_COUNT:
+                        break
+                    entry = cache.get_video_raw(vid_id)
+                    if entry and not is_suppressed(entry.get("id", "")):
+                        entries.append(entry)
+                if entries:
+                    for i in range(0, len(entries), _PAGE_SIZE):
+                        page_num = 2 + (i // _PAGE_SIZE)
+                        self.app.call_from_thread(panel.add_page, page_num, entries[i:i + _PAGE_SIZE])
+                    _logger.debug("feed %s: loaded %d cached entries (no network)", feed_key, len(entries))
+                    return
+
+        # Step 2b — network fetch (cache stale or missing)
         skip_ids = stash_ids if stash_loaded else set()
         entries = ytdlp.fetch_page_batch(
             ytdlp.FEED_URLS[feed_key],
