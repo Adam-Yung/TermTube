@@ -97,6 +97,12 @@ def update_ytdlp(verbose: bool = False) -> bool:
                         )
                     except OSError:
                         pass
+                    # Auto-refresh cookies after version change — YouTube
+                    # invalidates sessions when the client fingerprint changes.
+                    try:
+                        refresh_cookies(verbose=verbose)
+                    except Exception:
+                        pass
             return True
         return False
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -344,6 +350,11 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
 
         # Write new version
         (install_dir / "VERSION").write_text(latest_tag)
+        # Refresh cookies after app update (new yt-dlp version may invalidate sessions)
+        try:
+            refresh_cookies(verbose=verbose)
+        except Exception:
+            pass
         if verbose:
             _safe_print(f"  [ok] app: updated to {latest_tag}")
         return True
