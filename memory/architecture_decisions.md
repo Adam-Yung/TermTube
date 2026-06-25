@@ -312,3 +312,29 @@ Measured impact:
 - Audio resolution: ~1.9s (fast path with skip)
 - Video resolution: ~2.4s (full path without skip)
 - Feed fetching: unchanged (still uses _base_opts with skip)
+
+## Stream URL pre-resolution on focus (Jun 2026)
+
+YouTube's InnerTube /player API no longer returns `streamingData` without a Proof of Origin token (po_token). This token requires running YouTube's JavaScript challenges via Deno + yt-dlp-ejs. There is no way to get playable CDN URLs with a simple HTTP request alone.
+
+**Optimization:** Since the user typically dwells on a video for 1-3 seconds before pressing play, we pre-resolve the audio stream URL in the background immediately after the InnerTube metadata fetch completes (~220ms). By the time the user acts, the URL is already cached.
+
+**Flow:**
+1. User focuses a video → dwell timer fires (100ms)
+2. `_detail_worker` fetches InnerTube metadata (~220ms)
+3. After metadata, `_prefetch_stream_worker` resolves audio URL via yt-dlp (~2s)
+4. URL cached in `_stream_cache` (vid:format → (timestamp, urls), 5h TTL)
+5. User presses listen → `get_cached_stream_url()` returns instantly (0ms)
+6. If cache miss (rare — user acted very fast), falls back to on-demand resolve
+
+**Why audio-only prefetch:**
+- Audio format (`ba[format_note*=original]/ba`) uses the fast path with skip DASH/HLS (~1.9s)
+- Video format (`bv+(ba/ba)`) needs full DASH manifest parsing (~2.4s)
+- Listen is the most common action; video watch can tolerate 2s on cache miss
+- Keeps background network usage low (one resolve per focused video)
+
+**Cache design:**
+- Simple dict, not disk-cached (CDN URLs are time-limited, not reusable across sessions)
+- 20-entry cap with oldest-eviction (typical session focuses 10-50 videos)
+- 5h TTL (YouTube CDN URLs expire in ~6h)
+- Thread-safe via Lock (multiple workers may read/write)
