@@ -2035,6 +2035,14 @@ class MainScreen(Screen):
 
     # ── Quit ──────────────────────────────────────────────────────────────────
 
+    def on_unmount(self) -> None:
+        """Ensure stash is saved on any exit path (Ctrl+C, SIGHUP, etc.)."""
+        if self._current_tab in _FEED_TABS:
+            try:
+                self._save_feed_stash(self._current_tab)
+            except Exception:
+                pass
+
     def action_quit_app(self) -> None:
         _logger.info("user action: quit")
         if self._current_tab in _FEED_TABS:
