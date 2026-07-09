@@ -50,6 +50,7 @@ class TermTubeApp(App):
         self.config = config
         self.cache = Cache(config._data.get("cache_ttl", {}))
         self._housekeeping_done = threading.Event()
+        self.cookies_ready = threading.Event()
         atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:
@@ -65,6 +66,14 @@ class TermTubeApp(App):
         logger.debug("App mounting (theme=%s)", theme)
         if theme in _VALID_THEMES and theme != "crimson":
             self.add_class(f"theme-{theme}")
+
+        # Auto-refresh cookies from browser on startup (non-blocking).
+        # If browser is "none", skip entirely and mark ready immediately.
+        browser_cfg = self.config.get("browser", "auto")
+        if browser_cfg and browser_cfg.lower() == "none":
+            self.cookies_ready.set()
+        else:
+            threading.Thread(target=self._auto_refresh_cookies, daemon=True).start()
 
         # Warm up yt-dlp extractors in background so the first feed fetch is faster
         threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
@@ -94,6 +103,16 @@ class TermTubeApp(App):
         # before exit. Synchronous run is fine — process is exiting anyway.
         if not self._housekeeping_done.is_set():
             self._run_housekeeping()
+
+    def _auto_refresh_cookies(self) -> None:
+        """Auto-refresh cookies.txt from the user's browser on startup."""
+        try:
+            from src.updater import refresh_cookies
+            refresh_cookies(config=self.config, verbose=False)
+        except Exception as exc:
+            logger.debug("auto cookie refresh failed: %s", exc)
+        finally:
+            self.cookies_ready.set()
 
     @staticmethod
     def _warmup_ytdlp() -> None:

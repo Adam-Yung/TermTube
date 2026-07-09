@@ -318,6 +318,9 @@ class MainScreen(Screen):
 
     def _maybe_show_cookie_warning(self) -> None:
         config = self.app.config
+        browser_cfg = config.get("browser", "auto")
+        if browser_cfg and browser_cfg.lower() == "none":
+            return
         if config.cookies_file_path and config.cookies_file_path.exists():
             return
         if config.get("cookie_warning_dismissed", False):
@@ -622,6 +625,9 @@ class MainScreen(Screen):
                     return
 
         # Step 2b — network fetch (cache stale or missing)
+        # Wait for startup cookie refresh to complete (typically <1s).
+        self.app.cookies_ready.wait(timeout=10.0)
+
         skip_ids = stash_ids if stash_loaded else set()
         entries = ytdlp.fetch_page_batch(
             ytdlp.FEED_URLS[feed_key],
