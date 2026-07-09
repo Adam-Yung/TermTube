@@ -25,6 +25,7 @@ from src.tui.widgets.video_list import VideoListPanel
 
 # How many entries to fetch per batch (4 pages of 20).
 _BATCH_FETCH_COUNT = 80
+_INITIAL_FETCH_COUNT = 15
 _PAGE_SIZE = 20
 
 # ── Custom Header ─────────────────────────────────────────────────────────────
@@ -629,43 +630,64 @@ class MainScreen(Screen):
         self.app.cookies_ready.wait(timeout=10.0)
 
         skip_ids = stash_ids if stash_loaded else set()
-        entries = ytdlp.fetch_page_batch(
+
+        # Phase A: fetch a small initial batch quickly (~2-3s)
+        initial_entries = ytdlp.fetch_page_batch(
             ytdlp.FEED_URLS[feed_key],
             config,
             cache,
             skip_ids=skip_ids,
-            count=_BATCH_FETCH_COUNT,
+            count=_INITIAL_FETCH_COUNT,
             feed_key=feed_key,
         )
 
-        # Filter suppressed
         if feed_key == "home":
-            entries = [e for e in entries if not is_suppressed(e.get("id", ""))]
+            initial_entries = [e for e in initial_entries if not is_suppressed(e.get("id", ""))]
 
-        # Step 3 — split into pages (don't touch page 1 if stash is showing)
-        if not entries and not stash_loaded:
+        if not initial_entries and not stash_loaded:
             if config.cookies_file:
                 self.app.call_from_thread(self._prompt_cookie_refresh, feed_key)
             else:
                 self.app.call_from_thread(
                     panel.set_error_message,
-                    "\u26a0 Feed returned no results.\n\n"
+                    "⚠ Feed returned no results.\n\n"
                     "No cookies configured. Run:\n"
                     "  termtube --refresh-cookies",
                 )
             return
 
+        # Display initial results immediately
         start_page = 2 if stash_loaded else 1
-        for i in range(0, len(entries), _PAGE_SIZE):
+        for i in range(0, len(initial_entries), _PAGE_SIZE):
             page_num = start_page + (i // _PAGE_SIZE)
-            page_entries = entries[i:i + _PAGE_SIZE]
+            page_entries = initial_entries[i:i + _PAGE_SIZE]
             self.app.call_from_thread(panel.add_page, page_num, page_entries)
 
-        # Show page 1 if we didn't have a stash
         if not stash_loaded:
             self.app.call_from_thread(panel.load_page, 1)
 
         self.app.call_from_thread(panel.finish_loading)
+
+        # Phase B: background fill — fetch remaining entries
+        initial_ids = {e.get("id", "") for e in initial_entries if e.get("id")}
+        remaining_skip = skip_ids | initial_ids
+        remaining_count = _BATCH_FETCH_COUNT - len(initial_entries)
+        if remaining_count > 0:
+            more_entries = ytdlp.fetch_page_batch(
+                ytdlp.FEED_URLS[feed_key],
+                config,
+                cache,
+                skip_ids=remaining_skip,
+                count=remaining_count,
+                feed_key=feed_key,
+            )
+            if feed_key == "home":
+                more_entries = [e for e in more_entries if not is_suppressed(e.get("id", ""))]
+            if more_entries:
+                next_page = start_page + ((len(initial_entries) + _PAGE_SIZE - 1) // _PAGE_SIZE)
+                for i in range(0, len(more_entries), _PAGE_SIZE):
+                    page_num = next_page + (i // _PAGE_SIZE)
+                    self.app.call_from_thread(panel.add_page, page_num, more_entries[i:i + _PAGE_SIZE])
 
         # Prune cache to cap
         try:
