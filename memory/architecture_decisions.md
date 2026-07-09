@@ -338,3 +338,43 @@ YouTube's InnerTube /player API no longer returns `streamingData` without a Proo
 - 20-entry cap with oldest-eviction (typical session focuses 10-50 videos)
 - 5h TTL (YouTube CDN URLs expire in ~6h)
 - Thread-safe via Lock (multiple workers may read/write)
+
+## Auto-refresh cookies on startup (Jul 2026)
+
+The `cookies.txt` file would go stale between sessions, requiring manual refresh.
+Rather than using `cookiesfrombrowser` at runtime (per-call overhead, locks browser DB),
+the app now auto-refreshes `cookies.txt` from the browser on every startup:
+
+1. `TermTubeApp.on_mount()` spawns a daemon thread that calls `refresh_cookies()`
+2. `cookies_ready` threading.Event is set when refresh completes (or fails)
+3. The feed fetch worker waits on this event (max 10s) before making network calls
+4. If refresh fails, existing cookies.txt is preserved as fallback (atomic writes)
+
+**`browser: none` semantics:**
+- Setting `browser` to `"none"` in config.yaml opts out entirely
+- No cookie refresh, no CookieWarningModal, no cookiefile passed to yt-dlp
+- App runs unauthenticated (generic YouTube results only)
+
+## Two-phase feed fetch for perceived speed (Jul 2026)
+
+The home feed now fetches in two phases:
+- **Phase A** (fast, ~2-3s): Fetch 15 entries, display immediately
+- **Phase B** (background): Fetch remaining 65 entries, append as additional pages
+
+Previously, all 80 entries were fetched in a single yt-dlp call (~8-12s) before
+anything was displayed. The two-phase approach shows content to the user within 3s
+while continuing to fill the scroll buffer.
+
+Combined with IPv4 forcing, geo_bypass, and `approximate_date`, this matches
+the user's proven shell benchmark of 10-15 videos in 2.3-2.8 seconds.
+
+## Play-pending guard for audio race condition (Jul 2026)
+
+Between `_start_audio()` and the actual mpv subprocess spawn (1-3s for URL
+resolution), `_audio_proc` is None. The previous guard `_audio_playing` only
+checked `_audio_proc.poll()`, so a second play press could slip through.
+
+Fix: `_play_pending` boolean is set immediately in `_start_audio` and included
+in the `_audio_playing` property check. It's cleared on all exit paths:
+subprocess spawn, mpv not found, OS error, session mismatch. This makes the
+guard airtight without needing busy-wait or queueing.
