@@ -186,6 +186,13 @@ def fetch_page_batch(
     opts = _base_opts(config)
     opts['extract_flat'] = 'in_playlist'
     opts['lazy_playlist'] = True
+    opts['source_address'] = '0.0.0.0'
+    opts['geo_bypass'] = True
+    opts['playlistend'] = count
+    opts['extractor_args'] = {
+        'youtube': {'skip': ['dash', 'hls']},
+        'youtubetab': {'approximate_date': ['']},
+    }
 
     results: list[dict] = []
     all_ids: list[str] = []
@@ -267,6 +274,13 @@ def fetch_search_batch(
     opts = _base_opts(config)
     opts['extract_flat'] = 'in_playlist'
     opts['lazy_playlist'] = True
+    opts['source_address'] = '0.0.0.0'
+    opts['geo_bypass'] = True
+    opts['playlistend'] = count
+    opts['extractor_args'] = {
+        'youtube': {'skip': ['dash', 'hls']},
+        'youtubetab': {'approximate_date': ['']},
+    }
 
     results: list[dict] = []
     all_ids: list[str] = []
@@ -539,6 +553,13 @@ def fetch_channel_playlists(
     opts = _base_opts(config)
     opts['extract_flat'] = 'in_playlist'
     opts['lazy_playlist'] = True
+    opts['source_address'] = '0.0.0.0'
+    opts['geo_bypass'] = True
+    opts['playlistend'] = count
+    opts['extractor_args'] = {
+        'youtube': {'skip': ['dash', 'hls']},
+        'youtubetab': {'approximate_date': ['']},
+    }
 
     results: list[dict] = []
     cancel = _new_cancel_event()
@@ -585,6 +606,13 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     opts = _base_opts(config)
     opts['extract_flat'] = 'in_playlist'
     opts['lazy_playlist'] = True
+    opts['source_address'] = '0.0.0.0'
+    opts['geo_bypass'] = True
+    opts['playlistend'] = count
+    opts['extractor_args'] = {
+        'youtube': {'skip': ['dash', 'hls']},
+        'youtubetab': {'approximate_date': ['']},
+    }
     opts['socket_timeout'] = 60
 
     results: list[dict] = []
