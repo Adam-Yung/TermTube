@@ -244,6 +244,7 @@ class MainScreen(Screen):
         self._audio_poll_timer = None
         self._audio_queue: list[dict] = []
         self._audio_session: int = 0
+        self._play_pending: bool = False
         self._sb_segments: list = []
         self._sb_skipped: set[int] = set()
         self._sb_next_idx: int = 0  # sorted-pointer for O(1) segment scan
@@ -1211,7 +1212,7 @@ class MainScreen(Screen):
 
     @property
     def _audio_playing(self) -> bool:
-        return self._audio_proc is not None and self._audio_proc.poll() is None
+        return self._play_pending or (self._audio_proc is not None and self._audio_proc.poll() is None)
 
     def _action_bar(self) -> ActionBar:
         return self.query_one("#detail-panel", DetailPanel).action_bar
@@ -1222,6 +1223,7 @@ class MainScreen(Screen):
                 "Audio already playing — press s to stop first.", severity="warning"
             )
             return
+        self._play_pending = True
         self._audio_entry = entry
         self._audio_stopped = False
         self._audio_session += 1
@@ -1238,6 +1240,7 @@ class MainScreen(Screen):
     def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
         self._log("[dim]Audio stop[/dim]")
         self._audio_stopped = True
+        self._play_pending = False
         self._sb_segments = []
         self._sb_skipped = set()
         self._sb_next_idx = 0
@@ -1275,6 +1278,7 @@ class MainScreen(Screen):
 
         # Bail if a newer session already started (e.g. user skipped before we ran)
         if self._audio_stopped or session != self._audio_session:
+            self._play_pending = False
             return
 
         vid = entry.get("id", "")
@@ -1317,6 +1321,7 @@ class MainScreen(Screen):
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
+            self._play_pending = False
             from src.plat import install_hint, IS_WINDOWS
             hint = (
                 "run 'termtube --update' to install a standalone headless mpv.exe. "
@@ -1372,6 +1377,7 @@ class MainScreen(Screen):
                 text=True,
                 **get_popen_kwargs(headless=True),
             )
+            self._play_pending = False
             ProcessRegistry.get().register(self._audio_proc)
             proc = self._audio_proc
             from src import history
@@ -1384,6 +1390,7 @@ class MainScreen(Screen):
                 stderr_text = ""
             returncode = proc.returncode
         except FileNotFoundError:
+            self._play_pending = False
             from src.plat import install_hint
             hint = install_hint('mpv')
             self.app.call_from_thread(
@@ -1397,6 +1404,7 @@ class MainScreen(Screen):
             self.app.call_from_thread(self._stop_audio)
             return
         except OSError as exc:
+            self._play_pending = False
             self.app.call_from_thread(
                 self._log, f"[red]Error: failed to launch mpv: {exc}[/red]"
             )
