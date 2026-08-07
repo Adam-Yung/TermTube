@@ -120,7 +120,7 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
         print(f"    Downloading {label}...", flush=True)
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 total = int(resp.headers.get("Content-Length", 0))
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 downloaded = 0
@@ -135,6 +135,15 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
                     print(f"\r    Downloading {label}... done ({downloaded // 1024 // 1024}MB)", flush=True)
                 else:
                     print(f"    Downloaded {label} ({downloaded // 1024 // 1024}MB)", flush=True)
+
+            # Validate download completeness before accepting the file
+            if total > 0 and downloaded < total:
+                print(f"    [!] Incomplete download: got {downloaded} of {total} bytes", flush=True)
+                tmp_dest.unlink(missing_ok=True)
+                if attempt == retries:
+                    return False
+                continue
+
             os.replace(tmp_dest, dest)
             return True
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
