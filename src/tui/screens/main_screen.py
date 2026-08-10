@@ -601,68 +601,68 @@ class MainScreen(Screen):
                     _logger.debug("feed %s: loaded %d cached entries (no network)", feed_key, len(entries))
                     return
 
-        # Step 2b — network fetch (cache stale or missing)
-        # Wait for startup cookie refresh to complete (typically <1s).
+        # Single network fetch with progressive display
         skip_ids = stash_ids if stash_loaded else set()
+        start_page = 2 if stash_loaded else 1
+        first_batch_displayed = False
 
-        # Phase A: fetch a small initial batch quickly (~2-3s)
-        initial_entries = ytdlp.fetch_page_batch(
+        def _on_first_batch(entries: list[dict]) -> None:
+            nonlocal first_batch_displayed
+            batch = entries
+            if feed_key == "home":
+                batch = [e for e in batch if not is_suppressed(e.get('id', ''))]
+            if batch:
+                for i in range(0, len(batch), _PAGE_SIZE):
+                    page_num = start_page + (i // _PAGE_SIZE)
+                    self.app.call_from_thread(panel.add_page, page_num, batch[i:i + _PAGE_SIZE])
+                if not stash_loaded:
+                    self.app.call_from_thread(panel.load_page, 1)
+                self.app.call_from_thread(panel.finish_loading)
+                first_batch_displayed = True
+
+        all_entries = ytdlp.fetch_page_batch(
             ytdlp.FEED_URLS[feed_key],
             config,
             cache,
             skip_ids=skip_ids,
-            count=_INITIAL_FETCH_COUNT,
+            count=_BATCH_FETCH_COUNT,
             feed_key=feed_key,
+            on_first_batch=_on_first_batch,
+            first_batch_size=_INITIAL_FETCH_COUNT,
         )
 
         if feed_key == "home":
-            initial_entries = [e for e in initial_entries if not is_suppressed(e.get("id", ""))]
+            all_entries = [e for e in all_entries if not is_suppressed(e.get('id', ''))]
 
-        if not initial_entries and not stash_loaded:
+        if not all_entries and not stash_loaded:
             browser = config.get("browser", "auto")
             if browser and browser.lower() != "none":
                 self.app.call_from_thread(self._prompt_cookie_refresh, feed_key)
             else:
                 self.app.call_from_thread(
                     panel.set_error_message,
-                    "⚠ Feed returned no results.\n\n"
+                    "\u26a0 Feed returned no results.\n\n"
                     "Browser is set to none (unauthenticated mode).\n"
                     "Set a browser in Settings to enable authenticated feeds.",
                 )
             return
 
-        # Display initial results immediately
-        start_page = 2 if stash_loaded else 1
-        for i in range(0, len(initial_entries), _PAGE_SIZE):
-            page_num = start_page + (i // _PAGE_SIZE)
-            page_entries = initial_entries[i:i + _PAGE_SIZE]
-            self.app.call_from_thread(panel.add_page, page_num, page_entries)
-
-        if not stash_loaded:
-            self.app.call_from_thread(panel.load_page, 1)
-
-        self.app.call_from_thread(panel.finish_loading)
-
-        # Phase B: background fill — fetch remaining entries
-        initial_ids = {e.get("id", "") for e in initial_entries if e.get("id")}
-        remaining_skip = skip_ids | initial_ids
-        remaining_count = _BATCH_FETCH_COUNT - len(initial_entries)
-        if remaining_count > 0:
-            more_entries = ytdlp.fetch_page_batch(
-                ytdlp.FEED_URLS[feed_key],
-                config,
-                cache,
-                skip_ids=remaining_skip,
-                count=remaining_count,
-                feed_key=feed_key,
-            )
-            if feed_key == "home":
-                more_entries = [e for e in more_entries if not is_suppressed(e.get("id", ""))]
-            if more_entries:
-                next_page = start_page + ((len(initial_entries) + _PAGE_SIZE - 1) // _PAGE_SIZE)
-                for i in range(0, len(more_entries), _PAGE_SIZE):
+        # Display remaining entries beyond the first batch
+        if first_batch_displayed:
+            remaining = all_entries[_INITIAL_FETCH_COUNT:]
+            if remaining:
+                next_page = start_page + ((_INITIAL_FETCH_COUNT + _PAGE_SIZE - 1) // _PAGE_SIZE)
+                for i in range(0, len(remaining), _PAGE_SIZE):
                     page_num = next_page + (i // _PAGE_SIZE)
-                    self.app.call_from_thread(panel.add_page, page_num, more_entries[i:i + _PAGE_SIZE])
+                    self.app.call_from_thread(panel.add_page, page_num, remaining[i:i + _PAGE_SIZE])
+        else:
+            # First batch callback never fired (less than first_batch_size entries)
+            for i in range(0, len(all_entries), _PAGE_SIZE):
+                page_num = start_page + (i // _PAGE_SIZE)
+                self.app.call_from_thread(panel.add_page, page_num, all_entries[i:i + _PAGE_SIZE])
+            if not stash_loaded:
+                self.app.call_from_thread(panel.load_page, 1)
+            self.app.call_from_thread(panel.finish_loading)
 
         # Prune cache to cap
         try:

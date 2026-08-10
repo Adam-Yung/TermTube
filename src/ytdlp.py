@@ -163,12 +163,18 @@ def fetch_page_batch(
     skip_ids: set[str] | None = None,
     count: int = 80,
     feed_key: str | None = None,
+    on_first_batch: "Callable[[list[dict]], None] | None" = None,
+    first_batch_size: int = 15,
 ) -> list[dict]:
     """Fetch up to `count` entries from a URL, skipping IDs in skip_ids.
 
     Used by the paged feed system. Returns a flat list of entry dicts.
     Caches each entry individually. Optionally saves the feed index.
     This is a blocking call meant to run in a background thread.
+
+    If *on_first_batch* is provided, it is called with the first
+    *first_batch_size* entries as soon as they are available, allowing
+    progressive display while the rest of the fetch continues.
     """
     if skip_ids is None:
         skip_ids = set()
@@ -234,6 +240,9 @@ def fetch_page_batch(
                         if vid:
                             all_ids.append(vid)
                         results.append(entry)
+                        if on_first_batch and len(results) == first_batch_size:
+                            on_first_batch(list(results))
+                            on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("fetch_page_batch error: %s", exc)
 
@@ -320,6 +329,9 @@ def fetch_search_batch(
                         if vid:
                             all_ids.append(vid)
                         results.append(entry)
+                        if on_first_batch and len(results) == first_batch_size:
+                            on_first_batch(list(results))
+                            on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("fetch_search_batch error: %s", exc)
 
