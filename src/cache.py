@@ -38,13 +38,12 @@ _ensure_dirs()
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write text to path atomically via a tmp file + fsync + os.replace()."""
+    """Write text to path atomically via a tmp file + os.replace()."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
         try:
             os.write(fd, text.encode("utf-8"))
-            os.fsync(fd)
         finally:
             os.close(fd)
         os.replace(tmp, path)
