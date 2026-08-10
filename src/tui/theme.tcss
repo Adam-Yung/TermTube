@@ -510,9 +510,6 @@ ImageWarningModal {
 }
 
 /* ── Cookie Warning Modal ───────────────────────────────────────────────── */
-CookieWarningModal {
-    align: center middle;
-}
 
 #cookiewarn-dialog {
     width: 56;

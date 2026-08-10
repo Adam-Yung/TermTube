@@ -1,19 +1,20 @@
 # Active Context
 
 ## Current Task: COMPLETED
-Fix playback race condition, cookies staleness, and home feed speed.
+Cookie system rewrite + feed speed optimization.
 
 ## What Was Done
-- Added `_play_pending` flag to prevent audio race condition when play is pressed before URL resolves
-- Auto-refresh cookies.txt from browser on app startup (non-blocking, before first feed fetch)
-- Respect `browser: none` config to disable all cookie operations
-- Added yt-dlp optimizations: IPv4 forcing, geo_bypass, approximate_date, playlistend
-- Two-phase feed fetch: 15 entries fast (~2-3s), then background fill to 80
-- Ensured stash saves on all exit paths (on_unmount backstop for Ctrl+C / SIGHUP)
+- Eliminated cookies.txt entirely — yt-dlp now uses `cookiesfrombrowser` on every call
+- Browser auto-detection via `src.browsers`; user can set `browser: none` to disable
+- Removed: cookies_ready Event, _auto_refresh_cookies, CookieWarningModal, cookie_args()
+- Added `browser_cookie_args()` on Config for mpv passthrough
+- Removed os.fsync() from cache atomic writes (was adding 30-60ms × N entries)
+- Single-fetch architecture: one yt-dlp call for 80 entries with progressive callback at 15
+- Changed home feed URL from /feed/recommended to https://www.youtube.com/ (proven faster)
 
 ## Key Technical Notes
-- `_play_pending` is set immediately in `_start_audio` and checked in `_audio_playing` property
-- Cookie auto-refresh uses a `threading.Event` (`cookies_ready`) to coordinate with feed fetch
-- Feed fetch waits max 10s for cookies, but stash is displayed before the wait
-- `approximate_date` extractor arg avoids exact upload date resolution (big speedup)
-- `source_address: '0.0.0.0'` forces IPv4 (avoids IPv6 timeout fallback on some networks)
+- `_play_pending` flag still guards audio race condition (from prior work)
+- `on_first_batch` callback in `fetch_page_batch` fires at first_batch_size entries
+- `cookiesfrombrowser` tuple format: `(browser_name, None, None, None)`
+- If browser extraction fails, yt-dlp continues unauthenticated (no crash)
+- `approximate_date` + `source_address: '0.0.0.0'` + `playlistend` for speed

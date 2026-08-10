@@ -143,27 +143,17 @@ Key decisions:
 - **`urllib.request` (stdlib) instead of `httpx`/`requests`** — zero new dependencies. 3-second timeout so a slow/down API doesn't block playback start noticeably.
 - **Configuration is a nested dict (`sponsorblock:` key in config.yaml)** — mirrors the `cache_ttl` pattern. Deep-merged on load so partial user overrides don't clobber other defaults.
 
-## Why we removed per-request browser fallback (May 2026)
+## Why we use cookiesfrombrowser on every call (Jul 2026)
 
-`Config.cookie_args` previously had an `auth_required` parameter that gated
-`--cookies-from-browser` at runtime. This was fragile: browser cookie stores
-could be locked, the configured browser might not be installed, and the
-extraction could hang. The regression in `392109a` made it worse by scoping
-the browser fallback to auth-required pages only, but non-auth pages lost
-it even when cookies.txt was also missing.
+Previously we maintained a cookies.txt file and refreshed it periodically.
+This was fragile: the file would go stale between sessions, refresh could
+fail silently, and the startup refresh added 1-3s to cold start.
 
-The new model is simpler:
-- `Config.cookie_args()` returns `["--cookies", path]` if cookies.txt exists,
-  else `[]`. No `auth_required` parameter. Never `--cookies-from-browser`.
-- Browser extraction is handled exclusively by `updater.refresh_cookies()`,
-  which runs on the weekly update cadence (and can be triggered manually via
-  `termtube --refresh-cookies`). It writes to a `.tmp` file and atomically
-  renames on success, preserving existing cookies on failure.
-- All call sites collapse to a simple `*cookie_args(config)`.
-
-This is a "single source of truth" design: the cookies file at
-`~/.config/TermTube/cookies.txt` is either there or not. No runtime
-probing, no per-caller policy decisions.
+The current model passes `cookiesfrombrowser` directly on every yt-dlp call.
+yt-dlp reads the browser's SQLite cookie database inline. If extraction
+fails (browser not installed, profile locked, etc.), yt-dlp continues
+without cookies — it does not crash. This trades a small per-call overhead
+(~50ms to read the cookie DB) for guaranteed freshness and zero infrastructure.
 
 ## Why mpv.net is rejected for headless audio on Windows (May 2026)
 
@@ -339,34 +329,35 @@ YouTube's InnerTube /player API no longer returns `streamingData` without a Proo
 - 5h TTL (YouTube CDN URLs expire in ~6h)
 - Thread-safe via Lock (multiple workers may read/write)
 
-## Auto-refresh cookies on startup (Jul 2026)
+## Pure cookiesfrombrowser (Jul 2026 rewrite)
 
-The `cookies.txt` file would go stale between sessions, requiring manual refresh.
-Rather than using `cookiesfrombrowser` at runtime (per-call overhead, locks browser DB),
-the app now auto-refreshes `cookies.txt` from the browser on every startup:
-
-1. `TermTubeApp.on_mount()` spawns a daemon thread that calls `refresh_cookies()`
-2. `cookies_ready` threading.Event is set when refresh completes (or fails)
-3. The feed fetch worker waits on this event (max 10s) before making network calls
-4. If refresh fails, existing cookies.txt is preserved as fallback (atomic writes)
+cookies.txt has been eliminated entirely. Every yt-dlp call passes
+`cookiesfrombrowser: (browser, None, None, None)` which reads the browser's
+cookie store directly. This avoids staleness (always fresh cookies) and
+removes all refresh infrastructure (threading.Event, auto-refresh daemon,
+CookieWarningModal, cookie_args(), cookies_file config key).
 
 **`browser: none` semantics:**
 - Setting `browser` to `"none"` in config.yaml opts out entirely
-- No cookie refresh, no CookieWarningModal, no cookiefile passed to yt-dlp
+- No cookiesfrombrowser option passed to yt-dlp
 - App runs unauthenticated (generic YouTube results only)
+- If browser extraction fails for any reason, yt-dlp continues unauthenticated
 
-## Two-phase feed fetch for perceived speed (Jul 2026)
+**Browser auto-detection:** When `browser` is `"auto"` (default), the app
+calls `detect_installed_browsers()` and picks the first match. For mpv
+passthrough, `Config.browser_cookie_args()` returns CLI-style args.
 
-The home feed now fetches in two phases:
-- **Phase A** (fast, ~2-3s): Fetch 15 entries, display immediately
-- **Phase B** (background): Fetch remaining 65 entries, append as additional pages
+## Single-fetch with progressive callback (Jul 2026 rewrite)
 
-Previously, all 80 entries were fetched in a single yt-dlp call (~8-12s) before
-anything was displayed. The two-phase approach shows content to the user within 3s
-while continuing to fill the scroll buffer.
+The home feed uses a single yt-dlp call for 80 entries. The `on_first_batch`
+callback fires after 15 entries arrive, immediately displaying them while the
+remaining 65 stream in from the same network session. This eliminates the
+duplicate handshake/auth overhead of the prior two-phase approach (two separate
+`extract_info` calls).
 
-Combined with IPv4 forcing, geo_bypass, and `approximate_date`, this matches
-the user's proven shell benchmark of 10-15 videos in 2.3-2.8 seconds.
+Feed URL changed from `/feed/recommended` to `https://www.youtube.com/` which
+matches the user's proven benchmark. Combined with IPv4 forcing, geo_bypass,
+`approximate_date`, and no-fsync cache writes, cold start to content is ~2.5-3s.
 
 ## Play-pending guard for audio race condition (Jul 2026)
 
