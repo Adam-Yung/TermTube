@@ -130,11 +130,8 @@ def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser
     if config is None:
         config = _load_config_lazy()
 
-    path = config.cookies_file_path
-    if path is None:
-        if verbose:
-            print("  No cookies_file configured -- skipping cookie refresh.")
-        return False
+    from pathlib import Path
+    path = Path(config.get("config_dir", "~/.config/TermTube")).expanduser() / "cookies.txt"
 
     from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
 

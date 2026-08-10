@@ -129,7 +129,7 @@ class WatchModal(ModalScreen[bool]):
         )
         title = self._entry.get("title", "")
 
-        cookie_args = config.cookie_args() if config else []
+        cookie_args = config.browser_cookie_args() if config else []
 
         # Use pre-cached stream URL if available, otherwise resolve on-demand.
         resolved_urls: list[str] | None = None

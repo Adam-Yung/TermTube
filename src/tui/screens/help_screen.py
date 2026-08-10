@@ -97,7 +97,7 @@ _HELP_CONTENT = """\
 [bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
   [{COLOR}]browser[/{COLOR}]           chrome / firefox / brave  (for yt-dlp auth)
-  [{COLOR}]cookies_file[/{COLOR}]      Path to Netscape cookies.txt (takes priority)
+  [{COLOR}]browser[/{COLOR}]           Browser for cookie extraction (auto/none/firefox/chrome/...)
   [{COLOR}]preferred_quality[/{COLOR}] best / 1080 / 720 / 480 / 360
   [{COLOR}]thumbnail_format[/{COLOR}]  auto (default) / symbols / ascii
                        auto/symbols = high-quality Unicode block art (always works)

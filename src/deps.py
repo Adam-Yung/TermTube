@@ -70,7 +70,7 @@ def _build_cookies_help() -> str:
         f"\n"
         f"  Skip cookies.txt and set in {conf}:\n"
         f"\n"
-        f"    cookies_file: null\n"
+        f"    browser: auto\n"
         f"    browser: chrome\n"
         f"\n"
         f"  You must be logged into YouTube in that browser.\n"

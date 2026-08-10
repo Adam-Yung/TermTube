@@ -311,32 +311,8 @@ class MainScreen(Screen):
                 if never_show:
                     self.app.config._data["thumbnail_warning_dismissed"] = True
                     self.app.config.save()
-                self._maybe_show_cookie_warning()
 
             self.app.push_screen(ImageWarningModal(), _on_image_done)
-        else:
-            self._maybe_show_cookie_warning()
-
-    def _maybe_show_cookie_warning(self) -> None:
-        config = self.app.config
-        browser_cfg = config.get("browser", "auto")
-        if browser_cfg and browser_cfg.lower() == "none":
-            return
-        if config.cookies_file_path and config.cookies_file_path.exists():
-            return
-        if config.get("cookie_warning_dismissed", False):
-            return
-
-        from src.tui.screens.cookie_warning_modal import CookieWarningModal
-
-        def _on_cookie_done(choice: str) -> None:
-            if choice == "cookiewarn-now":
-                self._run_cookie_refresh_now()
-            elif choice == "cookiewarn-never":
-                config._data["cookie_warning_dismissed"] = True
-                config.save()
-
-        self.app.push_screen(CookieWarningModal(), _on_cookie_done)
 
     @work(thread=True)
     def _run_cookie_refresh_now(self, *, reload_tab: str | None = None) -> None:
@@ -627,8 +603,6 @@ class MainScreen(Screen):
 
         # Step 2b — network fetch (cache stale or missing)
         # Wait for startup cookie refresh to complete (typically <1s).
-        self.app.cookies_ready.wait(timeout=10.0)
-
         skip_ids = stash_ids if stash_loaded else set()
 
         # Phase A: fetch a small initial batch quickly (~2-3s)
@@ -645,14 +619,15 @@ class MainScreen(Screen):
             initial_entries = [e for e in initial_entries if not is_suppressed(e.get("id", ""))]
 
         if not initial_entries and not stash_loaded:
-            if config.cookies_file:
+            browser = config.get("browser", "auto")
+            if browser and browser.lower() != "none":
                 self.app.call_from_thread(self._prompt_cookie_refresh, feed_key)
             else:
                 self.app.call_from_thread(
                     panel.set_error_message,
                     "⚠ Feed returned no results.\n\n"
-                    "No cookies configured. Run:\n"
-                    "  termtube --refresh-cookies",
+                    "Browser is set to none (unauthenticated mode).\n"
+                    "Set a browser in Settings to enable authenticated feeds.",
                 )
             return
 
@@ -699,17 +674,18 @@ class MainScreen(Screen):
         import src.ytdlp as ytdlp
         entries = ytdlp.fetch_subscribed_channels(config, cache)
         if not entries:
-            if config.cookies_file:
+            browser = config.get("browser", "auto")
+            if browser and browser.lower() != "none":
                 self.app.call_from_thread(
                     panel.set_empty_message,
-                    "No subscriptions found. Your cookies may be expired.\n"
-                    "Run: termtube --refresh-cookies",
+                    "No subscriptions found.\n"
+                    "Check Settings > Cookie Browser.",
                 )
             else:
                 self.app.call_from_thread(
                     panel.set_empty_message,
                     "No subscriptions found.\n"
-                    "No cookies configured. Run: termtube --refresh-cookies",
+                    "Browser is set to none. Set a browser in Settings.",
                 )
             return
         self.app.call_from_thread(self._apply_channel_mode_to_detail)
@@ -1328,7 +1304,7 @@ class MainScreen(Screen):
 
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
-        cookie_args = self.app.config.cookie_args()
+        cookie_args = self.app.config.browser_cookie_args()
 
         # Use pre-cached stream URL if available (from background prefetch),
         # otherwise resolve on-demand.

@@ -36,9 +36,14 @@ def _base_opts(config) -> dict:
     }
     if deno_path.exists():
         opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
-    cf = config.cookies_file
-    if cf:
-        opts['cookiefile'] = str(cf)
+    browser = config.get("browser", "auto")
+    if browser and browser.lower() != "none":
+        from src.browsers import detect_installed_browsers, is_auto_browser
+        if is_auto_browser(browser):
+            detected = detect_installed_browsers()
+            browser = detected[0]["name"] if detected else None
+        if browser:
+            opts['cookiesfrombrowser'] = (browser, None, None, None)
     return opts
 
 
@@ -61,9 +66,14 @@ def _playback_opts(config) -> dict:
     }
     if deno_path.exists():
         opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
-    cf = config.cookies_file
-    if cf:
-        opts['cookiefile'] = str(cf)
+    browser = config.get("browser", "auto")
+    if browser and browser.lower() != "none":
+        from src.browsers import detect_installed_browsers, is_auto_browser
+        if is_auto_browser(browser):
+            detected = detect_installed_browsers()
+            browser = detected[0]["name"] if detected else None
+        if browser:
+            opts['cookiesfrombrowser'] = (browser, None, None, None)
     return opts
 
 

@@ -10,7 +10,6 @@ _CONFIG_DIR = get_config_dir()
 _DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
 
 DEFAULT_CONFIG: dict = {
-    "cookies_file": str(_CONFIG_DIR / "cookies.txt"),
     "browser": "auto",
     "video_dir": str(Path.home() / "Documents" / "TermTube" / "Video"),
     "audio_dir": str(Path.home() / "Documents" / "TermTube" / "Audio"),
@@ -79,30 +78,18 @@ class Config:
             loaded.pop("sponsorblock")
         self._data.update(loaded)
 
-    # ── Cookie resolution ────────────────────────────────────────────────────
-
-    def cookie_args(self) -> list[str]:
-        """Return yt-dlp cookie flags: ``--cookies <path>`` if the file exists, else nothing.
-
-        Browser extraction is handled exclusively by the refresher
-        (``updater.refresh_cookies``), never at runtime.
-        """
-        cf = self.cookies_file
-        return ["--cookies", str(cf)] if cf else []
-
-    @property
-    def cookies_file(self) -> Path | None:
-        raw = self._data.get("cookies_file")
-        if not raw:
-            return None
-        p = Path(raw).expanduser()
-        return p if p.exists() else None
-
-    @property
-    def cookies_file_path(self) -> Path | None:
-        """Configured path even if it doesn't exist yet (for display)."""
-        raw = self._data.get("cookies_file")
-        return Path(raw).expanduser() if raw else None
+    def browser_cookie_args(self) -> list[str]:
+        """Return yt-dlp CLI cookie flags for mpv passthrough."""
+        browser = self.get("browser", "auto")
+        if not browser or browser.lower() == "none":
+            return []
+        from src.browsers import detect_installed_browsers, is_auto_browser
+        if is_auto_browser(browser):
+            detected = detect_installed_browsers()
+            browser = detected[0]["name"] if detected else None
+        if browser:
+            return ["--cookies-from-browser", browser]
+        return []
 
     # ── Convenience properties ────────────────────────────────────────────────
 

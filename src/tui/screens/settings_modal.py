@@ -98,24 +98,11 @@ class SettingsModal(ModalScreen[None]):
             tfl.append(item)
 
         # Cookie status subtitle
-        import time
-        from src.tui.fmt import fmt_age_seconds
-        cf_path = config.cookies_file_path
-        cf_exists = cf_path.exists() if cf_path else False
-        if cf_exists:
-            try:
-                age_s = time.time() - cf_path.stat().st_mtime
-                age_str = fmt_age_seconds(age_s)
-            except OSError:
-                age_str = "unknown"
-            cookie_line = f"  [dim]cookies.txt:[/dim] [green]{cf_path}[/green]  ·  refreshed {age_str}"
-        elif cf_path:
-            cookie_line = (
-                "  [dim]cookies.txt:[/dim] [yellow]not found[/yellow]"
-                "  ·  run [bold]termtube --refresh-cookies[/bold]"
-            )
+        cur_browser = config.get("browser", "auto")
+        if cur_browser and cur_browser.lower() != "none":
+            cookie_line = f"  [dim]mode:[/dim] [green]cookies from browser[/green] ({cur_browser})"
         else:
-            cookie_line = "  [dim]cookies.txt:[/dim] [yellow]not configured[/yellow]"
+            cookie_line = "  [dim]mode:[/dim] [yellow]none (unauthenticated)[/yellow]"
         self.query_one("#s-cookie-status", Static).update(cookie_line)
 
         # Browser list — dynamically populated from detected browsers
