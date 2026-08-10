@@ -314,45 +314,6 @@ class MainScreen(Screen):
 
             self.app.push_screen(ImageWarningModal(), _on_image_done)
 
-    @work(thread=True)
-    def _run_cookie_refresh_now(self, *, reload_tab: str | None = None) -> None:
-        from src.updater import refresh_cookies
-        success = refresh_cookies(self.app.config, verbose=False)
-        if success:
-            if reload_tab:
-                self.app.call_from_thread(
-                    self.notify, "Cookies refreshed \u2014 reloading feed\u2026", timeout=4
-                )
-                self.app.call_from_thread(self._load_view, reload_tab)
-            else:
-                self.app.call_from_thread(
-                    self.notify, "Cookies refreshed successfully.", timeout=5
-                )
-        else:
-            self.app.call_from_thread(
-                self.notify, "Cookie refresh failed. Try: termtube --refresh-cookies",
-                severity="error", timeout=6,
-            )
-
-    def _prompt_cookie_refresh(self, feed_key: str) -> None:
-        """Push FeedErrorModal and handle cookie refresh on user confirmation."""
-        from src.tui.screens.feed_error_modal import FeedErrorModal
-
-        def _on_result(choice: str) -> None:
-            if choice == "refresh":
-                self._run_cookie_refresh_now(reload_tab=feed_key)
-            elif choice == "update":
-                self._run_ytdlp_update(reload_tab=feed_key)
-            else:
-                panel = self.query_one("#video-list-panel")
-                panel.set_error_message(
-                    "\u26a0 Feed returned no results.\n\n"
-                    "Cookies may be expired. Run:\n"
-                    "  termtube --refresh-cookies"
-                )
-
-        self.app.push_screen(FeedErrorModal(), _on_result)
-
     def _prompt_ytdlp_update(self, feed_key: str, error_detail: str = "") -> None:
         """Push YtdlpUpdateModal and handle update on user confirmation."""
         from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal
@@ -637,7 +598,12 @@ class MainScreen(Screen):
         if not all_entries and not stash_loaded:
             browser = config.get("browser", "auto")
             if browser and browser.lower() != "none":
-                self.app.call_from_thread(self._prompt_cookie_refresh, feed_key)
+                self.app.call_from_thread(
+                    panel.set_error_message,
+                    "⚠ Feed returned no results.\n\n"
+                    "Browser cookie extraction may have failed.\n"
+                    "Check Settings > Cookie Browser or try updating yt-dlp.",
+                )
             else:
                 self.app.call_from_thread(
                     panel.set_error_message,
