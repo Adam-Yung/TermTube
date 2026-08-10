@@ -113,7 +113,7 @@ _MAX_RETRIES = 1
 _RETRY_DELAY_S = 2.0
 
 FEED_URLS = {
-    "home":          "https://www.youtube.com/feed/recommended",
+    "home":          "https://www.youtube.com/",
     "subscriptions": "https://www.youtube.com/feed/subscriptions",
 }
 
