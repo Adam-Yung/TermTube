@@ -77,6 +77,8 @@ class Config:
             self._data["sponsorblock"].update(loaded["sponsorblock"])
             loaded.pop("sponsorblock")
         self._data.update(loaded)
+        # Strip deprecated keys from old configs
+        self._data.pop("cookies_file", None)
 
     def browser_cookie_args(self) -> list[str]:
         """Return yt-dlp CLI cookie flags for mpv passthrough."""

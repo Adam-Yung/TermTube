@@ -64,7 +64,7 @@ class SettingsModal(ModalScreen[None]):
                 yield ListView(id="quality-list-s")
                 yield Static("[bold #ff6666]Thumbnail Format[/bold #ff6666]", id="s-thumb-head", markup=True)
                 yield ListView(id="thumb-list")
-                yield Static("[bold #ff6666]Cookie Browser[/bold #ff6666]", id="s-browser-head", markup=True)
+                yield Static("[bold #ff6666]Browser[/bold #ff6666]", id="s-browser-head", markup=True)
                 yield Static("", id="s-cookie-status", markup=True)
                 yield ListView(id="browser-list")
             yield Static(
@@ -100,7 +100,7 @@ class SettingsModal(ModalScreen[None]):
         # Cookie status subtitle
         cur_browser = config.get("browser", "auto")
         if cur_browser and cur_browser.lower() != "none":
-            cookie_line = f"  [dim]mode:[/dim] [green]cookies from browser[/green] ({cur_browser})"
+            cookie_line = f"  [dim]mode:[/dim] [green]browser session[/green] ({cur_browser})"
         else:
             cookie_line = "  [dim]mode:[/dim] [yellow]none (unauthenticated)[/yellow]"
         self.query_one("#s-cookie-status", Static).update(cookie_line)

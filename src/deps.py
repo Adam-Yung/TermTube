@@ -13,81 +13,26 @@ REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]
 OPTIONAL_TOOLS: list[str] = []
 
 
-def _build_cookies_help() -> str:
-    """Build the --cookies-help text with platform-correct paths and shell syntax."""
-    ck   = str(get_config_dir() / "cookies.txt")
-    conf = str(get_config_dir() / "config.yaml")
-    sep  = "\033[90m" + "─" * 46 + "\033[0m"
-
-    if IS_WINDOWS:
-        option_b_cmd = (
-            f'  yt-dlp --cookies-from-browser chrome `\n'
-            f'         --cookies "{ck}" `\n'
-            f'         --skip-download --quiet --no-warnings `\n'
-            f'         "https://www.youtube.com/watch?v=dQw4w9WgXcQ"'
-        )
-    else:
-        option_b_cmd = (
-            f'  yt-dlp --cookies-from-browser chrome \\\n'
-            f'         --cookies {ck} \\\n'
-            f'         --skip-download --quiet --no-warnings \\\n'
-            f'         "https://www.youtube.com/watch?v=dQw4w9WgXcQ"'
-        )
-
-    return (
-        f"\033[1;36mHow to get a cookies.txt file\033[0m\n"
-        f"{sep}\n"
-        f"\n"
-        f"\033[1mOption A — Browser extension (manual)\033[0m\n"
-        f"\n"
-        f"  Chrome / Edge:\n"
-        f'    Install "Get cookies.txt LOCALLY" from the Chrome Web Store\n'
-        f"    chrome.google.com/webstore → search: Get cookies.txt LOCALLY\n"
-        f"\n"
-        f"  Firefox:\n"
-        f'    Install "cookies.txt" from Firefox Add-ons\n'
-        f"    addons.mozilla.org → search: cookies.txt\n"
-        f"\n"
-        f"  Then visit youtube.com, click the extension icon,\n"
-        f"  and export in Netscape format. Save to:\n"
-        f"\n"
-        f"    {ck}\n"
-        f"\n"
-        f"{sep}\n"
-        f"\n"
-        f"\033[1mOption B — Export via yt-dlp\033[0m\n"
-        f"\n"
-        f"  Run this once (fast, no video downloaded):\n"
-        f"\n"
-        f"{option_b_cmd}\n"
-        f"\n"
-        f"  Replace \033[36mchrome\033[0m with \033[36mfirefox\033[0m, "
-        f"\033[36mbrave\033[0m, or \033[36medge\033[0m as needed.\n"
-        f"\n"
-        f"{sep}\n"
-        f"\n"
-        f"\033[1mOption C — Browser session (simplest)\033[0m\n"
-        f"\n"
-        f"  Skip cookies.txt and set in {conf}:\n"
-        f"\n"
-        f"    browser: auto\n"
-        f"    browser: chrome\n"
-        f"\n"
-        f"  You must be logged into YouTube in that browser.\n"
-        f"  Safari is sandboxed on macOS and is usually blocked.\n"
-        f"\n"
-        f"{sep}\n"
-    )
-
-
-COOKIES_HELP: str | None = None
-
-
 def print_cookies_help() -> None:
-    global COOKIES_HELP
-    if COOKIES_HELP is None:
-        COOKIES_HELP = _build_cookies_help()
-    print(COOKIES_HELP)
+    """Print browser authentication help."""
+    from src.plat import get_config_dir
+    conf = str(get_config_dir() / "config.yaml")
+    print()
+    print("\033[1;36mBrowser Authentication\033[0m")
+    print()
+    print("  TermTube reads cookies directly from your browser.")
+    print("  Set the browser in your config or in Settings > Browser:")
+    print()
+    print(f"    Config: \033[36m{conf}\033[0m")
+    print()
+    print("    browser: auto       # auto-detect (default)")
+    print("    browser: firefox    # use Firefox")
+    print("    browser: chrome     # use Chrome (may require keychain access)")
+    print("    browser: none       # unauthenticated mode")
+    print()
+    print("  You must be logged into YouTube in that browser.")
+    print("  On macOS, Firefox is recommended (no keychain prompt).")
+    print()
 
 
 def _has(cmd: str) -> bool:

@@ -102,7 +102,7 @@ from src.tui.fmt import fmt_age_seconds as _fmt_age_seconds
 
 _MPV_ERROR_MAP: list[tuple[str, str]] = [
     ("could not open/read", "Network error — video unavailable or region-blocked"),
-    ("http error 403", "Access denied — cookies may be expired (try --refresh-cookies)"),
+    ("http error 403", "Access denied — check browser authentication in Settings"),
     ("http error 429", "Rate limited by YouTube — wait a moment and try again"),
     ("no video", "No playable video stream found"),
     ("no audio", "No playable audio stream found"),
@@ -110,9 +110,9 @@ _MPV_ERROR_MAP: list[tuple[str, str]] = [
     ("timed out", "Connection timed out"),
     ("does not exist", "Video not found or deleted"),
     ("drm", "DRM-protected content cannot be played"),
-    ("login required", "Video requires login — check cookies"),
+    ("login required", "Video requires login — set a browser in Settings"),
     ("private video", "This video is private"),
-    ("age-restricted", "Age-restricted — cookies needed for verification"),
+    ("age-restricted", "Age-restricted — browser authentication required"),
 ]
 
 
@@ -645,7 +645,7 @@ class MainScreen(Screen):
                 self.app.call_from_thread(
                     panel.set_empty_message,
                     "No subscriptions found.\n"
-                    "Check Settings > Cookie Browser.",
+                    "Check Settings > Browser.",
                 )
             else:
                 self.app.call_from_thread(

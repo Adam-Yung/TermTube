@@ -81,12 +81,11 @@ def _print_help() -> None:
 
     print("  " + _c("1", "Options:", color=color))
     _opt("--config",        "FILE",  "Path to config YAML")
-    _opt("--cookies-help",  "",      "Show cookies.txt setup instructions")
+    _opt("--browser-help",  "",      "Show browser authentication setup")
     _opt("--clear-cache",   "",      "Clear all cached feeds and metadata")
     _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
     _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
     _opt("--update",        "",      "Update yt-dlp, Deno, mpv, ffmpeg to latest, then exit")
-    _opt("--refresh-cookies","",     "Extract cookies from browser into cookies.txt")
     _opt("--version",       "",      "Show version and exit")
     _opt("--test",          "",      "Run the full test suite")
     _opt("-h, --help",      "",      "Show this message and exit")
@@ -97,19 +96,16 @@ def _print_help() -> None:
     if sys.platform == "win32":
         appdata  = os.environ.get("APPDATA",    r"%APPDATA%")
         cfg_path = rf"{appdata}\TermTube\config.yaml"
-        ck_path  = rf"{appdata}\TermTube\cookies.txt"
     else:
         home     = Path.home()
         cfg_path = str(home / ".config" / "TermTube" / "config.yaml")
-        ck_path  = str(home / ".config" / "TermTube" / "cookies.txt")
 
     print(f"    {_c('2', 'Config: ', color=color)}  {_c('36', cfg_path, color=color)}")
-    print(f"    {_c('2', 'Cookies:', color=color)}  {_c('36', ck_path,  color=color)}")
     print()
 
     # ── Docs hint ─────────────────────────────────────────────────────────────
-    print("  " + _c("2", "For cookie setup:", color=color)
-          + "  " + _c("36", "termtube --cookies-help", color=color))
+    print("  " + _c("2", "Browser setup:", color=color)
+          + "  " + _c("36", "termtube --browser-help", color=color))
     print()
 
 
@@ -219,7 +215,7 @@ def main() -> None:
         add_help=False,
     )
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
-    parser.add_argument("--cookies-help", action="store_true", help="Show cookies.txt setup instructions")
+    parser.add_argument("--browser-help", action="store_true", help="Show browser authentication setup")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
     parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and $TMPDIR/TermTube/<timestamp>.log. Nothing is written to stderr.")
     parser.add_argument(
@@ -231,7 +227,6 @@ def main() -> None:
     )
     parser.add_argument("--version", action="store_true", help="Show version")
     parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv, and ffmpeg to latest versions, then exit")
-    parser.add_argument("--refresh-cookies", action="store_true", help="Extract cookies from your browser into cookies.txt, then exit")
     parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
     parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
     args = parser.parse_args()
@@ -256,7 +251,7 @@ def main() -> None:
         print(f"TermTube {_VERSION}")
         sys.exit(0)
 
-    if args.cookies_help:
+    if args.browser_help:
         from src.deps import print_cookies_help
         print_cookies_help()
         sys.exit(0)
@@ -268,42 +263,6 @@ def main() -> None:
         print(_c("1", "TermTube -- updating...", color=color))
         self_update()
         sys.exit(0)
-
-    # --refresh-cookies: extract cookies from browser, then exit (no TUI)
-    if args.refresh_cookies:
-        from src.config import Config
-        cfg = Config(args.config)
-        from src.updater import refresh_cookies
-        from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
-        color = _supports_color()
-
-        chosen_browser: str | None = None
-        raw_browser = cfg.get("browser")
-        if is_auto_browser(raw_browser):
-            detected = detect_installed_browsers()
-            if len(detected) > 1 and sys.stdin.isatty():
-                print(_c("1", "Detected browsers:", color=color))
-                for i, b in enumerate(detected, 1):
-                    print(f"  {i}) {b['label']}")
-                print()
-                try:
-                    choice = input("Select browser [1]: ").strip()
-                    idx = int(choice) - 1 if choice else 0
-                    if 0 <= idx < len(detected):
-                        chosen_browser = detected[idx]["name"]
-                    else:
-                        print(_c("1;33", "Invalid selection, using default.", color=color))
-                        chosen_browser = detected[0]["name"]
-                except (ValueError, EOFError, KeyboardInterrupt):
-                    chosen_browser = detected[0]["name"]
-                print()
-
-        success = refresh_cookies(cfg, verbose=True, browser=chosen_browser)
-        if success:
-            print(_c("1;32", "Cookie refresh complete.", color=color))
-        else:
-            print(_c("1;33", "Cookie refresh failed (see above).", color=color))
-        sys.exit(0 if success else 1)
 
     # Dependency check
     from src.deps import check_dependencies

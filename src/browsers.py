@@ -32,16 +32,18 @@ _BROWSER_LABELS: dict[str, str] = {
 }
 
 # macOS: .app bundle names in /Applications (and ~/Applications)
+# Ordered by reliability: Firefox doesn't require keychain access,
+# Chrome/Chromium need keychain approval, Safari is sandboxed.
 _MACOS_APP_BUNDLES: dict[str, str] = {
+    "firefox": "Firefox.app",
     "brave": "Brave Browser.app",
     "chrome": "Google Chrome.app",
     "chromium": "Chromium.app",
     "edge": "Microsoft Edge.app",
-    "firefox": "Firefox.app",
     "opera": "Opera.app",
-    "safari": "Safari.app",
     "vivaldi": "Vivaldi.app",
     "whale": "Whale.app",
+    "safari": "Safari.app",
 }
 
 # Windows: path components under Program Files / LocalAppData.

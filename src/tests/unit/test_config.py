@@ -85,44 +85,6 @@ class TestSponsorblock:
         assert cfg.sponsorblock_auto_skip is False
         assert cfg.sponsorblock_categories == ["sponsor", "intro", "outro"]
 
-
-class TestCookieArgs:
-    def test_cookie_file_returns_cookies_flag(self, tmp_path):
-        cookies_path = tmp_path / "cookies.txt"
-        cookies_path.write_text("# Netscape cookies file")
-
-        config_path = tmp_path / "config.yaml"
-        config_path.write_text(
-            yaml.dump({"cookies_file": str(cookies_path), "browser": "firefox"})
-        )
-
-        from src.config import Config
-
-        cfg = Config(path=str(config_path))
-        assert cfg.cookie_args() == ["--cookies", str(cookies_path)]
-
-    def test_missing_cookie_file_returns_empty(self, tmp_path):
-        config_path = tmp_path / "config.yaml"
-        config_path.write_text(
-            yaml.dump({"cookies_file": str(tmp_path / "nonexistent.txt"), "browser": "firefox"})
-        )
-
-        from src.config import Config
-
-        cfg = Config(path=str(config_path))
-        # No file on disk → no flags (browser is never used at runtime)
-        assert cfg.cookie_args() == []
-
-    def test_empty_when_no_source(self, tmp_path):
-        config_path = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"cookies_file": "", "browser": ""}))
-
-        from src.config import Config
-
-        cfg = Config(path=str(config_path))
-        assert cfg.cookie_args() == []
-
-
 class TestDirPaths:
     def test_video_dir(self, tmp_path):
         config_path = tmp_path / "config.yaml"
