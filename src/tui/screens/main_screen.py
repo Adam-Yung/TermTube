@@ -979,6 +979,8 @@ class MainScreen(Screen):
         from src import innertube
 
         self._worker_start()
+        # Kick off stream URL prefetch immediately (don't wait for metadata)
+        self._prefetch_stream_worker(vid)
         try:
             meta = innertube.fetch_video_details(vid)
             if session != self._focus_session:
@@ -994,8 +996,6 @@ class MainScreen(Screen):
                     )
                 except Exception:
                     pass
-                # Pre-resolve audio stream URL in background for instant playback
-                self._prefetch_stream_worker(vid)
         except Exception as exc:
             _logger.debug("detail_worker error for %s: %s", vid, exc)
         finally:
@@ -1246,18 +1246,25 @@ class MainScreen(Screen):
         ):
             self.app.cache.suppress_video(vid)
 
-        # Fetch SponsorBlock segments (runs in worker thread — safe to block)
-        if vid and self.app.config.sponsorblock_enabled:
-            from src.sponsorblock import fetch_segments
-            segments = fetch_segments(vid, self.app.config.sponsorblock_categories)
-            segments.sort(key=lambda s: s.start)
-            self._sb_segments = segments
-            self._sb_next_idx = 0
-            self.app.call_from_thread(self._action_bar().set_segments, segments)
-
         url = entry.get("_local_path") or f"https://www.youtube.com/watch?v={vid}"
         title = entry.get("title", "")
         cookie_args = self.app.config.browser_cookie_args()
+
+        # Run SponsorBlock fetch in parallel with URL resolution
+        sb_thread = None
+        if vid and self.app.config.sponsorblock_enabled:
+            import threading
+            from src.sponsorblock import fetch_segments
+
+            def _fetch_sb():
+                segs = fetch_segments(vid, self.app.config.sponsorblock_categories)
+                segs.sort(key=lambda s: s.start)
+                self._sb_segments = segs
+                self._sb_next_idx = 0
+                self.app.call_from_thread(self._action_bar().set_segments, segs)
+
+            sb_thread = threading.Thread(target=_fetch_sb, daemon=True)
+            sb_thread.start()
 
         # Use pre-cached stream URL if available (from background prefetch),
         # otherwise resolve on-demand.
@@ -1275,6 +1282,10 @@ class MainScreen(Screen):
                     resolved_url = urls[0]
                     ytdlp.put_cached_stream_url(vid, fmt, urls)
                     _logger.debug("audio resolved URL for %s", vid)
+
+        # Wait for SponsorBlock (should be done by now — ran in parallel)
+        if sb_thread:
+            sb_thread.join(timeout=2.0)
 
         mpv_exe = player_mod._mpv_exe(headless=True)
         if not mpv_exe:
