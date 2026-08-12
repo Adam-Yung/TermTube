@@ -506,6 +506,50 @@ ImageWarningModal {
     color: #ffffff;
 }
 
+EmptyFeedModal {
+    align: center middle;
+}
+
+#emptyfeed-dialog {
+    width: 56;
+    height: auto;
+    background: #1a1a1a;
+    border: solid #888800;
+    padding: 1 2;
+}
+
+#emptyfeed-title {
+    color: #dddd00;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#emptyfeed-body {
+    color: #aaaaaa;
+    margin-bottom: 1;
+}
+
+#emptyfeed-list {
+    height: auto;
+    background: #0d0d0d;
+    border: solid #333333;
+}
+
+#emptyfeed-list > ListItem {
+    padding: 0 1;
+    color: #888888;
+    border-left: thick #0d0d0d;
+    height: 1;
+}
+
+#emptyfeed-list > ListItem > Static { background: transparent; }
+
+#emptyfeed-list > ListItem.-highlight {
+    background: #1e1e00;
+    border-left: thick #dddd00;
+    color: #ffffff;
+}
+
 #imgwarn-list > ListItem.-highlight > Static { color: #ffffff;
 }
 

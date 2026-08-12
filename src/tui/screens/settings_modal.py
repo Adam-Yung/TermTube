@@ -65,7 +65,7 @@ class SettingsModal(ModalScreen[None]):
                 yield Static("[bold #ff6666]Thumbnail Format[/bold #ff6666]", id="s-thumb-head", markup=True)
                 yield ListView(id="thumb-list")
                 yield Static("[bold #ff6666]Browser[/bold #ff6666]", id="s-browser-head", markup=True)
-                yield Static("", id="s-cookie-status", markup=True)
+                yield Static("", id="s-browser-status", markup=True)
                 yield ListView(id="browser-list")
             yield Static(
                 "[dim]Enter[/dim] select  ·  [dim]Tab[/dim] next section  ·  [dim]Esc[/dim] close",
@@ -97,13 +97,13 @@ class SettingsModal(ModalScreen[None]):
             item = _ChoiceItem(val, ("▶ " if val == cur_tf else "  ") + label)
             tfl.append(item)
 
-        # Cookie status subtitle
+        # Browser auth status
         cur_browser = config.get("browser", "auto")
         if cur_browser and cur_browser.lower() != "none":
-            cookie_line = f"  [dim]mode:[/dim] [green]browser session[/green] ({cur_browser})"
+            status_line = f"  [dim]mode:[/dim] [green]browser session[/green] ({cur_browser})"
         else:
-            cookie_line = "  [dim]mode:[/dim] [yellow]none (unauthenticated)[/yellow]"
-        self.query_one("#s-cookie-status", Static).update(cookie_line)
+            status_line = "  [dim]mode:[/dim] [yellow]none (unauthenticated)[/yellow]"
+        self.query_one("#s-browser-status", Static).update(status_line)
 
         # Browser list — dynamically populated from detected browsers
         from src.browsers import detect_installed_browsers, YTDLP_SUPPORTED_BROWSERS, get_browser_label

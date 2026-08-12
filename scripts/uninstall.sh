@@ -42,9 +42,9 @@ for arg in "$@"; do
 
   Options:
     (default)      Remove app files and binary symlink.
-                   Preserves config and cookies (~/.config/TermTube/).
+                   Preserves config (~/.config/TermTube/).
 
-    --purge        Also remove config, cookies, cache, and logs.
+    --purge        Also remove config, cache, and logs.
                    Complete removal of all TermTube traces.
 
     --force, -f    Skip confirmation prompt.
@@ -109,7 +109,7 @@ check_item "$BIN_LINK" "CLI symlink"
 check_item "$DEPS_DIR"  "Binary dependencies (yt-dlp, deno, ffmpeg, mpv)"
 
 if [[ "$PURGE" == true ]]; then
-    check_item "$CONFIG_DIR" "Configuration & cookies"
+    check_item "$CONFIG_DIR" "Configuration"
     check_item "$CACHE_DIR"  "Cache data"
     check_item "$LOG_DIR"    "Log files"
 fi
@@ -124,7 +124,7 @@ if [[ "$PURGE" != true ]]; then
     echo ""
     echo -e "  ${BOLD}Will be preserved:${RESET}"
     if [[ -d "$CONFIG_DIR" ]]; then
-        echo -e "  ${GREEN}✓${RESET} Config & cookies ${DIM}($CONFIG_DIR)${RESET}"
+        echo -e "  ${GREEN}✓${RESET} Config ${DIM}($CONFIG_DIR)${RESET}"
     fi
     if [[ -d "$CACHE_DIR" ]]; then
         echo -e "  ${GREEN}✓${RESET} Cache ${DIM}($CACHE_DIR)${RESET}"
@@ -175,7 +175,7 @@ remove_item "$APP_DIR"  "Application files"
 remove_item "$DEPS_DIR" "Binary dependencies"
 
 if [[ "$PURGE" == true ]]; then
-    remove_item "$CONFIG_DIR" "Configuration & cookies"
+    remove_item "$CONFIG_DIR" "Configuration"
     remove_item "$CACHE_DIR"  "Cache data"
     remove_item "$LOG_DIR"    "Log files"
 fi

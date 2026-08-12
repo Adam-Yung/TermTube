@@ -176,7 +176,7 @@ class DownloadModal(ModalScreen[bool]):
                 self.query_one("#download-title", Static).update(
                     "[bold red]\u26a0  Download failed[/bold red]"
                 )
-                msg = error_msg or "yt-dlp returned an error -- check cookies or network."
+                msg = error_msg or "yt-dlp returned an error -- check network or browser auth."
                 self.query_one("#download-status", Static).update(
                     f"[red]{msg[:80]}[/red]"
                 )

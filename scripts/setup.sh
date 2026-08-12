@@ -428,7 +428,7 @@ main() {
     echo ""
     echo -e "  ${BOLD}Run:${RESET}     ${GREEN}termtube${RESET}"
     echo -e "  ${BOLD}Config:${RESET}  ${CONFIG_DIR}/config.yaml"
-    echo -e "  ${BOLD}Cookies:${RESET} ${CONFIG_DIR}/cookies.txt"
+
     echo ""
 }
 

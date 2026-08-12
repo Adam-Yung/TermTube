@@ -314,6 +314,19 @@ class MainScreen(Screen):
 
             self.app.push_screen(ImageWarningModal(), _on_image_done)
 
+    def _show_empty_feed_modal(self, feed_key: str) -> None:
+        """Show EmptyFeedModal when feed returns no results."""
+        from src.tui.screens.empty_feed_modal import EmptyFeedModal
+
+        def _on_result(choice: str) -> None:
+            if choice == "update":
+                self._run_ytdlp_update(reload_tab=feed_key)
+            elif choice == "settings":
+                from src.tui.screens.settings_modal import SettingsModal
+                self.app.push_screen(SettingsModal())
+
+        self.app.push_screen(EmptyFeedModal(), _on_result)
+
     def _prompt_ytdlp_update(self, feed_key: str, error_detail: str = "") -> None:
         """Push YtdlpUpdateModal and handle update on user confirmation."""
         from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal
@@ -596,21 +609,7 @@ class MainScreen(Screen):
             all_entries = [e for e in all_entries if not is_suppressed(e.get('id', ''))]
 
         if not all_entries and not stash_loaded:
-            browser = config.get("browser", "auto")
-            if browser and browser.lower() != "none":
-                self.app.call_from_thread(
-                    panel.set_error_message,
-                    "⚠ Feed returned no results.\n\n"
-                    "Browser cookie extraction may have failed.\n"
-                    "Check Settings > Cookie Browser or try updating yt-dlp.",
-                )
-            else:
-                self.app.call_from_thread(
-                    panel.set_error_message,
-                    "\u26a0 Feed returned no results.\n\n"
-                    "Browser is set to none (unauthenticated mode).\n"
-                    "Set a browser in Settings to enable authenticated feeds.",
-                )
+            self.app.call_from_thread(self._show_empty_feed_modal, feed_key)
             return
 
         # Display remaining entries beyond the first batch
@@ -640,19 +639,7 @@ class MainScreen(Screen):
         import src.ytdlp as ytdlp
         entries = ytdlp.fetch_subscribed_channels(config, cache)
         if not entries:
-            browser = config.get("browser", "auto")
-            if browser and browser.lower() != "none":
-                self.app.call_from_thread(
-                    panel.set_empty_message,
-                    "No subscriptions found.\n"
-                    "Check Settings > Browser.",
-                )
-            else:
-                self.app.call_from_thread(
-                    panel.set_empty_message,
-                    "No subscriptions found.\n"
-                    "Browser is set to none. Set a browser in Settings.",
-                )
+            self.app.call_from_thread(self._show_empty_feed_modal, "subscriptions")
             return
         self.app.call_from_thread(self._apply_channel_mode_to_detail)
         for i in range(0, len(entries), _PAGE_SIZE):
