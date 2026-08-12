@@ -135,7 +135,7 @@ class WatchModal(ModalScreen[bool]):
         resolved_urls: list[str] | None = None
         if not self._entry.get("_local_path") and vid and config:
             import src.ytdlp as ytdlp
-            fmt = self._ytdl_format or "bv+(ba[format_note*=original]/ba)"
+            fmt = self._ytdl_format or "bv+ba/b"
             cached = ytdlp.get_cached_stream_url(vid, fmt)
             if cached:
                 resolved_urls = cached
@@ -178,7 +178,7 @@ class WatchModal(ModalScreen[bool]):
             if self._ytdl_format:
                 cmd += [f"--ytdl-format={self._ytdl_format}"]
             else:
-                cmd += ["--ytdl-format=bv+(ba[format_note*=original]/ba)"]
+                cmd += ["--ytdl-format=bv+ba/b"]
             ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
             if ytdl_raw:
                 cmd += [f"--ytdl-raw-options={ytdl_raw}"]

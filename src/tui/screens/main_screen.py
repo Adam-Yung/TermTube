@@ -1264,7 +1264,7 @@ class MainScreen(Screen):
         resolved_url = None
         if not entry.get("_local_path") and vid:
             import src.ytdlp as ytdlp
-            fmt = ytdl_format or "ba[format_note*=original]/ba"
+            fmt = ytdl_format or "ba/b"
             cached = ytdlp.get_cached_stream_url(vid, fmt)
             if cached:
                 resolved_url = cached[0]
@@ -1315,7 +1315,7 @@ class MainScreen(Screen):
             if ytdl_format:
                 cmd += [f"--ytdl-format={ytdl_format}"]
             else:
-                cmd += ["--ytdl-format=ba[format_note*=original]/ba"]
+                cmd += ["--ytdl-format=ba/b"]
             ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args or [])
             if ytdl_raw:
                 cmd += [f"--ytdl-raw-options={ytdl_raw}"]

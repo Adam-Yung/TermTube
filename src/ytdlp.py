@@ -684,7 +684,7 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
 def resolve_stream_url(
     video_id: str,
     config,
-    format_spec: str = "ba[format_note*=original]/ba",
+    format_spec: str = "ba/b",
     cancel_event: threading.Event | None = None,
 ) -> list[str] | None:
     """Resolve a YouTube video ID to direct playable stream URL(s).
@@ -693,13 +693,10 @@ def resolve_stream_url(
     or None on failure. Pass cancel_event to allow early abort.
     """
     cancel = cancel_event or _new_cancel_event()
-    # Use lightweight opts for audio-only formats (skip DASH/HLS is fine),
-    # full opts for video formats that need DASH manifest data.
-    is_audio_only = format_spec.startswith('ba') and 'bv' not in format_spec
-    opts = _base_opts(config) if is_audio_only else _playback_opts(config)
+    opts = _playback_opts(config)
     opts['format'] = format_spec
 
-    logger.debug("resolve_stream_url: video_id=%s format=%s audio_only=%s", video_id, format_spec, is_audio_only)
+    logger.debug("resolve_stream_url: video_id=%s format=%s", video_id, format_spec)
     try:
         if cancel.is_set():
             return None
@@ -782,7 +779,7 @@ def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> N
             del _stream_cache[oldest_key]
 
 
-def prefetch_stream_url(video_id: str, config, format_spec: str = "ba[format_note*=original]/ba") -> None:
+def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> None:
     """Pre-resolve and cache a stream URL in the background.
 
     Called by the focus-dwell worker after InnerTube metadata is fetched.
