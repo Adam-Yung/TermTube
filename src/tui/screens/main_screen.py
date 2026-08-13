@@ -2020,5 +2020,7 @@ class MainScreen(Screen):
                 pass
             os._exit(0)
 
-        threading.Timer(2.0, _force_exit).start()
+        t = threading.Timer(2.0, _force_exit)
+        t.daemon = True
+        t.start()
         self.app.exit()
