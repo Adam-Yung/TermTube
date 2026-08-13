@@ -43,11 +43,13 @@ def get_cache_dir() -> Path:
 
 
 def get_log_dir() -> Path:
-    """Log/temp directory ($TMPDIR/TermTube or %TEMP%/TermTube)."""
-    if IS_WINDOWS:
-        base = Path(os.environ.get("TEMP", os.environ.get("TMP", Path.home() / "AppData" / "Local" / "Temp")))
-    else:
-        base = Path(os.environ.get("TMPDIR", "/tmp"))
+    """Log/temp directory (system temp dir / TermTube).
+
+    Uses the platform temp directory ($TMPDIR on macOS/Linux, %TEMP% on Windows,
+    falling back to /tmp if unset).
+    """
+    import tempfile
+    base = Path(tempfile.gettempdir())
     return base / "TermTube"
 
 

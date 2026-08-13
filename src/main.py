@@ -217,7 +217,7 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--browser-help", action="store_true", help="Show browser authentication setup")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and $TMPDIR/TermTube/<timestamp>.log. Nothing is written to stderr.")
+    parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and a timestamped log file in the system temp directory. Nothing is written to stderr.")
     parser.add_argument(
         "--level",
         metavar="LEVEL",
@@ -333,6 +333,11 @@ def main() -> None:
         app.run()
     except KeyboardInterrupt:
         pass
+
+    if args.debug:
+        log_path = logger.log_file()
+        if log_path:
+            print(f"Logs saved at {log_path}")
 
 
 if __name__ == "__main__":

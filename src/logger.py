@@ -4,7 +4,7 @@ Behaviour:
   • Without --debug: the logger is set above CRITICAL — every logger.* call is a
     fast no-op (the level check happens before any formatting). No files are
     opened, no handlers attached, nothing is written.
-  • With --debug: writes to a timestamped file in $TMPDIR/TermTube/ and (if a
+  • With --debug: writes to a timestamped file in the system temp directory and (if a
     TUI sink is registered via register_tui_sink) mirrors to the in-app debug
     window. Nothing is written to stderr — that interferes with Textual's
     rendering.
