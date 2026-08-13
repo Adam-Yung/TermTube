@@ -801,14 +801,86 @@ def get_cached_stream_url(video_id: str, format_spec: str) -> list[str] | None:
 
 
 def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> None:
-    """Cache resolved stream URLs for later instant playback."""
+    """Cache resolved stream URLs and start CDN readiness probe."""
     key = f"{video_id}:{format_spec}"
     with _stream_cache_lock:
         _stream_cache[key] = (_time.time(), urls)
-        # Cap cache size (LRU eviction not needed — just cap at 20 entries)
         if len(_stream_cache) > 20:
             oldest_key = min(_stream_cache, key=lambda k: _stream_cache[k][0])
             del _stream_cache[oldest_key]
+    _start_cdn_probe(video_id, format_spec, urls)
+
+
+# ── CDN readiness probing ─────────────────────────────────────────────────────
+# YouTube CDN edge servers need a few seconds after URL resolution before the
+# session token propagates. Instead of a fixed sleep, we probe the URL in the
+# background and signal readiness via an Event.
+
+_STREAM_URL_WARMUP_MAX = 5.0  # hard timeout (seconds) if probe never succeeds
+_cdn_ready_events: dict[str, threading.Event] = {}
+_cdn_ready_lock = threading.Lock()
+
+
+def _probe_cdn_ready(url: str, key: str) -> None:
+    """Background probe: hit the CDN with a minimal Range request until it responds."""
+    import urllib.request
+    import urllib.error
+
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Range", "bytes=0-0")
+
+    for _ in range(10):
+        try:
+            resp = urllib.request.urlopen(req, timeout=2)
+            resp.read()
+            resp.close()
+            break
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            _time.sleep(0.5)
+    # Signal readiness regardless (timeout = fallback)
+    with _cdn_ready_lock:
+        ev = _cdn_ready_events.get(key)
+    if ev:
+        ev.set()
+
+
+def _start_cdn_probe(video_id: str, format_spec: str, urls: list[str]) -> None:
+    """Kick off the background CDN probe for the first URL in the list."""
+    key = f"{video_id}:{format_spec}"
+    ev = threading.Event()
+    with _cdn_ready_lock:
+        _cdn_ready_events[key] = ev
+        if len(_cdn_ready_events) > 25:
+            oldest = next(iter(_cdn_ready_events))
+            del _cdn_ready_events[oldest]
+    t = threading.Thread(target=_probe_cdn_ready, args=(urls[0], key), daemon=True)
+    t.start()
+
+
+def wait_for_stream_url_ready(video_id: str, format_spec: str) -> None:
+    """Block until the CDN probe confirms the stream URL is accessible.
+
+    If the probe already succeeded (user waited a few seconds after focus),
+    this returns instantly. Otherwise blocks until the probe signals or the
+    hard timeout (_STREAM_URL_WARMUP_MAX) expires.
+    """
+    key = f"{video_id}:{format_spec}"
+    with _cdn_ready_lock:
+        ev = _cdn_ready_events.get(key)
+    if ev is None:
+        # No probe was started (e.g. URL resolved inline, not via prefetch).
+        # Fall back to a short fixed wait based on cache age.
+        with _stream_cache_lock:
+            entry = _stream_cache.get(key)
+            if entry is None:
+                return
+            resolve_ts = entry[0]
+        elapsed = _time.time() - resolve_ts
+        remaining = _STREAM_URL_WARMUP_MAX - elapsed
+        if remaining > 0:
+            _time.sleep(remaining)
+        return
+    ev.wait(timeout=_STREAM_URL_WARMUP_MAX)
 
 
 def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> None:

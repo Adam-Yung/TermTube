@@ -1336,6 +1336,12 @@ class MainScreen(Screen):
 
         import time as _time_mod
 
+        # Wait for CDN propagation if URL was resolved recently
+        if resolved_url and vid:
+            import src.ytdlp as ytdlp
+            fmt = ytdl_format or "ba/b"
+            ytdlp.wait_for_stream_url_ready(vid, fmt)
+
         max_retries = 3
         stderr_text = ""
         returncode: int | None = None
