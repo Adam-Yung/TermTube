@@ -18,10 +18,62 @@ from src.cache import Cache
 from src import logger
 
 
+# ── Session-cached cookie jar ─────────────────────────────────────────────────
+
+_shared_jar = None
+_jar_lock = threading.Lock()
+
+
+def _resolve_browser(config) -> str | None:
+    """Resolve the configured browser name (handles 'auto' detection)."""
+    browser = config.get("browser", "auto")
+    if not browser or browser.lower() == "none":
+        return None
+    from src.browsers import detect_installed_browsers, is_auto_browser
+    if is_auto_browser(browser):
+        detected = detect_installed_browsers()
+        return detected[0]["name"] if detected else None
+    return browser
+
+
+def _get_shared_cookiejar(config):
+    """Extract browser cookies once and cache for the process lifetime."""
+    global _shared_jar
+    if _shared_jar is not None:
+        return _shared_jar
+    with _jar_lock:
+        if _shared_jar is not None:
+            return _shared_jar
+        browser = _resolve_browser(config)
+        if not browser:
+            return None
+        try:
+            from yt_dlp.cookies import extract_cookies_from_browser
+            _shared_jar = extract_cookies_from_browser(browser)
+            logger.debug("Extracted cookies from %s (cached for session)", browser)
+        except Exception as exc:
+            logger.debug("Cookie extraction failed: %s", exc)
+            return None
+    return _shared_jar
+
+
+def _make_ydl(opts: dict, config) -> yt_dlp.YoutubeDL:
+    """Create a YoutubeDL instance with session-cached cookies injected."""
+    ydl = yt_dlp.YoutubeDL(opts)
+    jar = _get_shared_cookiejar(config)
+    if jar:
+        ydl.cookiejar = jar
+    return ydl
+
+
 # ── Shared options builder ────────────────────────────────────────────────────
 
 def _base_opts(config) -> dict:
-    """Build base YoutubeDL options from app config."""
+    """Build base YoutubeDL options from app config.
+
+    Does NOT include cookies — use _make_ydl() to get a YoutubeDL instance
+    with session-cached cookies injected.
+    """
     from src.bootstrap import get_deps_bin
     import sys
 
@@ -36,14 +88,6 @@ def _base_opts(config) -> dict:
     }
     if deno_path.exists():
         opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
-    browser = config.get("browser", "auto")
-    if browser and browser.lower() != "none":
-        from src.browsers import detect_installed_browsers, is_auto_browser
-        if is_auto_browser(browser):
-            detected = detect_installed_browsers()
-            browser = detected[0]["name"] if detected else None
-        if browser:
-            opts['cookiesfrombrowser'] = (browser, None, None, None)
     return opts
 
 
@@ -52,6 +96,8 @@ def _playback_opts(config) -> dict:
 
     Unlike _base_opts(), this does NOT skip DASH/HLS manifest parsing because
     resolve_stream_url() and download functions need format data to work.
+    Does NOT include cookies — use _make_ydl() to get a YoutubeDL instance
+    with session-cached cookies injected.
     """
     from src.bootstrap import get_deps_bin
     import sys
@@ -66,14 +112,6 @@ def _playback_opts(config) -> dict:
     }
     if deno_path.exists():
         opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
-    browser = config.get("browser", "auto")
-    if browser and browser.lower() != "none":
-        from src.browsers import detect_installed_browsers, is_auto_browser
-        if is_auto_browser(browser):
-            detected = detect_installed_browsers()
-            browser = detected[0]["name"] if detected else None
-        if browser:
-            opts['cookiesfrombrowser'] = (browser, None, None, None)
     return opts
 
 
@@ -219,7 +257,7 @@ def fetch_page_batch(
             results = []
             all_ids = []
             try:
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                with _make_ydl(opts, config) as ydl:
                     info = ydl.extract_info(url, download=False)
                     if info is None:
                         break
@@ -240,9 +278,6 @@ def fetch_page_batch(
                         if vid:
                             all_ids.append(vid)
                         results.append(entry)
-                        if on_first_batch and len(results) == first_batch_size:
-                            on_first_batch(list(results))
-                            on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("fetch_page_batch error: %s", exc)
 
@@ -310,7 +345,7 @@ def fetch_search_batch(
             results = []
             all_ids = []
             try:
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                with _make_ydl(opts, config) as ydl:
                     info = ydl.extract_info(url, download=False)
                     if info is None:
                         break
@@ -329,9 +364,6 @@ def fetch_search_batch(
                         if vid:
                             all_ids.append(vid)
                         results.append(entry)
-                        if on_first_batch and len(results) == first_batch_size:
-                            on_first_batch(list(results))
-                            on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("fetch_search_batch error: %s", exc)
 
@@ -438,7 +470,7 @@ def download_video_with_progress(
     opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             return ydl.download([url]) == 0
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("download_video error: %s", exc)
@@ -474,7 +506,7 @@ def download_audio_with_progress(
     opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             return ydl.download([url]) == 0
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("download_audio error: %s", exc)
@@ -512,7 +544,7 @@ def fetch_channel_info(
     opts['playlist_items'] = '0'
 
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             data = ydl.extract_info(channel_url, download=False)
         if not data:
             return None
@@ -586,7 +618,7 @@ def fetch_channel_playlists(
     results: list[dict] = []
     cancel = _new_cancel_event()
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             info = ydl.extract_info(url, download=False)
             if info is None:
                 return results
@@ -630,7 +662,7 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     opts['lazy_playlist'] = True
     opts['source_address'] = '0.0.0.0'
     opts['geo_bypass'] = True
-    opts['playlistend'] = count
+    opts['playlistend'] = 200
     opts['extractor_args'] = {
         'youtube': {'skip': ['dash', 'hls']},
         'youtubetab': {'approximate_date': ['']},
@@ -641,7 +673,7 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     seen: list[str] = []
     cancel = _new_cancel_event()
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             info = ydl.extract_info(url, download=False)
             if info is None:
                 return results
@@ -700,7 +732,7 @@ def resolve_stream_url(
     try:
         if cancel.is_set():
             return None
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        with _make_ydl(opts, config) as ydl:
             info = ydl.extract_info(
                 f"https://www.youtube.com/watch?v={video_id}",
                 download=False,
