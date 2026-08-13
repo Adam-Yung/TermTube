@@ -184,39 +184,108 @@ class WatchModal(ModalScreen[bool]):
                 cmd += [f"--ytdl-raw-options={ytdl_raw}"]
             cmd += ["--", url]
 
-        try:
-            from src.plat import get_popen_kwargs, ProcessRegistry
-            self._proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                **get_popen_kwargs(headless=False),
-            )
-            ProcessRegistry.get().register(self._proc)
-        except FileNotFoundError:
-            from src.plat import install_hint
-            self.app.call_from_thread(
-                self.app.notify,
-                f"mpv not found — install with: {install_hint('mpv')}",
-                severity="error",
-            )
-            self.app.call_from_thread(self.dismiss, False)
-            return
-        except OSError as exc:
-            self.app.call_from_thread(
-                self.app.notify, f"Failed to launch mpv: {exc}", severity="error"
-            )
-            self.app.call_from_thread(self.dismiss, False)
-            return
+        import time as _time_mod
 
-        from src import history
-        history.add(self._entry)
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            if self._stopped:
+                return
 
-        try:
-            self._proc.wait()
-        finally:
-            from src.plat import ProcessRegistry
-            ProcessRegistry.get().unregister(self._proc)
+            # On 2nd+ retry, re-resolve stream URL (may have expired)
+            if attempt > 1 and not self._entry.get("_local_path") and vid and config:
+                import src.ytdlp as ytdlp
+                fmt = self._ytdl_format or "bv+ba/b"
+                new_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
+                if new_urls:
+                    resolved_urls = new_urls
+                    ytdlp.put_cached_stream_url(vid, fmt, new_urls)
+                    _logger.debug("video re-resolved %d URL(s) for %s (attempt %d)", len(new_urls), vid, attempt)
+                    # Rebuild cmd tail with new URLs
+                    cmd = cmd[:cmd.index("--") + 1] if "--" in cmd else cmd
+                    cmd = [c for c in cmd if not c.startswith("--no-ytdl") and not c.startswith("--audio-file=")]
+                    cmd += ["--no-ytdl"]
+                    if len(new_urls) == 2:
+                        cmd += [f"--audio-file={new_urls[1]}", "--", new_urls[0]]
+                    else:
+                        cmd += ["--", new_urls[0]]
+
+            try:
+                from src.plat import get_popen_kwargs, ProcessRegistry
+                self._proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    **get_popen_kwargs(headless=False),
+                )
+                ProcessRegistry.get().register(self._proc)
+            except FileNotFoundError:
+                from src.plat import install_hint
+                self.app.call_from_thread(
+                    self.app.notify,
+                    f"mpv not found — install with: {install_hint('mpv')}",
+                    severity="error",
+                )
+                self.app.call_from_thread(self.dismiss, False)
+                return
+            except OSError as exc:
+                self.app.call_from_thread(
+                    self.app.notify, f"Failed to launch mpv: {exc}", severity="error"
+                )
+                self.app.call_from_thread(self.dismiss, False)
+                return
+
+            if attempt == 1:
+                from src import history
+                history.add(self._entry)
+
+            try:
+                self._proc.wait()
+            finally:
+                from src.plat import ProcessRegistry
+                ProcessRegistry.get().unregister(self._proc)
+
+            returncode = self._proc.returncode
+
+            # Successful exit or user-quit — done
+            if returncode in (0, 4) or self._stopped:
+                break
+            # Killed by signal (e.g. user pressed stop) — done
+            if returncode == 3:
+                break
+
+            # Non-zero exit — retry if attempts remain
+            if attempt < max_retries:
+                _logger.debug(
+                    "video retry %d/%d for %s (rc=%d)",
+                    attempt, max_retries, vid, returncode or -1,
+                )
+                _time_mod.sleep(1.5)
+            else:
+                _logger.warning(
+                    "video mpv failed after %d attempts (rc=%s) for %s",
+                    max_retries, returncode, vid,
+                )
+                self.app.call_from_thread(
+                    self.app.notify,
+                    f"✗ Video playback failed (exit code {returncode})",
+                    severity="error",
+                    timeout=8,
+                )
+                try:
+                    os.unlink(input_conf)
+                except OSError:
+                    pass
+                from src.player import close_persistent_socket
+                close_persistent_socket(self._get_socket())
+                from src.plat import cleanup_ipc
+                cleanup_ipc(self._get_socket())
+                if not self._stopped:
+                    try:
+                        self.app.call_from_thread(self.dismiss, False)
+                    except Exception:
+                        pass
+                return
+
         try:
             os.unlink(input_conf)
         except OSError:

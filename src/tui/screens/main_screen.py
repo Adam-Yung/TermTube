@@ -1334,87 +1334,123 @@ class MainScreen(Screen):
 
         _logger.debug("audio mpv cmd: %s", " ".join(cmd))
 
+        import time as _time_mod
+
+        max_retries = 3
         stderr_text = ""
         returncode: int | None = None
-        try:
-            from src.plat import get_popen_kwargs, ProcessRegistry
-            self._audio_proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                **get_popen_kwargs(headless=True),
-            )
-            self._play_pending = False
-            ProcessRegistry.get().register(self._audio_proc)
-            proc = self._audio_proc
-            from src import history
-            history.add(entry)
-            # communicate() drains stderr while waiting — avoids the pipe
-            # buffer filling up and deadlocking mpv if it spews errors.
-            try:
-                _out, stderr_text = proc.communicate()
-            except Exception:
-                stderr_text = ""
-            returncode = proc.returncode
-        except FileNotFoundError:
-            self._play_pending = False
-            from src.plat import install_hint
-            hint = install_hint('mpv')
-            self.app.call_from_thread(
-                self._log, f"[red]Error: mpv not found — install with: {hint}[/red]"
-            )
-            self.app.call_from_thread(
-                self.notify,
-                f"mpv not found — install with: {hint}",
-                severity="error",
-            )
-            self.app.call_from_thread(self._stop_audio)
-            return
-        except OSError as exc:
-            self._play_pending = False
-            self.app.call_from_thread(
-                self._log, f"[red]Error: failed to launch mpv: {exc}[/red]"
-            )
-            self.app.call_from_thread(
-                self.notify, f"Failed to launch mpv: {exc}", severity="error"
-            )
-            self.app.call_from_thread(self._stop_audio)
-            return
-        finally:
-            try:
-                os.unlink(input_conf)
-            except OSError:
-                pass
 
-        stderr_text = (stderr_text or "").strip()
-        # Bail if a newer session has taken over while we were playing.
-        if self._audio_stopped or session != self._audio_session:
-            if stderr_text:
-                _logger.debug("audio mpv stderr (stale session): %s", stderr_text)
-            return
+        for attempt in range(1, max_retries + 1):
+            if self._audio_stopped or session != self._audio_session:
+                self._play_pending = False
+                return
 
-        # mpv exit codes:
-        #   0 = clean EOF, 4 = quit by user (both successful from our POV)
-        #   1 = error initializing, 2 = error during playback,
-        #   3 = killed by signal (e.g. terminate from _stop_audio)
-        if returncode in (0, 4):
-            if stderr_text:
-                _logger.debug("audio mpv stderr (rc=%s): %s", returncode, stderr_text)
-            self.app.call_from_thread(self._on_audio_finished, entry)
-        elif returncode == 3:
-            # We killed it via _stop_audio; nothing to report.
-            if stderr_text:
-                _logger.debug("audio mpv terminated (rc=3): %s", stderr_text)
-        else:
-            # Real failure — log everything and surface a notification.
-            _logger.warning(
-                "audio mpv failed (rc=%s) for %s: %s",
-                returncode,
-                vid,
-                stderr_text or "(no stderr output)",
-            )
-            self.app.call_from_thread(self._on_audio_failed, entry, returncode, stderr_text)
+            stderr_text = ""
+            returncode = None
+
+            # On 2nd+ retry, re-resolve stream URL (it may have expired)
+            if attempt > 1 and not entry.get("_local_path") and vid:
+                import src.ytdlp as ytdlp
+                fmt = ytdl_format or "ba/b"
+                new_urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
+                if new_urls:
+                    resolved_url = new_urls[0]
+                    ytdlp.put_cached_stream_url(vid, fmt, new_urls)
+                    _logger.debug("audio re-resolved URL for %s (attempt %d)", vid, attempt)
+                    # Rebuild cmd tail with new URL
+                    cmd = cmd[:cmd.index("--") + 1] if "--" in cmd else cmd
+                    cmd = [c for c in cmd if not c.startswith("--no-ytdl")]
+                    cmd += ["--no-ytdl", "--", resolved_url]
+
+            try:
+                from src.plat import get_popen_kwargs, ProcessRegistry
+                self._audio_proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    **get_popen_kwargs(headless=True),
+                )
+                self._play_pending = False
+                ProcessRegistry.get().register(self._audio_proc)
+                proc = self._audio_proc
+                if attempt == 1:
+                    from src import history
+                    history.add(entry)
+                try:
+                    _out, stderr_text = proc.communicate()
+                except Exception:
+                    stderr_text = ""
+                returncode = proc.returncode
+            except FileNotFoundError:
+                self._play_pending = False
+                from src.plat import install_hint
+                hint = install_hint('mpv')
+                self.app.call_from_thread(
+                    self._log, f"[red]Error: mpv not found — install with: {hint}[/red]"
+                )
+                self.app.call_from_thread(
+                    self.notify,
+                    f"mpv not found — install with: {hint}",
+                    severity="error",
+                )
+                self.app.call_from_thread(self._stop_audio)
+                return
+            except OSError as exc:
+                self._play_pending = False
+                self.app.call_from_thread(
+                    self._log, f"[red]Error: failed to launch mpv: {exc}[/red]"
+                )
+                self.app.call_from_thread(
+                    self.notify, f"Failed to launch mpv: {exc}", severity="error"
+                )
+                self.app.call_from_thread(self._stop_audio)
+                return
+            finally:
+                if attempt == max_retries or returncode in (0, 3, 4):
+                    try:
+                        os.unlink(input_conf)
+                    except OSError:
+                        pass
+
+            stderr_text = (stderr_text or "").strip()
+
+            # Bail if a newer session has taken over while we were playing.
+            if self._audio_stopped or session != self._audio_session:
+                if stderr_text:
+                    _logger.debug("audio mpv stderr (stale session): %s", stderr_text)
+                return
+
+            # mpv exit codes: 0 = clean EOF, 4 = quit by user, 3 = killed by signal
+            if returncode in (0, 4):
+                if stderr_text:
+                    _logger.debug("audio mpv stderr (rc=%s): %s", returncode, stderr_text)
+                self.app.call_from_thread(self._on_audio_finished, entry)
+                return
+            elif returncode == 3:
+                if stderr_text:
+                    _logger.debug("audio mpv terminated (rc=3): %s", stderr_text)
+                return
+
+            # Non-zero exit — retry if attempts remain
+            if attempt < max_retries:
+                _logger.debug(
+                    "audio retry %d/%d for %s (rc=%d)",
+                    attempt, max_retries, vid, returncode or -1,
+                )
+                self.app.call_from_thread(
+                    self._log,
+                    f"[dim]Retrying audio ({attempt}/{max_retries})…[/dim]",
+                )
+                _time_mod.sleep(1.5)
+            else:
+                # All retries exhausted — report failure
+                _logger.warning(
+                    "audio mpv failed after %d attempts (rc=%s) for %s: %s",
+                    max_retries, returncode, vid,
+                    stderr_text or "(no stderr output)",
+                )
+                self.app.call_from_thread(self._on_audio_failed, entry, returncode, stderr_text)
 
     def _on_audio_finished(self, entry: dict) -> None:
         self._log(f"[dim]Audio finished: {entry.get('title', '')[:60]}[/dim]")
