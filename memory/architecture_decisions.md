@@ -369,3 +369,10 @@ Fix: `_play_pending` boolean is set immediately in `_start_audio` and included
 in the `_audio_playing` property check. It's cleared on all exit paths:
 subprocess spawn, mpv not found, OS error, session mismatch. This makes the
 guard airtight without needing busy-wait or queueing.
+
+## Session-cached Cookie Extraction (Aug 2026)
+**Decision:** Extract browser cookies once per process lifetime and inject the shared `CookieJar` into all `YoutubeDL` instances.
+
+**Why:** Every `YoutubeDL` instantiation with `cookiesfrombrowser` re-reads the browser's SQLite cookie database (~200-500ms). With 3-5 yt-dlp calls during a typical session start, this adds 1-2s of wasted I/O.
+
+**Implementation:** `_get_shared_cookiejar()` uses double-checked locking to extract once, `_make_ydl()` injects the jar. `http.cookiejar.CookieJar` is thread-safe (internal RLock). The `cookiesfrombrowser` option is removed from `_base_opts()` and `_playback_opts()`.
