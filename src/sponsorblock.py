@@ -19,42 +19,77 @@ _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
 _CACHE_DIR = get_cache_dir() / "sb"
 _CACHE_TTL = 86400  # 24 hours
 _REQUEST_TIMEOUT = 3.0
+_SSL_PREF_PATH = get_cache_dir() / "ssl_pref"
+
+
+def _build_ssl_context(pref: str) -> ssl.SSLContext:
+    """Build an SSL context for a given preference string."""
+    if pref == "certifi":
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    elif pref == "system":
+        return ssl.create_default_context()
+    else:  # "unverified"
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+
+def _read_ssl_pref() -> str | None:
+    """Read cached SSL preference from disk."""
+    try:
+        if _SSL_PREF_PATH.exists():
+            pref = _SSL_PREF_PATH.read_text().strip()
+            if pref in ("certifi", "system", "unverified"):
+                return pref
+    except OSError:
+        pass
+    return None
+
+
+def _write_ssl_pref(pref: str) -> None:
+    """Persist SSL preference to disk."""
+    try:
+        _SSL_PREF_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _SSL_PREF_PATH.write_text(pref)
+    except OSError:
+        pass
+
+
+def _invalidate_ssl_pref() -> None:
+    """Remove cached SSL preference so it will be re-probed."""
+    global _ssl_context
+    _ssl_context = None
+    try:
+        _SSL_PREF_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _get_ssl_context() -> ssl.SSLContext:
-    """Build an SSL context, falling back gracefully on certificate issues.
+    """Build an SSL context, using disk-cached preference to skip probing.
 
-    Tries in order:
-    1. certifi bundle (most portable)
-    2. System default certs
-    3. Unverified context (still encrypted, no cert validation -- for proxies)
+    On first use, tries certifi -> system -> unverified and caches whichever
+    works. Subsequent cold starts read the preference from disk.
     """
-    # Try certifi first
-    try:
-        import certifi
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        # Quick probe to validate cert chain works
-        urllib.request.urlopen(
-            urllib.request.Request(f"{_API_BASE}/../", method="HEAD"),
-            timeout=2, context=ctx
-        )
-        return ctx
-    except Exception:
-        pass
+    pref = _read_ssl_pref()
+    if pref:
+        try:
+            return _build_ssl_context(pref)
+        except Exception:
+            pass  # preference invalid (e.g. certifi uninstalled), re-probe
 
-    # Try system defaults
-    try:
-        ctx = ssl.create_default_context()
-        urllib.request.urlopen(
-            urllib.request.Request(f"{_API_BASE}/../", method="HEAD"),
-            timeout=2, context=ctx
-        )
-        return ctx
-    except Exception:
-        pass
+    # Probe in priority order (no network calls -- just context creation)
+    for candidate in ("certifi", "system", "unverified"):
+        try:
+            ctx = _build_ssl_context(candidate)
+            _write_ssl_pref(candidate)
+            return ctx
+        except Exception:
+            continue
 
-    # Last resort: unverified context (still encrypted, just no cert validation)
-    logger.debug("SponsorBlock: falling back to unverified SSL (proxy detected)")
+    # Should never reach here, but unverified always succeeds
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -107,10 +142,18 @@ def _write_cache(video_id: str, segments: list[Segment]) -> None:
         pass
 
 
+def _do_fetch(url: str, ctx: ssl.SSLContext) -> bytes:
+    """Perform the actual HTTP request. Raises on SSL or network errors."""
+    req = urllib.request.Request(url, headers={"User-Agent": f"TermTube/{_UA_VERSION}"})
+    with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ctx) as resp:
+        return resp.read()
+
+
 def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[Segment]:
     """Fetch SponsorBlock segments for a video. Safe to call from a worker thread.
 
     Returns an empty list on network error, timeout, or if no segments exist.
+    If the cached SSL preference causes an SSLError, invalidates it and retries.
     """
     if not video_id:
         return []
@@ -128,12 +171,26 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
     logger.debug("SponsorBlock fetch: %s", url)
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": f"TermTube/{_UA_VERSION}"})
         ctx = _cached_ssl_context()
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT, context=ctx) as resp:
-            data = json.loads(resp.read().decode())
+        raw = _do_fetch(url, ctx)
+    except ssl.SSLError:
+        logger.debug("SponsorBlock: SSL error with cached pref, re-probing")
+        _invalidate_ssl_pref()
+        try:
+            ctx = _cached_ssl_context()
+            raw = _do_fetch(url, ctx)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+            logger.debug("SponsorBlock fetch failed for %s: %s", video_id, exc)
+            _write_cache(video_id, [])
+            return []
     except (urllib.error.HTTPError, urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
         logger.debug("SponsorBlock fetch failed for %s: %s", video_id, exc)
+        _write_cache(video_id, [])
+        return []
+
+    try:
+        data = json.loads(raw.decode())
+    except (json.JSONDecodeError, UnicodeDecodeError):
         _write_cache(video_id, [])
         return []
 
