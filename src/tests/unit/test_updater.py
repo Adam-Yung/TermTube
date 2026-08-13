@@ -22,7 +22,6 @@ def _make_updater(tmp_path: Path):
     mod._CACHE_DIR = tmp_path
     mod._LAST_VERSION = tmp_path / "LAST_VERSION"
     mod._PENDING_VERSION_NOTIFY = tmp_path / "PENDING_VERSION_NOTIFY"
-    mod._LAST_COOKIE_REFRESH = tmp_path / "LAST_COOKIE_REFRESH"
     return mod
 
 

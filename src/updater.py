@@ -11,19 +11,17 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
 
-from src.plat import IS_WINDOWS, IS_MACOS, IS_LINUX, get_cache_dir
+from src.plat import IS_WINDOWS, get_cache_dir
 
 # -- Constants -----------------------------------------------------------------
 
 _CACHE_DIR: Path = get_cache_dir()
 _LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
 _PENDING_VERSION_NOTIFY: Path = _CACHE_DIR / "PENDING_VERSION_NOTIFY"
-_LAST_COOKIE_REFRESH: Path = _CACHE_DIR / "LAST_COOKIE_REFRESH"
 _GITHUB_REPO = "Adam-Yung/TermTube"
 
 
@@ -97,141 +95,10 @@ def update_ytdlp(verbose: bool = False) -> bool:
                         )
                     except OSError:
                         pass
-                    # Auto-refresh cookies after version change — YouTube
-                    # invalidates sessions when the client fingerprint changes.
-                    try:
-                        refresh_cookies(verbose=verbose)
-                    except Exception:
-                        pass
             return True
         return False
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False
-
-# -- Cookie refresher ----------------------------------------------------------
-
-def _load_config_lazy():
-    """Import Config lazily to avoid circular imports in the background fork."""
-    from src.config import Config
-    return Config()
-
-
-_RICK_ROLL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-
-def refresh_cookies(config=None, verbose: bool = False, link=_RICK_ROLL, browser: str | None = None) -> bool:
-    """Extract cookies from the configured browser into cookies_file.
-
-    Writes to a .tmp file first, then atomically renames on success.
-    Existing cookies.txt is preserved on failure.
-    If *browser* is passed, it overrides both config and auto-detection.
-    Returns True on success.
-    """
-    if config is None:
-        config = _load_config_lazy()
-
-    from pathlib import Path
-    path = Path(config.get("config_dir", "~/.config/TermTube")).expanduser() / "cookies.txt"
-
-    from src.browsers import detect_installed_browsers, is_auto_browser, get_browser_label
-
-    if browser:
-        pass
-    elif not is_auto_browser(config.get("browser")):
-        browser = config.get("browser")
-    else:
-        detected = detect_installed_browsers()
-        if not detected:
-            if verbose:
-                print("  [!] No supported browsers detected on this system.")
-                print("  Set 'browser' in config to one of: brave, chrome, chromium, edge, firefox, opera, safari, vivaldi, whale")
-            return False
-        if len(detected) == 1:
-            browser = detected[0]["name"]
-            if verbose:
-                print(f"  Auto-detected browser: {get_browser_label(browser)}")
-        else:
-            browser = detected[0]["name"]
-            if verbose:
-                print(f"  Auto-detected browser: {get_browser_label(browser)} (from {len(detected)} installed)")
-    if not browser:
-        browser = "chrome"
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(".tmp")
-
-    if verbose:
-        print(f"  Refreshing cookies from {browser}...", flush=True)
-
-    try:
-        import yt_dlp
-        ydl_opts = {
-            'cookiesfrombrowser': (browser, None, None, None),
-            'cookiefile': str(tmp_path),
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'extract_flat': True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.extract_info(link, download=False)
-    except ImportError:
-        if verbose:
-            print("  [!] yt-dlp not installed -- cannot refresh cookies.")
-        return False
-    except Exception as exc:
-        if verbose:
-            print(f"  [!] Cookie extraction failed: {exc}")
-        _cleanup_tmp(tmp_path)
-        return False
-
-    if tmp_path.exists() and tmp_path.stat().st_size > 0:
-        try:
-            cookie_text = tmp_path.read_text(errors="replace")
-        except OSError:
-            _cleanup_tmp(tmp_path)
-            return False
-
-        has_youtube_cookies = any(
-            line.strip() and not line.startswith("#")
-            and (".youtube.com" in line or ".google.com" in line)
-            for line in cookie_text.splitlines()
-        )
-        if not has_youtube_cookies:
-            if verbose:
-                print("  [!] Cookie extraction produced no YouTube session cookies.")
-                print("  The browser may not be logged in, or the cookie store is locked.")
-                print("  Try: termtube --cookies-help")
-            _cleanup_tmp(tmp_path)
-            return False
-
-        try:
-            tmp_path.replace(path)
-        except OSError:
-            try:
-                path.unlink(missing_ok=True)
-                tmp_path.rename(path)
-            except OSError:
-                _cleanup_tmp(tmp_path)
-                return False
-        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        _LAST_COOKIE_REFRESH.touch()
-        if verbose:
-            print(f"  Cookies saved to {path}")
-        return True
-
-    if verbose:
-        print("  [!] Cookie extraction produced no output.")
-    _cleanup_tmp(tmp_path)
-    return False
-
-
-def _cleanup_tmp(tmp_path: Path) -> None:
-    try:
-        tmp_path.unlink(missing_ok=True)
-    except OSError:
-        pass
-
 
 # -- App code self-update ------------------------------------------------------
 
@@ -347,11 +214,6 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
 
         # Write new version
         (install_dir / "VERSION").write_text(latest_tag)
-        # Refresh cookies after app update (new yt-dlp version may invalidate sessions)
-        try:
-            refresh_cookies(verbose=verbose)
-        except Exception:
-            pass
         if verbose:
             _safe_print(f"  [ok] app: updated to {latest_tag}")
         return True

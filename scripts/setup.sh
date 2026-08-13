@@ -196,7 +196,7 @@ install_files() {
         cp -a "${ORIG_DIR}/assets" "${APP_DIR}/"
     fi
 
-    for f in requirements.txt termtube termtube.cmd; do
+    for f in requirements.txt termtube termtube.cmd VERSION; do
         if [[ -f "${ORIG_DIR}/$f" ]]; then
             cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
         fi

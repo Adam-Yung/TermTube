@@ -26,6 +26,11 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+try:
+    import ssl
+except ImportError:
+    ssl = None  # type: ignore[assignment]
+
 
 # ── Platform Detection ────────────────────────────────────────────────────────
 
@@ -102,6 +107,77 @@ _MAX_RETRIES = 3
 _RETRY_DELAY = 2  # seconds
 
 
+def _classify_download_error(exc: Exception) -> tuple[str, str]:
+    """Classify a download exception into (brief_reason, category).
+
+    Categories: 'ssl', 'timeout', 'connection', 'other'
+    """
+    exc_str = str(exc)
+
+    # Unwrap URLError to get at the underlying reason
+    if isinstance(exc, urllib.error.URLError) and hasattr(exc, 'reason'):
+        reason = exc.reason
+        if isinstance(reason, Exception):
+            exc_str = str(reason)
+            exc = reason
+
+    # SSL / certificate errors
+    if ssl is not None:
+        if isinstance(exc, ssl.SSLCertVerificationError):
+            return "SSL certificate verification failed", "ssl"
+        if isinstance(exc, ssl.SSLError):
+            return f"SSL error: {exc_str}", "ssl"
+    if "CERTIFICATE_VERIFY_FAILED" in exc_str.upper() or "SSL" in exc_str.upper():
+        return f"SSL/TLS error: {exc_str}", "ssl"
+
+    # Timeout
+    if isinstance(exc, (TimeoutError, OSError)) and "timed out" in exc_str.lower():
+        return "Connection timed out", "timeout"
+    if isinstance(exc, urllib.error.URLError) and "timed out" in exc_str.lower():
+        return "Connection timed out", "timeout"
+
+    # Connection refused / reset
+    if "refused" in exc_str.lower():
+        return "Connection refused", "connection"
+    if "reset" in exc_str.lower():
+        return "Connection reset", "connection"
+    if "network is unreachable" in exc_str.lower():
+        return "Network is unreachable", "connection"
+
+    return exc_str, "other"
+
+
+def _print_download_guidance(dep_name: str, brief_error: str, category: str) -> None:
+    """Print user-friendly guidance to stderr when a download fails."""
+    # Determine Homebrew package name (same as dep name for all our tools)
+    brew_name = dep_name
+
+    print(file=sys.stderr, flush=True)
+    print(f"  ⚠ Failed to download {dep_name}: {brief_error}", file=sys.stderr, flush=True)
+    print(file=sys.stderr, flush=True)
+    print("  Possible fixes:", file=sys.stderr, flush=True)
+
+    if category == "ssl":
+        print("    • You may be behind a corporate proxy/firewall that intercepts HTTPS", file=sys.stderr, flush=True)
+        print("    • Disconnect from VPN or corporate network and retry", file=sys.stderr, flush=True)
+    elif category == "timeout":
+        print("    • Check your internet connection", file=sys.stderr, flush=True)
+        print("    • Disconnect from VPN/proxy and retry", file=sys.stderr, flush=True)
+    elif category == "connection":
+        print("    • Check your internet connection and firewall settings", file=sys.stderr, flush=True)
+        print("    • Disconnect from VPN/proxy and retry", file=sys.stderr, flush=True)
+    else:
+        print("    • Check your internet connection", file=sys.stderr, flush=True)
+
+    if OS_NAME == "macos":
+        print(f"    • Install manually via Homebrew: brew install {brew_name}", file=sys.stderr, flush=True)
+    elif OS_NAME == "linux":
+        print(f"    • Install manually via your package manager (e.g. apt install {brew_name})", file=sys.stderr, flush=True)
+
+    print("    • Run: termtube --update  (to retry later)", file=sys.stderr, flush=True)
+    print(file=sys.stderr, flush=True)
+
+
 def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRIES) -> bool:
     """Download a URL to a local file with retry logic. Returns True on success.
 
@@ -147,9 +223,12 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
             os.replace(tmp_dest, dest)
             return True
         except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            print(f"\n    [!] Download failed: {exc}", flush=True)
             tmp_dest.unlink(missing_ok=True)
+            brief, category = _classify_download_error(exc)
+            print(flush=True)
+            print(f"    [!] Download failed: {brief}", flush=True)
             if attempt == retries:
+                _print_download_guidance(label, brief, category)
                 return False
 
     return False
@@ -169,6 +248,12 @@ def _github_latest_tag(owner: str, repo: str) -> str | None:
         with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read())
             return data.get("tag_name")
+    except (urllib.error.URLError, OSError, TimeoutError) as exc:
+        brief, category = _classify_download_error(exc)
+        print(f"    [!] GitHub API request failed: {brief}", file=sys.stderr, flush=True)
+        if category == "ssl":
+            print("    (Likely behind a corporate proxy — see error guidance below)", file=sys.stderr, flush=True)
+        return None
     except Exception:
         return None
 
@@ -519,8 +604,9 @@ def install_all(*, force: bool = False) -> bool:
     if all_ok:
         print("  All dependencies installed successfully.", flush=True)
     else:
-        print("  Some dependencies failed to install.", flush=True)
-        print("  Run 'termtube --update' to retry.", flush=True)
+        print("  Some dependencies failed to install.", file=sys.stderr, flush=True)
+        print("  The app will still launch but some features may be unavailable.", file=sys.stderr, flush=True)
+        print("  Run 'termtube --update' to retry downloads later.", file=sys.stderr, flush=True)
 
     return all_ok
 

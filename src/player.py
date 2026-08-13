@@ -27,11 +27,16 @@ _ipc_locks: dict[str, threading.Lock] = {}
 _ipc_locks_lock = threading.Lock()
 
 
+_IPC_LOCKS_MAX = 20
+
+
 def _get_ipc_lock(socket_path: str) -> threading.Lock:
     """Return (or create) a per-path lock for serializing IPC operations."""
     with _ipc_locks_lock:
         lock = _ipc_locks.get(socket_path)
         if lock is None:
+            if len(_ipc_locks) >= _IPC_LOCKS_MAX:
+                _ipc_locks.clear()
             lock = threading.Lock()
             _ipc_locks[socket_path] = lock
         return lock
@@ -182,6 +187,8 @@ def _drop_persistent_socket(socket_path: str) -> None:
                 s.close()
             except OSError:
                 pass
+    with _ipc_locks_lock:
+        _ipc_locks.pop(socket_path, None)
 
 
 def close_persistent_socket(socket_path: str) -> None:
@@ -198,6 +205,8 @@ def close_all_sockets() -> None:
             except OSError:
                 pass
         _persistent_sockets.clear()
+    with _ipc_locks_lock:
+        _ipc_locks.clear()
     for path in list(_temp_input_confs):
         try:
             os.unlink(path)
