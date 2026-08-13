@@ -207,7 +207,7 @@ class ChannelScreen(Screen):
 
     # ── Content worker ────────────────────────────────────────────────────────
 
-    @work(thread=True, group="ch_content")
+    @work(thread=True, exclusive=True, group="ch_content")
     def _load_content(self, tab: str, sort: str, session: int) -> None:
         import src.ytdlp as ytdlp
         panel = self._video_panel
