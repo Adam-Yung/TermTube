@@ -51,6 +51,16 @@ async def test_app_boots_without_crash(app):
         assert app.screen is not None
 
 
+async def test_app_has_video_list(app):
+    """After boot, the VideoListPanel widget should exist in the DOM."""
+    from src.tui.widgets.video_list import VideoListPanel
+
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause(0.5)
+        panel = app.screen.query_one("#video-list-panel", VideoListPanel)
+        assert panel is not None
+
+
 async def test_quit_key_exits(app):
     """Pressing q should quit the app."""
     async with app.run_test(size=(100, 30)) as pilot:
@@ -60,11 +70,13 @@ async def test_quit_key_exits(app):
 
 
 async def test_help_toggle(app):
-    """Pressing ? should show help content."""
+    """Pressing ? should push the HelpScreen."""
     async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause(0.3)
         await pilot.press("question_mark")
         await pilot.pause(0.2)
+        screen_names = [type(s).__name__ for s in app.screen_stack]
+        assert "HelpScreen" in screen_names, f"HelpScreen not in screen_stack: {screen_names}"
 
 
 async def test_search_modal_opens(app):
