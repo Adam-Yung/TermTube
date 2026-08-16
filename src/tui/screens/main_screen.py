@@ -1304,6 +1304,18 @@ class MainScreen(Screen):
             import src.ytdlp as ytdlp
             fmt = ytdl_format or "ba/b"
             cached = ytdlp.get_cached_stream_url(vid, fmt)
+            if not cached:
+                # Prefetch may be in progress — wait briefly before resolving inline
+                # to avoid concurrent yt-dlp calls for the same video.
+                import time as _t
+                for _ in range(6):
+                    _t.sleep(0.5)
+                    if self._audio_stopped or session != self._audio_session:
+                        self._play_pending = False
+                        return
+                    cached = ytdlp.get_cached_stream_url(vid, fmt)
+                    if cached:
+                        break
             if cached:
                 resolved_url = cached[0]
                 _logger.debug("audio using pre-cached URL for %s", vid)

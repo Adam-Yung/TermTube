@@ -137,6 +137,16 @@ class WatchModal(ModalScreen[bool]):
             import src.ytdlp as ytdlp
             fmt = self._ytdl_format or "bv+ba/b"
             cached = ytdlp.get_cached_stream_url(vid, fmt)
+            if not cached:
+                # Prefetch may be in progress — wait briefly before resolving inline
+                import time as _t
+                for _ in range(6):
+                    _t.sleep(0.5)
+                    if self._stopped:
+                        return
+                    cached = ytdlp.get_cached_stream_url(vid, fmt)
+                    if cached:
+                        break
             if cached:
                 resolved_urls = cached
                 _logger.debug("video using pre-cached %d URL(s) for %s", len(cached), vid)
