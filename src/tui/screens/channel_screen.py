@@ -346,7 +346,7 @@ class ChannelScreen(Screen):
             if not (local and local.exists()):
                 self.app.call_from_thread(self._set_thumb_placeholder)
                 return
-            ansi = thumb_mod.render(ch_id, {"id": ch_id, "thumbnail": url}) or ""
+            ansi = thumb_mod.render_pil_halfblock(ch_id, {"id": ch_id, "thumbnail": url}) or ""
             if session != self._thumb_session:
                 return
             if ansi:
