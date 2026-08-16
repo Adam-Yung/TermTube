@@ -367,7 +367,7 @@ write_version() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     local title="TermTube Installer"
-    local subtitle="v${VERSION}"
+    local subtitle="${VERSION}"
     local width=37
     local inner=$((width - 2))
 

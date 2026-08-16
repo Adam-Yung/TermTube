@@ -480,7 +480,7 @@ function Install-Shortcut {
 function Main {
     Write-Host ""
     $title    = "TermTube Installer"
-    $subtitle = "Windows v$Version"
+    $subtitle = "Windows $Version"
     $width    = 37
     $inner    = $width - 2
 
