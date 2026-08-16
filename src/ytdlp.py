@@ -278,6 +278,9 @@ def fetch_page_batch(
                         if vid:
                             all_ids.append(vid)
                         results.append(entry)
+                        if on_first_batch and len(results) == first_batch_size:
+                            on_first_batch(list(results))
+                            on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("fetch_page_batch error: %s", exc)
 

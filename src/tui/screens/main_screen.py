@@ -138,15 +138,16 @@ _TABS = [
     ("help", "📚 Help"),
 ]
 
-_AUDIO_SOCKET = None  # Lazy-initialized from platform module
+_AUDIO_SOCKET_BASE = None  # Lazy-initialized from platform module
 
 
-def _get_audio_socket() -> str:
-    global _AUDIO_SOCKET
-    if _AUDIO_SOCKET is None:
+def _get_audio_socket_base() -> str:
+    """Return the base directory + prefix for audio IPC sockets."""
+    global _AUDIO_SOCKET_BASE
+    if _AUDIO_SOCKET_BASE is None:
         from src.plat import get_audio_ipc_path
-        _AUDIO_SOCKET = get_audio_ipc_path()
-    return _AUDIO_SOCKET
+        _AUDIO_SOCKET_BASE = get_audio_ipc_path()
+    return _AUDIO_SOCKET_BASE
 
 # ── Dwell / freshness tuning ──────────────────────────────────────────────────
 _FOCUS_DWELL_S = 0.10
@@ -1171,6 +1172,14 @@ class MainScreen(Screen):
     def _audio_playing(self) -> bool:
         return self._play_pending or (self._audio_proc is not None and self._audio_proc.poll() is None)
 
+    def _audio_socket(self) -> str:
+        """Per-session IPC socket path — eliminates collision between old/new mpv."""
+        base = _get_audio_socket_base()
+        if self._audio_session <= 1:
+            return base
+        stem, ext = os.path.splitext(base)
+        return f"{stem}-{self._audio_session}{ext}"
+
     def _action_bar(self) -> ActionBar:
         return self.query_one("#detail-panel", DetailPanel).action_bar
 
@@ -1204,7 +1213,7 @@ class MainScreen(Screen):
         if self._audio_proc and self._audio_proc.poll() is None:
             from src.player import send_ipc_command
 
-            send_ipc_command({"command": ["quit"]}, socket_path=_get_audio_socket())
+            send_ipc_command({"command": ["quit"]}, socket_path=self._audio_socket())
             from src.plat import terminate_process
             terminate_process(self._audio_proc, timeout=2.0)
         if self._audio_proc:
@@ -1223,11 +1232,11 @@ class MainScreen(Screen):
             TermTubeApp.PlayerStateUpdated(0.0, 0.0, False, playing=False)
         )
         from src.player import close_persistent_socket
-        close_persistent_socket(_get_audio_socket())
+        close_persistent_socket(self._audio_socket())
         from src.plat import cleanup_ipc
-        cleanup_ipc(_get_audio_socket())
+        cleanup_ipc(self._audio_socket())
 
-    @work(thread=True, exclusive=True, group="audio_player")
+    @work(thread=True, group="audio_player")
     def _launch_audio_worker(
         self, entry: dict, session: int, *, ytdl_format: str = ""
     ) -> None:
@@ -1309,7 +1318,7 @@ class MainScreen(Screen):
         cmd = [
             mpv_exe,
             f"--input-conf={input_conf}",
-            f"--input-ipc-server={_get_audio_socket()}",
+            f"--input-ipc-server={self._audio_socket()}",
             "--no-video",
             "--force-window=no",
             "--no-terminal",
@@ -1431,7 +1440,7 @@ class MainScreen(Screen):
             if returncode in (0, 4):
                 if stderr_text:
                     _logger.debug("audio mpv stderr (rc=%s): %s", returncode, stderr_text)
-                self.app.call_from_thread(self._on_audio_finished, entry)
+                self.app.call_from_thread(self._on_audio_finished, entry, session)
                 return
             elif returncode == 3:
                 if stderr_text:
@@ -1456,9 +1465,11 @@ class MainScreen(Screen):
                     max_retries, returncode, vid,
                     stderr_text or "(no stderr output)",
                 )
-                self.app.call_from_thread(self._on_audio_failed, entry, returncode, stderr_text)
+                self.app.call_from_thread(self._on_audio_failed, entry, returncode, stderr_text, session)
 
-    def _on_audio_finished(self, entry: dict) -> None:
+    def _on_audio_finished(self, entry: dict, session: int) -> None:
+        if session != self._audio_session:
+            return
         self._log(f"[dim]Audio finished: {entry.get('title', '')[:60]}[/dim]")
         title = entry.get("title", "")
         self._audio_proc = None
@@ -1477,13 +1488,15 @@ class MainScreen(Screen):
                 self.notify(f"✓ Finished: {title[:50]}", timeout=4)
 
     def _on_audio_failed(
-        self, entry: dict, returncode: int | None, stderr_text: str
+        self, entry: dict, returncode: int | None, stderr_text: str, session: int
     ) -> None:
         """mpv exited with a non-zero/non-quit code — playback never succeeded.
 
         We do NOT add to history (nothing was played) and we surface the actual
         error to the user so they don't see a misleading "Finished" toast.
         """
+        if session != self._audio_session:
+            return
         title = entry.get("title", "") or entry.get("id", "")
         self._audio_proc = None
         self._audio_entry = None
@@ -1523,7 +1536,7 @@ class MainScreen(Screen):
     def _poll_audio_ipc_threaded(self) -> None:
         from src.player import poll_audio_properties
 
-        pos, dur, paused = poll_audio_properties(socket_path=_get_audio_socket())
+        pos, dur, paused = poll_audio_properties(socket_path=self._audio_socket())
         if pos is not None and dur is not None:
             self.app.call_from_thread(self._action_bar().update_progress, pos, dur, paused)
             from src.tui.app import TermTubeApp
@@ -1545,7 +1558,7 @@ class MainScreen(Screen):
                         from src.player import send_ipc_command
                         send_ipc_command(
                             {"command": ["seek", seg.end, "absolute"]},
-                            socket_path=_get_audio_socket(),
+                            socket_path=self._audio_socket(),
                         )
                         self.app.call_from_thread(
                             self.notify,
@@ -1637,7 +1650,7 @@ class MainScreen(Screen):
     def _audio_ipc(self, cmd: dict) -> None:
         from src.player import send_ipc_command
 
-        send_ipc_command(cmd, socket_path=_get_audio_socket())
+        send_ipc_command(cmd, socket_path=self._audio_socket())
 
     # ── Video playback (Delegates to WatchModal) ──────────────────────────────
 
@@ -1792,6 +1805,7 @@ class MainScreen(Screen):
         if not self._audio_playing or not self._audio_queue:
             return
         next_entry = self._audio_queue.pop(0)
+        self._audio_session += 1  # invalidate pending callbacks from current track
         self._stop_audio(keep_player_mode=True)
         self._start_audio(next_entry)  # _start_audio calls _refresh_queue_hint
 

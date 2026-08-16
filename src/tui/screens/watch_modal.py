@@ -146,6 +146,12 @@ class WatchModal(ModalScreen[bool]):
                     ytdlp.put_cached_stream_url(vid, fmt, resolved_urls)
                     _logger.debug("video resolved %d URL(s) for %s", len(resolved_urls), vid)
 
+        # Wait for CDN propagation if URL was resolved recently
+        if resolved_urls and vid:
+            import src.ytdlp as ytdlp
+            fmt = self._ytdl_format or "bv+ba/b"
+            ytdlp.wait_for_stream_url_ready(vid, fmt)
+
         mpv_exe = player_mod._mpv_exe()
         if not mpv_exe:
             from src.plat import install_hint
@@ -165,6 +171,8 @@ class WatchModal(ModalScreen[bool]):
             "--no-terminal",
             "--really-quiet",
             "--msg-level=all=no",
+            "--cache=yes",
+            "--demuxer-max-bytes=150M",
         ]
         if title:
             cmd += [f"--title={title}", f"--force-media-title={title}"]
