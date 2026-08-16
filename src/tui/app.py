@@ -69,6 +69,9 @@ class TermTubeApp(App):
         # Warm up yt-dlp extractors in background so the first feed fetch is faster
         threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
 
+        # Pre-extract browser cookies so first play doesn't pay the 5-15s cost
+        threading.Thread(target=self._warmup_cookies, daemon=True, name="cookie-warmup").start()
+
         # Defer housekeeping until 60 s after launch so it doesn't compete with
         # the home feed render. If the app is closed earlier, on_unmount runs
         # the same prune as a backstop.
@@ -101,6 +104,14 @@ class TermTubeApp(App):
         try:
             from src.ytdlp import warmup
             warmup()
+        except Exception:
+            pass
+
+    def _warmup_cookies(self) -> None:
+        """Pre-extract browser cookies so first play doesn't block on this."""
+        try:
+            from src.ytdlp import _get_shared_cookiejar
+            _get_shared_cookiejar(self.config)
         except Exception:
             pass
 

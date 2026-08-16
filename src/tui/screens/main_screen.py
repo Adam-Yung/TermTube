@@ -555,6 +555,17 @@ class MainScreen(Screen):
                     self.app.call_from_thread(panel.finish_loading)
                     stash_loaded = True
                     _logger.debug("feed %s: loaded %d stash entries as page 1", feed_key, len(filtered))
+                    # Eagerly prefetch stream URL for the first video so first play is fast
+                    first_vid = filtered[0].get("id", "") if filtered else ""
+                    if first_vid and not first_vid.startswith("__"):
+                        import threading as _thr
+                        def _eager_prefetch(vid_id=first_vid):
+                            try:
+                                import src.ytdlp as ytdlp
+                                ytdlp.prefetch_stream_url(vid_id, config)
+                            except Exception:
+                                pass
+                        _thr.Thread(target=_eager_prefetch, daemon=True).start()
 
         # Step 2 — if stash loaded and cache fresh, serve from disk (no network)
         if stash_loaded and cache.is_feed_fresh(feed_key):
@@ -592,6 +603,17 @@ class MainScreen(Screen):
                     self.app.call_from_thread(panel.add_page, page_num, batch[i:i + _PAGE_SIZE])
                 if not stash_loaded:
                     self.app.call_from_thread(panel.load_page, 1)
+                    # No stash was available — prefetch the first video for instant play
+                    fv = batch[0].get("id", "") if batch else ""
+                    if fv and not fv.startswith("__"):
+                        import threading as _thr
+                        def _eager_pf(vid_id=fv):
+                            try:
+                                import src.ytdlp as _yt
+                                _yt.prefetch_stream_url(vid_id, config)
+                            except Exception:
+                                pass
+                        _thr.Thread(target=_eager_pf, daemon=True).start()
                 self.app.call_from_thread(panel.finish_loading)
                 first_batch_displayed = True
 
@@ -1286,6 +1308,9 @@ class MainScreen(Screen):
                 resolved_url = cached[0]
                 _logger.debug("audio using pre-cached URL for %s", vid)
             else:
+                self.app.call_from_thread(
+                    self.notify, "Connecting to YouTube…", timeout=8
+                )
                 urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
                 if urls:
                     resolved_url = urls[0]

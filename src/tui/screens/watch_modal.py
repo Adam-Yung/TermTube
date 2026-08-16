@@ -141,6 +141,9 @@ class WatchModal(ModalScreen[bool]):
                 resolved_urls = cached
                 _logger.debug("video using pre-cached %d URL(s) for %s", len(cached), vid)
             else:
+                self.app.call_from_thread(
+                    self.app.notify, "Connecting to YouTube…", timeout=8
+                )
                 resolved_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
                 if resolved_urls:
                     ytdlp.put_cached_stream_url(vid, fmt, resolved_urls)
