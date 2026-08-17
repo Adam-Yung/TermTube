@@ -58,7 +58,7 @@ def _print_help() -> None:
 
     print()
     print("  " + _c("1", tl + line + tr, color=color))
-    print(_banner_row(f"TermTube  v{_VERSION}"))
+    print(_banner_row(f"TermTube  {_VERSION}"))
     print(_banner_row("YouTube TUI \u2014 yt-dlp + Textual"))
     print("  " + _c("1", bl + line + br, color=color))
     print()
