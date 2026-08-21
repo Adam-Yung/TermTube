@@ -1318,7 +1318,7 @@ class MainScreen(Screen):
                 _logger.debug("audio using pre-cached URL for %s", vid)
             else:
                 self.app.call_from_thread(
-                    self.notify, "Connecting to YouTube…", timeout=8
+                    self.notify, "Resolving stream…", timeout=5
                 )
                 urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
                 if urls:
