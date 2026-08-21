@@ -409,9 +409,18 @@ guard airtight without needing busy-wait or queueing.
 
 **Fix:** Two-layered defense:
 1. **Time-based staleness:** `_get_shared_cookiejar()` now checks `_jar_extracted_at` and re-extracts if older than 10 minutes (`_JAR_MAX_AGE = 600`). This handles "account switched a while ago" naturally.
-2. **Error-driven invalidation:** `invalidate_shared_cookiejar()` resets both `_shared_jar = None` and `_jar_extracted_at = 0.0`. Called:
-   - In `resolve_stream_url()` when DownloadError contains "sign in" / "403" / "login"
-   - In retry paths (main_screen.py, watch_modal.py) before re-resolving stream URLs
-   - Net effect: first attempt fails → jar invalidated → retry re-extracts fresh cookies → succeeds
+2. **Error-driven invalidation:** `invalidate_shared_cookiejar()` resets both `_shared_jar = None` and `_jar_extracted_at = 0.0`. Available for any caller that detects auth failures.
 
 **Why 10 minutes:** YouTube session tokens last hours, but the account-switch scenario needs detection within a reasonable window. 10 minutes balances between unnecessary re-extraction overhead (~50ms per extraction) and responsiveness to auth changes.
+
+## No cookies for stream resolution or downloads (Aug 2026)
+
+**Problem:** Passing browser cookies to `resolve_stream_url()` and download functions caused YouTube to return a degraded "tv downgraded player" response — only 5 formats (4 storyboards + 1 combined 360p HLS) instead of 37+ formats with direct HTTPS audio/video streams.
+
+**Root cause:** The user's new account cookies triggered YouTube's degraded client path. Additionally, yt-dlp 2026.07.04's default client (ANDROID_VR) produced CDN URLs that returned 403 when accessed from non-VR user agents — a YouTube-side change tracked in yt-dlp#12482.
+
+**Fix:** Stream resolution and downloads no longer inject the shared cookie jar. These are public operations — any YouTube video's CDN URL can be resolved without authentication. Cookies remain in `_make_ydl()` calls only for account-specific operations (home feed, subscriptions, channel browsing).
+
+**yt-dlp minimum bumped to 2026.08.19** which switches from the broken ANDROID_VR client to VISIONOS, producing direct HTTPS CDN URLs that work with mpv's `--no-ytdl` mode.
+
+**Performance benefit:** Stream resolution no longer blocks on cookie extraction at startup (the `blocking_cookies` parameter is removed entirely). Prefetch fires immediately without waiting for the jar lock.
