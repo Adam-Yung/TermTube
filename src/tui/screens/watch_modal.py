@@ -114,14 +114,22 @@ class WatchModal(ModalScreen[bool]):
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)
 
-        # Fetch SponsorBlock segments
+        # Fetch SponsorBlock segments in parallel with URL resolution
         config = getattr(self.app, "config", None)
+        sb_thread = None
         if config and config.sponsorblock_enabled and vid:
+            import threading
             from src.sponsorblock import fetch_segments
-            self._segments = fetch_segments(vid, config.sponsorblock_categories)
-            self._segments.sort(key=lambda s: s.start)
-            self._sb_next_idx = 0
-            self._segment_cols = []  # invalidate pre-computed bar cache
+
+            def _fetch_sb():
+                segs = fetch_segments(vid, config.sponsorblock_categories)
+                segs.sort(key=lambda s: s.start)
+                self._segments = segs
+                self._sb_next_idx = 0
+                self._segment_cols = []
+
+            sb_thread = threading.Thread(target=_fetch_sb, daemon=True)
+            sb_thread.start()
 
         url = (
             self._entry.get("_local_path")
@@ -160,6 +168,10 @@ class WatchModal(ModalScreen[bool]):
             import src.ytdlp as ytdlp
             fmt = self._ytdl_format or "bv+ba/b"
             ytdlp.wait_for_stream_url_ready(vid, fmt)
+
+        # Wait for SponsorBlock (should be done by now — ran in parallel)
+        if sb_thread:
+            sb_thread.join(timeout=2.0)
 
         mpv_exe = player_mod._mpv_exe()
         if not mpv_exe:
