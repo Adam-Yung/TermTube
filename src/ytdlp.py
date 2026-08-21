@@ -819,7 +819,7 @@ def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> N
 # session token propagates. Instead of a fixed sleep, we probe the URL in the
 # background and signal readiness via an Event.
 
-_STREAM_URL_WARMUP_MAX = 5.0  # hard timeout (seconds) if probe never succeeds
+_STREAM_URL_WARMUP_MAX = 1.5  # hard timeout (seconds) for CDN probe wait
 _cdn_ready_events: dict[str, threading.Event] = {}
 _cdn_ready_lock = threading.Lock()
 
@@ -872,17 +872,22 @@ def wait_for_stream_url_ready(video_id: str, format_spec: str) -> None:
         ev = _cdn_ready_events.get(key)
     if ev is None:
         # No probe was started (e.g. URL resolved inline, not via prefetch).
-        # Fall back to a short fixed wait based on cache age.
+        # Start one now and wait briefly — the CDN is likely already warm from
+        # the yt-dlp extraction handshake that just completed.
         with _stream_cache_lock:
             entry = _stream_cache.get(key)
             if entry is None:
                 return
             resolve_ts = entry[0]
+            urls = entry[1]
         elapsed = _time.time() - resolve_ts
-        remaining = _STREAM_URL_WARMUP_MAX - elapsed
-        if remaining > 0:
-            _time.sleep(remaining)
-        return
+        if elapsed >= _STREAM_URL_WARMUP_MAX:
+            return
+        _start_cdn_probe(video_id, format_spec, urls)
+        with _cdn_ready_lock:
+            ev = _cdn_ready_events.get(key)
+        if ev is None:
+            return
     ev.wait(timeout=_STREAM_URL_WARMUP_MAX)
 
 

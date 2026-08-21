@@ -133,6 +133,7 @@ class WatchModal(ModalScreen[bool]):
 
         # Use pre-cached stream URL if available, otherwise resolve on-demand.
         resolved_urls: list[str] | None = None
+        url_from_cache = False
         if not self._entry.get("_local_path") and vid and config:
             import src.ytdlp as ytdlp
             fmt = self._ytdl_format or "bv+ba/b"
@@ -140,15 +141,13 @@ class WatchModal(ModalScreen[bool]):
             if not cached:
                 # Prefetch may be in progress — wait briefly before resolving inline
                 import time as _t
-                for _ in range(6):
-                    _t.sleep(0.5)
-                    if self._stopped:
-                        return
-                    cached = ytdlp.get_cached_stream_url(vid, fmt)
-                    if cached:
-                        break
+                _t.sleep(1.0)
+                if self._stopped:
+                    return
+                cached = ytdlp.get_cached_stream_url(vid, fmt)
             if cached:
                 resolved_urls = cached
+                url_from_cache = True
                 _logger.debug("video using pre-cached %d URL(s) for %s", len(cached), vid)
             else:
                 self.app.call_from_thread(
@@ -159,8 +158,8 @@ class WatchModal(ModalScreen[bool]):
                     ytdlp.put_cached_stream_url(vid, fmt, resolved_urls)
                     _logger.debug("video resolved %d URL(s) for %s", len(resolved_urls), vid)
 
-        # Wait for CDN propagation if URL was resolved recently
-        if resolved_urls and vid:
+        # Wait for CDN propagation only if URL was resolved inline (not from cache)
+        if resolved_urls and vid and not url_from_cache:
             import src.ytdlp as ytdlp
             fmt = self._ytdl_format or "bv+ba/b"
             ytdlp.wait_for_stream_url_ready(vid, fmt)
@@ -280,7 +279,7 @@ class WatchModal(ModalScreen[bool]):
                     "video retry %d/%d for %s (rc=%d)",
                     attempt, max_retries, vid, returncode or -1,
                 )
-                _time_mod.sleep(1.5)
+                _time_mod.sleep(1.0)
             else:
                 _logger.warning(
                     "video mpv failed after %d attempts (rc=%s) for %s",

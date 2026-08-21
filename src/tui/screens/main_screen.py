@@ -1300,6 +1300,7 @@ class MainScreen(Screen):
         # Use pre-cached stream URL if available (from background prefetch),
         # otherwise resolve on-demand.
         resolved_url = None
+        url_from_cache = False
         if not entry.get("_local_path") and vid:
             import src.ytdlp as ytdlp
             fmt = ytdl_format or "ba/b"
@@ -1308,16 +1309,14 @@ class MainScreen(Screen):
                 # Prefetch may be in progress — wait briefly before resolving inline
                 # to avoid concurrent yt-dlp calls for the same video.
                 import time as _t
-                for _ in range(6):
-                    _t.sleep(0.5)
-                    if self._audio_stopped or session != self._audio_session:
-                        self._play_pending = False
-                        return
-                    cached = ytdlp.get_cached_stream_url(vid, fmt)
-                    if cached:
-                        break
+                _t.sleep(1.0)
+                if self._audio_stopped or session != self._audio_session:
+                    self._play_pending = False
+                    return
+                cached = ytdlp.get_cached_stream_url(vid, fmt)
             if cached:
                 resolved_url = cached[0]
+                url_from_cache = True
                 _logger.debug("audio using pre-cached URL for %s", vid)
             else:
                 self.app.call_from_thread(
@@ -1382,8 +1381,8 @@ class MainScreen(Screen):
 
         import time as _time_mod
 
-        # Wait for CDN propagation if URL was resolved recently
-        if resolved_url and vid:
+        # Wait for CDN propagation only if URL was resolved inline (not from cache)
+        if resolved_url and vid and not url_from_cache:
             import src.ytdlp as ytdlp
             fmt = ytdl_format or "ba/b"
             ytdlp.wait_for_stream_url_ready(vid, fmt)
@@ -1494,7 +1493,7 @@ class MainScreen(Screen):
                     self._log,
                     f"[dim]Retrying audio ({attempt}/{max_retries})…[/dim]",
                 )
-                _time_mod.sleep(1.5)
+                _time_mod.sleep(1.0)
             else:
                 # All retries exhausted — report failure
                 _logger.warning(
