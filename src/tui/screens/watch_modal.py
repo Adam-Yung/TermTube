@@ -139,12 +139,9 @@ class WatchModal(ModalScreen[bool]):
             fmt = self._ytdl_format or "bv+ba/b"
             cached = ytdlp.get_cached_stream_url(vid, fmt)
             if not cached:
-                # Prefetch may be in progress — wait briefly before resolving inline
-                import time as _t
-                _t.sleep(1.0)
+                cached = ytdlp.wait_for_prefetch(vid, fmt, timeout=2.0)
                 if self._stopped:
                     return
-                cached = ytdlp.get_cached_stream_url(vid, fmt)
             if cached:
                 resolved_urls = cached
                 url_from_cache = True

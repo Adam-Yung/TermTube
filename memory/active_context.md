@@ -1,3 +1,3 @@
 # Active Context
 
-No active task. Last completed: Cookie jar staleness fix — added automatic re-extraction after 10 min and on-demand invalidation on auth failures (403/sign-in). Fixes all-video-playback-broken scenario when user switches YouTube accounts in browser mid-session.
+No active task. Last completed: Fixed all-video-playback-broken — removed cookies from stream resolution/downloads (caused degraded YouTube responses), updated yt-dlp from 2026.07.04 to 2026.08.19 (fixes ANDROID_VR 403 issue, uses VISIONOS client).

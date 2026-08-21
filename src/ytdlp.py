@@ -840,6 +840,9 @@ _stream_cache: dict[str, tuple[float, list[str]]] = {}
 _stream_cache_lock = threading.Lock()
 _STREAM_URL_TTL = 3600 * 5  # 5 hours (YouTube CDN URLs expire in ~6h)
 
+_prefetch_events: dict[str, threading.Event] = {}
+_prefetch_events_lock = threading.Lock()
+
 
 def get_cached_stream_url(video_id: str, format_spec: str) -> list[str] | None:
     """Return pre-resolved stream URLs if cached and fresh, else None."""
@@ -871,6 +874,25 @@ def invalidate_cached_stream_url(video_id: str, format_spec: str) -> None:
     key = f"{video_id}:{format_spec}"
     with _stream_cache_lock:
         _stream_cache.pop(key, None)
+
+
+def wait_for_prefetch(video_id: str, format_spec: str, timeout: float = 2.0) -> list[str] | None:
+    """Wait for a background prefetch to complete, then return cached URLs.
+
+    Returns immediately if the URL is already cached. If a prefetch is in
+    progress, waits up to `timeout` seconds for it to finish. Returns None
+    if the prefetch hasn't started or doesn't complete in time.
+    """
+    key = f"{video_id}:{format_spec}"
+    cached = get_cached_stream_url(video_id, format_spec)
+    if cached:
+        return cached
+    with _prefetch_events_lock:
+        ev = _prefetch_events.get(key)
+    if ev is None:
+        return None
+    ev.wait(timeout=timeout)
+    return get_cached_stream_url(video_id, format_spec)
 
 
 # ── CDN readiness probing ─────────────────────────────────────────────────────
@@ -956,14 +978,24 @@ def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> Non
     Called by the focus-dwell worker after InnerTube metadata is fetched.
     If the URL is already cached and fresh, this is a no-op.
 
-    Uses non-blocking cookies: proceeds without auth if cookie extraction is
-    still in progress. Most public videos resolve fine unauthenticated, and
-    this avoids a 5-15s stall on cold start.
+    Signals a threading.Event on completion so callers using
+    wait_for_prefetch() wake immediately instead of polling.
     """
+    key = f"{video_id}:{format_spec}"
     if get_cached_stream_url(video_id, format_spec) is not None:
         return
-    urls = resolve_stream_url(video_id, config, format_spec=format_spec)
-    if urls:
-        put_cached_stream_url(video_id, format_spec, urls)
-        logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)
+
+    ev = threading.Event()
+    with _prefetch_events_lock:
+        _prefetch_events[key] = ev
+        if len(_prefetch_events) > 25:
+            oldest = next(iter(_prefetch_events))
+            del _prefetch_events[oldest]
+    try:
+        urls = resolve_stream_url(video_id, config, format_spec=format_spec)
+        if urls:
+            put_cached_stream_url(video_id, format_spec, urls)
+            logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)
+    finally:
+        ev.set()
 
