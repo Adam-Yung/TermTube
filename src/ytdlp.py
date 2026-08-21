@@ -515,7 +515,8 @@ def download_video_with_progress(
     opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
-        with _make_ydl(opts, config) as ydl:
+        ydl = yt_dlp.YoutubeDL(opts)
+        with ydl:
             return ydl.download([url]) == 0
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("download_video error: %s", exc)
@@ -551,7 +552,8 @@ def download_audio_with_progress(
     opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
-        with _make_ydl(opts, config) as ydl:
+        ydl = yt_dlp.YoutubeDL(opts)
+        with ydl:
             return ydl.download([url]) == 0
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("download_audio error: %s", exc)
@@ -763,14 +765,15 @@ def resolve_stream_url(
     config,
     format_spec: str = "ba/b",
     cancel_event: threading.Event | None = None,
-    *,
-    blocking_cookies: bool = True,
 ) -> list[str] | None:
     """Resolve a YouTube video ID to direct playable stream URL(s).
 
     Returns a list of URLs (may be 1 for audio-only, or 2 for video+audio)
     or None on failure. Pass cancel_event to allow early abort.
-    Set blocking_cookies=False for background prefetch (proceed without auth).
+
+    Cookies are intentionally NOT used here — stream resolution is a public
+    operation, and authenticated requests can trigger YouTube's degraded
+    "tv player" response (HLS-only, no direct streams).
     """
     cancel = cancel_event or _new_cancel_event()
     opts = _playback_opts(config)
@@ -780,7 +783,11 @@ def resolve_stream_url(
     try:
         if cancel.is_set():
             return None
-        with _make_ydl(opts, config, blocking_cookies=blocking_cookies) as ydl:
+        # No cookies: stream URL resolution is a public operation and cookies
+        # can cause YouTube to return a degraded "tv player" response with
+        # only HLS manifests (no direct DASH/HTTPS streams).
+        ydl = yt_dlp.YoutubeDL(opts)
+        with ydl:
             info = ydl.extract_info(
                 f"https://www.youtube.com/watch?v={video_id}",
                 download=False,
@@ -795,9 +802,6 @@ def resolve_stream_url(
                 return [info['url']]
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("resolve_stream_url failed: %s", exc)
-        exc_str = str(exc).lower()
-        if "sign in" in exc_str or "403" in exc_str or "login" in exc_str:
-            invalidate_shared_cookiejar()
     except Exception as exc:
         logger.debug("resolve_stream_url exception: %s", exc)
     finally:
@@ -958,9 +962,7 @@ def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> Non
     """
     if get_cached_stream_url(video_id, format_spec) is not None:
         return
-    urls = resolve_stream_url(
-        video_id, config, format_spec=format_spec, blocking_cookies=False
-    )
+    urls = resolve_stream_url(video_id, config, format_spec=format_spec)
     if urls:
         put_cached_stream_url(video_id, format_spec, urls)
         logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)

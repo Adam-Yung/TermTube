@@ -15,7 +15,7 @@ textual-image>=0.12.0
 Pillow>=10.3.0
 
 # YouTube data extraction (library, not CLI binary)
-yt-dlp>=2024.0
+yt-dlp>=2026.8.19
 yt-dlp-ejs>=0.8.0
 
 # Windows IPC (named pipes) — only needed on Windows
