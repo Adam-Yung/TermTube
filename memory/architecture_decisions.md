@@ -392,3 +392,13 @@ guard airtight without needing busy-wait or queueing.
 - Retry sleep reduced from 1.5s to 1.0s
 
 **Why this is safe:** The CDN background probe still runs on every `put_cached_stream_url()`. In the happy path (user dwells 2-3s before pressing play), the probe finishes well before playback is requested. mpv also has `--cache=yes --demuxer-readahead-secs=30` which handles any residual CDN warmup at the transport layer.
+
+## Non-blocking cookies for prefetch (Aug 2026)
+
+**Problem:** On fresh install, the eager prefetch fires at T+2.5s but immediately blocks on `_jar_lock` waiting for cookie extraction (5-15s). The stream URL resolution then blocks behind Deno's first-run JS compilation (4-8s). These stack serially: ~30s total before first play.
+
+**Fix:** `prefetch_stream_url` uses `blocking_cookies=False` which calls `_get_shared_cookiejar_nonblocking()`. If cookies are still being extracted (lock is held), it returns None and proceeds without auth. Most public YouTube videos resolve fine unauthenticated.
+
+**Regression mitigation:** If a video requires auth, the unauthenticated prefetch produces a URL that fails at play time. The retry path now calls `invalidate_cached_stream_url()` before re-resolving, ensuring the stale entry is cleared and the retry gets a fresh URL with cookies (which are available by then). Net cost for auth-required videos: ~3s extra (one retry), still far better than 30s.
+
+**Why non-blocking instead of skipping cookies entirely:** `_get_shared_cookiejar_nonblocking()` returns the jar immediately if extraction already completed. This means only the very first cold-start prefetch runs without cookies; subsequent prefetches (focus-dwell) always have cookies since extraction finishes in 5-15s. The non-blocking approach is only relevant during the race window at app startup.
