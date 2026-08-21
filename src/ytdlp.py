@@ -93,10 +93,14 @@ def invalidate_shared_cookiejar() -> None:
 
 
 def _make_ydl(opts: dict, config, *, blocking_cookies: bool = True) -> yt_dlp.YoutubeDL:
-    """Create a YoutubeDL instance with session-cached cookies injected.
+    """Create a YoutubeDL instance with cookies for account-specific operations.
+
+    Used only by feed fetching, subscriptions, and channel browsing — NOT by
+    stream resolution or downloads (those use plain YoutubeDL() without cookies
+    to avoid YouTube's degraded authenticated responses).
 
     When blocking_cookies=False, proceeds without cookies if extraction is
-    still in progress (used for background prefetch on cold start).
+    still in progress (used for background feed prefetch on cold start).
     """
     ydl = yt_dlp.YoutubeDL(opts)
     if blocking_cookies:
@@ -111,10 +115,11 @@ def _make_ydl(opts: dict, config, *, blocking_cookies: bool = True) -> yt_dlp.Yo
 # ── Shared options builder ────────────────────────────────────────────────────
 
 def _base_opts(config) -> dict:
-    """Build base YoutubeDL options from app config.
+    """Build base YoutubeDL options for feed/metadata fetching.
 
-    Does NOT include cookies — use _make_ydl() to get a YoutubeDL instance
-    with session-cached cookies injected.
+    Skips DASH/HLS manifest parsing for speed (only metadata needed).
+    Use _make_ydl() to get a YoutubeDL instance with cookies for
+    account-specific operations (home feed, subscriptions).
     """
     from src.bootstrap import get_deps_bin
     import sys
@@ -134,12 +139,14 @@ def _base_opts(config) -> dict:
 
 
 def _playback_opts(config) -> dict:
-    """Build YoutubeDL options for playback/download (needs full format info).
+    """Build YoutubeDL options for stream resolution and downloads.
 
     Unlike _base_opts(), this does NOT skip DASH/HLS manifest parsing because
     resolve_stream_url() and download functions need format data to work.
-    Does NOT include cookies — use _make_ydl() to get a YoutubeDL instance
-    with session-cached cookies injected.
+
+    Callers (resolve_stream_url, download_*) create a plain YoutubeDL()
+    directly — cookies are intentionally excluded from playback paths to
+    avoid YouTube's degraded "tv player" responses.
     """
     from src.bootstrap import get_deps_bin
     import sys
