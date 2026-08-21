@@ -22,6 +22,8 @@ from src import logger
 
 _shared_jar = None
 _jar_lock = threading.Lock()
+_jar_extracted_at: float = 0.0
+_JAR_MAX_AGE = 600  # re-extract cookies after 10 minutes of staleness
 
 
 def _resolve_browser(config) -> str | None:
@@ -37,12 +39,17 @@ def _resolve_browser(config) -> str | None:
 
 
 def _get_shared_cookiejar(config):
-    """Extract browser cookies once and cache for the process lifetime."""
-    global _shared_jar
-    if _shared_jar is not None:
+    """Extract browser cookies once and cache for the process lifetime.
+
+    Automatically re-extracts if the cached jar is older than _JAR_MAX_AGE
+    seconds (handles account switches in the browser mid-session).
+    """
+    global _shared_jar, _jar_extracted_at
+    import time as _t
+    if _shared_jar is not None and (_t.time() - _jar_extracted_at) < _JAR_MAX_AGE:
         return _shared_jar
     with _jar_lock:
-        if _shared_jar is not None:
+        if _shared_jar is not None and (_t.time() - _jar_extracted_at) < _JAR_MAX_AGE:
             return _shared_jar
         browser = _resolve_browser(config)
         if not browser:
@@ -50,6 +57,7 @@ def _get_shared_cookiejar(config):
         try:
             from yt_dlp.cookies import extract_cookies_from_browser
             _shared_jar = extract_cookies_from_browser(browser)
+            _jar_extracted_at = _t.time()
             logger.debug("Extracted cookies from %s (cached for session)", browser)
         except Exception as exc:
             logger.debug("Cookie extraction failed: %s", exc)
@@ -68,6 +76,20 @@ def _get_shared_cookiejar_nonblocking(config):
     if _jar_lock.locked():
         return None
     return _get_shared_cookiejar(config)
+
+
+def invalidate_shared_cookiejar() -> None:
+    """Reset the cached cookie jar so the next extraction re-reads from the browser.
+
+    Call this on auth failures (403, sign-in required) to force a fresh cookie
+    extraction on the next yt-dlp call. Handles mid-session account switches
+    in the user's browser gracefully.
+    """
+    global _shared_jar, _jar_extracted_at
+    with _jar_lock:
+        _shared_jar = None
+        _jar_extracted_at = 0.0
+    logger.debug("Cookie jar invalidated — will re-extract on next use")
 
 
 def _make_ydl(opts: dict, config, *, blocking_cookies: bool = True) -> yt_dlp.YoutubeDL:
@@ -773,6 +795,9 @@ def resolve_stream_url(
                 return [info['url']]
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("resolve_stream_url failed: %s", exc)
+        exc_str = str(exc).lower()
+        if "sign in" in exc_str or "403" in exc_str or "login" in exc_str:
+            invalidate_shared_cookiejar()
     except Exception as exc:
         logger.debug("resolve_stream_url exception: %s", exc)
     finally:

@@ -216,6 +216,7 @@ class WatchModal(ModalScreen[bool]):
                 import src.ytdlp as ytdlp
                 fmt = self._ytdl_format or "bv+ba/b"
                 ytdlp.invalidate_cached_stream_url(vid, fmt)
+                ytdlp.invalidate_shared_cookiejar()
                 new_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
                 if new_urls:
                     resolved_urls = new_urls

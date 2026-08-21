@@ -1404,6 +1404,7 @@ class MainScreen(Screen):
                 import src.ytdlp as ytdlp
                 fmt = ytdl_format or "ba/b"
                 ytdlp.invalidate_cached_stream_url(vid, fmt)
+                ytdlp.invalidate_shared_cookiejar()
                 new_urls = ytdlp.resolve_stream_url(vid, self.app.config, format_spec=fmt)
                 if new_urls:
                     resolved_url = new_urls[0]

@@ -402,3 +402,16 @@ guard airtight without needing busy-wait or queueing.
 **Regression mitigation:** If a video requires auth, the unauthenticated prefetch produces a URL that fails at play time. The retry path now calls `invalidate_cached_stream_url()` before re-resolving, ensuring the stale entry is cleared and the retry gets a fresh URL with cookies (which are available by then). Net cost for auth-required videos: ~3s extra (one retry), still far better than 30s.
 
 **Why non-blocking instead of skipping cookies entirely:** `_get_shared_cookiejar_nonblocking()` returns the jar immediately if extraction already completed. This means only the very first cold-start prefetch runs without cookies; subsequent prefetches (focus-dwell) always have cookies since extraction finishes in 5-15s. The non-blocking approach is only relevant during the race window at app startup.
+
+## Cookie jar staleness and auto-invalidation (Aug 2026)
+
+**Problem:** `_shared_jar` was cached forever (process lifetime). If the user switches YouTube accounts in their browser mid-session, the jar holds stale auth tokens from the old account. All subsequent yt-dlp calls fail with 403/sign-in-required errors, breaking ALL playback until app restart.
+
+**Fix:** Two-layered defense:
+1. **Time-based staleness:** `_get_shared_cookiejar()` now checks `_jar_extracted_at` and re-extracts if older than 10 minutes (`_JAR_MAX_AGE = 600`). This handles "account switched a while ago" naturally.
+2. **Error-driven invalidation:** `invalidate_shared_cookiejar()` resets both `_shared_jar = None` and `_jar_extracted_at = 0.0`. Called:
+   - In `resolve_stream_url()` when DownloadError contains "sign in" / "403" / "login"
+   - In retry paths (main_screen.py, watch_modal.py) before re-resolving stream URLs
+   - Net effect: first attempt fails → jar invalidated → retry re-extracts fresh cookies → succeeds
+
+**Why 10 minutes:** YouTube session tokens last hours, but the account-switch scenario needs detection within a reasonable window. 10 minutes balances between unnecessary re-extraction overhead (~50ms per extraction) and responsiveness to auth changes.
