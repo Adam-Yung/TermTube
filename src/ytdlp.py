@@ -57,10 +57,30 @@ def _get_shared_cookiejar(config):
     return _shared_jar
 
 
-def _make_ydl(opts: dict, config) -> yt_dlp.YoutubeDL:
-    """Create a YoutubeDL instance with session-cached cookies injected."""
+def _get_shared_cookiejar_nonblocking(config):
+    """Return cached cookies if ready, else None without blocking.
+
+    Used by prefetch paths that can proceed unauthenticated rather than
+    wait 5-15s for cookie extraction to complete.
+    """
+    if _shared_jar is not None:
+        return _shared_jar
+    if _jar_lock.locked():
+        return None
+    return _get_shared_cookiejar(config)
+
+
+def _make_ydl(opts: dict, config, *, blocking_cookies: bool = True) -> yt_dlp.YoutubeDL:
+    """Create a YoutubeDL instance with session-cached cookies injected.
+
+    When blocking_cookies=False, proceeds without cookies if extraction is
+    still in progress (used for background prefetch on cold start).
+    """
     ydl = yt_dlp.YoutubeDL(opts)
-    jar = _get_shared_cookiejar(config)
+    if blocking_cookies:
+        jar = _get_shared_cookiejar(config)
+    else:
+        jar = _get_shared_cookiejar_nonblocking(config)
     if jar:
         ydl.cookiejar = jar
     return ydl
@@ -721,11 +741,14 @@ def resolve_stream_url(
     config,
     format_spec: str = "ba/b",
     cancel_event: threading.Event | None = None,
+    *,
+    blocking_cookies: bool = True,
 ) -> list[str] | None:
     """Resolve a YouTube video ID to direct playable stream URL(s).
 
     Returns a list of URLs (may be 1 for audio-only, or 2 for video+audio)
     or None on failure. Pass cancel_event to allow early abort.
+    Set blocking_cookies=False for background prefetch (proceed without auth).
     """
     cancel = cancel_event or _new_cancel_event()
     opts = _playback_opts(config)
@@ -735,7 +758,7 @@ def resolve_stream_url(
     try:
         if cancel.is_set():
             return None
-        with _make_ydl(opts, config) as ydl:
+        with _make_ydl(opts, config, blocking_cookies=blocking_cookies) as ydl:
             info = ydl.extract_info(
                 f"https://www.youtube.com/watch?v={video_id}",
                 download=False,
@@ -812,6 +835,13 @@ def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> N
             oldest_key = min(_stream_cache, key=lambda k: _stream_cache[k][0])
             del _stream_cache[oldest_key]
     _start_cdn_probe(video_id, format_spec, urls)
+
+
+def invalidate_cached_stream_url(video_id: str, format_spec: str) -> None:
+    """Remove a cached stream URL (e.g. after playback failure on retry)."""
+    key = f"{video_id}:{format_spec}"
+    with _stream_cache_lock:
+        _stream_cache.pop(key, None)
 
 
 # ── CDN readiness probing ─────────────────────────────────────────────────────
@@ -896,10 +926,16 @@ def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> Non
 
     Called by the focus-dwell worker after InnerTube metadata is fetched.
     If the URL is already cached and fresh, this is a no-op.
+
+    Uses non-blocking cookies: proceeds without auth if cookie extraction is
+    still in progress. Most public videos resolve fine unauthenticated, and
+    this avoids a 5-15s stall on cold start.
     """
     if get_cached_stream_url(video_id, format_spec) is not None:
         return
-    urls = resolve_stream_url(video_id, config, format_spec=format_spec)
+    urls = resolve_stream_url(
+        video_id, config, format_spec=format_spec, blocking_cookies=False
+    )
     if urls:
         put_cached_stream_url(video_id, format_spec, urls)
         logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)

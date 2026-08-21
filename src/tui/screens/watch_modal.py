@@ -215,6 +215,7 @@ class WatchModal(ModalScreen[bool]):
             if attempt > 1 and not self._entry.get("_local_path") and vid and config:
                 import src.ytdlp as ytdlp
                 fmt = self._ytdl_format or "bv+ba/b"
+                ytdlp.invalidate_cached_stream_url(vid, fmt)
                 new_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
                 if new_urls:
                     resolved_urls = new_urls
