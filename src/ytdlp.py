@@ -920,7 +920,7 @@ def _probe_cdn_ready(url: str, key: str) -> None:
     req = urllib.request.Request(url, method="GET")
     req.add_header("Range", "bytes=0-0")
 
-    for _ in range(10):
+    for _ in range(3):
         try:
             resp = urllib.request.urlopen(req, timeout=2)
             resp.read()
