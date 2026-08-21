@@ -376,3 +376,19 @@ guard airtight without needing busy-wait or queueing.
 **Why:** Every `YoutubeDL` instantiation with `cookiesfrombrowser` re-reads the browser's SQLite cookie database (~200-500ms). With 3-5 yt-dlp calls during a typical session start, this adds 1-2s of wasted I/O.
 
 **Implementation:** `_get_shared_cookiejar()` uses double-checked locking to extract once, `_make_ydl()` injects the jar. `http.cookiejar.CookieJar` is thread-safe (internal RLock). The `cookiesfrombrowser` option is removed from `_base_opts()` and `_playback_opts()`.
+
+## Playback latency tuning — CDN probe and cache poll (Aug 2026)
+
+**Problem:** Three stability mechanisms stacked sequentially to block playback start for ~6s:
+1. Cache poll loop (6×500ms = 3s) waiting for background prefetch
+2. CDN readiness fallback sleep (5s) when no probe event existed
+3. Retry inter-attempt sleep (1.5s)
+
+**Fix:**
+- Cache poll reduced to single 1s wait (still avoids concurrent yt-dlp for the same video)
+- CDN warmup timeout reduced from 5.0s to 1.5s
+- When no probe event exists (inline resolve), start a probe immediately and wait on it (max 1.5s) instead of blind sleeping
+- Skip CDN wait entirely when URL came from the prefetch cache (probe already ran in background)
+- Retry sleep reduced from 1.5s to 1.0s
+
+**Why this is safe:** The CDN background probe still runs on every `put_cached_stream_url()`. In the happy path (user dwells 2-3s before pressing play), the probe finishes well before playback is requested. mpv also has `--cache=yes --demuxer-readahead-secs=30` which handles any residual CDN warmup at the transport layer.
