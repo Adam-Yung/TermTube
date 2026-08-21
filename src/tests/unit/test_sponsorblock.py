@@ -255,21 +255,28 @@ class TestFetchSegments:
 
 class TestSSLContext:
     def test_get_ssl_context_returns_context(self):
-        mock_resp = MagicMock()
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
-
-        with patch("urllib.request.urlopen", return_value=mock_resp):
+        with patch("src.sponsorblock._read_ssl_pref", return_value=None), \
+             patch("src.sponsorblock._write_ssl_pref"):
             ctx = _get_ssl_context()
 
         import ssl
         assert isinstance(ctx, ssl.SSLContext)
 
     def test_get_ssl_context_falls_back_on_probe_failure(self):
-        with patch("urllib.request.urlopen", side_effect=OSError("probe failed")):
-            ctx = _get_ssl_context()
+        def _fail_unless_unverified(pref):
+            if pref in ("certifi", "system"):
+                raise Exception("probe failed")
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            return ctx
 
         import ssl
+        with patch("src.sponsorblock._read_ssl_pref", return_value=None), \
+             patch("src.sponsorblock._build_ssl_context", side_effect=_fail_unless_unverified), \
+             patch("src.sponsorblock._write_ssl_pref"):
+            ctx = _get_ssl_context()
+
         assert isinstance(ctx, ssl.SSLContext)
         assert ctx.verify_mode == ssl.CERT_NONE
 
