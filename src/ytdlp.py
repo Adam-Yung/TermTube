@@ -870,7 +870,7 @@ def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> N
     key = f"{video_id}:{format_spec}"
     with _stream_cache_lock:
         _stream_cache[key] = (_time.time(), urls)
-        if len(_stream_cache) > 20:
+        if len(_stream_cache) > 40:
             oldest_key = min(_stream_cache, key=lambda k: _stream_cache[k][0])
             del _stream_cache[oldest_key]
     _start_cdn_probe(video_id, format_spec, urls)

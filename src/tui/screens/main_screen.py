@@ -1026,10 +1026,12 @@ class MainScreen(Screen):
 
     @work(thread=True, exclusive=True, group="stream_prefetch")
     def _prefetch_stream_worker(self, vid: str) -> None:
-        """Pre-resolve audio stream URL so listen/watch starts instantly."""
+        """Pre-resolve stream URLs so listen/watch starts instantly."""
         import src.ytdlp as ytdlp
         try:
             ytdlp.prefetch_stream_url(vid, self.app.config)
+            if self.app.config.get("prefetch_video", False):
+                ytdlp.prefetch_stream_url(vid, self.app.config, format_spec="bv+ba/b")
         except Exception as exc:
             _logger.debug("prefetch_stream error for %s: %s", vid, exc)
 

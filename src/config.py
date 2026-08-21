@@ -40,6 +40,7 @@ DEFAULT_CONFIG: dict = {
         "auto_skip": True,
         "categories": ["sponsor", "selfpromo"],
     },
+    "prefetch_video": False,
 }
 
 
