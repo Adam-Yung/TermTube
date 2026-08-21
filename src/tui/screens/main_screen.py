@@ -1408,6 +1408,7 @@ class MainScreen(Screen):
                 if new_urls:
                     resolved_url = new_urls[0]
                     ytdlp.put_cached_stream_url(vid, fmt, new_urls)
+                    ytdlp.wait_for_stream_url_ready(vid, fmt)
                     _logger.debug("audio re-resolved URL for %s (attempt %d)", vid, attempt)
                     # Rebuild cmd tail with new URL
                     cmd = cmd[:cmd.index("--") + 1] if "--" in cmd else cmd

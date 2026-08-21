@@ -220,6 +220,7 @@ class WatchModal(ModalScreen[bool]):
                 if new_urls:
                     resolved_urls = new_urls
                     ytdlp.put_cached_stream_url(vid, fmt, new_urls)
+                    ytdlp.wait_for_stream_url_ready(vid, fmt)
                     _logger.debug("video re-resolved %d URL(s) for %s (attempt %d)", len(new_urls), vid, attempt)
                     # Rebuild cmd tail with new URLs
                     cmd = cmd[:cmd.index("--") + 1] if "--" in cmd else cmd
