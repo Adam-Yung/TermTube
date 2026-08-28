@@ -81,6 +81,8 @@ To minimize token usage and maintain project coherence, all AI agents modifying 
 
 ### 1. Memory Tracking (`memory/` directory)
 You must maintain a `memory/` folder in the root directory to track context across sessions. This prevents repetitive prompt explanations and saves tokens.
+- **Read `memory/codebase_map.md` FIRST** — the complete wiring diagram, worker topology, message routing, data flows, and bug location guide. This is your primary context source; read it before exploring any code.
+- **Create/Update `memory/codebase_map.md`**: After ANY change that alters architecture, worker groups, message flow, or pipeline behavior. This file must always reflect reality.
 - **Create/Update `memory/architecture_decisions.md`**: Document *why* a technical approach was taken (e.g., "Why we use IPC for mpv instead of subprocess blocking").
 - **Create/Update `memory/active_context.md`**: Briefly log the current active task or bug being worked on. Clear this when a task is completed.
 
