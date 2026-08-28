@@ -869,6 +869,9 @@ class MainScreen(Screen):
             detail.update_channel_entry(entry)
             self._cancel_pending_focus_and_thumb()
             self._last_focus_id = vid
+            if vid:
+                detail.set_thumbnail_video_id(vid)
+                detail.set_thumbnail_loading()
             self._kick_channel_info(vid, entry)
             return
         detail.update_basic(entry)
@@ -969,8 +972,47 @@ class MainScreen(Screen):
     def _kick_channel_info(self, vid: str, entry: dict) -> None:
         if not vid or not entry.get("_is_channel"):
             return
-        if not entry.get("description"):
+        thumb_url = entry.get("thumbnail", "")
+        if thumb_url:
+            self._thumb_session += 1
+            self._channel_thumb_worker(vid, thumb_url, self._thumb_session)
+        if not entry.get("description") or not thumb_url:
             self._channel_info_worker(vid, entry)
+
+    @work(thread=True, exclusive=True, group="ch_thumb")
+    def _channel_thumb_worker(self, vid: str, url: str, session: int) -> None:
+        """Download and display a channel avatar — mirrors ChannelScreen._fetch_channel_thumb."""
+        from src.ui import thumbnail as thumb_mod
+        from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+
+        detail = self.query_one("#detail-panel", DetailPanel)
+        local = thumb_mod._thumb_path(vid)
+        if not local.exists():
+            local = thumb_mod.download(vid, url) or local
+        if session != self._thumb_session:
+            return
+        if not (local and local.exists()):
+            self.app.call_from_thread(detail.set_thumbnail_placeholder)
+            return
+        if _HAS_TEXTUAL_IMAGE:
+            try:
+                from PIL import Image as _PILImage
+                with _PILImage.open(local) as _img:
+                    _img.load()
+            except Exception:
+                self.app.call_from_thread(detail.set_thumbnail_placeholder)
+                return
+            if session != self._thumb_session:
+                return
+            self.app.call_from_thread(detail.set_thumbnail_image, vid, local)
+        else:
+            ansi = thumb_mod.render_pil_halfblock(vid, {"id": vid, "thumbnail": url}) or ""
+            if session != self._thumb_session:
+                return
+            if ansi:
+                self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
+            else:
+                self.app.call_from_thread(detail.set_thumbnail_placeholder)
 
     @work(thread=True, exclusive=True, group="ch_focus")
     def _channel_info_worker(self, vid: str, entry: dict) -> None:
@@ -994,6 +1036,10 @@ class MainScreen(Screen):
             if dp.current_id != vid: return
             merged = {**dp.last_entry, **info} if dp.last_entry else info
             dp.update_channel_entry(merged)
+            thumb_url = merged.get("thumbnail", "")
+            if thumb_url:
+                self._thumb_session += 1
+                self._channel_thumb_worker(vid, thumb_url, self._thumb_session)
         except Exception: pass
 
     @work(thread=True, exclusive=True, group="focus")
@@ -1051,6 +1097,8 @@ class MainScreen(Screen):
 
         if _HAS_TEXTUAL_IMAGE:
             local = thumb_mod._thumb_path(vid)
+            if not local.exists():
+                local = thumb_mod._resolve_local_thumb(vid, entry) or local
             if not local.exists():
                 url = thumb_mod._best_thumb_url(entry)
                 if url:
@@ -1252,7 +1300,7 @@ class MainScreen(Screen):
             self._action_bar().set_actions_mode()
         # Notify other screens (e.g. ChannelScreen) that playback has stopped
         from src.tui.app import TermTubeApp
-        self.app.post_message(
+        self.app.screen.post_message(
             TermTubeApp.PlayerStateUpdated(0.0, 0.0, False, playing=False)
         )
         from src.player import close_persistent_socket
@@ -1577,7 +1625,7 @@ class MainScreen(Screen):
             self.app.call_from_thread(self._action_bar().update_progress, pos, dur, paused)
             from src.tui.app import TermTubeApp
             self.app.call_from_thread(
-                self.app.post_message,
+                self.app.screen.post_message,
                 TermTubeApp.PlayerStateUpdated(pos, dur, paused, playing=True),
             )
 

@@ -35,6 +35,35 @@ def _thumb_path(video_id: str) -> Path:
 
 # ── Download ───────────────────────────────────────────────────────────────────
 
+
+def _resolve_local_thumb(video_id: str, entry: dict) -> Path | None:
+    """Check for a thumbnail file adjacent to a library entry's media file.
+
+    yt-dlp writes thumbnails alongside downloaded media with the same stem.
+    If found, copy it into the thumbnail cache so subsequent lookups are free.
+    """
+    local_path = entry.get("_local_path")
+    if not local_path:
+        return None
+    media = Path(local_path)
+    if not media.exists():
+        return None
+    for ext in (".jpg", ".webp", ".png"):
+        candidate = media.with_suffix(ext)
+        if candidate.exists():
+            dest = _thumb_path(video_id)
+            if dest.exists():
+                return dest
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                import shutil
+                shutil.copy2(str(candidate), str(dest))
+                return dest
+            except OSError:
+                return candidate
+    return None
+
+
 def download(video_id: str, url: str) -> Path | None:
     """Download thumbnail to cache. Returns local path or None on failure."""
     if not url:
@@ -89,6 +118,8 @@ def render_pil_halfblock(
             pass
 
     local = _thumb_path(video_id)
+    if not local.exists():
+        local = _resolve_local_thumb(video_id, entry) or local
     if not local.exists():
         url = _best_thumb_url(entry)
         if not url:

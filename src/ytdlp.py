@@ -598,7 +598,7 @@ def fetch_channel_info(
     opts['playlist_items'] = '0'
 
     try:
-        with _make_ydl(opts, config) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             data = ydl.extract_info(channel_url, download=False)
         if not data:
             return None
