@@ -53,8 +53,8 @@ User Input → MainScreen (keybindings/messages)
 |-------|------|---------|-------|
 | `load` | main_screen | Feed/search/subs loading | One feed at a time |
 | `focus` | main_screen | InnerTube metadata fetch | Fires after 100ms dwell |
-| `thumb` | main_screen | Video thumbnail render | Fires after 150ms dwell, separate from ch_thumb |
-| `ch_thumb` | main_screen | Channel avatar render | Dedicated group — never conflicts with video thumbs |
+| `thumb` | main_screen | Video thumbnail render | Fires after 150ms dwell; uses `_thumb_session` counter |
+| `ch_thumb` | main_screen | Channel avatar render | Dedicated group + dedicated `_ch_thumb_session` counter — never cross-cancels with video thumbs |
 | `ch_focus` | main_screen | Channel info fetch | For subscriptions detail panel |
 | `audio_poll` | main_screen | mpv IPC status poll | 0.5s interval timer drives it |
 | `audio` | main_screen | mpv audio launch + EOF wait | |
@@ -132,10 +132,18 @@ Two rendering backends (auto-detected at import time):
 2. **PIL half-block** (fallback): 24-bit ANSI `▀` characters. Works everywhere.
    Rendered ANSI cached at `~/.cache/termtube/rendered/{vid}_{cols}x{rows}_pil.ansi`.
 
-Resolution order (both paths):
-1. `_thumb_path(vid)` → `~/.cache/termtube/thumbs/{vid}.jpg`
-2. `_resolve_local_thumb(vid, entry)` → thumbnail adjacent to `_local_path` media file
-3. `_best_thumb_url(entry)` → network download from YouTube CDN
+Canonical resolution logic lives in `thumbnail.py`:
+- **`ensure_thumb_jpeg(vid, entry, url)`** — single resolution chain used by all 4 workers:
+  1. `_thumb_path(vid)` → `~/.cache/termtube/thumbs/{vid}.jpg` (disk cache)
+  2. `_resolve_local_thumb(vid, entry)` → sidecar adjacent to `_local_path` (library only)
+  3. `download(vid, url)` → network download from YouTube CDN
+- **`validate_thumb(path)`** — PIL decode check (catches corrupt downloads)
+- **`_best_thumb_url(entry)`** — canonical URL extractor (single copy; ytdlp.py imports from here)
+
+Session counter isolation (MainScreen):
+- `_thumb_session` — guards `_thumb_worker` (group="thumb", video thumbnails)
+- `_ch_thumb_session` — guards `_channel_thumb_worker` (group="ch_thumb", channel avatars)
+- `_cancel_pending_focus_and_thumb()` bumps BOTH on cursor move
 
 Channel avatars use a **dedicated** `_channel_thumb_worker` (group="ch_thumb") that takes the URL directly — never goes through `_best_thumb_url`.
 
@@ -172,7 +180,8 @@ User presses 'l' (listen) → _start_audio(entry)
 
 ### "No thumbnail" / stuck "Loading"
 - Check `_thumb_worker` or `_channel_thumb_worker` — is the URL empty? Is the worker group conflicting?
-- Check `_best_thumb_url(entry)` — does the entry have `thumbnail` field populated?
+- Check `ensure_thumb_jpeg(vid, entry)` — does it return a valid path?
+- Verify session counters are independent: `_thumb_session` for video thumbs, `_ch_thumb_session` for channel avatars (MainScreen). Shared counter was a past regression (fixed in ccebfaa).
 - For channels: must use `_channel_thumb_worker` (group="ch_thumb"), NOT `_thumb_worker` (group="thumb")
 - For library: check `_resolve_local_thumb` — is the sidecar thumbnail file present?
 
