@@ -206,16 +206,6 @@ FEED_URLS = {
 
 # ── Entry normalisation ───────────────────────────────────────────────────────
 
-def _best_thumb_url(entry: dict) -> str:
-    """Pick the best thumbnail URL from a yt-dlp entry dict."""
-    thumbs = entry.get("thumbnails") or []
-    if thumbs:
-        jpg = [t for t in thumbs if "jpg" in t.get("url", "")]
-        best = (jpg or thumbs)[-1]
-        return best.get("url", "")
-    return entry.get("thumbnail", "")
-
-
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
 
@@ -234,6 +224,7 @@ def _normalise_entry(entry: dict) -> dict:
     """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
     if not entry.get("thumbnail"):
+        from src.ui.thumbnail import _best_thumb_url
         url = _best_thumb_url(entry)
         if url:
             entry["thumbnail"] = url

@@ -126,20 +126,6 @@ class Config:
         return self._data.get("preferred_player", "mpv")
 
     @property
-    def thumbnail_cols(self) -> int:
-        try:
-            return int(self._data.get("thumbnail_cols", 38))
-        except (ValueError, TypeError):
-            return 38
-
-    @property
-    def thumbnail_rows(self) -> int:
-        try:
-            return int(self._data.get("thumbnail_rows", 20))
-        except (ValueError, TypeError):
-            return 20
-
-    @property
     def thumbnail_format(self) -> str:
         fmt = self._data.get("thumbnail_format", "auto")
         return fmt if fmt in ("auto", "symbols", "sixel", "ascii") else "auto"

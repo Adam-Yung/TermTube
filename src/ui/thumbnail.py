@@ -89,6 +89,48 @@ def download(video_id: str, url: str) -> Path | None:
         return None
 
 
+# ── Shared helpers for thumbnail workers ───────────────────────────────────────
+
+
+def ensure_thumb_jpeg(video_id: str, entry: dict | None = None, *, url: str | None = None) -> Path | None:
+    """Resolve a thumbnail JPEG for *video_id*, downloading if necessary.
+
+    Resolution order:
+      1. Disk cache hit  (~/.cache/termtube/thumbs/{vid}.jpg)
+      2. Local sidecar   (library entries only, via _resolve_local_thumb)
+      3. Network download (from *url* or best URL extracted from *entry*)
+
+    Pass *url* directly for channel avatars.  Pass *entry* for video
+    thumbnails (URL is extracted via _best_thumb_url).
+    """
+    local = _thumb_path(video_id)
+    if local.exists():
+        return local
+    if entry:
+        found = _resolve_local_thumb(video_id, entry)
+        if found and found.exists():
+            return found
+    dl_url = url or (_best_thumb_url(entry) if entry else "")
+    if dl_url:
+        result = download(video_id, dl_url)
+        if result and result.exists():
+            return result
+    return None
+
+
+def validate_thumb(path: Path | None) -> bool:
+    """Return True if *path* is a valid image file PIL can decode."""
+    if not path or not path.exists():
+        return False
+    try:
+        from PIL import Image as _PILImage
+        with _PILImage.open(path) as img:
+            img.load()
+        return True
+    except Exception:
+        return False
+
+
 # ── PIL half-block renderer ───────────────────────────────────────────────────
 
 def render_pil_halfblock(

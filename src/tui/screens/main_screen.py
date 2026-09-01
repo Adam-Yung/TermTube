@@ -255,6 +255,7 @@ class MainScreen(Screen):
         self._thumb_dwell_timer: Timer | None = None
         self._focus_session: int = 0
         self._thumb_session: int = 0
+        self._ch_thumb_session: int = 0
         self._last_focus_id: str = ""
 
         # In-RAM LRU of rendered thumbnail ANSI keyed by (vid, cols, rows).
@@ -948,6 +949,7 @@ class MainScreen(Screen):
         # Bump session counters so any worker that already started bails on apply.
         self._focus_session += 1
         self._thumb_session += 1
+        self._ch_thumb_session += 1
 
     def _kick_thumb(self, vid: str, entry: dict) -> None:
         """Dwell timer fired — actually start the thumbnail render worker."""
@@ -974,40 +976,31 @@ class MainScreen(Screen):
             return
         thumb_url = entry.get("thumbnail", "")
         if thumb_url:
-            self._thumb_session += 1
-            self._channel_thumb_worker(vid, thumb_url, self._thumb_session)
+            self._ch_thumb_session += 1
+            self._channel_thumb_worker(vid, thumb_url, self._ch_thumb_session)
         if not entry.get("description") or not thumb_url:
             self._channel_info_worker(vid, entry)
 
     @work(thread=True, exclusive=True, group="ch_thumb")
     def _channel_thumb_worker(self, vid: str, url: str, session: int) -> None:
-        """Download and display a channel avatar — mirrors ChannelScreen._fetch_channel_thumb."""
+        """Download and display a channel avatar."""
         from src.ui import thumbnail as thumb_mod
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
 
         detail = self.query_one("#detail-panel", DetailPanel)
-        local = thumb_mod._thumb_path(vid)
-        if not local.exists():
-            local = thumb_mod.download(vid, url) or local
-        if session != self._thumb_session:
-            return
-        if not (local and local.exists()):
-            self.app.call_from_thread(detail.set_thumbnail_placeholder)
+        local = thumb_mod.ensure_thumb_jpeg(vid, url=url)
+        if session != self._ch_thumb_session:
             return
         if _HAS_TEXTUAL_IMAGE:
-            try:
-                from PIL import Image as _PILImage
-                with _PILImage.open(local) as _img:
-                    _img.load()
-            except Exception:
+            if local and thumb_mod.validate_thumb(local):
+                if session != self._ch_thumb_session:
+                    return
+                self.app.call_from_thread(detail.set_thumbnail_image, vid, local)
+            else:
                 self.app.call_from_thread(detail.set_thumbnail_placeholder)
-                return
-            if session != self._thumb_session:
-                return
-            self.app.call_from_thread(detail.set_thumbnail_image, vid, local)
         else:
-            ansi = thumb_mod.render_pil_halfblock(vid, {"id": vid, "thumbnail": url}) or ""
-            if session != self._thumb_session:
+            ansi = thumb_mod.render_pil_halfblock(vid, {"id": vid, "thumbnail": url}) if local else ""
+            if session != self._ch_thumb_session:
                 return
             if ansi:
                 self.app.call_from_thread(detail.set_thumbnail_ansi, vid, ansi)
@@ -1038,8 +1031,8 @@ class MainScreen(Screen):
             dp.update_channel_entry(merged)
             thumb_url = merged.get("thumbnail", "")
             if thumb_url:
-                self._thumb_session += 1
-                self._channel_thumb_worker(vid, thumb_url, self._thumb_session)
+                self._ch_thumb_session += 1
+                self._channel_thumb_worker(vid, thumb_url, self._ch_thumb_session)
         except Exception: pass
 
     @work(thread=True, exclusive=True, group="focus")
@@ -1096,23 +1089,10 @@ class MainScreen(Screen):
         detail = self.query_one("#detail-panel", DetailPanel)
 
         if _HAS_TEXTUAL_IMAGE:
-            local = thumb_mod._thumb_path(vid)
-            if not local.exists():
-                local = thumb_mod._resolve_local_thumb(vid, entry) or local
-            if not local.exists():
-                url = thumb_mod._best_thumb_url(entry)
-                if url:
-                    local = thumb_mod.download(vid, url) or local
+            local = thumb_mod.ensure_thumb_jpeg(vid, entry)
             if session != self._thumb_session:
                 return
-            if local and local.exists():
-                try:
-                    from PIL import Image as _PILImage
-                    with _PILImage.open(local) as _pil_img:
-                        _pil_img.load()
-                except Exception:
-                    self.app.call_from_thread(detail.set_thumbnail_placeholder)
-                    return
+            if local and thumb_mod.validate_thumb(local):
                 if session != self._thumb_session:
                     return
                 self.app.call_from_thread(detail.set_thumbnail_image, vid, local)

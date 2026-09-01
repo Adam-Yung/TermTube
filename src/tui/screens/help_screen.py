@@ -102,7 +102,6 @@ _HELP_CONTENT = """\
   [{COLOR}]thumbnail_format[/{COLOR}]  auto (default) / symbols / ascii
                        auto/symbols = high-quality Unicode block art (always works)
                        ascii = restrict to ASCII symbols (most compatible)
-  [{COLOR}]thumbnail_cols[/{COLOR}]    Width in chars for thumbnail preview (default 38)
   [{COLOR}]video_dir[/{COLOR}]         Download directory for videos
   [{COLOR}]audio_dir[/{COLOR}]         Download directory for audio files
 

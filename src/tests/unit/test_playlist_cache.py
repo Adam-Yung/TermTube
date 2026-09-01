@@ -128,28 +128,6 @@ class TestGetVideoRawFallback:
         assert cache.get_video_raw("missing") is None
 
 
-class TestThumbPathFallback:
-    def test_returns_playlist_path_when_main_missing(self, temp_cache):
-        cache, _, thumb_dir, _, playlist_thumb_dir = temp_cache
-        (playlist_thumb_dir / "abc123.jpg").write_bytes(b"pinned thumb")
-
-        path = cache.thumb_path("abc123")
-        assert path == playlist_thumb_dir / "abc123.jpg"
-
-    def test_returns_main_path_when_exists(self, temp_cache):
-        cache, _, thumb_dir, _, playlist_thumb_dir = temp_cache
-        (thumb_dir / "abc123.jpg").write_bytes(b"main thumb")
-        (playlist_thumb_dir / "abc123.jpg").write_bytes(b"pinned thumb")
-
-        path = cache.thumb_path("abc123")
-        assert path == thumb_dir / "abc123.jpg"
-
-    def test_returns_main_path_even_when_missing(self, temp_cache):
-        cache, _, thumb_dir, _, _ = temp_cache
-        path = cache.thumb_path("missing")
-        assert path == thumb_dir / "missing.jpg"
-
-
 class TestPinAllPlaylistVideos:
     def test_pins_existing_cache_entries(self, temp_cache, monkeypatch):
         cache, video_dir, thumb_dir, playlist_video_dir, playlist_thumb_dir = temp_cache

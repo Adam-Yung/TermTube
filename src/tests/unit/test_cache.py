@@ -147,31 +147,6 @@ class TestFeedFreshness:
         assert temp_cache.feed_age("nope") is None
 
 
-class TestThumbPath:
-    def test_returns_thumb_dir_path(self, temp_cache):
-        from src.cache import THUMB_DIR
-
-        path = temp_cache.thumb_path("vid1")
-        assert path == THUMB_DIR / "vid1.jpg"
-
-    def test_falls_back_to_playlist_thumb_dir(self, temp_cache):
-        from src.cache import PLAYLIST_THUMB_DIR
-
-        (PLAYLIST_THUMB_DIR / "pvid.jpg").write_bytes(b"\xff\xd8")
-
-        path = temp_cache.thumb_path("pvid")
-        assert path == PLAYLIST_THUMB_DIR / "pvid.jpg"
-
-    def test_prefers_main_thumb_dir_when_exists(self, temp_cache):
-        from src.cache import THUMB_DIR, PLAYLIST_THUMB_DIR
-
-        (THUMB_DIR / "both.jpg").write_bytes(b"\xff\xd8")
-        (PLAYLIST_THUMB_DIR / "both.jpg").write_bytes(b"\xff\xd8")
-
-        path = temp_cache.thumb_path("both")
-        assert path == THUMB_DIR / "both.jpg"
-
-
 class TestPruneVideoCacheFifo:
     def test_evicts_oldest_entries(self, temp_cache):
         from src.cache import VIDEO_DIR

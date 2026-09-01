@@ -194,19 +194,6 @@ class Cache:
             _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
         logger.debug("cache.put_feed %s (%d ids)", key, len(ids))
 
-    # ── Thumbnails ────────────────────────────────────────────────────────────
-
-    def thumb_path(self, video_id: str) -> Path:
-        path = THUMB_DIR / f"{video_id}.jpg"
-        if not path.exists():
-            playlist_path = PLAYLIST_THUMB_DIR / f"{video_id}.jpg"
-            if playlist_path.exists():
-                return playlist_path
-        return path
-
-    def has_thumb(self, video_id: str) -> bool:
-        return self.thumb_path(video_id).exists()
-
     # ── Home feed suppression ─────────────────────────────────────────────────
 
     def _load_suppressed(self) -> None:

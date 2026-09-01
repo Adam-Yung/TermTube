@@ -315,20 +315,11 @@ class ChannelScreen(Screen):
     def _fetch_channel_thumb(self, ch_id: str, url: str, session: int) -> None:
         from src.ui import thumbnail as thumb_mod
         from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+        local = thumb_mod.ensure_thumb_jpeg(ch_id, url=url)
+        if session != self._thumb_session:
+            return
         if _HAS_TEXTUAL_IMAGE:
-            local = thumb_mod._thumb_path(ch_id)
-            if not local.exists():
-                local = thumb_mod.download(ch_id, url) or local
-            if session != self._thumb_session:
-                return
-            if local and local.exists():
-                try:
-                    from PIL import Image as _PILImage
-                    with _PILImage.open(local) as _img:
-                        _img.load()
-                except Exception:
-                    self.app.call_from_thread(self._set_thumb_placeholder)
-                    return
+            if local and thumb_mod.validate_thumb(local):
                 if session != self._thumb_session:
                     return
                 _local = local
@@ -338,15 +329,7 @@ class ChannelScreen(Screen):
             else:
                 self.app.call_from_thread(self._set_thumb_placeholder)
         else:
-            local = thumb_mod._thumb_path(ch_id)
-            if not local.exists():
-                local = thumb_mod.download(ch_id, url) or local
-            if session != self._thumb_session:
-                return
-            if not (local and local.exists()):
-                self.app.call_from_thread(self._set_thumb_placeholder)
-                return
-            ansi = thumb_mod.render_pil_halfblock(ch_id, {"id": ch_id, "thumbnail": url}) or ""
+            ansi = thumb_mod.render_pil_halfblock(ch_id, {"id": ch_id, "thumbnail": url}) if local else ""
             if session != self._thumb_session:
                 return
             if ansi:
@@ -469,21 +452,10 @@ class ChannelScreen(Screen):
         detail = self.query_one("#ch-detail-panel", DetailPanel)
 
         if _HAS_TEXTUAL_IMAGE:
-            local = thumb_mod._thumb_path(vid)
-            if not local.exists():
-                url = thumb_mod._best_thumb_url(entry)
-                if url:
-                    local = thumb_mod.download(vid, url) or local
+            local = thumb_mod.ensure_thumb_jpeg(vid, entry)
             if session != self._detail_thumb_session:
                 return
-            if local and local.exists():
-                try:
-                    from PIL import Image as _PILImage
-                    with _PILImage.open(local) as _pil_img:
-                        _pil_img.load()
-                except Exception:
-                    self.app.call_from_thread(detail.set_thumbnail_placeholder)
-                    return
+            if local and thumb_mod.validate_thumb(local):
                 if session != self._detail_thumb_session:
                     return
                 self.app.call_from_thread(detail.set_thumbnail_image, vid, local)
