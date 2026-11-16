@@ -269,7 +269,6 @@ def main() -> None:
     from src.tui.app import TermTubeApp
     app = TermTubeApp(config)
 
-    from src import ytdlp as _ytdlp
     from src.plat import ProcessRegistry
 
     def _emergency_cleanup() -> None:
@@ -283,7 +282,9 @@ def main() -> None:
         except Exception:
             pass
         try:
-            _ytdlp.cancel_all()
+            ytdlp = sys.modules.get("src.ytdlp")  # never imported means nothing to cancel; importing it costs 170 ms
+            if ytdlp:
+                ytdlp.cancel_all()
         except Exception:
             pass
 

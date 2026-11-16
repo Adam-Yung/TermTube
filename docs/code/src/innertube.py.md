@@ -2,6 +2,10 @@
 
 Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's Videos tab (~600 ms for about 30 entries) and Playlists tab. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
 
+## Transport
+
+`_post_json` sends requests over a per-thread keep-alive `http.client.HTTPSConnection` (default context, so certificates are verified; no cookies or auth headers). A reused connection that the server has closed fails on first use; that one failure is retried on a fresh connection, and a failure on a fresh one returns None. A non-200 status or malformed JSON returns None without a retry. Per-thread, not shared, because `http.client` connections are not thread-safe and the workers are independent. Live check 2026-11-15: `/player` 185 ms on the first call, about 118 ms after, against 157 to 219 ms per call with `urllib` (new TLS handshake each time).
+
 ## Invariants
 
 - Metadata only. `/player` no longer returns `streamingData` without a Proof of Origin token, so stream URLs always come from yt-dlp (`src/streams.py`). See `docs/decisions/cookies-and-auth.md`.

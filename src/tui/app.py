@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import sys
 import threading
 from pathlib import Path
 
@@ -92,7 +93,8 @@ class TermTubeApp(App):
         except Exception:
             pass
         try:
-            import src.ytdlp as ytdlp
-            ytdlp.cancel_all()
+            ytdlp = sys.modules.get("src.ytdlp")
+            if ytdlp:
+                ytdlp.cancel_all()
         except Exception:
             pass

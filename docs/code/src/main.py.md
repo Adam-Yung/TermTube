@@ -14,7 +14,7 @@ Entry point (`termtube` and `python src/main.py`). Order of operations matters a
 
 ## Cleanup
 
-`_emergency_cleanup` (atexit and SIGTERM/SIGHUP on Unix) kills everything in `ProcessRegistry`, closes mpv sockets and cancels yt-dlp work. Exit paths are listed in [docs/decisions/concurrency.md](../../decisions/concurrency.md). SIGINT is Textual's. Windows has no SIGHUP, so only `atexit` runs there.
+`_emergency_cleanup` (atexit and SIGTERM/SIGHUP on Unix) kills everything in `ProcessRegistry`, closes mpv sockets and cancels yt-dlp work. It looks `src.ytdlp` up in `sys.modules` instead of importing it: `yt_dlp` costs about 170 ms to import and used to load on the main thread before the UI started. The module is first imported by the warmup thread in `TermTubeApp.on_mount`; if it never loaded, there is nothing to cancel. Exit paths are listed in [docs/decisions/concurrency.md](../../decisions/concurrency.md). SIGINT is Textual's. Windows has no SIGHUP, so only `atexit` runs there.
 
 ## Quirks and limits
 

@@ -145,3 +145,79 @@ def test_channel_screen_playlists_fall_back_to_ytdlp(monkeypatch):
     monkeypatch.setattr(innertube, "fetch_channel_playlists", lambda cid: [])
     monkeypatch.setattr(ytdlp, "fetch_channel_playlists", lambda *a, **k: [{"id": "PLb"}])
     assert ChannelScreen._fetch_playlists(host) == [{"id": "PLb"}]
+
+
+class _FakeConn:
+    """Scripted stand-in for HTTPSConnection; ``script`` items are an Exception to raise or (status, body)."""
+    instances: list = []
+
+    def __init__(self, host, timeout=None, script=None):
+        self.host, self.timeout, self.sock, self.requests = host, timeout, None, []
+        self.script = _FakeConn.script
+        self.closed = False
+        _FakeConn.instances.append(self)
+
+    def request(self, method, path, body=None, headers=None):
+        self.requests.append((method, path, headers))
+        item = self.script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        self._item = item
+
+    def getresponse(self):
+        status, body = self._item
+        return type("R", (), {"status": status, "read": lambda s: body})()
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.fixture
+def transport(monkeypatch):
+    _FakeConn.instances, _FakeConn.script = [], []
+    monkeypatch.setattr(innertube.http.client, "HTTPSConnection", _FakeConn)
+    monkeypatch.setattr(innertube, "_local", __import__("threading").local())
+    return _FakeConn
+
+
+def test_post_reuses_the_connection_and_sends_path_with_query(transport):
+    transport.script[:] = [(200, b'{"a": 1}'), (200, b'{"a": 2}')]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) == {"a": 1}
+    assert innertube._post_json(innertube._BROWSE_URL, {}) == {"a": 2}
+    assert len(transport.instances) == 1
+    assert transport.instances[0].requests[0][1] == "/youtubei/v1/browse?prettyPrint=false"
+    assert transport.instances[0].host == "www.youtube.com"
+
+
+def test_post_retries_once_on_a_stale_reused_connection(transport):
+    transport.script[:] = [(200, b"{}"), ConnectionResetError("closed"), (200, b'{"ok": true}')]
+    innertube._post_json(innertube._BROWSE_URL, {})
+    assert innertube._post_json(innertube._BROWSE_URL, {}) == {"ok": True}
+    assert len(transport.instances) == 2 and transport.instances[0].closed
+
+
+def test_post_gives_up_after_one_fresh_failure_and_on_http_errors(transport):
+    transport.script[:] = [ConnectionResetError("down")]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) is None
+    assert len(transport.instances) == 1
+    transport.script[:] = [(500, b"oops")]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) is None
+    transport.script[:] = [(200, b"not json")]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) is None
+
+
+def test_post_connections_are_per_thread(transport):
+    import threading
+
+    transport.script[:] = [(200, b"{}"), (200, b"{}")]
+    innertube._post_json(innertube._BROWSE_URL, {})
+    worker = threading.Thread(target=lambda: innertube._post_json(innertube._BROWSE_URL, {}))
+    worker.start()
+    worker.join()
+    assert len(transport.instances) == 2
+
+
+def test_post_sends_no_cookie_header(transport):
+    transport.script[:] = [(200, b"{}")]
+    innertube._post_json(innertube._BROWSE_URL, {})
+    assert not any(k.lower() in ("cookie", "authorization") for k in transport.instances[0].requests[0][2])

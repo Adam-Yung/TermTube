@@ -12,7 +12,7 @@ owns startup warmup and shutdown cleanup. Everything else lives in screens and m
 
 ## Shutdown
 
-`_atexit_cleanup` (kill every `ProcessRegistry` process, `ytdlp.cancel_all()`) runs from both `on_unmount` and `atexit`. It is idempotent,
+`_atexit_cleanup` (kill every `ProcessRegistry` process, `ytdlp.cancel_all()`, only if `src.ytdlp` was ever imported) runs from both `on_unmount` and `atexit`. It is idempotent,
 because a normal quit hits both. `main.py` adds signal handlers and `close_all_sockets`, described in
 `docs/decisions/concurrency.md#2026-06-17--unified-process-registry-and-structured-shutdown`.
 

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
-import urllib.error
-import urllib.request
+import threading
+import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
@@ -30,16 +31,58 @@ _HEADERS = {
 }
 
 
+_local = threading.local()
+
+
+def _connection(host: str, timeout: int) -> tuple[http.client.HTTPSConnection, bool]:
+    """This thread's keep-alive connection to ``host`` (certificate-verified), and whether it already existed."""
+    conns = _local.__dict__.setdefault("conns", {})
+    conn = conns.get(host)
+    reused = conn is not None
+    if conn is None:
+        conn = conns[host] = http.client.HTTPSConnection(host, timeout=timeout)
+    conn.timeout = timeout
+    if conn.sock:
+        conn.sock.settimeout(timeout)
+    return conn, reused
+
+
+def _drop_connection(host: str) -> None:
+    conn = _local.__dict__.get("conns", {}).pop(host, None)
+    if conn:
+        conn.close()
+
+
 def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
-    """POST JSON; the parsed response, or None on any network or decode error."""
-    data = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=data, headers=_HEADERS)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read())
-    except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError) as exc:
-        logger.debug("innertube POST failed (%s): %s", url.split("/")[-1], exc)
-        return None
+    """POST JSON over a per-thread keep-alive connection; the parsed response, or None on any error.
+
+    A reused connection the server has closed fails on first use; that one failure is retried on a fresh connection.
+    """
+    parts = urllib.parse.urlsplit(url)
+    path = f"{parts.path}?{parts.query}" if parts.query else parts.path
+    body = json.dumps(payload).encode()
+    endpoint = parts.path.rsplit("/", 1)[-1]
+    for attempt in range(2):
+        conn, reused = _connection(parts.netloc, timeout)
+        try:
+            conn.request("POST", path, body=body, headers=_HEADERS)
+            resp = conn.getresponse()
+            data, status = resp.read(), resp.status
+        except (http.client.HTTPException, OSError) as exc:
+            _drop_connection(parts.netloc)
+            if attempt == 0 and reused:
+                continue
+            logger.debug("innertube POST failed (%s): %s", endpoint, exc)
+            return None
+        if status != 200:
+            logger.debug("innertube POST %s: HTTP %s", endpoint, status)
+            return None
+        try:
+            return json.loads(data)
+        except json.JSONDecodeError as exc:
+            logger.debug("innertube POST %s: bad JSON: %s", endpoint, exc)
+            return None
+    return None
 
 
 def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
