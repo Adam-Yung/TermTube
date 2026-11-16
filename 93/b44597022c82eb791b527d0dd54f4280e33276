@@ -1,0 +1,28 @@
+src/tui/screens/main_screen.py
+  s_3690eae3737fe4::t_43b0981be29ec7 90,286
+src/tui/screens/mixins/feed_loader.py
+  s_3690eae3737fe4::t_43b0981be29ec7 29-32,42-45,304,308,310-312,321,323,327,350-356
+  s_3690eae3737fe4::t_a7016a4cee8ea5 357
+src/tests/tui/test_feed_extend.py
+  s_3690eae3737fe4::t_71d445b65e0b2d 1-60
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_3690eae3737fe4::t_42d0d156c478f0 7,9
+docs/features/architecture.md
+  s_3690eae3737fe4::t_024cf77179f472 45-46,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "93b44597022c82eb791b527d0dd54f4280e33276",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
