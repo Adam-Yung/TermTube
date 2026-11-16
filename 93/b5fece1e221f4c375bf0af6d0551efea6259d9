@@ -1,0 +1,32 @@
+src/tests/tui/test_debug_log_deadlock.py
+  s_3690eae3737fe4::t_6e3661852936ca 3-5,49-51,53
+  s_3690eae3737fe4::t_9595b3f66f518e 1-2,6-48,52,54-56
+src/tui/screens/mixins/debug_log.py
+  s_3690eae3737fe4::t_6e3661852936ca 3,17-18,31,37,55-68
+docs/code/src/tui/screens/mixins/debug_log.py.md
+  s_3690eae3737fe4::t_c7791f5a991e3a 5
+docs/decisions/logging.md
+  s_3690eae3737fe4::t_c7791f5a991e3a 22-25
+docs/guides/ci.md
+  s_3690eae3737fe4::t_c7791f5a991e3a 55,58,63
+src/logger.py
+  s_3690eae3737fe4::t_6e3661852936ca 107-111
+.github/workflows/test.yml
+  s_3690eae3737fe4::t_b18eb05a05fa54 2-9,71-75,115-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "93b5fece1e221f4c375bf0af6d0551efea6259d9",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
