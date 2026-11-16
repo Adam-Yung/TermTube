@@ -1,0 +1,21 @@
+docs/status.md
+  s_3690eae3737fe4::t_1e8cce19b19ef7 28-31
+docs/todo.md
+  s_3690eae3737fe4::t_904cdeeeed00d1 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1b96c10d54d7afea8c53970d3d955e98fe00ab03",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
