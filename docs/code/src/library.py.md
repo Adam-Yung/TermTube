@@ -14,11 +14,12 @@ the library feed loader (`all_entries`) and the download modal (`invalidate_cach
 
 ## Cache
 
-`all_entries` caches per `(video_dir, audio_dir)`. A cached list is returned while both directories' mtimes are unchanged. Creating or
-deleting a file in a directory bumps that directory's mtime on common filesystems, so the check costs two `stat` calls.
+`all_entries` caches per `(video_dir, audio_dir)`. A cached list is returned while the newest mtime in each tree is unchanged. `_dir_mtime`
+walks the directory and every subdirectory (directories only, not files): adding a file bumps its folder, adding a folder bumps its
+parent, so the check is one `stat` and one `scandir` per directory in the tree.
 
-Limit: mtime only reflects a directory's direct children. A file added in a subfolder (`rglob` descends into them) does not bump the
-top-level mtime, so it appears only after `invalidate_cache()`. The download modal calls it after each download.
+Limit: editing a sidecar in place does not change any directory mtime, so it shows up only after `invalidate_cache()` (the download modal
+calls it after each download). A filesystem with coarse timestamps can miss two changes within one tick.
 
 `_lock` serializes scans, so a second caller waits for the first scan instead of repeating it. A scan walks the whole tree on the
 calling thread; call from a worker.

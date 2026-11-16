@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -16,10 +17,17 @@ _NON_MEDIA_EXTS = (".json", ".jpg", ".png", ".webp")
 
 
 def _dir_mtime(directory: Path) -> float:
-    try:
-        return directory.stat().st_mtime if directory.exists() else 0.0
-    except OSError:
-        return 0.0
+    """Newest mtime among ``directory`` and its subdirectories; a file added in any of them bumps one."""
+    newest = 0.0
+    pending = [directory]
+    while pending:
+        current = pending.pop()
+        try:
+            newest = max(newest, current.stat().st_mtime)
+            pending.extend(Path(e.path) for e in os.scandir(current) if e.is_dir(follow_symlinks=False))
+        except OSError:
+            continue
+    return newest
 
 
 def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> LibraryEntry | None:
