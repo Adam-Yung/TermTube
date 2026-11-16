@@ -11,4 +11,4 @@
 
 ## Known limit
 
-The benchmark saw HTTP 404 on every channel from the owner's network (`docs/guides/benchmarks.md`), so there the fallback is the normal path. The Atom fixture `src/tests/fixtures/channel_feed.xml` is hand-written from the documented feed format, not recorded.
+The benchmark saw HTTP 404 on every channel from the owner's network (`docs/guides/benchmarks.md`), and again on 2026-11-15 for both `channel_id` and `playlist_id=UULF…`. The URL is valid; public reports describe a YouTube-side outage. There the fallback is the normal path. The Atom fixture `src/tests/fixtures/channel_feed.xml` is hand-written from the documented feed format, not recorded.

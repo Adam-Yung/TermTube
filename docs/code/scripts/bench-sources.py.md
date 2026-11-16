@@ -3,6 +3,7 @@
 Times the ladder rungs from `docs/plans/2026-11-15-optimization-PLAN.md` and prints p50 and max per operation. Results and what they mean:
 `docs/guides/benchmarks.md`.
 
+- `--streams` times only the yt-dlp resolve variants (fresh, warmed and reused, `140/251`, manifest skip, `player_client` choices) with the production options from `ytdlp.base_opts`. A variant's `ok` column matters more than its time: clients that need a PO token fail fast and look quick.
 - Anonymous only. It never reads cookies or a browser profile and downloads no media. The yt-dlp row does a metadata resolve (`ba/b`) and
   stops at the stream URL.
 - It reuses `src.innertube._post_json` and `_WEB_CONTEXT`, so it measures the same requests the app makes. It imports a private name on

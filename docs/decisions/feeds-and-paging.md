@@ -55,3 +55,7 @@ The Playlists tab is read from `/browse` with continuation paging (up to 80 entr
 ## 2026-11-15 — Channel first page: RSS, then InnerTube (`src/feeds.py`)
 
 The Subscriptions tab lists channels, so no merged subscription feed was built. The channel page's date-sorted first page goes through `feeds.channel_latest`. A dead-RSS flag (two consecutive 404s, 30 minutes) keeps a blocked network at two wasted requests. Tradeoff: when RSS works it returns 15 entries without durations, where InnerTube returned about 30 with durations. The plan chose RSS first; revisit if the thinner page is noticed. The live fallback check was not run: the request was denied in the session.
+
+## 2026-11-15 — The RSS 404 is not a bad URL
+
+Checked after a question from the owner: the feed URL is the documented form, and `playlist_id=UULF…` also returns nothing here. Public reports from 2026-10-31 describe 404 for every channel, including `UC_x5XG1OV2P6uZZ5FSM9Ttw`, as a YouTube-side outage. The dead flag and InnerTube fallback in `src/feeds.py` stay as built; on a network where RSS works, it is the primary source.

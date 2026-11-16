@@ -41,8 +41,10 @@ Optimization plan step 1 is done: rows with only a video id get a derived `i.yti
 
 Step 2 is done: search and channel info use InnerTube with a yt-dlp fallback (live check 2026-11-15: 50 results in 2.7 s, channel info in 0.7–1.0 s). Search shows the first page after about one request and fills in the rest in the background. Channel playlists use InnerTube too, with a yt-dlp fallback (live check 2026-11-15: 80 playlists in 1.0 s).
 
-Step 3 is partly done: the channel page's first page uses `feeds.channel_latest` (RSS with a dead-flag, then InnerTube). Not live-checked: the RSS request was denied in the session, and the benchmark saw 404 on this network. The Subscriptions tab lists channels, so no merged feed exists.
+Step 3 is partly done: the channel page's first page uses `feeds.channel_latest` (RSS with a dead-flag, then InnerTube). RSS still returns 404 on this network (checked with `scripts/bench-sources.py`, both `channel_id` and `UULF` playlist forms; the URL is valid, reports point to a YouTube-side outage), so the InnerTube fallback is what runs here. The Subscriptions tab lists channels, so no merged feed exists.
 
 Cookies are extracted on first authenticated use (home feed, subscription list), narrowed to YouTube and Google, and invalidated on an auth failure; nothing else reads the browser profile.
+
+Stream resolve: no yt-dlp variant beat the baseline by 1.5x (`docs/guides/benchmarks.md`); nothing changed.
 
 Next work: `todo.md`. The optimization plan: `plans/2026-11-15-optimization-PLAN.md`.

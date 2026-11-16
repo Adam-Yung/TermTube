@@ -68,3 +68,7 @@ Fix:
 - Retry sleep drops from 1.5 s to 1.0 s.
 
 Why it is safe: the CDN background probe still runs on every `put_cached_stream_url()`. In the happy path (user dwells 2–3 s before play), the probe finishes well before playback is requested. mpv also runs with `--cache=yes --demuxer-readahead-secs=30`, which absorbs residual CDN warmup at the transport layer.
+
+## 2026-11-15 — No faster yt-dlp stream resolve; no InnerTube mobile resolve
+
+Measured warmed reuse, direct `140/251`, manifest skipping and four `player_client` pins against the baseline (`docs/guides/benchmarks.md`). None gave 1.5x, so none is wired. The optional InnerTube mobile-client `/player` resolve behind `fast_stream_resolve` was not built: `/player` returns no `streamingData` without a Proof of Origin token (`docs/code/src/innertube.py.md`), and the clients that skip that check (`tv`, `ios`) failed every resolve above. Revisit if yt-dlp's default client changes.
