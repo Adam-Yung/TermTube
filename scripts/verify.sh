@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 py=".venv/bin/python"
 [[ -x $py ]] || py="python3"
 "$py" -m compileall -q src
-ruff_bin=".venv/bin/ruff"
+ruff_bin="${RUFF:-.venv/bin/ruff}"
 [[ -x $ruff_bin ]] || ruff_bin="$(command -v ruff || true)"
 [[ -n $ruff_bin ]] || { echo "ruff not found: install it (pip install -r requirements-dev.txt)" >&2; exit 1; }
 "$ruff_bin" check .

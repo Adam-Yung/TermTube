@@ -59,3 +59,7 @@ The Subscriptions tab lists channels, so no merged subscription feed was built. 
 ## 2026-11-15 — The RSS 404 is not a bad URL
 
 Checked after a question from the owner: the feed URL is the documented form, and `playlist_id=UULF…` also returns nothing here. Public reports from 2026-10-31 describe 404 for every channel, including `UC_x5XG1OV2P6uZZ5FSM9Ttw`, as a YouTube-side outage. The dead flag and InnerTube fallback in `src/feeds.py` stay as built; on a network where RSS works, it is the primary source.
+
+## 2026-11-16 — RSS is down for every probe, on two machines
+
+`scripts/diagnose-rss.py` on the dev Mac and on a second Linux machine (Python 3.12, OpenSSL 3.0) got 404 for all 6 URL forms x 3 channels and all 4 user agents. The 404 page comes from the `YouTube RSS Feeds server` (its own `server` header), while `www.youtube.com` pages return 200 from `ESF`. So the feeds backend answers 404 for every channel; it is not our URL, TLS, a proxy or a user-agent block. Both machines may share one home network, so a different ISP is still untested. Decision unchanged: keep `feeds.channel_latest`; the dead flag costs two requests per 30 minutes and the page recovers by itself when RSS returns. On this evidence the channel page is served by InnerTube (30 entries with durations, about 0.3 to 0.5 s).

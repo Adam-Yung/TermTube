@@ -145,7 +145,11 @@ def user_agents() -> list[int | None]:
 
 def app_path() -> None:
     section("What TermTube does (src/feeds.py and InnerTube, anonymous)")
-    from src import feeds, innertube
+    try:
+        from src import feeds, innertube
+    except ImportError:
+        print("skipped: run this from a TermTube checkout to include the app's own fetch path")
+        return
 
     cid = CHANNELS["Google Developers"]
     start = time.perf_counter()
