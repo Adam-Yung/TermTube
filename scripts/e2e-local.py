@@ -194,13 +194,13 @@ def prepare(tmp: Path, app_dir: Path) -> dict:
         "browser": "none", "video_dir": str(video), "audio_dir": str(audio), "thumbnail_warning_dismissed": True,
         "sponsorblock": {"enabled": False, "auto_skip": False},
     }), encoding="utf-8")
-    # mpv reads its config from the same isolated directory: silent, and no audio device needed (CI runners have none)
+    # mpv reads this config (MPV_HOME works on every platform): silent, no audio device needed (CI runners have none)
     mpv_conf = cfg / "mpv"
     mpv_conf.mkdir()
     (mpv_conf / "mpv.conf").write_text("ao=null\n", encoding="utf-8")
     # COLUMNS and LINES override the pty's size (pytest sets 80x24 in its children): pin them to the size we made
-    env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", TERMTUBE_CACHE_DIR=str(tmp / "cache"),
-               COLUMNS=str(COLS), LINES=str(ROWS))
+    env = dict(os.environ, MPV_HOME=str(mpv_conf), TERM="xterm-256color", COLORTERM="truecolor",
+               TERMTUBE_CACHE_DIR=str(tmp / "cache"), COLUMNS=str(COLS), LINES=str(ROWS))
     if os.name == "nt":
         env.update(APPDATA=str(cfg), PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     else:
@@ -230,9 +230,10 @@ def print_app_log(started_at: float) -> None:
     if not logs:
         print("\n--- no app debug log found ---")
         return
-    newest = max(logs, key=lambda p: p.stat().st_mtime)
-    print(f"\n--- app debug log ({newest.name}), last 80 lines ---")
-    print("\n".join(newest.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]))
+    app_logs = [p for p in logs if not p.stem.endswith("-mpv")]
+    for log in (max(app_logs, key=lambda p: p.stat().st_mtime), *sorted(p for p in logs if p.stem.endswith("-mpv"))):
+        print(f"\n--- {log.name}, last 60 lines ---")
+        print("\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-60:]))
 
 
 def run(args, tmp: Path) -> int:

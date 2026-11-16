@@ -32,3 +32,10 @@ def test_the_video_player_plays_a_local_file_directly():
     cmd = WatchModal._build_command(host, "mpv", "i.conf", "t", ["/videos/a.mp4"], "/videos/a.mp4", "bv+ba/b", [])
     assert "--no-ytdl" in cmd and cmd[-2:] == ["--", "/videos/a.mp4"]
     assert not any(c.startswith("--ytdl-format") for c in cmd)
+
+
+def test_mpv_log_is_only_added_when_asked_and_stays_before_the_target():
+    assert not any(c.startswith("--log-file") for c in audio(stream_url="x"))
+    cmd = audio(stream_url="x", mpv_log="/tmp/mpv.log")
+    assert "--log-file=/tmp/mpv.log" in cmd and "--msg-level=all=info" in cmd
+    assert cmd.index("--log-file=/tmp/mpv.log") < cmd.index("--")

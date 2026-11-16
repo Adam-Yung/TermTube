@@ -32,6 +32,12 @@ def _socket_base() -> str:
     return get_audio_ipc_path()
 
 
+def _mpv_log_path() -> str | None:
+    """Beside the app's --debug log, so a failed mpv can explain itself. None unless --debug is on."""
+    log = logger.log_file() if logger.is_debug() else None
+    return str(log.with_name(f"{log.stem}-mpv.log")) if log else None
+
+
 def _socket_for(session: int) -> str:
     """IPC path unique to ``session``, so a dying mpv never answers for the next one."""
     base = _socket_base()
@@ -303,6 +309,7 @@ class AudioController:
                 page_url=local or watch_url(vid),
                 ytdl_format=ytdl_format,
                 cookie_args=cookie_args,
+                mpv_log=_mpv_log_path(),
             )
             logger.debug("audio mpv cmd: %s", " ".join(cmd))
             return cmd

@@ -6,6 +6,7 @@ import gzip
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import sys
@@ -13,6 +14,7 @@ import tarfile
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -196,21 +198,43 @@ def _make_executable(path: Path) -> None:
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
+def _tag_from_api(owner: str, repo: str) -> str | None:
+    """Latest tag from the GitHub API. Uses ``GITHUB_TOKEN`` if set (the token goes to api.github.com only)."""
+    headers = {"User-Agent": "TermTube-Bootstrap/1.0"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(f"https://api.github.com/repos/{owner}/{repo}/releases/latest", headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read()).get("tag_name")
+
+
+def _tag_from_redirect(owner: str, repo: str) -> str | None:
+    """Latest tag from where ``/releases/latest`` redirects (``.../releases/tag/<tag>``); not API rate-limited."""
+    req = urllib.request.Request(
+        f"https://github.com/{owner}/{repo}/releases/latest", headers={"User-Agent": "TermTube-Bootstrap/1.0"}
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        match = re.search(r"/releases/tag/([^/?#]+)$", resp.geturl())
+    return urllib.parse.unquote(match.group(1)) if match else None
+
+
 def _github_latest_tag(owner: str, repo: str) -> str | None:
-    """Latest release tag from the GitHub API, or None (unauthenticated, so may be rate-limited)."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+    """Latest release tag: the API first, then the release page's redirect when the API is rate-limited or down."""
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read())
-            return data.get("tag_name")
+        tag = _tag_from_api(owner, repo)
+        if tag:
+            return tag
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
+        brief = _classify_download_error(exc)[0]
+        print(f"    [!] GitHub API request failed ({brief}); trying the release page", flush=True)
+    try:
+        return _tag_from_redirect(owner, repo)
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
         brief, category = _classify_download_error(exc)
-        print(f"    [!] GitHub API request failed: {brief}", file=sys.stderr, flush=True)
+        print(f"    [!] GitHub release lookup failed: {brief}", file=sys.stderr, flush=True)
         if category == "ssl":
             print("    (Likely behind a corporate proxy — see error guidance below)", file=sys.stderr, flush=True)
-        return None
-    except Exception:
         return None
 
 

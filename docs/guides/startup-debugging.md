@@ -241,3 +241,11 @@ After running all steps, read the output for:
 4. **Step 4** — mpv verbose logs show exactly which init stage is slow
 5. **Step 5** — Does the app log show pre-resolution succeeding or falling back?
 6. **Step 8** — Overall pipeline timing breakdown
+
+
+## mpv's own log (audio)
+
+With `--debug`, the audio player also starts mpv with `--msg-level=all=info --log-file=<log dir>/<timestamp>-mpv.log`, next to the app's debug log
+(`logger.log_file()`). Without it mpv only prints errors, and since mpv's terminal input is off (`--no-input-terminal`, `stdin` closed) a failure
+reads "exit code N" with an empty stderr when the cause is a warning-level condition such as a missing audio device. The real-app CI job
+(`scripts/e2e-local.py --debug-log`) prints both logs when a step fails.

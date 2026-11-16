@@ -472,8 +472,9 @@ def audio_command(
     page_url: str = "",
     ytdl_format: str = "",
     cookie_args: list[str] | None = None,
+    mpv_log: str | None = None,
 ) -> list[str]:
-    """Build the headless mpv command for background audio.
+    """Build the headless mpv command for background audio. ``mpv_log`` makes mpv write a verbose log file there.
 
     With ``stream_url`` mpv plays it directly. Without one, mpv resolves ``page_url``
     itself through its yt-dlp hook, using ``ytdl_format`` and the cookie options.
@@ -492,6 +493,8 @@ def audio_command(
     ]
     if title:
         cmd += [f"--title={title}", f"--force-media-title={title}"]
+    if mpv_log:
+        cmd += ["--msg-level=all=info", f"--log-file={mpv_log}"]
     if stream_url:
         return cmd + ["--no-ytdl", "--", stream_url]
     cmd.append(f"--ytdl-format={ytdl_format or 'ba/b'}")
