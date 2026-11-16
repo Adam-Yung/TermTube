@@ -1,0 +1,23 @@
+LICENSE
+  s_3690eae3737fe4::t_88d2f8d6374485 1-21
+README.md
+  s_3690eae3737fe4::t_bfa9b8f25b691a 13
+docs/todo.md
+  s_3690eae3737fe4::t_f5f3e75b2a8703 7-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7f5d1163432a0caaab7a673e18e0456e786e525e",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
