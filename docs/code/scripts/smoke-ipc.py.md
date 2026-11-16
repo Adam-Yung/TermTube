@@ -1,6 +1,6 @@
 # scripts/smoke-ipc.py
 
-The one check mocks cannot give: a real mpv driven through `src.player`, the code the audio controller uses. Run it on a new platform or after touching `player.py`, `plat.py` IPC paths or `requirements.txt`'s `pywin32` line. Context: `docs/history/2026-11-16-windows-audit.md` (open point 4) and `docs/guides/ci.md`.
+The one check mocks cannot give: a real mpv driven through `src.player`, the code the audio controller uses. Run it on a new platform or after touching `player.py`, `plat.py` IPC paths or `requirements.txt`'s `pywin32` line. Context: `docs/history/2026-11-16-windows-audit.md` (open point 4) and `docs/guides/ci.md`. `scripts/e2e-local.py` goes one level up: the same IPC, but driven by the real app and real keys.
 
 - Needs no audio device, file or network: mpv starts with `--no-config --ao=null` on a generated tone (`av://lavfi:sine=...`, 30 s). `--no-config` keeps the user's `mpv.conf` out of the result.
 - Eight steps, each printed `PASS` or `FAIL`: connect and poll, duration, position advances, pause reported and position held, resume, absolute seek, relative seek, `quit` ends mpv (exit code 0 or 4). On Windows this is the named pipe through pywin32 (`\\.\pipe\termtube-smoke-<pid>`); elsewhere a Unix socket. The pipe or socket name carries the process id so it cannot touch a running TermTube.

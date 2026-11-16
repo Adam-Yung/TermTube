@@ -12,7 +12,7 @@ Downloads and installs the three bundled tools (deno, ffmpeg, mpv) into `~/.loca
 
 - **mpv on macOS** is an `.app` bundle inside `mpv.tar.gz`. `Contents/MacOS/mpv` links `@executable_path/lib/`, so `bin/mpv` and `bin/lib/` must stay side by side. Copying only the binary gives a dyld error at launch.
 - **mpv asset name** embeds the macOS major version (`macos-15-arm`). A release without that exact asset fails the download. When the GitHub API is rate-limited, `v0.39.0` is used.
-- **mpv on Linux** has no static build. A system `mpv` is accepted (version recorded as `system`); otherwise install instructions are printed.
+- **mpv on Linux** has no static build. A distro `mpv` is **linked** into the managed bin dir (`bin/mpv` symlink to the real path; version recorded as `system`), because the dependency check and `player.mpv_exe` look only there. Without the link every Linux launch failed the check (a regression from the 2026-11-15 bundled-only change, found while designing the real-app CI). A real file already at `bin/mpv` is left alone; a stale link is replaced; a PATH lookup that leads back to our own link is not followed. With no mpv at all, install instructions are printed.
 - **ffmpeg on macOS** comes from `eugeneware/ffmpeg-static` (`.gz` binaries, fallback tag `b6.1.1`), then `evermeet.cx` if the download fails. Linux/Windows use BtbN builds. A `.tar.xz` needs the `lzma` module; a Python built without it prints a hint.
 - **Corporate proxies** that intercept HTTPS raise `CERTIFICATE_VERIFY_FAILED`. `_classify_download_error` maps that, timeouts and resets to targeted advice (`_print_download_guidance`). Certificate verification is never disabled here.
 - Archives are extracted with `filter="data"` when the running Python supports it.

@@ -357,13 +357,35 @@ def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
     return "evermeet-latest"
 
 
+def _link_system_mpv(bin_dir: Path, system_mpv: Path) -> str | None:
+    """Link a distro-installed mpv into the managed bin dir, which is where the rest of the app looks for it.
+
+    There is no static Linux build to download. Returns "system", or None if the link cannot be made.
+    """
+    link = bin_dir / "mpv"
+    target = system_mpv.resolve()
+    if target.parent == bin_dir.resolve():  # PATH already led to our own link
+        return "system" if link.exists() else None
+    if link.is_symlink():
+        link.unlink()
+    elif link.exists():
+        return "system"  # a real file the user placed there
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        print(f"    mpv: could not link {target} into {bin_dir}: {exc}", flush=True)
+        return None
+    return "system"
+
+
 def _install_mpv(bin_dir: Path) -> str | None:
     """Install mpv (macOS .app bundle, Windows zip). Linux has no static build: accepts a system mpv."""
     _MPV_FALLBACK = "v0.39.0"  # used when the GitHub API is rate-limited
 
     if OS_NAME == "linux":
-        if shutil.which("mpv"):
-            return "system"
+        system = shutil.which("mpv")
+        if system:
+            return _link_system_mpv(bin_dir, Path(system))
         print("    mpv: no static Linux build available.", flush=True)
         print("    Install via your package manager:", flush=True)
         print("      Ubuntu/Debian: sudo apt install mpv", flush=True)

@@ -66,7 +66,10 @@ def atomic_write(path: Path, data: bytes) -> None:
 
 
 def get_cache_dir() -> Path:
-    """Cache directory (~/.cache/termtube or %LOCALAPPDATA%/TermTube/cache)."""
+    """Cache directory: ``$TERMTUBE_CACHE_DIR``, else ~/.cache/termtube or %LOCALAPPDATA%/TermTube/cache."""
+    override = os.environ.get("TERMTUBE_CACHE_DIR")
+    if override:
+        return Path(override)
     if IS_WINDOWS:
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
         return base / "TermTube" / "cache"

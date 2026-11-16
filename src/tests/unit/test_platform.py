@@ -354,3 +354,21 @@ class TestReapOrphansOnWindows:
         monkeypatch.setattr(plat, "_unix_ipc_dir", lambda: pytest.fail("os.getuid does not exist on Windows"))
         monkeypatch.setattr(plat.subprocess, "run", lambda *a, **k: pytest.fail("pgrep does not exist on Windows"))
         plat.reap_orphans()
+
+
+class TestCacheDirOverride:
+    def test_env_var_wins_on_every_platform(self, monkeypatch, tmp_path):
+        from src import plat
+
+        for windows in (False, True):
+            monkeypatch.setattr(plat, "IS_WINDOWS", windows)
+            monkeypatch.setenv("TERMTUBE_CACHE_DIR", str(tmp_path / "c"))
+            assert plat.get_cache_dir() == tmp_path / "c"
+
+    def test_without_it_the_platform_default_applies(self, monkeypatch):
+        from src import plat
+
+        monkeypatch.delenv("TERMTUBE_CACHE_DIR", raising=False)
+        monkeypatch.setattr(plat, "IS_WINDOWS", False)
+        monkeypatch.setenv("XDG_CACHE_HOME", "/xdg")
+        assert plat.get_cache_dir() == Path("/xdg") / "termtube"

@@ -1,29 +1,20 @@
-name: Verify
-on: [push, pull_request]
+name: Pipeline
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r requirements-dev.txt
-      - run: scripts/verify.sh
-        env:
-          TERM: xterm-256color
-
-  # The same gate on the other two platforms. Windows runs it under Git Bash.
-  platforms:
-    name: verify (${{ matrix.os }})
+  # Layer 1: lint, unit and headless TUI tests, doc checks. Windows runs the bash gate under Git Bash.
+  gate:
+    name: gate (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,23 +26,64 @@ jobs:
         env:
           TERM: xterm-256color
 
-  # The real Windows installer and launcher, then real mpv over the named pipe. Downloads deno, ffmpeg and mpv from
-  # GitHub releases through src/bootstrap.py, as a user's install does.
-  windows-install:
-    runs-on: windows-latest
+  # Layer 2: the app as a user gets it. Real installer, real launcher, real mpv, the real TUI in a real pseudo-terminal.
+  # Hermetic: no YouTube. See docs/guides/ci.md for what a green run proves.
+  real-app-unix:
+    name: real app (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: setup.ps1 (Windows PowerShell 5.1, as termtube.cmd calls it)
+      - name: 'mpv from the distribution (Linux has no static build, the installer links it)'
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y mpv
+      - name: 'Install with scripts/setup.sh (3 attempts, it downloads tools from GitHub releases)'
+        run: |
+          for attempt in 1 2 3; do
+            bash scripts/setup.sh --no-prompt && exit 0
+            echo "setup attempt $attempt failed"; sleep 20
+          done
+          exit 1
+      - name: Installed layout
+        run: |
+          ls -la "$HOME/.local/share/TermTube" "$HOME/.local/termtube-deps/bin"
+          "$HOME/.local/bin/termtube" --version
+      - name: Real mpv over the IPC socket
+        run: '"$HOME/.local/share/TermTube/.venv/bin/python" scripts/smoke-ipc.py --require-mpv'
+      - name: The real app in a pseudo-terminal
+        run: |
+          "$HOME/.local/share/TermTube/.venv/bin/python" scripts/e2e-local.py \
+            --app-dir "$HOME/.local/share/TermTube" --launcher "$HOME/.local/share/TermTube/termtube"
+
+  real-app-windows:
+    name: real app (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 'Install with scripts\setup.ps1 (Windows PowerShell 5.1, 3 attempts, downloads tools from GitHub releases)'
         shell: powershell
-        run: .\scripts\setup.ps1 -NoPrompt
+        run: |
+          foreach ($attempt in 1..3) {
+            .\scripts\setup.ps1 -NoPrompt
+            if ($LASTEXITCODE -eq 0 -or $?) { exit 0 }
+            Write-Host "setup attempt $attempt failed"; Start-Sleep -Seconds 20
+          }
+          exit 1
       - name: Installed layout
         shell: powershell
         run: |
-          Get-ChildItem "$env:LOCALAPPDATA\Programs\TermTube" | Select-Object Name
+          Get-ChildItem "$env:LOCALAPPDATA\Programs\TermTube" -Force | Select-Object Name
           Get-ChildItem "$env:LOCALAPPDATA\termtube-deps\bin" | Select-Object Name
       - name: Launcher reports a version
         shell: cmd
@@ -60,4 +92,11 @@ jobs:
         shell: powershell
         run: |
           & "$env:LOCALAPPDATA\Programs\TermTube\.venv\Scripts\python.exe" scripts\smoke-ipc.py --require-mpv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: The real app in a ConPTY
+        shell: powershell
+        run: |
+          $py = "$env:LOCALAPPDATA\Programs\TermTube\.venv\Scripts\python.exe"
+          & $py -m pip install --quiet pywinpty
+          & $py scripts\e2e-local.py --app-dir "$env:LOCALAPPDATA\Programs\TermTube" --launcher "$env:LOCALAPPDATA\Programs\TermTube\termtube.cmd"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
