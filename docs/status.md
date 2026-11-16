@@ -19,6 +19,8 @@
   after page eviction. The suppressed-first-batch slice in the home loader skipped rows. The test suite killed pytest (`os._exit` from the quit
   test) and read the real browser cookies.
 
+The installed copy (`~/.local/share/TermTube`) was refreshed from commit `9ceaab9` on 2026-11-16 with `bash scripts/setup.sh --refresh` and smoke-tested through `~/.local/bin/termtube` in tmux (search, channel page, `?` over the channel page, quit). Its venv was not changed.
+
 ## Verified in a pty (2026-11-15)
 
 A tmux session (150x46, `browser: none`, throwaway config) ran the real app against YouTube and mpv: home feed, search (50 results, 3 pages), `j` `k`, `l` `g` `G` paging, audio start, seek (`]` `}` `5`), pause, queue (`e`, `>`), stop, channel page (videos, Playlists tab, audio kept playing across it, Esc back), Enter menu, help, settings, tab picker, history entry, `A` quality picker, Ctrl+D, video (`v`, mpv window, `q` stops it), quit with exit code 0 and no stray mpv. It found and fixed: titles with `[brackets]` breaking markup, mangled `[ ]` and `PAUSED` hints. Not covered: `d` download, `b` browser, `y` copy, `p` playlist, Windows and Linux, a Kitty/iTerm2 terminal (tmux has no image protocol, so thumbnails showed the fallback notice), and the unauthenticated home feed only (no cookies read).
