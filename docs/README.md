@@ -20,7 +20,7 @@ relevant file in `decisions/`, and the `code/` mirror of any file you are about 
 | `features/` | One file per feature, describing its design as it exists in the code today: `architecture` (wiring map), `keybindings`. |
 | `code/` | One file per source file, at the same relative path (`code/src/player.py.md`): the file-specific "why". Enforced by `scripts/check-doc-mirrors.sh`. |
 | `decisions/` | Append-only log of implementation decisions, one file per topic. See `decisions/README.md`. |
-| `guides/` | How to run, debug and check the product. |
+| `guides/` | How to run, debug and check the product (`environments.md`: the app's venv versus the checkout's). |
 | `plans/` | Intent for work not yet built: `2026-11-15-optimization-PLAN.md` (source ladder, cookie policy, startup), `2026-11-15-handoff-PLAN.md` (ordered task list with acceptance criteria), `website.md`. |
 | `history/` | Finished reviews and drafts. |
 

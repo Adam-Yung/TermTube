@@ -83,3 +83,7 @@ Rows stay plain dicts (they come from JSON, yt-dlp and the disk cache, and are m
 ## 2026-11-15 — `ruff` gates commits; not installed by the agent
 
 `ruff.toml` (line length 120, rules `E,F,I,UP`) and a `ruff check .` step in `scripts/verify.sh`; `ruff>=0.8` in `requirements-dev.txt`. The owner approved installing it, but PyPI could not be reached from this network (connection reset), so its safety status could not be read and the hard rule in `AGENTS.md` (fail closed) applied: no `pip install` was run. The gate uses `.venv/bin/ruff`, else the `ruff` already on `PATH` (0.8.1, installed outside this repo). Linting found one real bug from the earlier refactor (an import removed from `watch_modal.py` that `_stop` still used), and the first run also sorted imports and removed unused ones across the tree.
+
+## 2026-11-16 — Dev and app environments kept apart by a script
+
+The installed app is a copy in `~/.local/share/TermTube` with its own venv; the checkout has `.venv`. They were never symlinked, but the checkout's venv was a copy of the app's (its `pyvenv.cfg` records the app path), and a bare `pip` in the owner's shell resolved to the app venv, so `ruff` was installed there. `scripts/dev-setup.sh` now checks the separation and installs only through `.venv/bin/python -m pip`; `scripts/verify.sh` refuses to run against a venv that is not the checkout's. Rejected: making `./termtube` use the app venv or the reverse (they must stay independent so a dev change cannot break the installed app).

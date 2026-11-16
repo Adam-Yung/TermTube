@@ -5,6 +5,10 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 py=".venv/bin/python"
 [[ -x $py ]] || py="python3"
+if [[ $py == ".venv/bin/python" ]] && [[ "$("$py" -c 'import os, sys; print(os.path.realpath(sys.prefix))')" != "$(pwd -P)/.venv" ]]; then
+    echo ".venv/bin/python does not belong to this repo's .venv: run scripts/dev-setup.sh --check" >&2
+    exit 1
+fi
 "$py" -m compileall -q src
 ruff_bin="${RUFF:-.venv/bin/ruff}"
 [[ -x $ruff_bin ]] || ruff_bin="$(command -v ruff || true)"

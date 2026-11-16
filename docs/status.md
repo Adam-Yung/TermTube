@@ -45,7 +45,7 @@ Audio lives on `app.audio` (`AudioController`, `src/tui/audio_controller.py`); s
 
 Rows have declared shapes (`src/entries.py`, annotations only); one mpv launch loop (`player.run_mpv_with_retries`) serves audio and video.
 
-`ruff check .` is part of the gate (`ruff.toml`). The agent did not `pip install` it: PyPI was unreachable, so its status could not be read. The gate uses the `ruff` on `PATH`; run `pip install -r requirements-dev.txt` in the venv yourself if you want `.venv/bin/ruff`.
+`ruff check .` is part of the gate (`ruff.toml`). The checkout's `.venv` has no ruff yet: an earlier bare `pip install` went into the installed app's venv. Run `scripts/dev-setup.sh --recreate`; until then the gate takes `RUFF=<path>`. See `docs/guides/environments.md`.
 
 Cookies are extracted on first authenticated use (home feed, subscription list), narrowed to YouTube and Google, and invalidated on an auth failure; nothing else reads the browser profile.
 
