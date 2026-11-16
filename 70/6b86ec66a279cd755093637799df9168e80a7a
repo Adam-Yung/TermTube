@@ -1,0 +1,28 @@
+docs/decisions/cookies-and-auth.md
+  s_9625f19ee19aff::t_1c8679e104bb9f 129-135
+docs/plans/2026-11-15-optimization-PLAN.md
+  s_9625f19ee19aff::t_ec7563acc94560 47,52-53
+  s_9625f19ee19aff::t_1c8679e104bb9f 17,20-21,37,39,96
+docs/todo.md
+  s_9625f19ee19aff::t_1c8679e104bb9f 1-2,12
+docs/plans/2026-11-15-handoff-PLAN.md
+  s_9625f19ee19aff::t_ec7563acc94560 1-114
+docs/README.md
+  s_9625f19ee19aff::t_7ac9762619f55c 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "706b86ec66a279cd755093637799df9168e80a7a",
+  "prompts": {},
+  "sessions": {
+    "s_9625f19ee19aff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd64896e-a4f9-4faf-9b3c-5a42b193147c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
