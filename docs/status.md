@@ -27,7 +27,12 @@ A tmux session (150x46, `browser: none`, throwaway config) ran the real app agai
 
 ## Verified by the owner (2026-11-16, real terminal, installed app)
 
-Thumbnails, `b`, `y`, `p`, the restyled notifications, and the rest of the owner's testing: all good. Still unchecked: `d` download, Linux, Windows.
+Thumbnails, `b`, `y`, `p`, `d` download, the restyled notifications, and the rest of the owner's testing: all good.
+
+## Linux and Windows
+
+- **Linux (2026-11-16):** the full suite (382 tests) passes on a separate Linux machine (Python 3.12, textual 8.2.5, bash 5.2) with a temporary copy of the tree and a throwaway `HOME`; the shell scripts parse under its bash. Not run there: a real session with mpv (the machine has no mpv, tmux or deno). `yt-dlp` was supplied from the owner's venv through `PYTHONPATH` because the machine's venvs lack it. Running it found a test-fixture bug (6-character fake video ids made the home feed empty, which only showed on a slower machine); fixed.
+- **Windows (2026-11-16):** dry audit only, nothing executed. Three code bugs fixed, four open points: `docs/history/2026-11-16-windows-audit.md`. A real run on Windows is still needed.
 
 ## Not verified
 

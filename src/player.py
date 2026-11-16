@@ -542,6 +542,8 @@ def run_mpv_with_retries(
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE if capture_stderr else subprocess.DEVNULL,
                 text=capture_stderr,
+                encoding="utf-8" if capture_stderr else None,
+                errors="replace" if capture_stderr else None,
                 **get_popen_kwargs(headless=headless),
             )
         except FileNotFoundError:

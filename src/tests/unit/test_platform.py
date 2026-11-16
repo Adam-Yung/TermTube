@@ -344,3 +344,13 @@ class TestAtomicWrite:
         target = tmp_path / "data.json"
         atomic_write(target, b"x")
         assert target.stat().st_mode & 0o077 == 0 or sys.platform == "win32"
+
+
+class TestReapOrphansOnWindows:
+    def test_windows_never_touches_unix_ipc_or_pgrep(self, monkeypatch):
+        from src import plat
+
+        monkeypatch.setattr(plat, "IS_WINDOWS", True)
+        monkeypatch.setattr(plat, "_unix_ipc_dir", lambda: pytest.fail("os.getuid does not exist on Windows"))
+        monkeypatch.setattr(plat.subprocess, "run", lambda *a, **k: pytest.fail("pgrep does not exist on Windows"))
+        plat.reap_orphans()

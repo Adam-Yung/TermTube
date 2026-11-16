@@ -21,9 +21,9 @@ def mock_all_externals(tmp_path, monkeypatch):
     (tmp_path / "playlist_thumbs").mkdir(exist_ok=True)
 
     entries = [
-        {"id": f"vid{i:03d}", "title": f"Test Video {i}", "uploader": f"Channel {i}",
+        {"id": f"vid{i:08d}", "title": f"Test Video {i}", "uploader": f"Channel {i}",
          "duration": 100 + i * 60, "view_count": 1000 * i, "upload_date": f"2025010{i}",
-         "webpage_url": f"https://www.youtube.com/watch?v=vid{i:03d}"}
+         "webpage_url": f"https://www.youtube.com/watch?v=vid{i:08d}"}
         for i in range(1, 11)
     ]
 

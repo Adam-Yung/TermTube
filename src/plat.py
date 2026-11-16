@@ -301,7 +301,9 @@ class ProcessRegistry:
 
 
 def reap_orphans() -> None:
-    """Startup: remove stale mpv sockets and SIGTERM mpv processes left by a crashed instance."""
+    """Startup: remove stale mpv sockets and SIGTERM mpv processes left by a crashed instance. No-op on Windows."""
+    if IS_WINDOWS:
+        return
     ipc_dir = _unix_ipc_dir()
     if os.path.isdir(ipc_dir):
         for sock in glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
@@ -309,9 +311,6 @@ def reap_orphans() -> None:
                 os.unlink(sock)
             except OSError:
                 pass
-
-    if IS_WINDOWS:
-        return
 
     try:
         my_pid = os.getpid()

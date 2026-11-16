@@ -60,3 +60,14 @@ class TestPersistence:
         assert len(raw) == 2
         assert raw[0]["id"] == "persist2"
         assert raw[1]["id"] == "persist1"
+
+
+def test_a_failed_write_does_not_raise_and_keeps_the_entry_in_memory(temp_history, monkeypatch):
+    from src import history
+
+    def locked(entries):
+        raise PermissionError("file is held open by another process")
+
+    monkeypatch.setattr(history, "_save", locked)
+    history.add({"id": "AAAAAAAAAAA", "title": "t"})
+    assert [e["id"] for e in history.all_entries()] == ["AAAAAAAAAAA"]

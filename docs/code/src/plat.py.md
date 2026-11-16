@@ -15,7 +15,7 @@ All OS branching lives here: config/cache/log directories, mpv IPC endpoints, cl
 
 - Windows subprocesses get `CREATE_NEW_PROCESS_GROUP` (and `CREATE_NO_WINDOW` when `headless`) so Ctrl+C in the TUI does not reach mpv.
 - `clip.exe` expects UTF-16LE on stdin; `pbcopy` takes UTF-8; Linux tries `wl-copy`, `xclip`, `xsel` in that order.
-- `reap_orphans` runs at app start. It deletes `termtube-mpv*.sock` files and SIGTERMs any process matching `pgrep -f "mpv.*termtube-mpv"` except itself. Not run on Windows (no `pgrep`).
+- `reap_orphans` runs at app start (and returns at once on Windows: it relies on `os.getuid`, Unix sockets and `pgrep`, none of which exist there). It deletes `termtube-mpv*.sock` files and SIGTERMs any process matching `pgrep -f "mpv.*termtube-mpv"` except itself. Not run on Windows (no `pgrep`).
 
 ## Known limits
 

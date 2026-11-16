@@ -6,6 +6,7 @@ import json
 import threading
 import time
 
+from src import logger
 from src.entries import Entry
 from src.plat import atomic_write, get_config_dir
 
@@ -46,7 +47,10 @@ def add(entry: Entry) -> None:
         entries = [e for e in _load() if e.get("id") != vid]
         entries.insert(0, {**entry, "id": vid, "_watched_at": time.time()})
         _cache = entries[:_MAX_ENTRIES]
-        _save(_cache)
+        try:
+            _save(_cache)
+        except OSError as exc:  # runs on the UI thread: a locked or full disk must not crash playback
+            logger.warning("history not saved: %s", exc)
 
 
 def all_entries() -> list[Entry]:
