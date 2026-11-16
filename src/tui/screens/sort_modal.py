@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from src.tui.widgets.action_bar import THEME_COLORS
+
 _SORTS = [
     ("1", "date", "📅  Newest first"),
     ("2", "views", "👁  Most viewed"),
@@ -22,43 +24,19 @@ class SortModal(ModalScreen[str | None]):
         Binding("2,v", "pick('views')", show=False),
     ]
 
-    DEFAULT_CSS = """
-    SortModal {
-        align: center middle;
-    }
-    #sort-dialog {
-        width: 40;
-        height: auto;
-        background: #1a1a1a;
-        border: solid #444444;
-        padding: 1 2;
-    }
-    #sort-title {
-        color: #ff4444;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    .sort-row {
-        height: 1;
-        padding: 0 1;
-    }
-    #sort-hint {
-        margin-top: 1;
-    }
-    """
-
     def __init__(self, current_sort: str = "date") -> None:
         super().__init__()
         self._current_sort = current_sort
 
     def compose(self) -> ComposeResult:
+        color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
         with Vertical(id="sort-dialog"):
             yield Static("Sort order", id="sort-title", markup=True)
             for num, key, label in _SORTS:
                 marker = " ✓" if key == self._current_sort else ""
                 yield Static(
-                    f"[#ff4444]{num}[/#ff4444]  {label}[dim]{marker}[/dim]",
-                    classes="sort-row",
+                    f"[{color}]{num}[/{color}]  {label}[dim]{marker}[/dim]",
+                    classes="nav-row",
                     markup=True,
                 )
             yield Static("[dim]press number or Esc[/dim]", id="sort-hint", markup=True)

@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from src.tui.widgets.action_bar import THEME_COLORS
+
 _TABS = [
     ("1", "ch-tab-videos", "📼  Videos"),
     ("2", "ch-tab-playlists", "🎵  Playlists"),
@@ -22,43 +24,19 @@ class ChannelTabModal(ModalScreen[str | None]):
         Binding("2,p", "pick('ch-tab-playlists')", show=False),
     ]
 
-    DEFAULT_CSS = """
-    ChannelTabModal {
-        align: center middle;
-    }
-    #ch-tab-dialog {
-        width: 36;
-        height: auto;
-        background: #1a1a1a;
-        border: solid #444444;
-        padding: 1 2;
-    }
-    #ch-tab-title {
-        color: #ff4444;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    .ch-tab-row {
-        height: 1;
-        padding: 0 1;
-    }
-    #ch-tab-hint {
-        margin-top: 1;
-    }
-    """
-
     def __init__(self, current_tab: str = "ch-tab-videos") -> None:
         super().__init__()
         self._current_tab = current_tab
 
     def compose(self) -> ComposeResult:
+        color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
         with Vertical(id="ch-tab-dialog"):
             yield Static("Go to…", id="ch-tab-title", markup=True)
             for num, tab_id, label in _TABS:
                 marker = " ✓" if tab_id == self._current_tab else ""
                 yield Static(
-                    f"[#ff4444]{num}[/#ff4444]  {label}[dim]{marker}[/dim]",
-                    classes="ch-tab-row",
+                    f"[{color}]{num}[/{color}]  {label}[dim]{marker}[/dim]",
+                    classes="nav-row",
                     markup=True,
                 )
             yield Static("[dim]press number or Esc[/dim]", id="ch-tab-hint", markup=True)

@@ -5,6 +5,6 @@ The app stylesheet (`App.CSS_PATH`). Crimson is the base; amber, ocean and midni
 - Every themed selector appears once per theme with only the accent, header and highlight colours changed. A new themed widget needs a rule in all three blocks.
 - Modals share rules by comma-grouped selectors (dialog box, title, hint, list items). Add a new modal id to the groups rather than a new block.
 - Rich markup colours (in `video_list.py`, `action_bar.py`, `help_screen.py`, `download_picker_modal.py`) cannot read this file; they check the app class instead.
-- `SortModal`, `ChannelTabModal`, `ThumbnailWidget`, `PageIndicator`, `ActionBar` and `HelpScreen` carry their own `DEFAULT_CSS` and are not styled here (help and action-bar ids still appear here for theme overrides).
+- `ThumbnailWidget`, `PageIndicator`, `ActionBar` and `HelpScreen` carry their own `DEFAULT_CSS` and are not styled here (help and action-bar ids still appear here for theme overrides).
 - Textual component classes (`.bar--bar`, `.footer-key--key`, `.scrollbar--thumb`) never appear in Python; they are not dead.
 - Every id and class here must appear in `src/**/*.py`; remove a rule with the widget that owned it.

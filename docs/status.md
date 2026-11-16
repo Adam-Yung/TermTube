@@ -29,7 +29,6 @@
 
 - `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
 - InnerTube fetch errors become empty results (callers fall back to yt-dlp).
-- `sort_modal` and `channel_tab_modal` carry hardcoded colours and ignore themes.
 - `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.
 
 Optimization plan step 1 is done: rows with only a video id get a derived `i.ytimg.com` thumbnail URL (`best_thumb_url`).

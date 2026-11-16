@@ -311,7 +311,7 @@ HelpScreen {
 }
 
 SearchModal, DownloadModal, PlaylistModal, QualityModal, WatchModal, ImageWarningModal,
-EmptyFeedModal, NavModal, VideoActionModal, SettingsModal, DownloadPickerModal {
+EmptyFeedModal, NavModal, SortModal, ChannelTabModal, VideoActionModal, SettingsModal, DownloadPickerModal {
     align: center middle;
 }
 
@@ -550,7 +550,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     margin-bottom: 1;
 }
 
-#nav-dialog {
+#nav-dialog, #sort-dialog, #ch-tab-dialog {
     width: 36;
     height: auto;
     background: #141414;
@@ -558,7 +558,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     padding: 1 2;
 }
 
-#nav-title {
+#nav-title, #sort-title, #ch-tab-title {
     color: #ff4444;
     text-style: bold;
     margin-bottom: 1;
@@ -577,7 +577,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     color: #ffffff;
 }
 
-#nav-hint {
+#nav-hint, #sort-hint, #ch-tab-hint {
     color: #555555;
     margin-top: 1;
     text-align: center;
@@ -641,10 +641,10 @@ App.theme-amber #dlpick-list > ListItem.-highlight { background: #1a0e00; border
 App.theme-amber #list-view, App.theme-amber #video-info { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
 App.theme-amber #search-input:focus { border: solid #e8820c; }
 App.theme-amber #list-loading-anim, App.theme-amber #search-title, App.theme-amber #download-title, App.theme-amber #quality-title, App.theme-amber #playlist-title,
-App.theme-amber #settings-title, App.theme-amber #nav-title, App.theme-amber #dlpick-header, App.theme-amber #video-channel, App.theme-amber #ch-name,
+App.theme-amber #settings-title, App.theme-amber #nav-title, App.theme-amber #sort-title, App.theme-amber #ch-tab-title, App.theme-amber #dlpick-header, App.theme-amber #video-channel, App.theme-amber #ch-name,
 App.theme-amber #watch-dialog #np-header { color: #e8820c; }
 App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
-App.theme-amber #help-outer, App.theme-amber #nav-dialog { border: solid #e8820c; }
+App.theme-amber #help-outer, App.theme-amber #nav-dialog, App.theme-amber #sort-dialog, App.theme-amber #ch-tab-dialog { border: solid #e8820c; }
 App.theme-amber #watch-dialog { background: #1a0d00; border: solid #e8820c; }
 App.theme-amber ProgressBar .bar--bar, App.theme-amber ProgressBar .bar--complete { color: #e8820c; }
 App.theme-amber Scrollbar > .scrollbar--thumb { background: #e8820c; }
@@ -667,10 +667,10 @@ App.theme-ocean #dlpick-list > ListItem.-highlight { background: #001525; border
 App.theme-ocean #list-view, App.theme-ocean #video-info { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
 App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
 App.theme-ocean #list-loading-anim, App.theme-ocean #search-title, App.theme-ocean #download-title, App.theme-ocean #quality-title, App.theme-ocean #playlist-title,
-App.theme-ocean #settings-title, App.theme-ocean #nav-title, App.theme-ocean #dlpick-header, App.theme-ocean #video-channel, App.theme-ocean #ch-name,
+App.theme-ocean #settings-title, App.theme-ocean #nav-title, App.theme-ocean #sort-title, App.theme-ocean #ch-tab-title, App.theme-ocean #dlpick-header, App.theme-ocean #video-channel, App.theme-ocean #ch-name,
 App.theme-ocean #watch-dialog #np-header { color: #0ea5e9; }
 App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
-App.theme-ocean #help-outer, App.theme-ocean #nav-dialog { border: solid #0ea5e9; }
+App.theme-ocean #help-outer, App.theme-ocean #nav-dialog, App.theme-ocean #sort-dialog, App.theme-ocean #ch-tab-dialog { border: solid #0ea5e9; }
 App.theme-ocean #watch-dialog { background: #001622; border: solid #0ea5e9; }
 App.theme-ocean ProgressBar .bar--bar, App.theme-ocean ProgressBar .bar--complete { color: #0ea5e9; }
 App.theme-ocean Scrollbar > .scrollbar--thumb { background: #0ea5e9; }
@@ -693,10 +693,10 @@ App.theme-midnight #dlpick-list > ListItem.-highlight { background: #130a22; bor
 App.theme-midnight #list-view, App.theme-midnight #video-info { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
 App.theme-midnight #search-input:focus { border: solid #a855f7; }
 App.theme-midnight #list-loading-anim, App.theme-midnight #search-title, App.theme-midnight #download-title, App.theme-midnight #quality-title, App.theme-midnight #playlist-title,
-App.theme-midnight #settings-title, App.theme-midnight #nav-title, App.theme-midnight #dlpick-header, App.theme-midnight #video-channel, App.theme-midnight #ch-name,
+App.theme-midnight #settings-title, App.theme-midnight #nav-title, App.theme-midnight #sort-title, App.theme-midnight #ch-tab-title, App.theme-midnight #dlpick-header, App.theme-midnight #video-channel, App.theme-midnight #ch-name,
 App.theme-midnight #watch-dialog #np-header { color: #a855f7; }
 App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
-App.theme-midnight #help-outer, App.theme-midnight #nav-dialog { border: solid #a855f7; }
+App.theme-midnight #help-outer, App.theme-midnight #nav-dialog, App.theme-midnight #sort-dialog, App.theme-midnight #ch-tab-dialog { border: solid #a855f7; }
 App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7; }
 App.theme-midnight ProgressBar .bar--bar, App.theme-midnight ProgressBar .bar--complete { color: #a855f7; }
 App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
