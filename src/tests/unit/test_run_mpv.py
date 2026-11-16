@@ -86,6 +86,7 @@ def test_spawn_hook_registers_and_stderr_capture_follows_the_flag(fake_mpv):
     kwargs = FakePopen.launched[0][1]
     assert kwargs["stderr"] == subprocess.PIPE and kwargs["text"] is True
     assert kwargs["encoding"] == "utf-8" and kwargs["errors"] == "replace"
+    assert kwargs["stdin"] == subprocess.DEVNULL  # mpv must never read the TUI's terminal
     FakePopen.script[:] = [(0, "")]
     run()
     assert FakePopen.launched[1][1]["stderr"] == subprocess.DEVNULL

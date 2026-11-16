@@ -80,3 +80,7 @@ State and mpv control left `AudioPlayerMixin` (on `MainScreen`) for `AudioContro
 ## 2026-11-15 — One mpv launch loop
 
 `player.run_mpv_with_retries` replaced the two copies of the spawn, wait and retry loop (audio controller, `WatchModal`). It returns an outcome and each caller keeps its own reaction. Two small behaviour changes: audio processes are now unregistered from `ProcessRegistry` when they exit (only video were), and video also stops retrying as soon as the modal is stopped, after an exit as well as before a launch.
+
+## 2026-11-16 — Local files play directly; mpv errors are no longer swallowed
+
+The first Windows run of the real-app pipeline played nothing from the Library: mpv exited with code 2 three times and the app reported "no stderr output". The command carried `--ytdl-format=ba/b` for a plain `.wav`, and `--no-terminal` had silenced mpv's own error. Two changes. A local file is now handed to mpv as a direct file (`--no-ytdl -- path`, the same form stream URLs already use), for audio and video; ytdl options are only for page URLs. The audio command uses `--no-input-terminal` instead of `--no-terminal` and mpv gets `stdin=DEVNULL`, so mpv still cannot read the TUI's keys but its errors reach the captured stderr and the failure notice. Which of the two caused the Windows exit code was not isolated; the next pipeline run shows whether playback now works or reports the real error.

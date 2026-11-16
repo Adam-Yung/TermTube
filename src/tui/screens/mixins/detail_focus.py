@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textual import work
+from textual.css.query import NoMatches
 from textual.timer import Timer
 
 from src import logger
@@ -133,7 +134,10 @@ class DetailFocusMixin:
 
     @work(thread=True, exclusive=True, group="thumb")
     def _thumb_worker(self, vid: str, entry: Entry, session: int) -> None:
-        detail = self._detail()
+        try:
+            detail = self._detail()
+        except NoMatches:  # the screen was popped or the app is quitting before this worker got going
+            return
         cols, rows = detail.thumbnail_cell_size()
         load_thumbnail(
             self.app, detail, vid, entry=entry, cols=cols, rows=rows,

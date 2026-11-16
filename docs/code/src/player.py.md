@@ -82,6 +82,7 @@ one, mpv resolves `page_url` through its own yt-dlp hook, with `--ytdl-format` a
 
 - `ok` (exit 0 or 4) and `killed` (exit 3, the stop key or a signal) are normal exits; the caller decides what each means (audio advances the queue on `ok` and says nothing on `killed`; video dismisses on both).
 - Any other exit retries after 1 s, up to `MPV_MAX_ATTEMPTS` (3), then `failed` with the last exit code and stderr. `build_cmd(attempt)` is where a caller re-resolves an expired stream URL for attempts after the first.
+- mpv's stdin is `DEVNULL` and the audio command uses `--no-input-terminal`, not `--no-terminal`: mpv must not read the TUI's keystrokes, but its error messages (`--msg-level=all=error`) must reach the captured stderr. With `--no-terminal` a Windows failure read "exit code 2, no stderr output" and the cause was invisible.
 - Captured stderr is decoded as UTF-8 with `errors="replace"`, never the locale codec: on Windows without UTF-8 mode (cp1252) a title containing `ā` made `communicate()` raise and left `returncode` unset.
 - `stale` is returned when `is_stale()` is true before a launch or after an exit; the process may have run, and the caller discards the result.
 - `launch_error` (mpv missing, or `OSError`) is never retried; `message` is ready to show.

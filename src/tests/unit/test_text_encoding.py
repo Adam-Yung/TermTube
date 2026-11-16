@@ -59,5 +59,7 @@ def test_history_round_trips_non_ascii_under_a_non_utf8_locale(tmp_path):
     )
     env = dict(os.environ, PYTHONUTF8="0", PYTHONCOERCECLOCALE="0", LC_ALL="C", LANG="C",
                XDG_CONFIG_HOME=str(tmp_path / "cfg"), TERMTUBE_CACHE_DIR=str(tmp_path / "cache"))
-    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, timeout=60)
+    script_file = tmp_path / "roundtrip.py"
+    script_file.write_text(script, encoding="utf-8")  # a file: argv itself cannot carry non-ASCII under an ASCII locale
+    result = subprocess.run([sys.executable, str(script_file)], capture_output=True, text=True, env=env, timeout=60)
     assert "ROUND-TRIP-OK" in result.stdout, result.stdout + result.stderr

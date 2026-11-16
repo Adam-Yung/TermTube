@@ -484,7 +484,7 @@ def audio_command(
         f"--input-ipc-server={socket_path}",
         "--no-video",
         "--force-window=no",
-        "--no-terminal",
+        "--no-input-terminal",
         "--msg-level=all=error",
         "--cache=yes",
         "--demuxer-max-bytes=150M",
@@ -539,6 +539,7 @@ def run_mpv_with_retries(
         try:
             proc = subprocess.Popen(
                 build_cmd(attempt),
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE if capture_stderr else subprocess.DEVNULL,
                 text=capture_stderr,

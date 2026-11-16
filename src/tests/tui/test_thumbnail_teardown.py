@@ -21,3 +21,19 @@ async def test_the_setters_still_reach_the_widget_while_it_exists(app):
         panel.set_thumbnail_video_id("AAAAAAAAAAA")
         await pilot.pause(0.1)
         assert panel._thumbnail() is not None
+
+
+def test_the_thumbnail_worker_is_a_no_op_when_its_screen_is_gone():
+    import inspect
+    from types import SimpleNamespace
+
+    from textual.css.query import NoMatches
+
+    from src.tui.screens.mixins.detail_focus import DetailFocusMixin
+
+    def gone():
+        raise NoMatches("No nodes match '#detail-panel'")
+
+    host = SimpleNamespace(_detail=gone, app=None)
+    body = inspect.unwrap(DetailFocusMixin._thumb_worker)
+    assert body(host, "AAAAAAAAAAA", {"id": "AAAAAAAAAAA"}, 0) is None  # raised NoMatches before the fix

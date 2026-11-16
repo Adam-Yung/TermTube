@@ -100,7 +100,7 @@ class WatchModal(ModalScreen[bool]):
                 vid, config.sponsorblock_categories, self._set_segments
             )
 
-        urls: list[str] | None = None
+        urls: list[str] | None = [local_path] if local_path else None  # a local file is played directly, no ytdl
         if not local_path and vid and config:
             urls, _ = streams.resolve_for_playback(
                 vid,

@@ -6,6 +6,7 @@
 
 - `on_mount` starts the `video_player` worker (`_launch_video`) and a 0.5 s timer that polls mpv (`mpv_poll` worker group).
 - URL resolution goes through `streams.resolve_for_playback` (cache, in-flight prefetch, fresh resolve plus CDN probe). Local files (`_local_path`) skip it and mpv opens the path.
+- A local file is played directly (`urls = [local_path]`, so `--no-ytdl -- <path>`); the ytdl options are only for page URLs.
 - If no stream URL resolves, mpv gets the page URL with `--ytdl-format` and the cookie options and resolves it itself.
 - Launching and retrying is `player.run_mpv_with_retries` (3 attempts); the modal supplies the command builder. From the second attempt, `streams.re_resolve` drops the cached URL (it may have expired) and the command is rebuilt. History is added when the first attempt spawns.
 - `ok` and `killed` outcomes (exit 0, 4, and 3 from the stop key) dismiss with True; `failed` notifies and dismisses with False; `stale` (the user stopped it) dismisses nothing.

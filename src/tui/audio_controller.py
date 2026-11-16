@@ -224,6 +224,8 @@ class AudioController:
                 self._clear_pending(session)
                 return
             stream_url = urls[0] if urls else None
+        elif local:
+            stream_url = local  # a file on disk is played directly; ytdl options mean nothing to it
         if sponsorblock:
             sponsorblock.join(timeout=2.0)
 

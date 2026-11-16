@@ -73,7 +73,10 @@ def main() -> int:
         if not step("connect and poll over IPC", first is not None, detail):
             return 1
         pos0, dur, _ = first
-        step("duration is the tone's 30 s", abs(dur - 30) < 1.5, f"{dur:.1f} s")
+        # a lavfi source reports a growing duration while mpv buffers it; wait for the real value
+        settled = wait_for(lambda: (lambda d: d if d and abs(d - 30) < 1.5 else None)(player.poll_audio_properties(
+            socket_path=socket_path)[1]))
+        step("duration reaches the tone's 30 s", settled is not None, f"{settled or dur:.1f} s")
 
         time.sleep(1.5)
         pos1, _, _ = player.poll_audio_properties(socket_path=socket_path)
