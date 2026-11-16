@@ -19,6 +19,11 @@ cannot fail because YouTube is slow, blocks datacenter addresses or changes a pa
 - **Audio is heard.** Runners have no audio device; mpv runs with `ao=null`. The IPC and process control are real; the speaker is not.
 - **Interactive installer choices.** The installers run with `--no-prompt` / `-NoPrompt`.
 
+## Measuring stability
+
+`gh workflow run test.yml --ref <branch> -f repeat=10` runs the end-to-end check ten times per platform after a single install (about 8 minutes
+per platform). A branch can only be dispatched once the workflow file exists on the default branch; the `repeat` input is read from the ref.
+
 ## Reading a run from the terminal
 
 ```
@@ -61,6 +66,7 @@ gh run watch <run-id>                 # follow one live
 
 - 2026-11-16, branch `ci/platform-pipeline`, commit `a736451`: run 5 green on all six jobs (gate and real app on Linux, macOS and Windows), then three more full re-runs of the same commit, all green: 4 of 4 runs, 24 of 24 job executions.
 - 2026-11-16, `main` at `f787344`: the first push to `main` failed `real app (windows-latest)` once, with the same freeze as run 4. That exposed the debug-log deadlock above; the earlier "4 of 4" had been luck. Fixed and re-verified below.
+- 2026-11-16, commit `93b5fec` (debug-log deadlock fixed): dispatched with `repeat=10`, so one job per platform ran the end-to-end check ten times after one install. 10 of 10 passed on Linux, macOS and Windows (30 executions, 0 failures). The freeze had hit about one run in four on Windows before the fix, so ten clean runs per platform is strong evidence. Re-measure after any change to playback, logging or the installers: `gh workflow run test.yml -f repeat=10`.
 - Before that, runs 1 to 4 were red for the reasons in the table above; every red run led to a product fix, none to a loosened assertion.
 
 ## Limits to keep in mind

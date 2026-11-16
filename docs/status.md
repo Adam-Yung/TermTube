@@ -34,11 +34,11 @@ Thumbnails, `b`, `y`, `p`, `d` download, the restyled notifications, and the res
 `.github/workflows/test.yml` runs three layers on all three platforms: the gate (lint, unit and headless TUI tests, doc checks), the real installer
 plus launcher plus a real mpv over IPC, and the **installed app driven in a real terminal** (`scripts/e2e-local.py`: start, Home from cache,
 Library, play, pause, seek, stop, history, quit with exit 0). It is hermetic (no YouTube). All six jobs were green on branch `ci/platform-pipeline`
-(run 5), and 4 of 4 full runs of that commit were green; the log is in `docs/guides/ci.md`. What a green run proves and what it cannot: `docs/guides/ci.md`.
+(run 5). A later run on `main` exposed an intermittent freeze (a deadlock in the `--debug` log sink), now fixed and re-measured at 10 of 10 end-to-end runs per platform; the log is in `docs/guides/ci.md`. What a green run proves and what it cannot: `docs/guides/ci.md`.
 Bugs it found while being brought up (Linux startup, Windows playback and file encoding, installer rate limits, worker teardown races):
 the table in that guide. `canary.yml` (live YouTube, weekly, not a gate) exists but cannot be dispatched until it is on the default branch.
 
-The branch is **not merged**: `main` is 17 commits behind it locally and unpushed.
+The work is merged to `main` (2026-11-16) and the canary has run once on GitHub (6 of 6 checks passed).
 
 Linux was also tested by hand on a separate machine (suite only, no mpv). Windows was audited statically first
 (`docs/history/2026-11-16-windows-audit.md`).
