@@ -15,7 +15,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 4. **Audio transport lives on keys that nothing else uses.** `Space` pause, `x` stop, `[`/`]` seek ±5 s, `{`/`}` ±10 s, `0`–`9` seek to
    0–90 %, `>` next track. They work from any list because audio is background playback.
 5. **One key, one action.** No key is "listen or seek" or "stop or subscribe".
-   **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
+   **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
 6. `Esc` and `Backspace` go back. `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
 
 ## Map

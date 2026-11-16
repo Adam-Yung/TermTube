@@ -96,7 +96,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         return super()._hidden_menu_actions(entry) | {"channel"}
 
     def action_channel(self) -> None:
-        """Already on the channel page."""
+        self._hint("Already on this channel.", "information")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._focus_video(message.entry)
@@ -241,12 +241,15 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
 
     def action_sort(self) -> None:
         if self._current_tab == "ch-tab-playlists":
+            self._hint("Playlists have no sort.", "information")
             return
         from src.tui.screens.sort_modal import SortModal
 
         def on_pick(sort: str | None) -> None:
             if sort and sort != self._sort:
                 self._sort = sort
+                if sort != "date":
+                    self.notify("Loading from yt-dlp (slower)…", timeout=3)
                 self._start_content_load()
 
         self.app.push_screen(SortModal(current_sort=self._sort), on_pick)

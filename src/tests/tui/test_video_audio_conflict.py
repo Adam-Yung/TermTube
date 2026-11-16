@@ -21,7 +21,7 @@ async def test_v_and_V_do_nothing_but_hint_while_audio_plays(app):
             screen.action_watch_quality()
             await pilot.pause(0.2)
         assert not watch_modals(app) and not pick.called
-        assert notify.call_count == 2 and "x" in notify.call_args.args[0]
+        assert notify.call_count == 1 and "x" in notify.call_args.args[0]  # the repeat within 2 s is throttled
 
 
 async def test_a_quality_pick_made_before_audio_started_is_also_refused(app):

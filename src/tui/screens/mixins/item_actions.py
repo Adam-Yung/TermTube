@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import time
 import webbrowser
 
 from src import logger
 from src.entries import Entry
 from src.plat import clipboard_copy
+
+_HINT_REPEAT_S = 2.0
 
 
 def watch_url(video_id: str) -> str:
@@ -14,6 +17,19 @@ def watch_url(video_id: str) -> str:
 def _is_video(entry: Entry | None) -> bool:
     """True for a row that is a playable video, not a playlist or channel placeholder."""
     return bool(entry) and not entry.get("_is_playlist") and not entry.get("_is_channel")
+
+
+def _page_url(entry: Entry | None) -> str:
+    """The YouTube page of a row: the video, the channel, or the playlist. Empty for local placeholders."""
+    if not entry:
+        return ""
+    if entry.get("_is_channel"):
+        return entry.get("channel_url") or entry.get("uploader_url") or ""
+    if entry.get("_is_playlist"):
+        url = entry.get("url") or ""
+        return url if url.startswith("http") else ""
+    vid = entry.get("id", "")
+    return "" if not vid or vid.startswith("__") else watch_url(vid)
 
 
 class ItemActionsMixin:
@@ -29,11 +45,19 @@ class ItemActionsMixin:
             hidden |= {"watch", "watch_quality"}
         return hidden
 
+    def _hint(self, message: str, severity: str = "warning") -> None:
+        """Short notice for a key that cannot act now. The same message is shown at most once per 2 s (held keys)."""
+        seen = self.__dict__.setdefault("_hint_times", {})
+        now = time.monotonic()
+        if now - seen.get(message, -10.0) >= _HINT_REPEAT_S:
+            seen[message] = now
+            self.notify(message, severity=severity, timeout=3)
+
     def _video_blocked_by_audio(self) -> bool:
         """True (with a hint) while background audio plays: video and audio together overlap."""
         if not self.app.audio.is_playing:
             return False
-        self.notify("Audio is playing. Stop it with x before watching video.", severity="warning", timeout=4)
+        self._hint("Audio is playing. Stop it with x before watching video.")
         return True
 
     def action_activate(self) -> None:
@@ -70,7 +94,10 @@ class ItemActionsMixin:
 
     def _playable_entry(self) -> Entry | None:
         entry = self._selected_entry()
-        return entry if _is_video(entry) else None
+        if entry and not _is_video(entry):
+            self._hint("Not a video.", "information")
+            return None
+        return entry
 
     def action_watch(self) -> None:
         entry = self._playable_entry()
@@ -101,8 +128,13 @@ class ItemActionsMixin:
 
     def action_audio(self) -> None:
         entry = self._playable_entry()
-        if entry:
-            self._play_audio(entry)
+        if not entry:
+            return
+        audio = self.app.audio
+        if audio.is_playing and entry.get("id") == (audio.entry or {}).get("id"):
+            self._hint("Already playing this track.", "information")
+            return
+        self._play_audio(entry)
 
     def action_audio_quality(self) -> None:
         entry = self._playable_entry()
@@ -120,12 +152,24 @@ class ItemActionsMixin:
             self._sync_player_bar()
 
     def action_audio_skip(self) -> None:
-        self.app.audio.skip_audio()
+        audio = self.app.audio
+        if not audio.is_playing:
+            self._hint("Nothing playing.", "information")
+        elif not audio.queue:
+            self._hint("Queue is empty.", "information")
+        else:
+            audio.skip_audio()
 
     def action_audio_pause(self) -> None:
+        if not self.app.audio.is_playing:
+            self._hint("Nothing playing.", "information")
+            return
         self.app.audio.toggle_audio_pause()
 
     def action_audio_stop(self) -> None:
+        if not self.app.audio.is_playing:
+            self._hint("Nothing playing.", "information")
+            return
         self.app.audio.stop_audio()
 
     def action_audio_seek(self, seconds: float) -> None:
@@ -137,6 +181,12 @@ class ItemActionsMixin:
     def action_download(self) -> None:
         entry = self._playable_entry()
         if not entry:
+            return
+        if entry.get("is_live") or entry.get("live_status") == "is_live":
+            self._hint("Live stream: cannot download.")
+            return
+        if entry.get("_has_audio"):  # library merges a video with its audio file: both forms exist
+            self._hint("Already downloaded as video and audio.", "information")
             return
         from src.tui.screens.download_picker_modal import DownloadPickerModal
 
@@ -198,20 +248,18 @@ class ItemActionsMixin:
         self.app.push_screen(PlaylistModal(entry), on_done)
 
     def action_copy_url(self) -> None:
-        entry = self._selected_entry()
-        vid = entry.get("id", "") if entry else ""
-        if not vid or vid.startswith("__"):
-            self.notify("No URL available", severity="warning")
-            return
-        url = watch_url(vid)
-        if clipboard_copy(url):
+        url = _page_url(self._selected_entry())
+        if not url:
+            self._hint("No URL available.")
+        elif clipboard_copy(url):
             self.notify("URL copied to clipboard")
         else:
             self.notify(f"URL: {url}", timeout=10)
 
     def action_browser(self) -> None:
-        entry = self._selected_entry()
-        vid = entry.get("id", "") if entry else ""
-        if vid and not vid.startswith("__"):
-            webbrowser.open(watch_url(vid))
-            self.notify("Opened in browser")
+        url = _page_url(self._selected_entry())
+        if not url:
+            self._hint("No URL available.")
+            return
+        webbrowser.open(url)
+        self.notify("Opened in browser")
