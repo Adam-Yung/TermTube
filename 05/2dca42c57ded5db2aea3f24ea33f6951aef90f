@@ -1,0 +1,37 @@
+src/tests/unit/test_feeds.py
+  s_3690eae3737fe4::t_3e0a76cc828d09 1-102
+src/feeds.py
+  s_3690eae3737fe4::t_3e0a76cc828d09 1-109
+docs/todo.md
+  s_3690eae3737fe4::t_f463397e1cf306 7-10
+src/tui/screens/channel_screen.py
+  s_3690eae3737fe4::t_3e0a76cc828d09 12,211,216,222
+src/tests/fixtures/channel_feed.xml
+  s_3690eae3737fe4::t_3e0a76cc828d09 1-33
+docs/code/src/feeds.py.md
+  s_3690eae3737fe4::t_f463397e1cf306 1-14
+docs/code/src/tui/screens/channel_screen.py.md
+  s_3690eae3737fe4::t_f463397e1cf306 31
+docs/decisions/feeds-and-paging.md
+  s_3690eae3737fe4::t_f463397e1cf306 54-57
+docs/features/architecture.md
+  s_3690eae3737fe4::t_f463397e1cf306 19
+docs/status.md
+  s_3690eae3737fe4::t_5a7d66b215b25c 44-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "052dca42c57ded5db2aea3f24ea33f6951aef90f",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
