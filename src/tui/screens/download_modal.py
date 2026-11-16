@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -25,6 +27,7 @@ class DownloadModal(ModalScreen[bool]):
         self._audio_only = audio_only
         self._fmt = fmt
         self._cancelled = False
+        self._cancel_event: threading.Event | None = None
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
@@ -48,6 +51,9 @@ class DownloadModal(ModalScreen[bool]):
             )
 
     def on_mount(self) -> None:
+        from src.ytdlp import new_cancel_event
+
+        self._cancel_event = new_cancel_event()
         self._start_download()
 
     @work(thread=True, exclusive=True, group="download")
@@ -76,6 +82,7 @@ class DownloadModal(ModalScreen[bool]):
                     self._video_id,
                     app.config,
                     on_progress=on_progress,
+                    cancel=self._cancel_event,
                 )
             else:
                 success = downloads.download_video_with_progress(
@@ -83,6 +90,7 @@ class DownloadModal(ModalScreen[bool]):
                     app.config,
                     quality_format=self._fmt,
                     on_progress=on_progress,
+                    cancel=self._cancel_event,
                 )
         except RuntimeError as exc:
             success = False
@@ -90,6 +98,10 @@ class DownloadModal(ModalScreen[bool]):
         except Exception as exc:
             success = False
             error_lines.append(f"Unexpected error: {exc}")
+        finally:
+            from src.ytdlp import release_cancel_event
+
+            release_cancel_event(self._cancel_event)
 
         if not self._cancelled:
             err = error_lines[-1] if error_lines else ""
@@ -179,4 +191,6 @@ class DownloadModal(ModalScreen[bool]):
 
     def action_cancel_download(self) -> None:
         self._cancelled = True
+        if self._cancel_event:
+            self._cancel_event.set()
         self.dismiss(False)

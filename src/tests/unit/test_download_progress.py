@@ -258,3 +258,49 @@ class TestPhaseConstants:
 
     def test_phase_postprocess_value(self):
         assert PHASE_POSTPROCESS == -3.0
+
+
+class TestCancelHandle:
+    def _config(self, tmp_path):
+        cfg = MagicMock()
+        cfg.video_dir, cfg.audio_dir = tmp_path / "v", tmp_path / "a"
+        cfg.video_format = cfg.audio_format = "%(title)s.%(ext)s"
+        cfg.preferred_quality = "best"
+        return cfg
+
+    def _ydl_that_reports_progress(self, results):
+        def factory(opts):
+            ydl = MagicMock()
+            ydl.__enter__ = MagicMock(return_value=ydl)
+            ydl.__exit__ = MagicMock(return_value=False)
+
+            def download(urls):
+                opts["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 1, "total_bytes": 10})
+                results.append("finished")
+                return 0
+
+            ydl.download.side_effect = download
+            return ydl
+        return factory
+
+    def test_setting_the_handle_aborts_the_download(self, tmp_path):
+        import threading
+
+        cancel, results = threading.Event(), []
+        cancel.set()
+        with patch("src.downloads.yt_dlp.YoutubeDL", self._ydl_that_reports_progress(results)), \
+             patch("src.downloads.base_opts", return_value={}):
+            assert download_video_with_progress("abc123def45", self._config(tmp_path), cancel=cancel) is False
+            assert download_audio_with_progress("abc123def45", self._config(tmp_path), cancel=cancel) is False
+        assert results == []
+
+    def test_an_unset_handle_lets_it_finish(self, tmp_path):
+        import threading
+
+        results = []
+        with patch("src.downloads.yt_dlp.YoutubeDL", self._ydl_that_reports_progress(results)), \
+             patch("src.downloads.base_opts", return_value={}):
+            assert download_video_with_progress(
+                "abc123def45", self._config(tmp_path), cancel=threading.Event()
+            ) is True
+        assert results == ["finished"]

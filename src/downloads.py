@@ -70,12 +70,17 @@ def _run_download(
     opts: dict,
     on_progress: Callable[[str, float], None] | None,
     label: str,
+    cancel: threading.Event | None,
 ) -> bool:
-    """Download ``video_id`` with ``opts`` plus progress/cancel hooks. True on success."""
+    """Download ``video_id`` with ``opts`` plus progress/cancel hooks. True on success.
+
+    Setting ``cancel`` aborts at the next progress callback. Without one, a private event is used.
+    """
     opts['writeinfojson'] = True
     opts['writethumbnail'] = True
     opts['noprogress'] = True
-    cancel = new_cancel_event()
+    owned = cancel is None
+    cancel = cancel or new_cancel_event()
     opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
@@ -85,7 +90,8 @@ def _run_download(
         logger.debug("%s error: %s", label, exc)
         return False
     finally:
-        release_cancel_event(cancel)
+        if owned:
+            release_cancel_event(cancel)
 
 
 def download_video_with_progress(
@@ -94,8 +100,9 @@ def download_video_with_progress(
     *,
     quality_format: str = "",
     on_progress: Callable[[str, float], None] | None = None,
+    cancel: threading.Event | None = None,
 ) -> bool:
-    """Download video; ``quality_format`` overrides ``config.preferred_quality``."""
+    """Download video; ``quality_format`` overrides ``config.preferred_quality``. Set ``cancel`` to abort."""
     config.video_dir.mkdir(parents=True, exist_ok=True)
     fmt = quality_format or _quality_to_format(config.preferred_quality)
     logger.info("download_video %s (format=%s)", video_id, fmt)
@@ -104,7 +111,7 @@ def download_video_with_progress(
     opts['format'] = fmt
     opts['merge_output_format'] = 'mp4'
     opts['outtmpl'] = str(config.video_dir / config.video_format)
-    return _run_download(video_id, opts, on_progress, "download_video")
+    return _run_download(video_id, opts, on_progress, "download_video", cancel)
 
 
 def download_audio_with_progress(
@@ -112,7 +119,9 @@ def download_audio_with_progress(
     config,
     *,
     on_progress: Callable[[str, float], None] | None = None,
+    cancel: threading.Event | None = None,
 ) -> bool:
+    """Download audio as mp3. Set ``cancel`` to abort."""
     config.audio_dir.mkdir(parents=True, exist_ok=True)
     logger.info("download_audio %s", video_id)
 
@@ -124,4 +133,4 @@ def download_audio_with_progress(
         'preferredcodec': 'mp3',
         'preferredquality': '0',
     }]
-    return _run_download(video_id, opts, on_progress, "download_audio")
+    return _run_download(video_id, opts, on_progress, "download_audio", cancel)

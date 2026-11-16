@@ -27,7 +27,6 @@
 
 ## Known problems
 
-- `DownloadModal` Esc does not stop the running yt-dlp download.
 - `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
 - `deps.check_dependencies` accepts system `mpv`/`deno`/`ffmpeg`, against the bundled-binaries rule.
 - `uninstall.sh` uses `pkill -f termtube` and a stale socket path; `setup.ps1` help lists flags that do not exist; `--update` always exits 0.
