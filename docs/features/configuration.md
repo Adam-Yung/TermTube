@@ -22,7 +22,7 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `audio_format` | `%(title)s_%(uploader)s.%(ext)s` | yt-dlp output template for audio |
 | `preferred_quality` | `best` | default video download quality: `best`, `1080`, `720`, `480`, `360` |
 | `theme` | `crimson` | `crimson`, `amber`, `ocean` or `midnight` (anything else falls back to `crimson`) |
-| `thumbnail_format` | `auto` | `auto` or `symbols` (both choose the renderer automatically; anything else reads as `auto`) |
+| `thumbnail_format` | `auto` | `auto`: real image where the terminal supports it; `symbols`: always half-block art. Anything else reads as `auto` |
 | `thumbnail_warning_dismissed` | `false` | set by the "no image support" dialog's "Never show again" |
 | `sponsorblock.enabled` | `true` | fetch skip segments for playback |
 | `sponsorblock.auto_skip` | `true` | seek past a segment automatically |

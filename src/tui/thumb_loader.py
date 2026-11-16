@@ -8,7 +8,7 @@ from collections.abc import Callable
 from typing import Any
 
 from src.entries import Entry
-from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
+from src.tui.widgets.thumbnail_widget import pixel_images_enabled
 from src.ui import thumbnail
 
 _ANSI_CACHE_MAX = 64
@@ -48,7 +48,7 @@ def load_thumbnail(
     ``set_thumbnail_placeholder``. ``is_current`` is polled after each slow step so a
     result for a row the cursor has already left is dropped.
     """
-    if _HAS_TEXTUAL_IMAGE:
+    if pixel_images_enabled(app.config):
         path = thumbnail.ensure_thumb_jpeg(vid, entry, url=url)
         if not is_current():
             return

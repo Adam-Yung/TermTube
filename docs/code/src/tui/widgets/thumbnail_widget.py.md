@@ -5,7 +5,7 @@ Shows one thumbnail with two backends, chosen once at import:
 1. `textual_image` (kitty/sixel pixel image) when the terminal supports a real image protocol (`_HAS_TEXTUAL_IMAGE`). The widget receives a file path.
 2. PIL half-block ANSI art, shown in the status `Static`, otherwise (see `src/ui/thumbnail.py`).
 
-`src/tui/thumb_loader.py` reads `_HAS_TEXTUAL_IMAGE` to decide which file to produce.
+`pixel_images_enabled(config)` is true when `_HAS_TEXTUAL_IMAGE` and `thumbnail_format` is not `symbols`; the widget (per call, so Settings applies from the next thumbnail) and `src/tui/thumb_loader.py` both use it to decide which file to produce.
 
 ## Quirks
 

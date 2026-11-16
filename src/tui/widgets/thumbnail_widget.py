@@ -32,6 +32,11 @@ if not _IN_TMUX or _FORCE_IMAGES:
         pass
 
 
+def pixel_images_enabled(config) -> bool:
+    """True when thumbnails should be real images: the terminal can show them and the user did not pick ``symbols``."""
+    return _HAS_TEXTUAL_IMAGE and config.thumbnail_format != "symbols"
+
+
 class ThumbnailWidget(Widget):
     """Updates are keyed by id (`set_video_id`); a result for a stale id is dropped."""
 
@@ -73,6 +78,13 @@ class ThumbnailWidget(Widget):
             except Exception:
                 pass
 
+    def _pixel(self) -> bool:
+        """Pixel image mode for this moment; the Settings choice applies from the next thumbnail."""
+        try:
+            return pixel_images_enabled(self.app.config)
+        except Exception:
+            return _HAS_TEXTUAL_IMAGE
+
     def set_video_id(self, video_id: str) -> None:
         self._current_id = video_id
 
@@ -86,7 +98,7 @@ class ThumbnailWidget(Widget):
         """Show an image file via textual-image; no-op without it."""
         if video_id != self._current_id:
             return
-        if not _HAS_TEXTUAL_IMAGE:
+        if not (_HAS_TEXTUAL_IMAGE and self._pixel()):
             return
         try:
             img = self.query_one("#thumb-image")
@@ -97,11 +109,16 @@ class ThumbnailWidget(Widget):
             self.set_placeholder()
 
     def set_ansi(self, video_id: str, ansi: str) -> None:
-        """Show half-block ANSI art; no-op when textual-image is active."""
+        """Show half-block ANSI art; no-op while pixel images are active."""
         if video_id != self._current_id:
             return
-        if _HAS_TEXTUAL_IMAGE:
+        if self._pixel():
             return
+        if _HAS_TEXTUAL_IMAGE:  # capable terminal, user chose symbols: hide the pixel widget
+            try:
+                self.query_one("#thumb-image").display = False
+            except Exception:
+                pass
         if ansi:
             try:
                 self.query_one("#thumb-status", Static).update(Text.from_ansi(ansi))

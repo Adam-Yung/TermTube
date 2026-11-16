@@ -7,8 +7,10 @@ Every video row shows a thumbnail in the detail panel, in one of three ways, cho
    This is what every other terminal gets, and what tmux gets (pixel images flicker through tmux, so they are off there; `MYYOUTUBE_IMAGES=1` forces them on).
 3. A **placeholder** when no image can be had (offline, removed video).
 
-If your terminal reports no image support, a one-time dialog says so; "Never show again" sets `thumbnail_warning_dismissed`. The `thumbnail_format` setting
-(`auto` or `symbols`) does not select a renderer today; detection decides.
+If your terminal reports no image support, a one-time dialog says so; "Never show again" sets `thumbnail_warning_dismissed`.
+
+The `thumbnail_format` setting (Settings `,`): `auto` (default) uses a real image where the terminal supports it; `symbols` always uses half-block art, even in
+a terminal with image support (useful if its graphics render badly). The change applies from the next thumbnail shown.
 
 ## How a thumbnail arrives
 

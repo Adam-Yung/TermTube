@@ -17,3 +17,7 @@ The `thumb` worker that runs chafa is described in [HomeScreen v2 worker topolog
 ## 2026-05-03 — DetailPanel as a passive view (HomeScreen v2)
 
 DetailPanel became a passive view. The screen calls `update_basic`, `set_thumbnail_loading`, `set_thumbnail_image`, `set_thumbnail_ansi`, `set_thumbnail_placeholder` and `refresh_metadata`. On resize or screen resume, the panel posts a `RerenderRequested` message, and the screen handles it by re-kicking the thumb worker.
+
+## 2026-11-16 — `thumbnail_format: symbols` forces half-block art
+
+The setting had a picker and no effect. `pixel_images_enabled(config)` (`thumbnail_widget.py`) is now the one test: the terminal can show pixel images **and** the setting is not `symbols`. The widget and `thumb_loader.load_thumbnail` both ask it, so a capable terminal can be pinned to half-block art (for example when its graphics protocol renders badly). The widget still composes the pixel widget on capable terminals so the choice applies live, from the next thumbnail on; `set_ansi` hides the pixel widget. `auto` keeps detection as before.

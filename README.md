@@ -132,7 +132,7 @@ video_format: "%(title)s_%(uploader)s.%(ext)s"   # yt-dlp output template
 audio_format: "%(title)s_%(uploader)s.%(ext)s"
 preferred_quality: best  # best | 1080 | 720 | 480 | 360   (default for video downloads)
 theme: crimson           # crimson | amber | ocean | midnight
-thumbnail_format: auto   # auto | symbols
+thumbnail_format: auto   # auto (real images where supported) | symbols (always half-block art)
 sponsorblock:
   enabled: true
   auto_skip: true
