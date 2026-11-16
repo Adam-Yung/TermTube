@@ -1,13 +1,13 @@
 ---
 name: mpv startup debug guide
-overview: A comprehensive debugging script and guide to run on the target machine to identify exactly where mpv playback startup time is being spent.
+overview: Commands to run on the target machine to find where mpv playback startup time goes.
 todos: []
 isProject: false
 ---
 
 # mpv Startup Time Debugging Guide
 
-Run all of the following on the target machine. Copy/paste the entire terminal output back.
+Run each step on the target machine and keep the terminal output.
 
 ---
 
@@ -89,7 +89,7 @@ echo "exit: $?"
 
 ## Step 4: mpv verbose startup log
 
-Shows exactly where mpv spends time during startup.
+Shows where mpv spends time during startup.
 
 ```bash
 echo "=== mpv verbose log with direct URL ==="
@@ -231,9 +231,9 @@ else:
 
 ---
 
-## What to send back
+## What to check
 
-After running ALL steps above, copy the full terminal output and paste it back. Key things I'll look for:
+After running all steps, read the output for:
 
 1. **Step 1** — Is the binary spawn itself slow? (AV penalty baseline)
 2. **Step 2** — Is yt-dlp URL resolution the bottleneck?

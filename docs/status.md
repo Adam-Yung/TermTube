@@ -1,0 +1,44 @@
+# Status
+
+**Last updated:** 2026-11-15. Restructure and housekeeping pass, uncommitted on `main`.
+
+## What changed in this pass
+
+- **Structure.** `main_screen.py` (2,146 lines) is a thin screen over mixins in `src/tui/screens/mixins/` (list navigation, detail focus,
+  item actions, feed loader, audio player, debug log). `ChannelScreen` uses the same mixins instead of its own copies. `ytdlp.py` is split
+  into `ytdlp` (opts, feeds, search, channels), `cookies`, `downloads` and `streams`. Thumbnail loading is one function
+  (`src/tui/thumb_loader.py`).
+- **Keymap revamped** (`docs/features/keybindings.md`): `hjkl` traversal, `v`/`a` for video/audio, `x` stop, `[ ]` seek; no key changes
+  meaning with playback state.
+- **Docs.** `AGENTS.md`, `docs/` layout, a `docs/code/` mirror per source file, `docs/decisions/` (migrated from `memory/`), checks in
+  `scripts/verify.sh`. Comment blocks moved out of source into the mirrors.
+- **Dead code removed:** unused helpers and tests in `cache`, `plat`, `bootstrap`, `updater` (the unwired "yt-dlp updated" notice),
+  `history`, `playlist` (`delete`, `rename`), `config`, `deps`, `logger`, widgets and modals; the placeholder snapshot test; stale CSS (1127 to 703 lines).
+- **Bugs fixed on the way.** Paging past the last page overwrote that page. Stale audio workers could clear the new track's pending flag.
+  History was recorded when mpv spawned, even if playback failed; it is now recorded on the first successful poll. `total_pages` miscounted
+  after page eviction. The suppressed-first-batch slice in the home loader skipped rows. The test suite killed pytest (`os._exit` from the quit
+  test) and read the real browser cookies.
+
+## Not verified
+
+- Nothing was run against a real terminal, mpv or YouTube. Playback (audio and video), the new keys and the channel page are covered
+  by import checks and headless TUI tests only. See `todo.md` item 7.
+- The Windows paths (`termtube.cmd`, `setup.ps1`, named pipes) were edited conservatively and not run.
+
+## Known problems
+
+- `DownloadModal` Esc does not stop the running yt-dlp download.
+- `play_audio` bumps the audio session before stopping, so the `quit` IPC and socket cleanup target the new session's socket; the old mpv
+  is still terminated by process. Mirror: `docs/code/src/tui/screens/mixins/audio_player.py.md`.
+- `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
+- `deps.check_dependencies` accepts system `mpv`/`deno`/`ffmpeg`, against the bundled-binaries rule.
+- `uninstall.sh` uses `pkill -f termtube` and a stale socket path; `setup.ps1` help lists flags that do not exist; `--update` always exits 0.
+- `innertube.fetch_channel_videos` ignores `sort`; fetch errors become empty results.
+- `sort_modal` and `channel_tab_modal` carry hardcoded colours and ignore themes.
+- `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.
+
+Optimization plan step 1 is done: rows with only a video id get a derived `i.ytimg.com` thumbnail URL (`best_thumb_url`).
+
+Step 2 is partly done: search and channel info use InnerTube with a yt-dlp fallback (live check 2026-11-15: 50 results in 2.7 s, channel info in 0.7–1.0 s). Search shows the first page after about one request and fills in the rest in the background. Channel playlists still use yt-dlp.
+
+Next work: `todo.md`. The optimization plan: `plans/2026-11-15-optimization-PLAN.md`.

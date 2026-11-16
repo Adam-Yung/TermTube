@@ -44,4 +44,5 @@ htmlcov/
 
 # AI Agents
 .claude/
-.cursor/
+.cursor/*
+!.cursor/rules/

@@ -1,0 +1,10 @@
+---
+description: Coding and documentation etiquette for this repo. AGENTS.md at the repo root is the source of truth; this file only points to it.
+alwaysApply: true
+---
+
+# Coding Etiquette
+
+Read `AGENTS.md` at the repo root before writing or editing code or docs. It covers the download hard rule, the `docs/` layout, the
+`docs/code/<mirror-path>.md` rule (one doc per source file, same relative path), comment and writing style, and the commit gate
+(`scripts/verify.sh`). Update `AGENTS.md`, not this file.

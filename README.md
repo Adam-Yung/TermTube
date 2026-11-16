@@ -156,46 +156,47 @@ Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
 
 ## Keyboard Reference
 
-### Navigation
+`hjkl` move through whatever you are looking at: `j`/`k` the cursor, `h`/`l` the pages. No key changes meaning with playback state.
+Full rules and the list of changes from the old keymap: [docs/features/keybindings.md](docs/features/keybindings.md).
+
+### Move
 
 | Key | Action |
 |-----|--------|
-| `j` / `k` | Move down / up |
-| `]` / `[` | Next page / previous page |
-| `g` / `G` | First / last page |
-| `Enter` | Open actions menu |
-| `/` | Search YouTube |
-| `r` | Refresh current feed |
-| `` ` `` | Quick-nav page picker |
-| `F1`–`F6` | Jump to tab (Home, Subs, Search, History, Library, Playlists) |
+| `j` / `k` | Cursor down / up |
+| `h` / `l` (or `←` / `→`) | Previous / next page |
+| `g` / `G` | First / last item of the list |
+| `H` / `L` | Previous / next tab |
+| `Enter` | Action menu |
+| `Esc` / `Backspace` | Back |
+| `F1`–`F7`, `` ` `` | Jump to a tab / tab picker |
 
-### Playback
+### Play
 
 | Key | Action |
 |-----|--------|
-| `w` | Watch video (opens mpv fullscreen) |
-| `W` | Watch with quality picker |
-| `l` | Listen (background audio) |
-| `L` | Listen with quality picker |
-| `h` / `H` | Seek −5s / −10s |
-| `l` / `L` | Seek +5s / +10s (when audio playing) |
+| `v` / `V` | Watch video / choose quality first |
+| `a` / `A` | Play audio in the background / choose quality first |
+| `e` | Add audio to the queue |
+| `>` | Skip to the next queued track |
 | `Space` | Pause / resume audio |
-| `s` | Stop audio |
-| `0`–`9` | Seek to 0%–90% |
-| `e` | Add to audio queue |
-| `>` | Skip to next in queue |
+| `x` | Stop audio and clear the queue |
+| `[` `]` / `{` `}` | Audio seek ∓5 s / ∓10 s |
+| `0`–`9` | Audio seek to 0%–90% |
 
-### Actions
+### Row actions and app
 
 | Key | Action |
 |-----|--------|
-| `d` | Download video |
-| `a` | Download audio |
-| `y` | Copy video URL |
+| `d` | Download (video or audio) |
+| `c` | Channel page (`s` sort, `r` reload, `Esc` back) |
 | `p` | Add to playlist |
+| `y` | Copy URL |
 | `b` | Open in browser |
+| `/` | Search |
+| `r` | Refresh feed |
 | `,` | Settings |
-| `?` | Help overlay |
+| `?` | Help |
 | `q` | Quit |
 
 ---
@@ -299,29 +300,18 @@ All binary dependencies (yt-dlp, Deno, ffmpeg, mpv) are downloaded from GitHub b
 
 ## Testing
 
-TermTube has 200+ tests covering unit logic, integration with external tools, and full TUI interactions.
-
 ```bash
-# Run all tests (requires venv activated or use the venv Python directly)
-pytest
-
-# By layer
-pytest tests/unit/           # Pure logic — fast, no I/O
-pytest tests/integration/    # Subprocess/IPC tests
-pytest tests/tui/            # Headless Textual TUI tests
-
-# Verbose
-pytest -v --tb=short
+scripts/verify.sh                      # the commit gate: tests, doc mirrors, doc links, dead code
+.venv/bin/python -m pytest src/tests/unit        # pure logic
+.venv/bin/python -m pytest src/tests/integration # mpv IPC and download hooks, mocked
+.venv/bin/python -m pytest src/tests/tui         # headless Textual
 ```
 
-**Visual snapshot tests** (optional):
-```bash
-pip install pytest-textual-snapshot
-pytest tests/snapshots/
-pytest tests/snapshots/ --snapshot-update   # Accept new baselines after UI changes
-```
+Tests never touch the network or your browser profile. CI runs `scripts/verify.sh`.
 
-CI runs automatically on every push and pull request via GitHub Actions.
+## Contributing
+
+Read [AGENTS.md](AGENTS.md): code and documentation rules, and the `docs/` map ([docs/README.md](docs/README.md)).
 
 ---
 

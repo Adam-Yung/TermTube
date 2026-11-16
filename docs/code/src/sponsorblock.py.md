@@ -1,0 +1,16 @@
+# src/sponsorblock.py
+
+Fetches SponsorBlock skip segments for a video and caches them on disk. Called through `fetch_segments_async` from `src/tui/screens/watch_modal.py` and `src/tui/screens/mixins/audio_player.py` when playback starts; they apply the skips. History: `docs/decisions/playback.md` (2026-05-10 entry).
+
+## Invariants
+
+- Safe in worker threads. `fetch_segments_async` spawns a daemon thread and calls `on_done` there; the caller marshals to the UI.
+- Disk cache at `<cache>/sb/<video_id>.json`, 24 h TTL by mtime. A failed or empty fetch is cached as `[]`, so a video with no segments (the common case) or a dead API is not re-requested for a day. Corrupt cache files read as a miss.
+- The request timeout is 3 s: playback must not wait on this service. Any `OSError` (URL, HTTP, timeout, SSL) yields `[]`.
+- Segments are sorted by start. Malformed items are dropped individually.
+
+## SSL context
+
+The context is chosen once per process: the preference saved in `<cache>/ssl_pref` if valid, otherwise the first of `certifi`, `system`, `unverified` that builds (building makes no network call). If a request raises `ssl.SSLError`, the preference is dropped from memory and disk and the request retries once with a re-probed context. The point is to survive Python installs whose system certificate store is missing.
+
+Sharp edge: the probe only checks that a context builds, not that it verifies this host. A `certifi` context that fails verification re-probes into the same order and builds `certifi` again, so the retry fails and the fetch returns `[]`; `unverified` is reached only if `certifi` and `system` both fail to build. Where `unverified` is chosen, certificate checks are off: the data is public skip timestamps and nothing secret is sent, but a man-in-the-middle could inject skip ranges.

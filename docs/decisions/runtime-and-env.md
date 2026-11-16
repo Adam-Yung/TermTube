@@ -1,0 +1,73 @@
+# Runtime and environment
+
+Python environment, yt-dlp packaging, bundled dependencies, update strategy and setup scripts.
+
+## 2026-04-25 — venv instead of conda/mamba
+
+TermTube uses Python's built-in `venv` only. conda/mamba were removed. They need a separate toolchain (Miniforge/Anaconda) that most users lack, add solver complexity, and confuse environment activation. `venv` ships with Python 3.3+ and works the same everywhere. Portability wins over convenience.
+
+## 2026-05-12 — Tool update strategy: GitHub nightly yt-dlp and Deno
+
+TermTube manages its own tool update cadence. It uses no OS scheduler (no cron, launchd or Task Scheduler).
+
+Why the GitHub nightly binary instead of apt/brew/winget for yt-dlp:
+- Ubuntu apt stable ships yt-dlp about a year behind. It broke on the Nov 2025 JS runtime requirement.
+- yt-dlp recommends the nightly channel for regular users.
+- `yt-dlp --update-to nightly` reliably self-updates any GitHub-sourced binary.
+- The `yt-dlp/yt-dlp-nightly-builds` build receives daily extractor fixes.
+
+Why Deno is a required dependency:
+- Since yt-dlp 2025.11.12, full YouTube support needs a JS runtime (`yt-dlp-ejs`).
+- yt-dlp docs recommend Deno. It self-updates via `deno upgrade`.
+
+`LAST_VERSION` update notifications:
+- It stores the yt-dlp version string recorded after each successful update.
+- On TUI launch, `check_for_update_notification()` runs `yt-dlp --version` in a background worker thread and compares. On a difference it shows a Textual `notify()` toast with old → new version.
+
+`--update` CLI flag:
+- It runs `run_all_updates(verbose=True)` synchronously, with no TUI and full stdout output.
+- It forces the update regardless of `LAST_UPDATED` staleness.
+- It exits 0 on full success and 1 on any failure.
+- `main.py` handles it before `app.run()`, after logger setup.
+
+The 2026-06-21 entry [yt-dlp as a Python library](#2026-06-21--yt-dlp-as-a-python-library-instead-of-a-standalone-binary) later replaced the standalone yt-dlp binary with a pip package.
+
+## 2026-05-16 — setup.ps1 uses `Remove-PathSafe`, not `Remove-Item -Recurse -Force`
+
+`Remove-Item -Recurse -Force` on a Windows directory junction follows the link and deletes the target's contents. In sync mode, `$AppDir` (`%LOCALAPPDATA%\TermTube`) is a junction to the user's source repo, so `Remove-Item -Recurse -Force $AppDir` would wipe the repo.
+
+`Remove-PathSafe` checks the `ReparsePoint` attribute. For junctions and symlinks it calls `[System.IO.Directory]::Delete($Path, recursive=$false)`, which removes only the link. For real directories it does the standard recursive delete. Switching from sync to standard mode, or back, is safe.
+
+## 2026-05-16 — setup.ps1 and setup.sh SHA256-hash requirements.txt
+
+Pip's resolver dominates `setup_venv`, often 30–60 s even when nothing changes. Both scripts hash `requirements.txt` with SHA256 and store the digest at `<venv>/.requirements.sha256`. If the file is unchanged, the whole pip step is skipped. Any whitespace or version pin change invalidates the hash. No state lives in the user's home dir. Everything sits under `<venv>` and goes away with it.
+
+## 2026-06 — Error-driven updates (redesign of the update strategy)
+
+This redesign changed the 2026-05-12 [update strategy](#2026-05-12--tool-update-strategy-github-nightly-yt-dlp-and-deno).
+
+- The sentinel file system (UPDATING, LAST_UPDATED, LAST_ATTEMPT) is removed.
+- There are no background updates, no timers and no on-exit hooks.
+- Updates trigger only when something is broken:
+  - Empty feed: prompt a cookie refresh first, then a yt-dlp update if the feed is still empty.
+  - Extraction errors, pattern-matched in the exception handler: prompt a yt-dlp update.
+- `update_ytdlp()` runs `yt-dlp --update-to nightly` and records the new version.
+- `termtube --update` stays for manual full tool updates.
+
+## 2026-06-21 — yt-dlp as a Python library instead of a standalone binary
+
+The bundled `yt-dlp_macos` was a PyInstaller "onefile" binary. On every call it extracted about 35 MB of Python and dependencies into `/tmp/_MEIxxxxxx`. macOS XProtect scanned those fresh files each time (the temp dir changes), adding 10–15 s per call. It was the largest bottleneck in the app: every feed fetch, search, URL resolution and download paid it.
+
+Solution: install `yt-dlp` and `yt-dlp-ejs` as pip packages in the app's venv and use `yt_dlp.YoutubeDL` directly, with no subprocess. This:
+- removes the extraction penalty (0 ms instead of 10–15 s);
+- removes platform-specific subprocess code (Unix `select()` pipe reader, Windows threaded reader, `CREATE_NO_WINDOW` flags, binary name branching);
+- gives one code path across macOS, Linux and Windows;
+- allows explicit Deno discovery via `js_runtimes: {'deno': {'path': ...}}` instead of a PATH search.
+
+Dependencies:
+- `yt-dlp` (pip): core library.
+- `yt-dlp-ejs` (pip): YouTube JS challenge solver scripts. The standalone binary bundled them. The pip package does not.
+- `deno` (binary, `bootstrap.py`): JS runtime that runs the yt-dlp-ejs challenges.
+- `ffmpeg` (binary, `bootstrap.py`): format merging for downloads. yt-dlp calls it internally.
+
+Thread safety: `YoutubeDL` is not thread-safe. Each concurrent operation creates its own instance, as each worker thread used to spawn its own subprocess.

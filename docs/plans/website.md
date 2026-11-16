@@ -2,7 +2,7 @@
 
 ## Overview
 
-A modern, dark-themed static website deployed on Vercel that showcases TermTube to non-developers, plus a one-click installer for each platform that handles all dependencies and creates a desktop shortcut.
+A dark-themed static website on Vercel that presents TermTube to non-developers, plus a one-click installer per platform that installs all dependencies and creates a desktop shortcut.
 
 ---
 
@@ -263,7 +263,7 @@ Push to `main` branch → Vercel automatically rebuilds and deploys. The `websit
 
 ## Suggested Improvements
 
-1. **Terminal demo on homepage** — embed an asciinema recording or a JS-based terminal animation showing TermTube in action (much more compelling than screenshots for a TUI app)
+1. **Terminal demo on homepage** — embed an asciinema recording or a JS-based terminal animation showing TermTube in action (screenshots show a TUI poorly)
 
 2. **"Try without installing" section** — link to a cloud-hosted terminal demo (e.g., via Gitpod or a WebSocket terminal) so users can try TermTube instantly in-browser
 
