@@ -1,0 +1,40 @@
+src/tui/screens/channel_screen.py
+  s_3690eae3737fe4::t_bb7c6303925672 12
+  s_3690eae3737fe4::t_e6522bf9bfb7d9 182,198-209,216
+docs/code/src/innertube.py.md
+  s_3690eae3737fe4::t_a97612ea0c6f43 3,15,33-42
+src/tests/fixtures/innertube_playlists_more.json
+  s_3690eae3737fe4::t_45640a18ce01bf 1
+docs/code/src/tui/screens/channel_screen.py.md
+  s_3690eae3737fe4::t_a97612ea0c6f43 32
+src/innertube.py
+  s_3690eae3737fe4::t_e6522bf9bfb7d9 259
+  s_3690eae3737fe4::t_e310b261cf0b39 102-103,256-258,402-459
+  s_3690eae3737fe4::t_ff82239dfa1ec6 260
+docs/status.md
+  s_3690eae3737fe4::t_a97612ea0c6f43 36,42
+src/tests/unit/test_innertube_parsers.py
+  s_3690eae3737fe4::t_e57e1d969babfd 105-147
+docs/decisions/feeds-and-paging.md
+  s_3690eae3737fe4::t_27521573318bde 50-53
+docs/todo.md
+  s_3690eae3737fe4::t_27521573318bde 7-11
+src/tests/fixtures/innertube_playlists.json
+  s_3690eae3737fe4::t_45640a18ce01bf 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "58d912f686baebaae1028d62badcb60831f004ca",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
