@@ -126,3 +126,10 @@ Fix: stream resolution and downloads no longer inject the shared cookie jar. The
 The yt-dlp minimum is bumped to 2026.08.19. It switches from the broken ANDROID_VR client to VISIONOS, which produces direct HTTPS CDN URLs that work with mpv's `--no-ytdl` mode.
 
 Performance benefit: stream resolution no longer blocks on cookie extraction at startup, and the `blocking_cookies` parameter is removed entirely. Prefetch fires immediately without waiting for the jar lock.
+
+## 2026-11-15 — Account cookies never go to InnerTube
+
+The owner will not send browser account cookies to InnerTube, so the authenticated InnerTube home feed (`SAPISIDHASH` plus the cookie jar,
+rung 4 of the source ladder in `docs/plans/2026-11-15-optimization-PLAN.md`) is dropped. The home feed and the subscription list keep using
+yt-dlp with the browser cookie jar. Every other call stays anonymous. No code may build an `Authorization: SAPISIDHASH` header or put a
+`Cookie` header on a request to `youtubei/v1`.

@@ -21,7 +21,7 @@ relevant file in `decisions/`, and the `code/` mirror of any file you are about 
 | `code/` | One file per source file, at the same relative path (`code/src/player.py.md`): the file-specific "why". Enforced by `scripts/check-doc-mirrors.sh`. |
 | `decisions/` | Append-only log of implementation decisions, one file per topic. See `decisions/README.md`. |
 | `guides/` | How to run, debug and check the product. |
-| `plans/` | Intent for work not yet built: `2026-11-15-optimization-PLAN.md` (source ladder, cookie policy, startup), `website.md`. |
+| `plans/` | Intent for work not yet built: `2026-11-15-optimization-PLAN.md` (source ladder, cookie policy, startup), `2026-11-15-handoff-PLAN.md` (ordered task list with acceptance criteria), `website.md`. |
 | `history/` | Finished reviews and drafts. |
 
 Which one holds a piece of information: plans describe intent, features describe the current shape of a whole feature, code docs describe

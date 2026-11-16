@@ -14,8 +14,10 @@ fallback.
 | 1 | Derive from the video id (no request) | 0 ms | no | no |
 | 2 | Public static endpoint (RSS, oEmbed, `i.ytimg.com`) | 80–200 ms | no | no |
 | 3 | InnerTube POST, anonymous (`/player`, `/browse`, `/search`, `/next`) | 200–600 ms (*measured* 220 ms for `/player`) | no | no |
-| 4 | InnerTube POST with `SAPISIDHASH` and the cookie jar | 300–800 ms | **yes** | no |
+| 4 | ~~InnerTube POST with `SAPISIDHASH` and the cookie jar~~ | | | |
 | 5 | yt-dlp library call | 1–8 s, plus a one-off import and extractor load | optional | **yes** |
+
+Rung 4 was dropped (see the decision log): nothing authenticated runs on InnerTube.
 
 A source moves up the ladder (is adopted) only if the benchmark shows p50 at least 2x faster, it returns every field the UI reads, and the
 slower rung stays wired as the fallback. A feature never depends on rung 4 or 5 unless nothing cheaper exists.
@@ -32,9 +34,9 @@ slower rung stays wired as the fallback. A feature never depends on rung 4 or 5 
 | Channel latest videos (first page) | InnerTube `/browse`, then yt-dlp | no | **2** | `feeds/videos.xml?channel_id=UC…`: 15 items with title, date, views, thumbnail, description; honors `If-None-Match`. |
 | Channel videos (older pages, other sorts) | yt-dlp | no | 3 | `/browse` continuation tokens. |
 | Channel playlists | yt-dlp | no | 3 | `/browse` playlists tab. |
-| Subscription list | yt-dlp with cookies | **yes** | 4 (or 5) | Changes rarely: cache for 24 h and refresh on `r`. |
+| Subscription list | yt-dlp with cookies | **yes** | 5 (keep) | Changes rarely: cache for 24 h and refresh on `r`. |
 | Subscription feed | yt-dlp feed extraction with cookies | **only the list** | **2** | Once the list is known, fetch each channel's RSS in parallel (bounded pool of 8) and merge by date. No cookies on the hot path. |
-| Home feed | yt-dlp with cookies | **yes** | **4** | InnerTube `/browse` `FEwhat_to_watch` with `SAPISIDHASH`. The disk stash already hides the latency; this removes the 3–8 s cold fetch. Spike first (see risks). |
+| Home feed | yt-dlp with cookies | **yes** | 5 (keep) | Decided 2026-11-15: account cookies never go to InnerTube (`docs/decisions/cookies-and-auth.md`). The disk stash hides the cold fetch. |
 | Stream URL (audio, video) | yt-dlp, no cookies | no | 5 (keep) | Signature and `n` challenge solving needs yt-dlp and deno. Speed it up in place, below. |
 | Downloads | yt-dlp | no | 5 (keep) | Needs ffmpeg merge. |
 | SponsorBlock segments | direct HTTP, 24 h disk cache | no | 2 (keep) | Switch to the hash-prefix endpoint (`/api/skipSegments/<sha256[:4]>`): the video id no longer leaves the machine. |
@@ -42,13 +44,13 @@ slower rung stays wired as the fallback. A feature never depends on rung 4 or 5 
 
 ### Where cookies are actually needed
 
-Only three operations: the **home feed**, the **subscription list**, and anything age-gated or private. Everything else must run with
+Only three operations: the **home feed**, the **subscription list**, and anything age-gated or private. All three go through yt-dlp. Everything else must run with
 no cookie and no browser-profile read. Consequences:
 
 - The cookie jar is read lazily, on the first of those three, not in a startup thread. A user who only searches and plays never pays the
   5–15 s extraction (*measured* in `docs/decisions/cookies-and-auth.md`).
-- Extract only the `youtube.com` / `google.com` cookies the auth header needs (`SAPISID`, `__Secure-1PAPISID`, `__Secure-3PAPISID`, `SID`
-  family). Keep them in memory only; never write them to disk.
+- Keep only the `youtube.com` / `google.com` cookies in the in-memory jar and hand them to yt-dlp alone, never to InnerTube. Never write
+  them to disk.
 - Re-extract on an auth failure (HTTP 401/403 or a login redirect), not on a 10-minute timer. Browser sessions last weeks.
 - `cookies.get_cookiejar` keeps its single lock, so concurrent callers still trigger one extraction.
 
@@ -91,7 +93,7 @@ no cookie and no browser-profile read. Consequences:
 3. Subscription feed and channel first page: try RSS, fall back to InnerTube `/browse` per channel. RSS returned 404 for every channel in the
    2026-11-15 benchmark, so it needs a per-session dead flag. Tests: Atom fixtures, 404 fallback, merge order.
 4. Lazy cookies and narrowed jar; re-extract on auth failure.
-5. Spike: authenticated InnerTube home feed. Go only if the cookie risk below is acceptable.
+5. ~~Authenticated InnerTube home feed~~ dropped by the owner.
 6. Speed-ups for the yt-dlp rung (warm instance, direct format, client pinning).
 7. Cold-start pass (lazy yt-dlp import, keep-alive connections).
 8. `AudioController`, unified mpv launch path, typed entries.
@@ -99,7 +101,5 @@ no cookie and no browser-profile read. Consequences:
 ## Risks
 
 - **InnerTube and RSS are undocumented.** Response shapes change. Keep parsers small, fixture-tested, and every call falls back one rung.
-- **`SAPISIDHASH` requests impersonate the browser session.** They are as account-bound as the cookies the app already reads, but they are
-  new traffic from this app to an authenticated endpoint. Decide before step 5; a refusal leaves the home feed on yt-dlp.
 - **Rate limits.** The RSS fan-out for subscriptions is N requests. Bound the pool, honor `ETag`, cache for 10 minutes.
 - **Stale caches hide regressions.** Every adopted source logs its rung at debug level so `termtube --debug` shows which one answered.
