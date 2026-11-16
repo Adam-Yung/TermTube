@@ -4,52 +4,48 @@
 
 # TermTube
 
-**A lightning-fast YouTube client for your terminal.**
+**A YouTube client for your terminal.**
 
-Browse your home feed, search, listen in the background, and watch videos — all without leaving the command line.
+Browse, search, listen in the background and watch, without leaving the command line.
 
-[![Tests](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml/badge.svg)](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml)
+[![Pipeline](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml/badge.svg)](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#platform-notes)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
 
 ---
 
-## Why TermTube?
+## What it does
 
-| | |
-|---|---|
-| **Instant startup** | Cached feeds load in milliseconds — no browser overhead |
-| **Background audio** | Listen to YouTube while you work, with seek/pause/queue controls |
-| **Native thumbnails** | High-res images via Kitty/Sixel protocols, with pure-Python PIL fallback |
-| **Keyboard-driven** | Vim-style navigation, page-based browsing, zero mouse required |
-| **Privacy-respecting** | Runs locally, no telemetry, no accounts beyond your existing YouTube cookies |
-| **Cross-platform** | macOS, Linux, and Windows — one codebase |
-| **Self-updating** | Binary tools stay current automatically; no cron job needed |
+- **Home feed, search, channels, playlists, history, library** in tabs, driven entirely from the keyboard (vim-style `hjkl`).
+- **Background audio** through a headless mpv: queue, pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
+- **Video** in an mpv window, with progress and controls in the terminal.
+- **Downloads** (video as mp4, audio as mp3) with progress, then a **Library** tab that lists and plays what you downloaded.
+- **Thumbnails** as real images (Kitty, Sixel) where the terminal supports it, as colour half-block art everywhere else.
+- **Fast and light:** cached feeds open instantly; metadata comes from YouTube's own web API (InnerTube) in 0.2 to 0.5 s, with yt-dlp as the fallback.
+- **Private by default:** no telemetry, no account login inside the app. Your browser's YouTube cookies are read only for the two things that need an account (Home feed, subscription list), only when first needed, and never leave the process. See [accounts and cookies](docs/features/accounts-and-cookies.md).
+- **Four colour themes** (crimson, amber, ocean, midnight).
 
----
-
-## Installation
-
-### Prerequisites
-
-The only things you need to install yourself:
-
-| Tool | Purpose | Install |
-|------|---------|---------|
-| Python 3.11+ | Runtime | [python.org](https://python.org/downloads/) or `winget install Python.Python.3.12` |
-| git | To clone the repo | Usually pre-installed; [git-scm.com](https://git-scm.com) |
-
-Everything else — **yt-dlp, Deno, ffmpeg, and mpv** — is downloaded automatically from GitHub releases by the setup script. No package manager required.
-
-> **Why yt-dlp nightly?** YouTube's extractor changes daily. The nightly build tracks fixes as they land, whereas the stable release often lags by weeks.  
-> **Why Deno?** yt-dlp requires it (since November 2025) to solve YouTube's JavaScript challenges.
+It runs on **macOS, Linux and Windows**. A GitHub pipeline installs it from scratch on all three, drives the installed app in a real terminal with real mpv, and must pass before a change counts as working ([what that proves](docs/guides/ci.md)).
 
 ---
 
-### macOS / Linux
+## Install
+
+### You need
+
+| Tool | Why | Get it |
+|---|---|---|
+| Python 3.11 or newer | runs the app | [python.org](https://www.python.org/downloads/) or `winget install Python.Python.3.12` |
+| git | to clone the repo | usually installed; [git-scm.com](https://git-scm.com) |
+| **mpv** (Linux only) | audio and video playback | `sudo apt install mpv` · `sudo dnf install mpv` · `sudo pacman -S mpv` |
+
+The setup script installs everything else: **Deno, ffmpeg and mpv** (macOS, Windows) are downloaded from GitHub releases into a TermTube-managed
+folder, and **yt-dlp** is installed as a Python package. Linux has no static mpv build, so install mpv first; the script then links it into the
+managed folder, which is where TermTube looks for it. Setup needs internet access to `github.com` and PyPI.
+
+### macOS and Linux
 
 ```bash
 git clone --depth 1 https://github.com/Adam-Yung/TermTube.git ~/termtube
@@ -57,21 +53,8 @@ cd ~/termtube
 bash scripts/setup.sh
 ```
 
-The installer will:
-1. Create a Python virtual environment and install Python packages
-2. Download **yt-dlp nightly**, **Deno**, **ffmpeg**, and **mpv** directly from GitHub into `~/.local/termtube-deps/bin/`
-3. Add `termtube` to your PATH
-
-**Options:**
-```bash
-bash scripts/setup.sh              # Interactive install (recommended)
-bash scripts/setup.sh --no-deps    # Skip binary dependency download (Python venv only)
-bash scripts/setup.sh --no-prompt  # Non-interactive (accept all defaults)
-```
-
-> **Linux note:** mpv has no static Linux build. If `mpv` isn't already installed on your system, the setup script will print the correct `apt`/`dnf`/`pacman` command to install it.
-
----
+Then open a new terminal and run `termtube`. Options: `--no-prompt` (accept all defaults, for scripts), `--no-deps` (Python environment only),
+`--refresh` (replace only the installed code from this checkout: no network, venv untouched).
 
 ### Windows
 
@@ -81,249 +64,171 @@ cd $HOME\termtube
 .\scripts\setup.ps1
 ```
 
-The installer will:
-1. Download **yt-dlp nightly**, **Deno**, **ffmpeg**, and **mpv** directly from GitHub into `%LOCALAPPDATA%\termtube-deps\bin\`
-2. Bundle a standalone headless `mpv.exe` for audio playback (from [zhongfly/mpv-winbuild](https://github.com/zhongfly/mpv-winbuild))
-3. Create a Python virtual environment and install Python packages
-4. Add `termtube` to your user PATH
+Then **open a new terminal** (setup adds `%LOCALAPPDATA%\Programs\TermTube` to your user PATH) and run `termtube`. Options: `-NoPrompt`, `-NoDeps`.
+Use [Windows Terminal](https://aka.ms/terminal) for the best result.
 
-> **Recommended:** Use [Windows Terminal](https://aka.ms/terminal) for full Sixel graphics and best thumbnail quality.
+### Where things go
 
-**Options:**
-```powershell
-.\scripts\setup.ps1              # Interactive install (recommended)
-.\scripts\setup.ps1 -NoDeps      # Skip binary dependency download
-.\scripts\setup.ps1 -NoPrompt    # Non-interactive
-```
+| | macOS / Linux | Windows |
+|---|---|---|
+| App code and its Python environment | `~/.local/share/TermTube/` | `%LOCALAPPDATA%\Programs\TermTube\` |
+| Deno, ffmpeg, mpv | `~/.local/termtube-deps/bin/` | `%LOCALAPPDATA%\termtube-deps\bin\` |
+| `termtube` command | `~/.local/bin/termtube` (symlink) | `termtube.cmd` in the app folder, on your PATH |
+| Config, history, playlists | `~/.config/TermTube/` | `%APPDATA%\TermTube\` |
+| Cache | `~/.cache/termtube/` | `%LOCALAPPDATA%\TermTube\cache\` |
+| Debug logs (`--debug` only) | `$TMPDIR/TermTube/` | `%TEMP%\TermTube\` |
+| Downloads | `~/Documents/TermTube/Video` and `/Audio` | same under `Documents` |
 
----
-
-### First-Run Auto-Install
-
-Running `./termtube` or `.\termtube.cmd` from a fresh clone will automatically run setup without any prompts:
-
-```bash
-git clone --depth 1 https://github.com/Adam-Yung/TermTube.git ~/termtube
-cd ~/termtube
-./termtube       # auto-runs scripts/setup.sh on first run, then launches the app
-```
+The full install, update and troubleshooting guide, including how to move to another machine, is [docs/guides/setup.md](docs/guides/setup.md).
 
 ---
 
-### Uninstalling
+## Using it
 
-```bash
-# macOS / Linux
-bash scripts/uninstall.sh            # Preserve config and data
-bash scripts/uninstall.sh --purge    # Remove everything
+Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History**, **Library**, **Playlists**, **Help**.
 
-# Windows
-.\scripts\uninstall.ps1
-.\scripts\uninstall.ps1 -Purge
+- Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F7`.
+- `Enter` opens the action menu for the highlighted video; every action also has its own key, shown in the footer and the in-app help (`?`).
+- `/` searches. `a` plays the audio in the background, `v` watches the video, `d` downloads, `c` opens the channel, `p` adds to a playlist.
+- `q` quits (stops audio; the queue is not saved).
 
-# Or from anywhere:
-termtube --uninstall
-```
+### Keys
 
----
+| Move | | Play | |
+|---|---|---|---|
+| `j` `k` | cursor down / up | `a` `A` | audio / choose quality first |
+| `h` `l` (or arrows) | previous / next page | `v` `V` | watch video / choose quality first |
+| `g` `G` | first / last item | `e` | add audio to the queue |
+| `H` `L` | previous / next tab | `>` | skip to the next queued track |
+| `Enter` | action menu | `Space` | pause / resume audio |
+| `Esc` `Backspace` | back | `x` | stop audio and clear the queue |
+| `F1`..`F7`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
+| | | `0`..`9` | seek to 0 % to 90 % |
 
-## Quick Start
+| Row actions | | App | |
+|---|---|---|---|
+| `d` | download (video or audio) | `/` | search |
+| `c` | channel page (`s` sort, `r` reload) | `r` | refresh the feed |
+| `p` | add to a local playlist | `,` | settings |
+| `y` | copy the URL | `?` | help |
+| `b` | open in the browser | `q` | quit |
 
-**1. Launch:**
-```bash
-termtube
-```
-
-**2. Set up cookies** (required for Home Feed & Subscriptions):
-```bash
-# macOS / Linux
-yt-dlp --cookies-from-browser chrome \
-       --cookies ~/.config/TermTube/cookies.txt \
-       --skip-download --quiet --no-warnings \
-       "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-# Windows
-yt-dlp --cookies-from-browser chrome `
-       --cookies "$env:APPDATA\TermTube\cookies.txt" `
-       --skip-download --quiet --no-warnings `
-       "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-```
-Replace `chrome` with `firefox`, `brave`, or `edge` as needed.
-
-**3. Browse:** Use `j`/`k` to navigate, `]`/`[` to switch pages, `Enter` for the actions menu.
-
----
-
-## Keyboard Reference
-
-`hjkl` move through whatever you are looking at: `j`/`k` the cursor, `h`/`l` the pages. No key changes meaning with playback state.
-Full rules and the list of changes from the old keymap: [docs/features/keybindings.md](docs/features/keybindings.md).
-
-### Move
-
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Cursor down / up |
-| `h` / `l` (or `←` / `→`) | Previous / next page |
-| `g` / `G` | First / last item of the list |
-| `H` / `L` | Previous / next tab |
-| `Enter` | Action menu |
-| `Esc` / `Backspace` | Back |
-| `F1`–`F7`, `` ` `` | Jump to a tab / tab picker |
-
-### Play
-
-| Key | Action |
-|-----|--------|
-| `v` / `V` | Watch video / choose quality first |
-| `a` / `A` | Play audio in the background / choose quality first |
-| `e` | Add audio to the queue |
-| `>` | Skip to the next queued track |
-| `Space` | Pause / resume audio |
-| `x` | Stop audio and clear the queue |
-| `[` `]` / `{` `}` | Audio seek ∓5 s / ∓10 s |
-| `0`–`9` | Audio seek to 0%–90% |
-
-### Row actions and app
-
-| Key | Action |
-|-----|--------|
-| `d` | Download (video or audio) |
-| `c` | Channel page (`s` sort, `r` reload, `Esc` back) |
-| `p` | Add to playlist |
-| `y` | Copy URL |
-| `b` | Open in browser |
-| `/` | Search |
-| `r` | Refresh feed |
-| `,` | Settings |
-| `?` | Help |
-| `q` | Quit |
+While audio plays, `v` is refused (video and audio would overlap): stop audio with `x` first. A key that cannot act says why in a short notice.
+The rules behind the keymap, and every key per screen, are in [docs/features/keybindings.md](docs/features/keybindings.md).
 
 ---
 
 ## Configuration
 
-Config location:
-- **macOS / Linux:** `~/.config/TermTube/config.yaml`
-- **Windows:** `%APPDATA%\TermTube\config.yaml`
-
-Created automatically on first run:
+`config.yaml` lives in the config folder above and is created on first run. Settings changed in the app (`,`) are saved immediately. Every key is
+optional:
 
 ```yaml
-browser: chrome          # Browser for cookies: chrome | firefox | brave | edge
-cookies_file: ~/.config/TermTube/cookies.txt
+browser: auto            # cookie source for Home and Subscriptions: auto | none | firefox | chrome | brave | edge | ...
 video_dir: ~/Documents/TermTube/Video
 audio_dir: ~/Documents/TermTube/Audio
-preferred_quality: best  # best | 1080 | 720 | 480
-preferred_player: mpv
+video_format: "%(title)s_%(uploader)s.%(ext)s"   # yt-dlp output template
+audio_format: "%(title)s_%(uploader)s.%(ext)s"
+preferred_quality: best  # best | 1080 | 720 | 480 | 360   (default for video downloads)
 theme: crimson           # crimson | amber | ocean | midnight
-thumbnail_format: auto   # auto | symbols | ascii
-cache_ttl:
+thumbnail_format: auto   # auto | symbols
+sponsorblock:
+  enabled: true
+  auto_skip: true
+  categories: [sponsor, selfpromo]
+cache_ttl:               # seconds
   home: 3600
   subscriptions: 3600
   search: 1800
   metadata: 86400
 ```
 
----
-
-## Cookie Setup
-
-TermTube needs YouTube session cookies for personalized feeds (Home, Subscriptions).
-
-**Option A — Export via yt-dlp (recommended):**
-```bash
-yt-dlp --cookies-from-browser chrome \
-       --cookies ~/.config/TermTube/cookies.txt \
-       --skip-download --quiet --no-warnings \
-       "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-```
-
-**Option B — Browser extension:**
-1. Install [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc) (Chrome) or [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/) (Firefox)
-2. Visit youtube.com, export as Netscape format
-3. Save to `~/.config/TermTube/cookies.txt` (or `%APPDATA%\TermTube\cookies.txt` on Windows)
-
-**Option C — Direct browser access:**
-Set `cookies_file: null` in your config. TermTube reads cookies directly from your browser session.
+`termtube --config FILE` uses another file. All keys, validation and defaults: [docs/features/configuration.md](docs/features/configuration.md).
 
 ---
 
-## Automatic Updates
+## Accounts and cookies
 
-On each clean exit, TermTube silently checks if tools need updating (once per week):
-
-| Tool | Update method |
-|------|---------------|
-| yt-dlp | `yt-dlp --update-to nightly` |
-| Deno | `deno upgrade` |
-| ffmpeg | Re-downloaded from GitHub releases |
-| mpv | Re-downloaded from GitHub releases |
-| **app code** | Downloaded from latest GitHub release tag |
-
-A brief notification appears on next launch: `yt-dlp updated 2026.03.17 → 2026.05.05`.
-
-To update everything immediately (tools + app code):
-```bash
-termtube --update
-```
+Search, channels, playlists, playback and downloads work **without any account**. Only two things are personal: the **Home feed** and your
+**subscription list**. For those, TermTube reads your YouTube cookies from a browser you are already signed in to (`browser: auto` picks one;
+Firefox first on macOS because it needs no keychain prompt). The cookies are read the first time one of those two is needed (not at startup),
+kept only in memory, limited to `youtube.com` and `google.com`, and never sent to the web API, to stream resolution or to downloads.
+`browser: none` turns it all off. `termtube --browser-help` prints the short version; the details are in
+[docs/features/accounts-and-cookies.md](docs/features/accounts-and-cookies.md).
 
 ---
 
-## Platform Notes
+## Updating, uninstalling, moving to another machine
 
-### macOS
-Works out of the box. All binary dependencies are downloaded directly from GitHub — no Homebrew required.
-
-### Linux
-Tested on Ubuntu, Fedora, and Arch. All binary dependencies except mpv are downloaded from GitHub. mpv must be installed via your system package manager:
 ```bash
-# Ubuntu / Debian
-sudo apt install mpv
-
-# Fedora
-sudo dnf install mpv
-
-# Arch
-sudo pacman -S mpv
+termtube --update                  # re-download the tools, upgrade yt-dlp, update the app code, then exit
+bash scripts/setup.sh --refresh    # macOS/Linux: copy this checkout's code into the installed app (no downloads)
+termtube --uninstall               # the launcher runs scripts/uninstall.sh (uninstall.ps1 on Windows)
+bash scripts/uninstall.sh --purge  # also remove config, history, playlists, cache and logs
 ```
 
-For best thumbnail quality, use a terminal that supports Sixel or the Kitty graphics protocol (kitty, WezTerm, foot, iTerm2). All other terminals get full-color thumbnails via the built-in PIL half-block renderer.
-
-### Windows
-- **Windows Terminal** (recommended) — full Sixel graphics for pixel-perfect thumbnails
-- **PowerShell 7 / cmd.exe** — full TUI support with 24-bit color half-block thumbnails
-
-All binary dependencies (yt-dlp, Deno, ffmpeg, mpv) are downloaded from GitHub by the setup script. mpv uses named pipes for IPC instead of Unix sockets — handled automatically.
+Nothing updates in the background. On another machine, install fresh (above) and copy your config folder across if you want your settings,
+history and playlists; the steps and the two things to check (download folders, browser) are in [docs/guides/setup.md](docs/guides/setup.md).
 
 ---
 
-## Testing
+## Platform notes
 
-```bash
-scripts/verify.sh                      # the commit gate: tests, doc mirrors, doc links, dead code
-.venv/bin/python -m pytest src/tests/unit        # pure logic
-.venv/bin/python -m pytest src/tests/integration # mpv IPC and download hooks, mocked
-.venv/bin/python -m pytest src/tests/tui         # headless Textual
-```
+- **macOS:** works out of the box; no Homebrew needed. The first cookie read from Chrome or Brave asks for keychain access; Firefox does not.
+- **Linux:** install mpv from your package manager first. Thumbnails as real images need a terminal with Kitty or Sixel graphics (kitty, WezTerm,
+  foot, iTerm2 on macOS); other terminals get colour half-block art, which needs 24-bit colour.
+- **Windows:** audio uses a bundled headless `mpv.exe` and named pipes (handled for you). mpv.net is not used for background audio because it always
+  opens a window. Windows Terminal recommended.
+- **tmux:** image protocols are off inside tmux (they flicker); you get half-block thumbnails.
 
-Tests never touch the network or your browser profile. CI runs `scripts/verify.sh`.
-
-## Contributing
-
-Read [AGENTS.md](AGENTS.md): code and documentation rules, and the `docs/` map ([docs/README.md](docs/README.md)).
+What is tested where: the unit and UI tests run on all three systems on every change, and so does a **real-app run** (installer, launcher, real mpv
+over its control channel, the installed app driven by real key presses in a real terminal). What no automated run can see is how the UI looks in
+your terminal and how YouTube answers today; a weekly canary checks the latter. See [docs/guides/ci.md](docs/guides/ci.md).
 
 ---
 
-## Debugging
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---|---|
+| `Required tools missing` at startup | Deno, ffmpeg or mpv is not in the managed folder. Run `bash scripts/setup.sh` (`setup.ps1`) again; on Linux install mpv first. |
+| `mpv not found` / audio never starts | Same as above. `termtube --debug` then `Ctrl+D` shows the exact mpv command; its own log is written beside the debug log. |
+| Home feed empty or generic | No browser session was found. Open Settings (`,`), pick the browser you are signed in to, or run `termtube --browser-help`. |
+| A keychain prompt on macOS | Chrome and Brave protect their cookies with the keychain; choose Firefox, or `browser: none`. |
+| Setup says `HTTP Error 403: rate limit exceeded` | GitHub's anonymous API limit on a shared network. Setup falls back to the release page; if it still fails, wait or set `GITHUB_TOKEN` and re-run. |
+| Thumbnails are blocks, not images | Your terminal has no Kitty or Sixel support, or you are in tmux. Expected; see Platform notes. |
+| `termtube: command not found` | Open a new terminal (PATH changes need it); on macOS/Linux make sure `~/.local/bin` is on your PATH. |
+| Anything else | `termtube --debug`, then read `$TMPDIR/TermTube/<timestamp>.log`; `termtube --clear-cache` resets cached data. |
+
+More in [docs/guides/setup.md](docs/guides/setup.md#troubleshooting) and [docs/guides/startup-debugging.md](docs/guides/startup-debugging.md).
+
+---
+
+## Development
 
 ```bash
-termtube --debug                   # Full debug logging
-termtube --debug --level WARNING   # Warnings and above only
+git clone https://github.com/Adam-Yung/TermTube.git && cd TermTube
+scripts/dev-setup.sh --install     # a private .venv for this checkout (never a bare pip)
+scripts/verify.sh                  # the gate: lint, tests, doc checks. Prints GATE-OK when everything passed
+.venv/bin/python scripts/e2e-local.py   # the real app in a pseudo-terminal, silent, no network
 ```
 
-Toggle the in-app debug panel with `Ctrl+D`.
+Read [AGENTS.md](AGENTS.md) first (the rules for code, comments, docs and tests, and the hard safety rule about downloads), then
+[docs/README.md](docs/README.md) (the map of the docs), [docs/features/architecture.md](docs/features/architecture.md) (how it is wired) and
+[docs/guides/setup.md](docs/guides/setup.md) (everything about running and testing it).
 
-Log location:
-- **macOS / Linux:** `$TMPDIR/TermTube/<timestamp>.log`
-- **Windows:** `%TEMP%\TermTube\<timestamp>.log`
+### Layout
+
+```
+src/                  the app
+  main.py               entry point and CLI
+  tui/                  Textual screens, widgets, mixins, audio controller, theme
+  innertube.py          YouTube web API client (search, channels, playlists, details)
+  ytdlp.py streams.py downloads.py cookies.py    yt-dlp: feeds, stream URLs, downloads, browser cookies
+  player.py plat.py bootstrap.py                 mpv control, per-OS paths and processes, tool installer
+  cache.py history.py library.py playlist.py config.py    local state
+  tests/                unit, integration and headless TUI tests
+scripts/              installers, the gate, end-to-end and smoke checks, benchmarks, canary
+docs/                 features, guides, decisions, plans, history, and a mirror of every source file (docs/code/)
+.github/workflows/    the pipeline (three platforms) and the weekly canary
+```

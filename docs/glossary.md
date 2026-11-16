@@ -12,4 +12,9 @@
 | Audio controller | `app.audio`: owns the background mpv process, queue and state; screens only mirror it. |
 | InnerTube | YouTube's internal JSON API (`/youtubei/v1/...`). `src/innertube.py`. |
 | Source ladder | The ordering of data sources from cache to yt-dlp. `docs/plans/2026-11-15-optimization-PLAN.md`. |
+| Gate | `scripts/verify.sh`: lint, tests and doc checks; passes only if it prints `GATE-OK`. |
+| Pipeline | The GitHub workflow `test.yml`: gate, real installer and e2e on Linux, macOS and Windows. `docs/guides/ci.md`. |
+| Canary | `scripts/canary-live.py`, weekly: does live YouTube still parse. Not a gate. |
+| Managed bin | The folder of Deno, ffmpeg and mpv that TermTube installs and looks in (`~/.local/termtube-deps/bin`). |
+| Installed app | The copy in `~/.local/share/TermTube` with its own venv, distinct from the checkout. `docs/guides/environments.md`. |
 | Mirror | The `docs/code/<path>.md` file for a source file. |

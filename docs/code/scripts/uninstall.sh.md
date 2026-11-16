@@ -10,6 +10,7 @@ Removes the app dir, the `~/.local/bin/termtube` symlink and `~/.local/termtube-
 
 ## Limits
 
+- `--purge` removes the cache at `${XDG_CACHE_HOME:-~/.cache}/termtube` (lower case, as `plat.get_cache_dir` writes it; it said `TermTube`, which matched nothing on case-sensitive Linux).
 - It stops running processes with `pkill -f "$APP_DIR/"`: only commands started from the installed app directory. A copy run from a git checkout is not stopped.
 - It removes `termtube-mpv*.sock` from `$XDG_RUNTIME_DIR` or `/tmp/termtube-<uid>/` (the directory `plat._unix_ipc_dir` uses, [src/plat.py](../src/plat.py.md)) and removes that directory if empty.
 - The unix script was only syntax-checked (`bash -n`); it was not run.

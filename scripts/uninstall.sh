@@ -6,7 +6,7 @@ set -euo pipefail
 readonly APP_DIR="$HOME/.local/share/TermTube"
 readonly BIN_LINK="$HOME/.local/bin/termtube"
 readonly CONFIG_DIR="$HOME/.config/TermTube"
-readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/TermTube"
+readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/termtube"
 readonly LOG_DIR="${TMPDIR:-/tmp}/TermTube"
 readonly DEPS_DIR="$HOME/.local/termtube-deps"
 

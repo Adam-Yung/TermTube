@@ -1,3 +1,5 @@
+> **Done and superseded** where noted below; present state: `docs/status.md`.
+
 # Handoff plan: remaining work after the 2026-11-15 restructure
 
 For the next agent. Read `AGENTS.md`, `docs/status.md`, `docs/features/architecture.md` and

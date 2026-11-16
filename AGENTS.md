@@ -32,6 +32,7 @@ way", it answers from the docs below, not by guessing from the code.
 Native Python TUI for YouTube: `Textual` UI, `yt-dlp` as a library, `mpv` over IPC, `textual-image` / PIL for thumbnails. Cold start must be
 fast, the UI never blocks, and it feels like a terminal program (no fzf/gum).
 
+- **Setup and running:** `docs/guides/setup.md` (install, dev venv, tests, recipes for agents).
 - **Environment:** `venv` only. No conda or mamba. The checkout's `.venv` is separate from the installed app's; install into it only with `scripts/dev-setup.sh` (`docs/guides/environments.md`), never a bare `pip`.
 - **Bundled binaries (deno, ffmpeg, mpv)** live in `~/.local/termtube-deps/bin/` (managed by `src/bootstrap.py`) and are always preferred over
   system copies. Never fall back to or prefer the system `PATH` version.

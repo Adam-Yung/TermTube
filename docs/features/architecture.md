@@ -13,7 +13,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Audio | `src/tui/audio_controller.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
 | Widgets | `src/tui/widgets/` | list, detail panel, action bar, thumbnail, page indicator, header, channel info |
 | Keys | `src/tui/keymap.py` | The only definition of the keymap in code (`docs/features/keybindings.md`) |
-| Messages | `src/tui/messages.py` | `PlayerStateUpdated` |
+| Messages | `src/tui/messages.py` | `PlayerStateUpdated`, `AudioTrackChanged`, `AudioQueueChanged`, `AudioSegmentsLoaded`: the audio controller broadcasts them to every screen on the stack |
 | Thumbnails | `src/tui/thumb_loader.py`, `src/ui/thumbnail.py` | worker-side thumbnail loading; fetch, validate, half-block render |
 | yt-dlp | `src/ytdlp.py` (opts, feeds, search, channels), `src/cookies.py`, `src/downloads.py`, `src/streams.py` | all extraction; `streams.py` resolves and caches playback URLs |
 | InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
