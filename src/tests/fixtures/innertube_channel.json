@@ -1,0 +1,46 @@
+{
+ "metadata": {
+  "channelMetadataRenderer": {
+   "title": "Rick Astley",
+   "description": "Rick Astley’s Swinging Christmas 2026 🎄 Dec 9th, Royal Albert Hall. SOLD OUT ❤️\n",
+   "externalId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+   "avatar": {
+    "thumbnails": [
+     {
+      "url": "https://yt3.googleusercontent.com/_ShEGOdg-t5YGJse14Ooq6FYBZqX_QSlhaTNjG06miYusm5lWm1UroLyVxnYtahADfRTVLtuVQ=s900-c-k-c0x00ffffff-no-rj",
+      "width": 900,
+      "height": 900
+     }
+    ]
+   },
+   "vanityChannelUrl": "http://www.youtube.com/@RickAstleyYT"
+  }
+ },
+ "header": {
+  "pageHeaderRenderer": {
+   "content": {
+    "metadataRows": [
+     {
+      "parts": [
+       {
+        "text": {
+         "content": "@RickAstleyYT"
+        }
+       },
+       {
+        "text": {
+         "content": "4.56M subscribers"
+        }
+       },
+       {
+        "text": {
+         "content": "442 videos"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,441 @@
+{
+ "contents": {
+  "twoColumnSearchResultsRenderer": {
+   "primaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "itemSectionRenderer": {
+        "contents": [
+         {
+          "videoRenderer": {
+           "videoId": "rFZHOHl-L8A",
+           "thumbnail": {
+            "thumbnails": [
+             {
+              "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEjCOgCEMoBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLAXdDuAPGBkuNlX0NKlRvssGT3R5A",
+              "width": 360,
+              "height": 202
+             },
+             {
+              "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBGw0IjH-1wflyQP4uzLckDCG-AXg",
+              "width": 720,
+              "height": 404
+             }
+            ]
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "lofi hip hop radio 📚 beats to relax/study to"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "lofi hip hop radio 📚 beats to relax/study to"
+             }
+            }
+           },
+           "longBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "viewCountText": {
+            "runs": [
+             {
+              "text": "10,100"
+             },
+             {
+              "text": " watching"
+             }
+            ]
+           },
+           "badges": [
+            {
+             "metadataBadgeRenderer": {
+              "icon": {
+               "iconType": "LIVE"
+              },
+              "style": "BADGE_STYLE_TYPE_LIVE_NOW",
+              "label": "LIVE",
+              "trackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD8="
+             }
+            },
+            {
+             "metadataBadgeRenderer": {
+              "icon": {
+               "iconType": "OUTLINE_BAG"
+              },
+              "style": "BADGE_STYLE_TYPE_SIMPLE",
+              "label": "24 products",
+              "trackingParams": "CJ8EEI7kFBgBIhMI8uWEgLKLmAMVokryAB2tljw_"
+             }
+            }
+           ],
+           "ownerText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "shortBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "showActionMenu": false,
+           "shortViewCountText": {
+            "runs": [
+             {
+              "text": "10K"
+             },
+             {
+              "text": " watching"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "10 thousand watching"
+             }
+            }
+           }
+          }
+         },
+         {
+          "videoRenderer": {
+           "videoId": "n61ULEU7CO0",
+           "thumbnail": {
+            "thumbnails": [
+             {
+              "url": "https://i.ytimg.com/vi/n61ULEU7CO0/hq720.jpg?sqp=-oaymwEjCOgCEMoBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLAg92gxOhLfxYAqrQ-MkqkeHNF6sg",
+              "width": 360,
+              "height": 202
+             },
+             {
+              "url": "https://i.ytimg.com/vi/n61ULEU7CO0/hq720.jpg?sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLABgYZhkqacI3o5_Pa56YPXWQbhRg",
+              "width": 720,
+              "height": 404
+             }
+            ]
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Best of lofi hip hop 2021 ✨ [beats to relax/study to]"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "Best of lofi hip hop 2021 ✨ [beats to relax/study to] 6 hours, 10 minutes"
+             }
+            }
+           },
+           "longBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJQEENwwGAEiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "publishedTimeText": {
+            "simpleText": "4 years ago"
+           },
+           "lengthText": {
+            "accessibility": {
+             "accessibilityData": {
+              "label": "6 hours, 10 minutes, 58 seconds"
+             }
+            },
+            "simpleText": "6:10:58"
+           },
+           "viewCountText": {
+            "simpleText": "58,757,175 views"
+           },
+           "badges": [
+            {
+             "metadataBadgeRenderer": {
+              "icon": {
+               "iconType": "OUTLINE_BAG"
+              },
+              "style": "BADGE_STYLE_TYPE_SIMPLE",
+              "label": "1 product",
+              "trackingParams": "CJkEEI7kFBgAIhMI8uWEgLKLmAMVokryAB2tljw_"
+             }
+            }
+           ],
+           "ownerText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJQEENwwGAEiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "shortBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJQEENwwGAEiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "showActionMenu": false,
+           "shortViewCountText": {
+            "accessibility": {
+             "accessibilityData": {
+              "label": "58 million views"
+             }
+            },
+            "simpleText": "58M views"
+           }
+          }
+         },
+         {
+          "videoRenderer": {
+           "videoId": "zW5wpJY1rgQ",
+           "thumbnail": {
+            "thumbnails": [
+             {
+              "url": "https://i.ytimg.com/vi/zW5wpJY1rgQ/hq720.jpg?sqp=-oaymwE9COgCEMoBSFryq4qpAy8IARUAAAAAGAElAADIQj0AgKJDeAHwAQH4Af4JgALQBYoCDAgAEAEYdSA3KH8wDw==&rs=AOn4CLCN-Kt_zDydU47Y3K-mXeYmX2TlMQ",
+              "width": 360,
+              "height": 202
+             },
+             {
+              "url": "https://i.ytimg.com/vi/zW5wpJY1rgQ/hq720.jpg?sqp=-oaymwExCNAFEJQDSFryq4qpAyMIARUAAIhCGAHwAQH4Af4JgALQBYoCDAgAEAEYdSA3KH8wDw==&rs=AOn4CLDAh50E2mNiS0S3TjCWrGhC1SEr5w",
+              "width": 720,
+              "height": 404
+             }
+            ]
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "Ｎｉｇｈｔ Ｄｒｉｖｅ ~ lofi hip hop mix ~ beats to chill / drive to"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "Ｎｉｇｈｔ Ｄｒｉｖｅ ~ lofi hip hop mix ~ beats to chill / drive to 24 hours"
+             }
+            }
+           },
+           "longBylineText": {
+            "runs": [
+             {
+              "text": "Mimi Lofi Chill",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CI8EENwwGAIiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/@mimilofichill",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCq9J_CUURRfbP7vm4VN_3xg",
+                "canonicalBaseUrl": "/@mimilofichill"
+               }
+              }
+             }
+            ]
+           },
+           "publishedTimeText": {
+            "simpleText": "4 years ago"
+           },
+           "lengthText": {
+            "accessibility": {
+             "accessibilityData": {
+              "label": "24 hours, 37 minutes, 3 seconds"
+             }
+            },
+            "simpleText": "24:37:03"
+           },
+           "viewCountText": {
+            "simpleText": "6,473,707 views"
+           },
+           "ownerText": {
+            "runs": [
+             {
+              "text": "Mimi Lofi Chill",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CI8EENwwGAIiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/@mimilofichill",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCq9J_CUURRfbP7vm4VN_3xg",
+                "canonicalBaseUrl": "/@mimilofichill"
+               }
+              }
+             }
+            ]
+           },
+           "shortBylineText": {
+            "runs": [
+             {
+              "text": "Mimi Lofi Chill",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CI8EENwwGAIiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/@mimilofichill",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCq9J_CUURRfbP7vm4VN_3xg",
+                "canonicalBaseUrl": "/@mimilofichill"
+               }
+              }
+             }
+            ]
+           },
+           "showActionMenu": false,
+           "shortViewCountText": {
+            "accessibility": {
+             "accessibilityData": {
+              "label": "6.4 million views"
+             }
+            },
+            "simpleText": "6.4M views"
+           }
+          }
+         },
+         {
+          "lockupViewModel": {
+           "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST"
+          }
+         }
+        ]
+       }
+      },
+      {
+       "continuationItemRenderer": {
+        "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+        "continuationEndpoint": {
+         "clickTrackingParams": "CD0Qt6kLGAEiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+         "commandMetadata": {
+          "webCommandMetadata": {
+           "sendPost": true,
+           "apiUrl": "/youtubei/v1/search"
+          }
+         },
+         "continuationCommand": {
+          "token": "ErMDEgxsb2ZpIGhpcCBob3AaogNTQlNDQVF0eVJscElUMGhzTFV3NFFZSUJDMjQyTVZWTVJWVTNRMDh3Z2dFTGVsYzFkM0JLV1RGeVoxR0NBUTFTUkhKR1draFBTR3d0VERoQmdnRUxRMHhsV25sSlNVUTVRbS1DQVJaU1JFRlVabTFpUnpsdFlWTkNiMkZZUVdkaFJ6bDNnZ0VMZFZkNlUzRmtZMlpRV25lQ0FRdHpSamd3U1MxVVVXbFhNSUlCQ3pkT1QxTkVTMkl3U0d4VmdnRUxWRk5CTmtkRU9VMXBiMDJDQVF0Tk5XaGFRVXhmYUZjM1k0SUJDMEo1V2tkMU1qSTVMWGxCZ2dFTE1tSkZiVmREZDJSRFpIT0NBUXN4U2pSaE9XTlVNbXhyZDRJQkMwa3hOREJwVG5CNE1YaE5nZ0VMUTBaSFRHOVJTV2h0YjNlQ0FRdHBORE4wYTJGVVdIUjNTWUlCQzFFM05GbFZRWGh4Y3pBd2dnRUxPR2xWT0V4UVJXRTBiekNDQVFzMk1UZE1YMDFQUWpNM2E3SUJCZ29FQ0JZUUF1b0JCQWdDRUJrJTNEGIHg6BgiC3NlYXJjaC1mZWVk",
+          "request": "CONTINUATION_REQUEST_TYPE_SEARCH"
+         }
+        },
+        "loggingDirectives": {
+         "trackingParams": "CD0Qt6kLGAEiEwjy5YSAsouYAxWiSvIAHa2WPD8="
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}
