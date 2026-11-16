@@ -3,9 +3,11 @@ from __future__ import annotations
 import functools
 import os
 import subprocess
+import threading
 import time
+from collections.abc import Callable
 
-from textual import work
+from textual.message import Message
 from textual.timer import Timer
 
 from src import history, logger, player, streams
@@ -19,7 +21,7 @@ from src.plat import (
     terminate_process,
 )
 from src.sponsorblock import Segment, fetch_segments_async
-from src.tui.messages import PlayerStateUpdated
+from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 from src.tui.screens.mixins.item_actions import watch_url
 
 _MAX_ATTEMPTS = 3
@@ -35,152 +37,158 @@ def _socket_base() -> str:
     return get_audio_ipc_path()
 
 
-class AudioPlayerMixin:
-    """Background audio in a headless mpv, controlled over its IPC socket.
+def _socket_for(session: int) -> str:
+    """IPC path unique to ``session``, so a dying mpv never answers for the next one."""
+    base = _socket_base()
+    if session <= 1:
+        return base
+    stem, ext = os.path.splitext(base)
+    return f"{stem}-{session}{ext}"
 
-    Needs from the host screen: ``_detail()`` (``DetailFocusMixin``), ``_selected_entry()``
-    (``ListNavMixin``), ``_log()`` (``DebugLogMixin``), ``notify`` and ``set_interval``.
-    Call ``_init_audio`` from ``__init__``.
 
-    ``_audio_session`` grows on every start. Each worker and callback carries the number
-    it started under and does nothing once it no longer matches.
+class AudioController:
+    """Background audio in a headless mpv, controlled over its IPC socket. One per app (``app.audio``).
+
+    ``_session`` grows on every start. Each worker and callback carries the number it started
+    under and does nothing once it no longer matches. Screens learn about changes through
+    messages (``src/tui/messages.py``) broadcast to every screen on the stack; ``log`` is set by
+    the screen that owns the debug log.
     """
 
-    def _init_audio(self) -> None:
-        self._audio_proc: subprocess.Popen | None = None
-        self._audio_entry: dict | None = None
-        self._audio_queue: list[dict] = []
-        self._audio_session = 0
-        self._audio_stopped = False
+    def __init__(self, app) -> None:
+        self._app = app
+        self.log: Callable[[str], None] = lambda _markup: None
+        self._proc: subprocess.Popen | None = None
+        self._entry: dict | None = None
+        self._queue: list[dict] = []
+        self._session = 0
+        self._stopped = False
         self._play_pending = False
-        self._audio_poll_timer: Timer | None = None
+        self._poll_timer: Timer | None = None
+        self._poll_busy = False
         self._history_session = 0
         self._segments: list[Segment] = []
         self._segment_idx = 0
+        self._progress: tuple[float, float, bool] | None = None
 
     @property
-    def is_audio_playing(self) -> bool:
-        return self._play_pending or (self._audio_proc is not None and self._audio_proc.poll() is None)
+    def is_playing(self) -> bool:
+        return self._play_pending or (self._proc is not None and self._proc.poll() is None)
 
     @property
-    def audio_entry(self) -> dict | None:
-        return self._audio_entry
+    def entry(self) -> dict | None:
+        return self._entry
 
     @property
-    def audio_queue_len(self) -> int:
-        return len(self._audio_queue)
+    def queue(self) -> tuple[dict, ...]:
+        return tuple(self._queue)
+
+    @property
+    def segments(self) -> list[Segment]:
+        return self._segments
+
+    @property
+    def progress(self) -> tuple[float, float, bool] | None:
+        """Last ``(pos, dur, paused)`` read from mpv for the current track, or None before the first poll."""
+        return self._progress
 
     def can_enqueue(self, entry: dict) -> bool:
         """True while audio plays and ``entry`` is neither the current track nor already queued."""
         entry_id = entry.get("id")
         return (
-            self.is_audio_playing
-            and entry_id != (self._audio_entry or {}).get("id")
-            and all(e.get("id") != entry_id for e in self._audio_queue)
+            self.is_playing
+            and entry_id != (self._entry or {}).get("id")
+            and all(e.get("id") != entry_id for e in self._queue)
         )
 
     def play_audio(self, entry: dict, *, ytdl_format: str = "") -> None:
         """Play ``entry`` now, replacing the current track. The queue is kept."""
-        if self.is_audio_playing:
-            self._audio_session += 1
-            self._stop_audio(keep_player_mode=True)
-        self._start_audio(entry, ytdl_format=ytdl_format)
+        if self.is_playing:
+            self._stop(keep_player_mode=True)
+        self._start(entry, ytdl_format=ytdl_format)
 
     def enqueue_audio(self, entry: dict) -> None:
-        if not self.is_audio_playing:
+        if not self.is_playing:
             self.play_audio(entry)
             return
         entry_id = entry.get("id")
-        if entry_id and entry_id == (self._audio_entry or {}).get("id"):
-            self.notify("Already playing this track", timeout=2)
-        elif entry_id and any(e.get("id") == entry_id for e in self._audio_queue):
-            self.notify("Already in queue", timeout=2)
+        if entry_id and entry_id == (self._entry or {}).get("id"):
+            self._app.notify("Already playing this track", timeout=2)
+        elif entry_id and any(e.get("id") == entry_id for e in self._queue):
+            self._app.notify("Already in queue", timeout=2)
         else:
-            self._audio_queue.append(entry)
-            self.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)
-            self._refresh_queue_hint()
+            self._queue.append(entry)
+            self._app.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)
+            self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
 
     def skip_audio(self) -> None:
-        if not self.is_audio_playing or not self._audio_queue:
+        if not self.is_playing or not self._queue:
             return
-        self.play_audio(self._audio_queue.pop(0))
+        self.play_audio(self._queue.pop(0))
 
     def stop_audio(self) -> None:
         """Stop playback and drop the queue."""
-        self._audio_queue.clear()
-        self._stop_audio()
+        self._queue.clear()
+        self._stop()
 
     def toggle_audio_pause(self) -> None:
-        self._audio_ipc({"command": ["cycle", "pause"]})
+        self._ipc({"command": ["cycle", "pause"]})
 
     def seek_audio(self, seconds: float) -> None:
-        self._audio_ipc({"command": ["seek", seconds, "relative"]})
+        self._ipc({"command": ["seek", seconds, "relative"]})
 
     def seek_audio_percent(self, percent: float) -> None:
-        self._audio_ipc({"command": ["seek", percent, "absolute-percent"]})
+        self._ipc({"command": ["seek", percent, "absolute-percent"]})
 
-    def _audio_socket(self) -> str:
-        """IPC path unique to this session, so a dying mpv never answers for the next one."""
-        base = _socket_base()
-        if self._audio_session <= 1:
-            return base
-        stem, ext = os.path.splitext(base)
-        return f"{stem}-{self._audio_session}{ext}"
+    def _broadcast(self, make_message: Callable[[], Message]) -> None:
+        """Post a fresh message to every screen on the stack, so a covered screen's bar stays current."""
+        for screen in list(self._app.screen_stack):
+            screen.post_message(make_message())
 
-    def _audio_ipc(self, cmd: dict) -> None:
-        if self.is_audio_playing:
-            player.send_ipc_command(cmd, socket_path=self._audio_socket())
+    def _ipc(self, cmd: dict) -> None:
+        if self.is_playing:
+            player.send_ipc_command(cmd, socket_path=_socket_for(self._session))
 
     def _stale(self, session: int) -> bool:
-        return self._audio_stopped or session != self._audio_session
+        return self._stopped or session != self._session
 
     def _clear_pending(self, session: int) -> None:
-        if session == self._audio_session:
+        if session == self._session:
             self._play_pending = False
 
     def _reset_playback(self) -> None:
-        self._audio_proc = None
-        self._audio_entry = None
-        if self._audio_poll_timer:
-            self._audio_poll_timer.stop()
-            self._audio_poll_timer = None
+        self._proc = None
+        self._entry = None
+        self._progress = None
+        if self._poll_timer:
+            self._poll_timer.stop()
+            self._poll_timer = None
 
-    def _refresh_queue_hint(self, focused_entry: dict | None = None) -> None:
-        """Hide the enqueue hint when the focused row is already playing or queued."""
-        try:
-            bar = self._detail().action_bar
-        except Exception:
-            return
-        entry = focused_entry or self._selected_entry()
-        focused_id = entry.get("id") if entry else None
-        playing_id = (self._audio_entry or {}).get("id")
-        queued = {e.get("id") for e in self._audio_queue}
-        bar.update_queue_hint(
-            len(self._audio_queue),
-            hide_e=bool(focused_id and (focused_id == playing_id or focused_id in queued)),
-        )
-
-    def _start_audio(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def _start(self, entry: dict, *, ytdl_format: str = "") -> None:
         self._play_pending = True
-        self._audio_entry = entry
-        self._audio_stopped = False
-        self._audio_session += 1
+        self._entry = entry
+        self._stopped = False
+        self._session += 1
         self._segments = []
         self._segment_idx = 0
-        self._log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
-        self._detail().action_bar.set_player_mode(entry, queue_len=len(self._audio_queue))
-        self._refresh_queue_hint()
-        self._launch_audio_worker(entry, self._audio_session, ytdl_format)
-        self._audio_poll_timer = self.set_interval(_POLL_INTERVAL_S, self._poll_audio_ipc)
+        self._progress = None
+        self.log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
+        queue_len = len(self._queue)
+        self._broadcast(lambda: AudioTrackChanged(entry, queue_len))
+        threading.Thread(
+            target=self._launch_worker, args=(entry, self._session, ytdl_format), daemon=True, name="audio-launch"
+        ).start()
+        self._poll_timer = self._app.set_interval(_POLL_INTERVAL_S, self._poll_tick)
 
-    def _stop_audio(self, *, keep_player_mode: bool = False) -> None:
-        self._log("[dim]Audio stop[/dim]")
-        self._audio_stopped = True
+    def _stop(self, *, keep_player_mode: bool = False) -> None:
+        """Stop mpv and clean up its socket. Runs before the session counter moves, so it addresses the right socket."""
+        self.log("[dim]Audio stop[/dim]")
+        self._stopped = True
         self._play_pending = False
         self._segments = []
         self._segment_idx = 0
-        socket_path = self._audio_socket()
-        proc = self._audio_proc
+        socket_path = _socket_for(self._session)
+        proc = self._proc
         if proc:
             if proc.poll() is None:
                 player.send_ipc_command({"command": ["quit"]}, socket_path=socket_path)
@@ -188,21 +196,23 @@ class AudioPlayerMixin:
             ProcessRegistry.get().unregister(proc)
         self._reset_playback()
         if not keep_player_mode:
-            self._detail().action_bar.set_actions_mode()
-        self.app.screen.post_message(PlayerStateUpdated(0.0, 0.0, False, playing=False))
+            self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
         player.close_persistent_socket(socket_path)
         cleanup_ipc(socket_path)
 
-    @work(thread=True, group="audio_player")
-    def _launch_audio_worker(self, entry: dict, session: int, ytdl_format: str) -> None:
+    def _stop_if_current(self, session: int) -> None:
+        if session == self._session:
+            self._stop()
+
+    def _launch_worker(self, entry: dict, session: int, ytdl_format: str) -> None:
         if self._stale(session):
             self._clear_pending(session)
             return
-        config = self.app.config
+        config = self._app.config
         vid = entry.get("id", "")
         local = entry.get("_local_path")
         if vid:
-            self.app.cache.suppress_video(vid)
+            self._app.cache.suppress_video(vid)
 
         sponsorblock = self._start_sponsorblock(vid, session)
         fmt = ytdl_format or _DEFAULT_AUDIO_FORMAT
@@ -213,9 +223,7 @@ class AudioPlayerMixin:
                 config,
                 fmt,
                 cancelled=lambda: self._stale(session),
-                on_resolving=lambda: self.app.call_from_thread(
-                    self.notify, "Resolving stream…", timeout=5
-                ),
+                on_resolving=lambda: self._app.call_from_thread(self._app.notify, "Resolving stream…", timeout=5),
             )
             if self._stale(session):
                 self._clear_pending(session)
@@ -245,27 +253,27 @@ class AudioPlayerMixin:
                 pass
 
     def _start_sponsorblock(self, vid: str, session: int):
-        config = self.app.config
+        config = self._app.config
         if not vid or not config.sponsorblock_enabled:
             return None
 
         def apply(segments: list[Segment]) -> None:
-            if session == self._audio_session:
+            if session == self._session:
                 self._segments = segments
                 self._segment_idx = 0
-                self._detail().action_bar.set_segments(segments)
+                self._broadcast(lambda: AudioSegmentsLoaded(segments))
 
         return fetch_segments_async(
             vid,
             config.sponsorblock_categories,
-            lambda segments: self.app.call_from_thread(apply, segments),
+            lambda segments: self._app.call_from_thread(apply, segments),
         )
 
     def _launch_failed(self, session: int, message: str) -> None:
         self._clear_pending(session)
-        self.app.call_from_thread(self._log, f"[red]Error: {message}[/red]")
-        self.app.call_from_thread(self.notify, message, severity="error")
-        self.app.call_from_thread(self._stop_audio)
+        self._app.call_from_thread(self.log, f"[red]Error: {message}[/red]")
+        self._app.call_from_thread(self._app.notify, message, severity="error")
+        self._app.call_from_thread(self._stop_if_current, session)
 
     def _play_with_retries(
         self,
@@ -276,7 +284,7 @@ class AudioPlayerMixin:
         stream_url: str | None,
         ytdl_format: str,
     ) -> None:
-        config = self.app.config
+        config = self._app.config
         vid = entry.get("id", "")
         local = entry.get("_local_path")
         fmt = ytdl_format or _DEFAULT_AUDIO_FORMAT
@@ -293,7 +301,7 @@ class AudioPlayerMixin:
             cmd = player.audio_command(
                 exe,
                 input_conf=input_conf,
-                socket_path=self._audio_socket(),
+                socket_path=_socket_for(session),
                 title=entry.get("title", ""),
                 stream_url=stream_url,
                 page_url=local or watch_url(vid),
@@ -314,24 +322,20 @@ class AudioPlayerMixin:
                 logger.debug("audio mpv stderr (stale session): %s", stderr)
                 return
             if returncode in (_EXIT_EOF, _EXIT_QUIT):
-                self.app.call_from_thread(self._on_audio_finished, entry, session)
+                self._app.call_from_thread(self._on_finished, entry, session)
                 return
             if returncode == _EXIT_SIGNAL:
                 return
             if attempt < _MAX_ATTEMPTS:
                 logger.debug("audio retry %d/%d for %s (rc=%s)", attempt, _MAX_ATTEMPTS, vid, returncode)
-                self.app.call_from_thread(
-                    self._log, f"[dim]Retrying audio ({attempt}/{_MAX_ATTEMPTS})…[/dim]"
-                )
+                self._app.call_from_thread(self.log, f"[dim]Retrying audio ({attempt}/{_MAX_ATTEMPTS})…[/dim]")
                 time.sleep(_RETRY_DELAY_S)
             else:
                 logger.warning(
                     "audio mpv failed after %d attempts (rc=%s) for %s: %s",
                     _MAX_ATTEMPTS, returncode, vid, stderr or "(no stderr output)",
                 )
-                self.app.call_from_thread(
-                    self._on_audio_failed, entry, returncode, stderr, session
-                )
+                self._app.call_from_thread(self._on_failed, entry, returncode, stderr, session)
 
     def _run_mpv(self, cmd: list[str], session: int) -> tuple[int, str]:
         """Run mpv to completion. Blocks the worker thread; returns its exit code and stderr."""
@@ -342,7 +346,7 @@ class AudioPlayerMixin:
             text=True,
             **get_popen_kwargs(headless=True),
         )
-        self._audio_proc = proc
+        self._proc = proc
         self._clear_pending(session)
         ProcessRegistry.get().register(proc)
         try:
@@ -352,66 +356,70 @@ class AudioPlayerMixin:
         return proc.returncode, (stderr or "").strip()
 
     def _advance_queue(self) -> bool:
-        if not self._audio_queue:
+        if not self._queue:
             return False
-        self._start_audio(self._audio_queue.pop(0))
+        self._start(self._queue.pop(0))
         return True
 
-    def _on_audio_finished(self, entry: dict, session: int) -> None:
-        if session != self._audio_session:
+    def _on_finished(self, entry: dict, session: int) -> None:
+        if session != self._session:
             return
         title = entry.get("title", "")
-        self._log(f"[dim]Audio finished: {title[:60]}[/dim]")
+        self.log(f"[dim]Audio finished: {title[:60]}[/dim]")
         self._reset_playback()
-        if self._audio_queue:
+        if self._queue:
             if title:
-                self.notify(f"✓ {title[:40]}", timeout=3)
+                self._app.notify(f"✓ {title[:40]}", timeout=3)
             self._advance_queue()
         else:
-            self._detail().action_bar.set_actions_mode()
+            self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
             if title:
-                self.notify(f"✓ Finished: {title[:50]}", timeout=4)
+                self._app.notify(f"✓ Finished: {title[:50]}", timeout=4)
 
-    def _on_audio_failed(
-        self, entry: dict, returncode: int | None, stderr: str, session: int
-    ) -> None:
-        if session != self._audio_session:
+    def _on_failed(self, entry: dict, returncode: int | None, stderr: str, session: int) -> None:
+        if session != self._session:
             return
         title = entry.get("title", "") or entry.get("id", "")
         self._reset_playback()
         first_line = next((ln.strip() for ln in stderr.splitlines() if ln.strip()), "")
         detail = player.friendly_mpv_error(first_line) if first_line else f"exit code {returncode}"
-        self._log(f"[red]Audio failed: {title[:50]} — {detail}[/red]")
-        self.notify(f"✗ Audio failed: {title[:40]} ({detail[:80]})", severity="error", timeout=8)
+        self.log(f"[red]Audio failed: {title[:50]} — {detail}[/red]")
+        self._app.notify(f"✗ Audio failed: {title[:40]} ({detail[:80]})", severity="error", timeout=8)
         if not self._advance_queue():
-            self._detail().action_bar.set_actions_mode()
+            self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
 
-    def _poll_audio_ipc(self) -> None:
-        if self.is_audio_playing:
-            self._poll_audio_worker(self._audio_session)
+    def _poll_tick(self) -> None:
+        """Timer callback: start a poll unless the previous one is still waiting on mpv."""
+        if self.is_playing and not self._poll_busy:
+            self._poll_busy = True
+            threading.Thread(target=self._poll_worker, args=(self._session,), daemon=True, name="audio-poll").start()
 
-    @work(thread=True, exclusive=True, group="audio_poll")
-    def _poll_audio_worker(self, session: int) -> None:
-        pos, dur, paused = player.poll_audio_properties(socket_path=self._audio_socket())
-        if pos is None or dur is None or session != self._audio_session:
+    def _poll_worker(self, session: int) -> None:
+        try:
+            self.poll_once(session)
+        finally:
+            self._poll_busy = False
+
+    def poll_once(self, session: int) -> None:
+        """Read mpv's position, apply SponsorBlock skipping and publish progress. Runs off the UI thread."""
+        pos, dur, paused = player.poll_audio_properties(socket_path=_socket_for(session))
+        if pos is None or dur is None or session != self._session:
             return
-        self.app.call_from_thread(
-            self._publish_progress, session, pos, dur, paused
-        )
-        self._skip_sponsor_segment(pos)
+        self._app.call_from_thread(self._publish_progress, session, pos, dur, paused)
+        self._skip_sponsor_segment(pos, session)
 
     def _publish_progress(self, session: int, pos: float, dur: float, paused: bool) -> None:
-        if session != self._audio_session:
+        if session != self._session:
             return
-        if self._audio_entry and self._history_session != session:
+        if self._entry and self._history_session != session:
             self._history_session = session
-            history.add(self._audio_entry)
-        self._detail().action_bar.update_progress(pos, dur, paused)
-        self.app.screen.post_message(PlayerStateUpdated(pos, dur, paused, playing=True))
+            history.add(self._entry)
+        self._progress = (pos, dur, paused)
+        self._broadcast(lambda: PlayerStateUpdated(pos, dur, paused, playing=True))
 
-    def _skip_sponsor_segment(self, pos: float) -> None:
+    def _skip_sponsor_segment(self, pos: float, session: int) -> None:
         """Seek past the SponsorBlock segment containing ``pos``. Segments are sorted by start."""
-        if not self.app.config.sponsorblock_auto_skip:
+        if not self._app.config.sponsorblock_auto_skip:
             return
         segments = self._segments
         while self._segment_idx < len(segments) and segments[self._segment_idx].end <= pos:
@@ -421,9 +429,7 @@ class AudioPlayerMixin:
         seg = segments[self._segment_idx]
         if seg.start <= pos < seg.end:
             self._segment_idx += 1
-            player.send_ipc_command(
-                {"command": ["seek", seg.end, "absolute"]}, socket_path=self._audio_socket()
-            )
-            self.app.call_from_thread(
-                self.notify, f"Skipped: {seg.category} ({int(seg.end - seg.start)}s)", timeout=3
+            player.send_ipc_command({"command": ["seek", seg.end, "absolute"]}, socket_path=_socket_for(session))
+            self._app.call_from_thread(
+                self._app.notify, f"Skipped: {seg.category} ({int(seg.end - seg.start)}s)", timeout=3
             )

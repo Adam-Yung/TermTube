@@ -11,7 +11,7 @@ from textual.widgets import Footer, Tab, Tabs
 
 from src import feeds, innertube, logger
 from src.tui import keymap
-from src.tui.messages import PlayerStateUpdated
+from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin
@@ -31,11 +31,11 @@ def _avatar_id(info: dict) -> str:
     return "ch_" + raw[:50]
 
 
-class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, Screen):
+class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, Screen):
     """One channel: info on the left, its videos or playlists in the middle, detail on the right.
 
-    Audio is owned by the ``MainScreen`` underneath; this screen only forwards controls
-    and mirrors playback state into its own action bar.
+    Audio belongs to ``app.audio``; this screen forwards the keys and mirrors playback state
+    into its own action bar.
     """
 
     _LIST_ID = "#ch-video-list"
@@ -90,26 +90,6 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, Screen):
 
     def _info_panel(self) -> ChannelInfoPanel:
         return self.query_one("#ch-info-panel", ChannelInfoPanel)
-
-    def _audio_host(self):
-        from src.tui.screens.main_screen import MainScreen
-
-        return next(s for s in self.app.screen_stack if isinstance(s, MainScreen))
-
-    def _sync_player_bar(self) -> None:
-        host = self._audio_host()
-        bar = self._detail().action_bar
-        if host.is_audio_playing and host.audio_entry:
-            bar.set_player_mode(host.audio_entry, queue_len=host.audio_queue_len)
-        elif not host.is_audio_playing:
-            bar.set_actions_mode()
-
-    def on_player_state_updated(self, message: PlayerStateUpdated) -> None:
-        bar = self._detail().action_bar
-        if message.playing:
-            bar.update_progress(message.pos, message.dur, message.paused)
-        else:
-            bar.set_actions_mode()
 
     def _hidden_menu_actions(self, entry: dict) -> set[str]:
         return super()._hidden_menu_actions(entry) | {"channel"}

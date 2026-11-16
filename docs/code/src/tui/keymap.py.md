@@ -8,7 +8,7 @@ player's keys are in `src/tui/screens/watch_modal.py`, not here.
 ## Rules
 
 - All bindings are `show=False`. The footer is the custom action bar (`src/tui/widgets/action_bar.py`).
-- Action names resolve to `action_<name>` on the screen: navigation to `ListNavMixin`, playback to `AudioPlayerMixin`, item actions to the
+- Action names resolve to `action_<name>` on the screen: navigation to `ListNavMixin`, playback to `ItemActionsMixin` (which calls `app.audio`), item actions to the
   screen or its mixins. A binding whose action does not exist fails only when the key is pressed.
 - Seek and percent bindings carry arguments in the action string (`audio_seek(-5)`, `audio_seek_pct(30)`).
 - Textual names `[ ] { }` as `left_square_bracket`, `right_square_bracket`, `left_curly_bracket`, `right_curly_bracket`. The literal

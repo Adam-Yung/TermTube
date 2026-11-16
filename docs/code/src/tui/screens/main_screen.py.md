@@ -1,6 +1,6 @@
 # src/tui/screens/main_screen.py
 
-The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioPlayerMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, search, the playlist drill-down, subscription rows, the header spinner counter, and quit.
+The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioBarMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, search, the playlist drill-down, subscription rows, the header spinner counter, and quit.
 
 ## Tabs
 
@@ -21,7 +21,7 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 
 ## Quit
 
-`action_quit_app` saves the stash, stops audio, schedules `_force_exit` on a 2 s daemon timer and calls `app.exit()`. `_force_exit` kills registered subprocesses and calls `os._exit(0)` if Textual's shutdown hangs (a blocked worker thread would otherwise keep the process alive). Tests must patch `_force_exit`, or the runner dies.
+`action_quit_app` saves the stash, stops audio (`app.audio.stop_audio()`), schedules `_force_exit` on a 2 s daemon timer and calls `app.exit()`. `_force_exit` kills registered subprocesses and calls `os._exit(0)` if Textual's shutdown hangs (a blocked worker thread would otherwise keep the process alive). Tests must patch `_force_exit`, or the runner dies.
 
 ## Startup prompts
 

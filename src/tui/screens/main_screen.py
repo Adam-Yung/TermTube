@@ -13,7 +13,7 @@ from textual.widgets import Footer, RichLog, Tab, Tabs
 from src import logger
 from src.plat import ProcessRegistry
 from src.tui import keymap
-from src.tui.screens.mixins.audio_player import AudioPlayerMixin
+from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
@@ -49,12 +49,12 @@ class MainScreen(
     ListNavMixin,
     DetailFocusMixin,
     ItemActionsMixin,
-    AudioPlayerMixin,
+    AudioBarMixin,
     FeedLoaderMixin,
     DebugLogMixin,
     Screen,
 ):
-    """Tabs, the video list, the detail panel and the background audio player."""
+    """Tabs, the video list and the detail panel; the action bar mirrors ``app.audio``."""
 
     _LIST_ID = "#video-list-panel"
     _DETAIL_ID = "#detail-panel"
@@ -90,7 +90,6 @@ class MainScreen(
         self._active_workers = 0
         self._workers_lock = threading.Lock()
         self._init_detail_focus()
-        self._init_audio()
         self._init_debug_log()
 
     def compose(self) -> ComposeResult:
@@ -108,6 +107,8 @@ class MainScreen(
         for tab in tabs.query(Tab):
             tab.can_focus = False
         self._mount_debug_log()
+        self.app.audio.log = self._log
+        self._sync_player_bar()
         self.call_after_refresh(self._maybe_show_image_warning)
 
     def on_unmount(self) -> None:
@@ -301,9 +302,6 @@ class MainScreen(
         else:
             self._open_action_menu(entry)
 
-    def _audio_host(self) -> MainScreen:
-        return self
-
     def _cancel_pending_focus_and_thumb(self) -> None:
         """Also invalidates the subscriptions avatar: it renders into the shared detail panel."""
         super()._cancel_pending_focus_and_thumb()
@@ -407,7 +405,7 @@ class MainScreen(
         logger.info("quit")
         if self._current_tab in FEED_TABS:
             self._save_feed_stash(self._current_tab)
-        self._stop_audio()
+        self.app.audio.stop_audio()
         timer = threading.Timer(_FORCE_EXIT_AFTER_S, _force_exit)
         timer.daemon = True
         timer.start()

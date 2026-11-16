@@ -2,7 +2,7 @@
 
 Launch helpers for mpv and the JSON IPC client used to control it. It owns the mpv executable lookup, the temporary `input.conf`, the
 headless audio command line, and the two IPC transports. It does not own process lifetime: screens spawn and register the mpv processes
-(`src/tui/screens/mixins/audio_player.py`, `src/tui/screens/watch_modal.py`).
+(`src/tui/audio_controller.py`, `src/tui/screens/watch_modal.py`).
 
 Decisions: `docs/decisions/playback.md`, `docs/decisions/concurrency.md`.
 

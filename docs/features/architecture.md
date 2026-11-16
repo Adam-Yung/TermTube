@@ -9,7 +9,8 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Entry | `src/main.py` | CLI args, logger, imports `textual_image` before Textual, launches the app |
 | App | `src/tui/app.py` | `TermTubeApp`: config and cache, screen push, housekeeping, warm-ups |
 | Screens | `src/tui/screens/main_screen.py`, `channel_screen.py` | Thin; compose widgets and mixins |
-| Mixins | `src/tui/screens/mixins/` | list navigation, detail focus, item actions, feed loading, audio, debug log |
+| Mixins | `src/tui/screens/mixins/` | list navigation, detail focus, item actions, feed loading, audio bar, debug log |
+| Audio | `src/tui/audio_controller.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
 | Widgets | `src/tui/widgets/` | list, detail panel, action bar, thumbnail, page indicator, header, channel info |
 | Keys | `src/tui/keymap.py` | The only definition of the keymap in code (`docs/features/keybindings.md`) |
 | Messages | `src/tui/messages.py` | `PlayerStateUpdated` |
@@ -24,15 +25,15 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 ## Screens and mixins
 
 ```
-MainScreen (ListNav, DetailFocus, ItemActions, AudioPlayer, FeedLoader, DebugLog)
+MainScreen (ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
  |- AppHeader, Tabs, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
  |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, HelpScreen, ...
-ChannelScreen (ListNav, DetailFocus, ItemActions)
+ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)
  |- ChannelInfoPanel, Tabs, VideoListPanel, DetailPanel
- |- audio: delegates to the MainScreen below it in the stack
+ |- audio: mirrors app.audio, like MainScreen
 ```
 
-A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, `_audio_host()`, hooks such as `_worker_start`, `_on_last_page_reached`) in its docstring. Interfaces are listed in each mixin's mirror.
+A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_last_page_reached`) in its docstring. Interfaces are listed in each mixin's mirror.
 
 ## Worker groups
 
@@ -49,8 +50,8 @@ All are `@work(thread=True, exclusive=True)` unless noted. `exclusive` cancels t
 | `ch_thumb` | Channel | `_avatar_worker` | avatar in the info column |
 | `ch_info` | Channel | `_load_channel_info` | channel metadata |
 | `ch_content` | Channel | `_load_content` | videos or playlists |
-| `audio_player` (not exclusive) | Main | `_launch_audio_worker` | resolve URL, run mpv, retry |
-| `audio_poll` | Main | `_poll_audio_worker` | read position/duration/pause over IPC every 0.5 s |
+| thread `audio-launch` | AudioController | `_launch_worker` | resolve URL, run mpv, retry (plain thread, one per start) |
+| thread `audio-poll` | AudioController | `_poll_worker` | read position/duration/pause over IPC every 0.5 s; skipped while the previous poll runs |
 | default (not exclusive) | Main | `_run_ytdlp_update` | yt-dlp self-update |
 | `video_player`, `mpv_poll` | WatchModal | | foreground mpv (`docs/code/src/tui/screens/watch_modal.py.md`) |
 | `download` | DownloadModal | | one download |
@@ -66,7 +67,7 @@ A worker is handed a number when it starts and drops its result if the counter h
 | `_avatar_session` | `MainScreen` | subscription avatar | cursor move, each avatar launch |
 | `_info_avatar_session` | `ChannelScreen` | info-column avatar | each `_apply_info` only |
 | `_content_session` | `ChannelScreen` | `ch_content` | tab, sort, reload |
-| `_audio_session` | `AudioPlayerMixin` | launch, poll, completion, socket path | every audio start |
+| `_session` | `AudioController` | launch, poll, completion, socket path | every audio start |
 
 The channel info avatar must not share a counter the cursor bumps: it does not change with the cursor, and sharing one cancels it mid-load (fixed in ccebfaa).
 
@@ -74,7 +75,7 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 
 | Message | Posted by | Posted on | Handled by |
 |---|---|---|---|
-| `PlayerStateUpdated` | `AudioPlayerMixin._publish_progress`, `_stop_audio` | `self.app.screen` | `ChannelScreen.on_player_state_updated` |
+| `PlayerStateUpdated`, `AudioTrackChanged`, `AudioQueueChanged`, `AudioSegmentsLoaded` | `AudioController` | every screen on `app.screen_stack` | `AudioBarMixin` handlers |
 | `VideoListPanel.Selected` | list highlight | bubbles | `on_video_list_panel_selected` (screen) |
 | `VideoListPanel.Activated` | Enter, click on highlighted row, double click | bubbles | `on_video_list_panel_activated` (screen) |
 | `VideoListPanel.PageChangeRequested` | page indicator click | bubbles | `ListNavMixin` |
@@ -108,12 +109,12 @@ Channel avatars pass `url=` directly (no entry lookup). `ThumbnailWidget` discar
 
 ## Audio pipeline
 
-`a` -> `ItemActionsMixin._play_audio` -> `_audio_host().play_audio` -> `_start_audio` (sets `_play_pending`, action bar to player mode "Buffering", starts the 0.5 s poll timer) -> `_launch_audio_worker` (resolve URL without cookies or play `_local_path`; SponsorBlock fetch; headless mpv with a per-session IPC socket; up to 3 attempts with URL re-resolve) -> on exit 0/4 `_on_audio_finished` advances the queue, otherwise `_on_audio_failed`. Every 0.5 s `_poll_audio_worker` reads properties; on the first success the track enters history; each success updates the bar and posts `PlayerStateUpdated`. Details and stale rules: `docs/code/src/tui/screens/mixins/audio_player.py.md`.
+`a` -> `ItemActionsMixin._play_audio` -> `app.audio.play_audio` -> `_start` (sets `_play_pending`, broadcasts `AudioTrackChanged` so every bar shows "Buffering", starts the 0.5 s poll timer) -> `_launch_worker` (resolve URL without cookies or play `_local_path`; SponsorBlock fetch; headless mpv with a per-session IPC socket; up to 3 attempts with URL re-resolve) -> on exit 0/4 `_on_finished` advances the queue, otherwise `_on_failed`. Every 0.5 s `_poll_worker` reads properties; on the first success the track enters history; each success is broadcast as `PlayerStateUpdated`. Details and stale rules: `docs/code/src/tui/audio_controller.py.md`.
 
 ## Common bug locations
 
 - **Thumbnail missing or stuck on "Loading"**: URL empty; session counter shared between workers that should not share one; `ensure_thumb_jpeg` returning None; for library rows, the sidecar missing. Check `is_current` closures first.
-- **"Buffering…" never ends**: no successful poll (`poll_audio_properties` returns None: wrong or stale socket path, mpv not up); or `PlayerStateUpdated` posted on `app` instead of `app.screen`; on `ChannelScreen`, the handler must be `on_player_state_updated`.
+- **"Buffering…" never ends**: no successful poll (`poll_audio_properties` returns None: wrong or stale socket path, mpv not up); or a screen missing `AudioBarMixin` (the handlers are `on_player_state_updated` and the `on_audio_*` ones); messages must be posted with `screen.post_message`, never `app.post_message`.
 - **Feed empty or not loading**: cookies (`browser` setting, `src/cookies.py`), `ytdlp` options, cache freshness (`cache.is_feed_fresh`), the `_EXTRACTION_ERRORS` match opening the update prompt.
 - **Play fails or silent**: stale cached stream URL (`streams.re_resolve`), IPC socket path, mpv stderr in the debug log (Ctrl+D, `termtube --debug`).
 - **Keys stop working in the list**: focus left the list (`ListNavMixin.on_key` reclaims it for navigation keys only); a modal not dismissed.

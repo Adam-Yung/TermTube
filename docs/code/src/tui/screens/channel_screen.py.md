@@ -1,14 +1,13 @@
 # src/tui/screens/channel_screen.py
 
-Pushed on top of `MainScreen` for one channel: info column (`ChannelInfoPanel`), a Videos/Playlists tab bar and list in the middle, `DetailPanel` on the right. It reuses `ListNavMixin`, `DetailFocusMixin` and `ItemActionsMixin`; it has no audio of its own.
+Pushed on top of `MainScreen` for one channel: info column (`ChannelInfoPanel`), a Videos/Playlists tab bar and list in the middle, `DetailPanel` on the right. It reuses `ListNavMixin`, `DetailFocusMixin` and `ItemActionsMixin`; it has no audio of its own (`AudioBarMixin` mirrors `app.audio`).
 
 ## Audio
 
-`_audio_host()` returns the `MainScreen` in the screen stack. Audio keys act on the main screen's player, so music keeps playing across channel pages. This screen shows the state:
+Audio keys act on `app.audio`, so music keeps playing across channel pages and this screen never scans the screen stack. `AudioBarMixin` shows the state:
 
 - `on_mount` calls `_sync_player_bar` to copy the current track into this screen's action bar.
-- `PlayerStateUpdated` arrives because the audio mixin posts it to `app.screen`, which is this screen while it is on top (`self.app.post_message` would never reach it). `on_player_state_updated` forwards it to the bar. The message class is in `src/tui/messages.py`.
-- After `play_audio`/`enqueue_audio` from here, `ItemActionsMixin` calls `_sync_player_bar` so the bar updates without waiting for the next poll.
+- The controller broadcasts its messages to every screen on the stack, so this screen's bar updates while it is on top and stays current for the `MainScreen` below it.
 
 `action_channel` is a no-op and the "channel" menu entry is hidden: already on the page.
 

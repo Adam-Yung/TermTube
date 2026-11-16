@@ -12,6 +12,7 @@ from textual.app import App
 from src import logger
 from src.cache import Cache
 from src.config import Config
+from src.tui.audio_controller import AudioController
 
 _HOUSEKEEPING_DELAY_S = 60.0
 
@@ -28,6 +29,7 @@ class TermTubeApp(App):
         self.config = config
         self.cache = Cache(config._data.get("cache_ttl", {}))
         self._housekeeping_done = threading.Event()
+        self.audio = AudioController(self)
         atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:

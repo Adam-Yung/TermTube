@@ -18,19 +18,12 @@ def _is_video(entry: dict | None) -> bool:
 class ItemActionsMixin:
     """Actions on the highlighted row: play, download, copy, open, and the Enter menu.
 
-    Needs ``_selected_entry()`` (``ListNavMixin``). Audio goes through ``_audio_host()``:
-    the screen that owns the mpv process, which is not always the screen showing the list.
+    Needs ``_selected_entry()`` (``ListNavMixin``) and ``_sync_player_bar()`` (``AudioBarMixin``).
+    Audio keys act on ``app.audio``, the one controller shared by every screen.
     """
 
-    def _audio_host(self):
-        """The object with the ``AudioPlayerMixin`` interface."""
-        raise NotImplementedError
-
-    def _sync_player_bar(self) -> None:
-        """Hook: show the host's current track in this screen's own action bar."""
-
     def _hidden_menu_actions(self, entry: dict) -> set[str]:
-        return set() if self._audio_host().can_enqueue(entry) else {"enqueue"}
+        return set() if self.app.audio.can_enqueue(entry) else {"enqueue"}
 
     def action_activate(self) -> None:
         entry = self._selected_entry()
@@ -104,29 +97,29 @@ class ItemActionsMixin:
             self._pick_quality(audio_only=True, then=lambda fmt: self._play_audio(entry, fmt))
 
     def _play_audio(self, entry: dict, ytdl_format: str = "") -> None:
-        self._audio_host().play_audio(entry, ytdl_format=ytdl_format)
+        self.app.audio.play_audio(entry, ytdl_format=ytdl_format)
         self._sync_player_bar()
 
     def action_audio_enqueue(self) -> None:
         entry = self._playable_entry()
         if entry:
-            self._audio_host().enqueue_audio(entry)
+            self.app.audio.enqueue_audio(entry)
             self._sync_player_bar()
 
     def action_audio_skip(self) -> None:
-        self._audio_host().skip_audio()
+        self.app.audio.skip_audio()
 
     def action_audio_pause(self) -> None:
-        self._audio_host().toggle_audio_pause()
+        self.app.audio.toggle_audio_pause()
 
     def action_audio_stop(self) -> None:
-        self._audio_host().stop_audio()
+        self.app.audio.stop_audio()
 
     def action_audio_seek(self, seconds: float) -> None:
-        self._audio_host().seek_audio(seconds)
+        self.app.audio.seek_audio(seconds)
 
     def action_audio_seek_pct(self, percent: float) -> None:
-        self._audio_host().seek_audio_percent(percent)
+        self.app.audio.seek_audio_percent(percent)
 
     def action_download(self) -> None:
         entry = self._playable_entry()

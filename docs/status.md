@@ -28,8 +28,6 @@
 ## Known problems
 
 - `DownloadModal` Esc does not stop the running yt-dlp download.
-- `play_audio` bumps the audio session before stopping, so the `quit` IPC and socket cleanup target the new session's socket; the old mpv
-  is still terminated by process. Mirror: `docs/code/src/tui/screens/mixins/audio_player.py.md`.
 - `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
 - `deps.check_dependencies` accepts system `mpv`/`deno`/`ffmpeg`, against the bundled-binaries rule.
 - `uninstall.sh` uses `pkill -f termtube` and a stale socket path; `setup.ps1` help lists flags that do not exist; `--update` always exits 0.
@@ -44,6 +42,8 @@ Step 2 is done: search and channel info use InnerTube with a yt-dlp fallback (li
 Step 3 is partly done: the channel page's first page uses `feeds.channel_latest` (RSS with a dead-flag, then InnerTube). RSS still returns 404 on this network (checked with `scripts/bench-sources.py`, both `channel_id` and `UULF` playlist forms; the URL is valid, reports point to a YouTube-side outage), so the InnerTube fallback is what runs here. The Subscriptions tab lists channels, so no merged feed exists.
 
 Cold start (2026-11-15, import path of `main`, 3 runs): app import plus `src.ytdlp` took 319 to 347 ms; with `src.ytdlp` kept off the main thread, 134 to 157 ms. `yt_dlp` itself is imported by the warmup worker thread, so lazy imports inside `ytdlp.py`, `streams.py` and `downloads.py` would not move first paint and were not made. InnerTube requests reuse a per-thread keep-alive connection (about 118 ms per `/player` call after the first, down from 157 to 219 ms).
+
+Audio lives on `app.audio` (`AudioController`, `src/tui/audio_controller.py`); screens mirror it through broadcast messages, `ChannelScreen` no longer scans the screen stack, and the old socket-path bug (stop after the session bump) is fixed.
 
 Cookies are extracted on first authenticated use (home feed, subscription list), narrowed to YouTube and Google, and invalidated on an auth failure; nothing else reads the browser profile.
 

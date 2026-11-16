@@ -73,7 +73,7 @@ background warmup thread), and replace per-call `urllib.request.urlopen` in `src
 1. Move audio state and mpv control out of `AudioPlayerMixin` into an object on `TermTubeApp` (`app.audio`) with the same public methods
    (`play_audio`, `enqueue_audio`, `skip_audio`, `stop_audio`, `toggle_audio_pause`, `seek_audio`, `seek_audio_percent`, `can_enqueue`).
    Screens subscribe through `PlayerStateUpdated`. `ChannelScreen._audio_host` and its `screen_stack` scan go away. Keep the session-counter
-   rules in `docs/code/src/tui/screens/mixins/audio_player.py.md`; fix the known socket-path bug while here (`play_audio` bumps the session
+   rules in `docs/code/src/tui/audio_controller.py.md`; fix the known socket-path bug while here (`play_audio` bumps the session
    before `_stop_audio`, so the quit IPC and cleanup target the new socket: stop first, then bump).
 2. `player.run_mpv_with_retries(cmd_builder, ...)` shared by the audio worker and `WatchModal`; both keep their own command builders.
 3. Typed rows: a `TypedDict` per row kind (video, channel, playlist, library) in `src/entries.py`; use them in annotations of the loaders,

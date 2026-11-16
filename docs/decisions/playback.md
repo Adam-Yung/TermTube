@@ -72,3 +72,7 @@ Why it is safe: the CDN background probe still runs on every `put_cached_stream_
 ## 2026-11-15 — No faster yt-dlp stream resolve; no InnerTube mobile resolve
 
 Measured warmed reuse, direct `140/251`, manifest skipping and four `player_client` pins against the baseline (`docs/guides/benchmarks.md`). None gave 1.5x, so none is wired. The optional InnerTube mobile-client `/player` resolve behind `fast_stream_resolve` was not built: `/player` returns no `streamingData` without a Proof of Origin token (`docs/code/src/innertube.py.md`), and the clients that skip that check (`tv`, `ios`) failed every resolve above. Revisit if yt-dlp's default client changes.
+
+## 2026-11-15 — Audio moved to an app-level `AudioController`
+
+State and mpv control left `AudioPlayerMixin` (on `MainScreen`) for `AudioController` on `TermTubeApp` (`app.audio`). Screens mirror it through messages the controller broadcasts to every screen on the stack, so a covered screen's bar stays current and no screen finds another by scanning `screen_stack`. Workers are plain daemon threads, and the poll keeps its old "one at a time" behaviour with a busy flag. Two fixes came with the move: `play_audio` stops the old track before the session counter moves (the `quit` IPC and cleanup used to hit the new socket), and the socket path is derived from the session a worker holds, not the current one. A launch failure of an older track no longer stops the newer track.

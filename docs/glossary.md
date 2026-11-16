@@ -9,7 +9,7 @@
 | Dwell | The 100 ms / 150 ms pause after a cursor move before the metadata fetch / thumbnail render starts. |
 | Session counter | An integer a worker captures at start; a result whose counter is stale is dropped. Used for focus, thumbnail, avatar and audio. |
 | Worker group | The `group=` of a Textual `@work`. `exclusive=True` cancels the older worker of the same group on the same node. |
-| Audio host | The screen that owns the background mpv process: always `MainScreen`. |
+| Audio controller | `app.audio`: owns the background mpv process, queue and state; screens only mirror it. |
 | InnerTube | YouTube's internal JSON API (`/youtubei/v1/...`). `src/innertube.py`. |
 | Source ladder | The ordering of data sources from cache to yt-dlp. `docs/plans/2026-11-15-optimization-PLAN.md`. |
 | Mirror | The `docs/code/<path>.md` file for a source file. |

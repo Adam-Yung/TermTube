@@ -1,6 +1,6 @@
 # src/sponsorblock.py
 
-Fetches SponsorBlock skip segments for a video and caches them on disk. Called through `fetch_segments_async` from `src/tui/screens/watch_modal.py` and `src/tui/screens/mixins/audio_player.py` when playback starts; they apply the skips. History: `docs/decisions/playback.md` (2026-05-10 entry).
+Fetches SponsorBlock skip segments for a video and caches them on disk. Called through `fetch_segments_async` from `src/tui/screens/watch_modal.py` and `src/tui/audio_controller.py` when playback starts; they apply the skips. History: `docs/decisions/playback.md` (2026-05-10 entry).
 
 ## Invariants
 
