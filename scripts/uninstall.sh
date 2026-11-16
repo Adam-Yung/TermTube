@@ -102,7 +102,7 @@ echo ""
 check_item "$APP_DIR"  "Application files"
 check_item "$BIN_LINK" "CLI symlink"
 
-check_item "$DEPS_DIR"  "Binary dependencies (yt-dlp, deno, ffmpeg, mpv)"
+check_item "$DEPS_DIR"  "Binary dependencies (deno, ffmpeg, mpv)"
 
 if [[ "$PURGE" == true ]]; then
     check_item "$CONFIG_DIR" "Configuration"
@@ -138,16 +138,17 @@ if [[ "$FORCE" != true ]]; then
     fi
 fi
 
-if pgrep -f "termtube" &>/dev/null 2>&1; then
+# Only processes started from the installed app dir (its venv python and sources), never other "termtube" matches.
+if pgrep -f "$APP_DIR/" &>/dev/null 2>&1; then
     warn "TermTube process detected. Stopping…"
-    pkill -f "termtube" 2>/dev/null || true
+    pkill -f "$APP_DIR/" 2>/dev/null || true
     sleep 0.5
 fi
 
-# Clean up mpv IPC socket if present
-if [[ -S "/tmp/termtube-mpv.sock" ]]; then
-    rm -f "/tmp/termtube-mpv.sock"
-fi
+# mpv IPC sockets: same directory as src/plat.py _unix_ipc_dir()
+ipc_dir="${XDG_RUNTIME_DIR:-/tmp/termtube-$(id -u)}"
+rm -f "$ipc_dir"/termtube-mpv*.sock
+rmdir "/tmp/termtube-$(id -u)" 2>/dev/null || true
 
 echo ""
 echo -e "  ${BOLD}Removing…${RESET}"

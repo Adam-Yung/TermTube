@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Installs TermTube, sets up a Python virtual environment, and bootstraps
-    binary dependencies (yt-dlp, deno, ffmpeg, mpv) from GitHub releases.
+    binary dependencies (deno, ffmpeg, mpv) from GitHub releases.
 
 .PARAMETER NoDeps
     Skip all dependency checks.
@@ -15,8 +15,8 @@
 
 .EXAMPLE
     .\setup.ps1
-    .\setup.ps1 -Sync
-    .\setup.ps1 -Deps -NoPrompt
+    .\setup.ps1 -NoDeps
+    .\setup.ps1 -NoPrompt
 #>
 
 [CmdletBinding()]
@@ -388,10 +388,10 @@ function Install-Launcher {
 function Bootstrap-Dependencies {
     <#
     .SYNOPSIS
-        Download all binary dependencies (yt-dlp, deno, ffmpeg, mpv) from GitHub
+        Download all binary dependencies (deno, ffmpeg, mpv) from GitHub
         releases using src/bootstrap.py. This replaces the old winget-based install.
     #>
-    Write-Info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
+    Write-Info "Downloading deno, ffmpeg, mpv from GitHub releases..."
     Write-Info "Install path: $env:LOCALAPPDATA\termtube-deps\bin"
     Write-Host ""
 

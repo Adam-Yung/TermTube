@@ -218,7 +218,7 @@ if ((Test-Path $LegacyAppDir) -and -not ($LegacyAppDir -eq $AppDir) -and `
     }
 }
 Remove-SafeItem $MpvDir "Bundled mpv binary"
-Remove-SafeItem $DepsDir "Bootstrap dependencies (yt-dlp, deno, ffmpeg, mpv)"
+Remove-SafeItem $DepsDir "Bootstrap dependencies (deno, ffmpeg, mpv)"
 
 if ($Purge) {
     Remove-SafeItem $ConfigDir "Configuration & cookies"

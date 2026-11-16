@@ -20,5 +20,4 @@ Builds before 2026-05 put code directly in `%LOCALAPPDATA%\TermTube`, which is a
 
 ## Limits
 
-- The comment-based help still shows `-Sync` and `-Deps` examples and lists yt-dlp among the binary dependencies; neither the parameters nor the binary exist any more.
 - Not run by tests; needs a manual run on Windows.

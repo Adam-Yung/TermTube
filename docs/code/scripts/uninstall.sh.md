@@ -10,6 +10,7 @@ Removes the app dir, the `~/.local/bin/termtube` symlink and `~/.local/termtube-
 
 ## Limits
 
-- It stops running processes with `pkill -f termtube`, which can match unrelated processes whose command line contains that word.
-- It removes `/tmp/termtube-mpv.sock`, an older socket location. Current sockets live under `$XDG_RUNTIME_DIR` or `/tmp/termtube-<uid>/` ([src/plat.py](../src/plat.py.md)); the latter is not cleaned.
+- It stops running processes with `pkill -f "$APP_DIR/"`: only commands started from the installed app directory. A copy run from a git checkout is not stopped.
+- It removes `termtube-mpv*.sock` from `$XDG_RUNTIME_DIR` or `/tmp/termtube-<uid>/` (the directory `plat._unix_ipc_dir` uses, [src/plat.py](../src/plat.py.md)) and removes that directory if empty.
+- The unix script was only syntax-checked (`bash -n`); it was not run.
 - Not run by tests.

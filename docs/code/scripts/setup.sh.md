@@ -17,5 +17,4 @@ macOS/Linux installer. Copies the checkout to `~/.local/share/TermTube`, builds 
 
 ## Limits
 
-- The help text and header comment still list yt-dlp among the binary dependencies; yt-dlp is installed by pip from `requirements.txt`.
 - Not run by tests. Verify by hand on a clean account after changes.

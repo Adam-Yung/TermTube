@@ -3,8 +3,8 @@
 # from GitHub releases.
 #
 # Prerequisites: python3.11+, curl
-# All other dependencies (yt-dlp, deno, ffmpeg, mpv) are downloaded
-# automatically into ~/.local/termtube-deps/bin/ by src/bootstrap.py.
+# deno, ffmpeg and mpv are downloaded automatically into ~/.local/termtube-deps/bin/
+# by src/bootstrap.py; yt-dlp comes from pip (requirements.txt).
 
 set -euo pipefail
 
@@ -49,7 +49,7 @@ show_help() {
 
   What gets installed:
     ~/.local/share/TermTube/     App files + Python venv
-    ~/.local/termtube-deps/bin/  Binary deps (yt-dlp, deno, ffmpeg, mpv)
+    ~/.local/termtube-deps/bin/  Binary deps (deno, ffmpeg, mpv)
     ~/.local/bin/termtube        CLI symlink
     ~/.config/TermTube/          Config (created on first run)
 
@@ -231,7 +231,7 @@ install_binary() {
 
 bootstrap_deps() {
     header "Binary Dependencies"
-    info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
+    info "Downloading deno, ffmpeg, mpv from GitHub releases..."
     info "Install path: ~/.local/termtube-deps/bin/"
     echo ""
 
