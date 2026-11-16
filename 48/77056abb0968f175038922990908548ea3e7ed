@@ -1,0 +1,40 @@
+src/tests/unit/test_cookie_cache.py
+  s_3690eae3737fe4::t_87dba5c06842c5 172,186,188-296
+docs/code/src/tui/app.py.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 10
+docs/decisions/cookies-and-auth.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 136-139
+docs/code/src/cookies.py.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 8-10,18
+src/cookies.py
+  s_3690eae3737fe4::t_bd2cbd1eb775d7 7-8,27-48,52,54,56,58,66-68
+docs/todo.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 7-9
+docs/status.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 46-47
+docs/features/architecture.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 89
+src/tui/screens/mixins/feed_loader.py
+  s_3690eae3737fe4::t_ae3f165e8d81f0 142,333
+docs/code/src/ytdlp.py.md
+  s_3690eae3737fe4::t_7b2b4f64af5a2a 11-12,18
+src/ytdlp.py
+  s_3690eae3737fe4::t_bd2cbd1eb775d7 17,20-21,23,139,155,176-177,198,203,214,401
+  s_3690eae3737fe4::t_2f19957c550eb4 381-398,402-403
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4877056abb0968f175038922990908548ea3e7ed",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
