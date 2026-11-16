@@ -51,3 +51,7 @@ The feed URL changed from `/feed/recommended` to `https://www.youtube.com/`, whi
 ## 2026-11-15 — Channel playlists through InnerTube; `sort` dropped from `innertube.fetch_channel_videos`
 
 The Playlists tab is read from `/browse` with continuation paging (up to 80 entries, 1.0 s live) and falls back to yt-dlp when the response is empty or the channel id is unknown. The InnerTube entry carries the same keys the list row and `_activate_entry` use. `fetch_channel_videos` lost its `sort` argument: it was ignored, and a popular-sort selector was not reliable. The channel screen sends non-date sorts to yt-dlp.
+
+## 2026-11-15 — Channel first page: RSS, then InnerTube (`src/feeds.py`)
+
+The Subscriptions tab lists channels, so no merged subscription feed was built. The channel page's date-sorted first page goes through `feeds.channel_latest`. A dead-RSS flag (two consecutive 404s, 30 minutes) keeps a blocked network at two wasted requests. Tradeoff: when RSS works it returns 15 entries without durations, where InnerTube returned about 30 with durations. The plan chose RSS first; revisit if the thinner page is noticed. The live fallback check was not run: the request was denied in the session.

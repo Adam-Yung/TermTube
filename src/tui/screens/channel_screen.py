@@ -9,7 +9,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
-from src import innertube, logger
+from src import feeds, innertube, logger
 from src.tui import keymap
 from src.tui.messages import PlayerStateUpdated
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
@@ -208,18 +208,18 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, Screen):
         return ytdlp.fetch_channel_playlists(self._channel_url, self.app.config, self.app.cache)
 
     def _fetch_videos(self, sort: str) -> list[dict]:
-        """InnerTube browse for newest-first (fast); yt-dlp for other sorts or when it fails."""
+        """RSS or InnerTube for newest-first (fast); yt-dlp for other sorts or when both fail."""
         import src.ytdlp as ytdlp
 
         channel_id = self._channel_id()
         if channel_id and sort == "date":
-            entries = innertube.fetch_channel_videos(channel_id)
+            entries = feeds.channel_latest(channel_id)
             if entries:
                 for entry in entries:
                     entry.setdefault("channel", self._channel_name)
                     entry.setdefault("uploader", self._channel_name)
                 return entries
-            logger.debug("InnerTube channel browse empty; falling back to yt-dlp")
+            logger.debug("RSS and InnerTube channel feed empty; falling back to yt-dlp")
         return ytdlp.fetch_channel_videos(self._channel_url, self.app.config, self.app.cache, sort=sort)
 
     def _channel_id(self) -> str | None:
