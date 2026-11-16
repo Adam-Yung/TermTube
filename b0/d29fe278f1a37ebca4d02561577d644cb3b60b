@@ -1,0 +1,63 @@
+docs/code/src/bootstrap.py.md
+  s_3690eae3737fe4::t_663a830ec03330 15
+docs/code/scripts/canary-live.py.md
+  s_3690eae3737fe4::t_76c6ccb2137596 1-5
+scripts/e2e-local.py
+  s_3690eae3737fe4::t_59f46402df5716 8,198-200
+  s_3690eae3737fe4::t_732551fcbf6db9 201
+  s_3690eae3737fe4::t_363b9dc9f29bcb 202-203
+  s_3690eae3737fe4::t_4e0775f0761a24 1-3,9-176,179-196,204-207,210-214,220-276,280-321
+  s_3690eae3737fe4::t_af0a93f5229f7c 4-7,177-178,197,208-209,215-219
+  s_3690eae3737fe4::t_3c1b9ebcd164b0 277-279
+docs/code/scripts/e2e-local.py.md
+  s_3690eae3737fe4::t_76c6ccb2137596 1-13,15-18
+  s_3690eae3737fe4::t_363b9dc9f29bcb 14
+docs/decisions/runtime-and-env.md
+  s_3690eae3737fe4::t_663a830ec03330 90-93
+.github/workflows/canary.yml
+  s_3690eae3737fe4::t_c0fbf09db9494b 1-18
+src/tests/unit/test_platform.py
+  s_3690eae3737fe4::t_663a830ec03330 357-374
+requirements-dev.txt
+  s_3690eae3737fe4::t_76c6ccb2137596 6
+src/plat.py
+  s_3690eae3737fe4::t_663a830ec03330 69-72
+docs/code/scripts/smoke-ipc.py.md
+  s_3690eae3737fe4::t_76c6ccb2137596 3
+src/bootstrap.py
+  s_3690eae3737fe4::t_01e077e59f854c 360-380,386-388
+src/tests/unit/test_bootstrap_linux_mpv.py
+  s_3690eae3737fe4::t_af0a93f5229f7c 1,9
+  s_3690eae3737fe4::t_bf591cfcb87170 44,50
+  s_3690eae3737fe4::t_01e077e59f854c 2-8,10-43,45-49,51-66
+.github/workflows/test.yml
+  s_3690eae3737fe4::t_372ea843fb53bb 44,47,74
+  s_3690eae3737fe4::t_c0fbf09db9494b 1-6,9-17,25,29-32,34,38,45-46,48-63,65-66,68,76-82,86,96-101
+  s_3690eae3737fe4::t_380c6f444f9fd0 102
+scripts/canary-live.py
+  s_3690eae3737fe4::t_59f46402df5716 1,7-24,27-44,47-69
+  s_3690eae3737fe4::t_af0a93f5229f7c 2-6,25-26,45-46
+docs/guides/ci.md
+  s_3690eae3737fe4::t_76c6ccb2137596 1,3-4,6-10,12-20,31-38,40-43
+src/tests/integration/test_e2e_local.py
+  s_3690eae3737fe4::t_1c6607ea9a8167 1-2,4-26
+  s_3690eae3737fe4::t_732551fcbf6db9 3
+docs/code/src/plat.py.md
+  s_3690eae3737fe4::t_663a830ec03330 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "b0d29fe278f1a37ebca4d02561577d644cb3b60b",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
