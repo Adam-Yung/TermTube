@@ -47,6 +47,24 @@ def is_tool_installed(name: str) -> bool:
     return (get_deps_bin() / (f"{name}.exe" if IS_WINDOWS else name)).exists()
 
 
+def atomic_write(path: Path, data: bytes) -> None:
+    """Write ``data`` to ``path`` through a unique temp file in the same directory and ``os.replace``.
+
+    Readers never see a partial file. The file is created private (0600). Raises after removing the temp file.
+    """
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def get_cache_dir() -> Path:
     """Cache directory (~/.cache/termtube or %LOCALAPPDATA%/TermTube/cache)."""
     if IS_WINDOWS:

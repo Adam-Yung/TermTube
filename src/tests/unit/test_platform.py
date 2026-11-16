@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.plat import (
     IS_LINUX,
     IS_MACOS,
@@ -314,3 +316,31 @@ class TestInstallHintDeno:
         monkeypatch.setattr("src.plat.IS_MACOS",   False)
         hint = install_hint("yt-dlp")
         assert "pip install" in hint and "curl" not in hint
+
+class TestAtomicWrite:
+    def test_writes_and_replaces(self, tmp_path):
+        from src.plat import atomic_write
+
+        target = tmp_path / "data.json"
+        atomic_write(target, b"one")
+        atomic_write(target, b"two")
+        assert target.read_bytes() == b"two"
+        assert [p.name for p in tmp_path.iterdir()] == ["data.json"]
+
+    def test_failure_leaves_the_old_file_and_no_temp_file(self, tmp_path, monkeypatch):
+        from src import plat
+
+        target = tmp_path / "data.json"
+        target.write_bytes(b"keep")
+        monkeypatch.setattr(plat.os, "replace", lambda *a: (_ for _ in ()).throw(OSError("disk full")))
+        with pytest.raises(OSError):
+            plat.atomic_write(target, b"new")
+        assert target.read_bytes() == b"keep"
+        assert [p.name for p in tmp_path.iterdir()] == ["data.json"]
+
+    def test_file_is_private(self, tmp_path):
+        from src.plat import atomic_write
+
+        target = tmp_path / "data.json"
+        atomic_write(target, b"x")
+        assert target.stat().st_mode & 0o077 == 0 or sys.platform == "win32"

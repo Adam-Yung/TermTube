@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import threading
 import time
@@ -12,7 +11,7 @@ from pathlib import Path
 
 from src import logger
 from src.entries import Entry
-from src.plat import get_cache_dir
+from src.plat import atomic_write, get_cache_dir
 
 CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"
@@ -38,20 +37,11 @@ _ensure_dirs()
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write via a tmp file and ``os.replace`` so readers never see a partial file. Silently drops on OSError."""
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    """``plat.atomic_write`` for cache files, which are best effort: a failed write is dropped."""
     try:
-        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
-        try:
-            os.write(fd, text.encode("utf-8"))
-        finally:
-            os.close(fd)
-        os.replace(tmp, path)
+        atomic_write(path, text.encode("utf-8"))
     except OSError:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
+        pass
 
 
 class Cache:

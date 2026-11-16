@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 
-from src.plat import get_config_dir
+from src.plat import atomic_write, get_config_dir
 
 _PLAYLISTS_PATH = get_config_dir() / "playlists.json"
 
@@ -22,21 +20,7 @@ def _load() -> dict[str, list[str]]:
 
 def _save(data: dict[str, list[str]]) -> None:
     _PLAYLISTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    blob = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
-    fd, tmp = tempfile.mkstemp(dir=_PLAYLISTS_PATH.parent, suffix=".tmp")
-    try:
-        os.write(fd, blob)
-        os.close(fd)
-        fd = -1
-        os.replace(tmp, _PLAYLISTS_PATH)
-    except Exception:
-        if fd >= 0:
-            os.close(fd)
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write(_PLAYLISTS_PATH, json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
 
 
 def list_names() -> list[str]:

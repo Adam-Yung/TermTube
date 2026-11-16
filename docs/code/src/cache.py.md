@@ -12,7 +12,7 @@ Disk cache under the platform cache dir: video metadata JSON, feed id lists, sup
 
 ## Invariants
 
-- Writes go through `_atomic_write` (tmp file plus `os.replace`) under one module-wide `_write_lock`, because enrichment threads write concurrently. Readers never see partial files. A write that fails is dropped silently.
+- Writes go through `_atomic_write` (`plat.atomic_write` with failures swallowed) under one module-wide `_write_lock`, because enrichment threads write concurrently. Readers never see partial files. A write that fails is dropped silently.
 - A 64-entry in-memory LRU fronts `videos/`. `get_video` honors the `metadata` TTL; `get_video_raw` ignores it and falls back to the pinned copy, which is what feed rebuilds and the library use.
 - Pruning uses file mtime as age. That is valid because `put_video` always rewrites the file.
 - A video is suppressed on its third focus (`register_focus`) or immediately (`suppress_video`). Focus counts live in memory and are flushed only when a suppression happens, so cursor movement does no disk I/O. Caps: 5000 focus counts, and suppressed ids trim from 2000 to 1500, oldest first.

@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import threading
 import time
 
 from src.entries import Entry
-from src.plat import get_config_dir
+from src.plat import atomic_write, get_config_dir
 
 HISTORY_PATH = get_config_dir() / "history.json"
 
@@ -35,21 +33,7 @@ def _load() -> list[Entry]:
 
 def _save(entries: list[Entry]) -> None:
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    data = json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    fd, tmp = tempfile.mkstemp(dir=HISTORY_PATH.parent, suffix=".tmp")
-    try:
-        os.write(fd, data)
-        os.close(fd)
-        fd = -1
-        os.replace(tmp, HISTORY_PATH)
-    except Exception:
-        if fd >= 0:
-            os.close(fd)
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    atomic_write(HISTORY_PATH, json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
 def add(entry: Entry) -> None:
