@@ -7,6 +7,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
 
+from src.entries import Entry
 from src.tui.widgets.thumbnail_widget import _HAS_TEXTUAL_IMAGE
 from src.ui import thumbnail
 
@@ -35,7 +36,7 @@ def load_thumbnail(
     target: Any,
     vid: str,
     *,
-    entry: dict | None = None,
+    entry: Entry | None = None,
     url: str | None = None,
     cols: int = 38,
     rows: int = 20,

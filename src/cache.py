@@ -11,6 +11,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 from src import logger
+from src.entries import Entry
 from src.plat import get_cache_dir
 
 CACHE_DIR = get_cache_dir()
@@ -71,7 +72,7 @@ class Cache:
             if len(self._ram_cache) > self._RAM_CACHE_MAX:
                 self._ram_cache.popitem(last=False)
 
-    def get_video(self, video_id: str) -> dict | None:
+    def get_video(self, video_id: str) -> Entry | None:
         """Cached entry within the ``metadata`` TTL, else None. Checks RAM, then disk."""
         with self._ram_lock:
             if video_id in self._ram_cache:
@@ -108,7 +109,7 @@ class Cache:
         "fragments",
     })
 
-    def put_video(self, entry: dict) -> None:
+    def put_video(self, entry: Entry) -> None:
         vid = entry.get("id") or entry.get("webpage_url_basename")
         if not vid:
             return
@@ -120,7 +121,7 @@ class Cache:
         self._ram_put(vid, slim)
         logger.debug("cache.put_video %s (%d keys)", vid, len(slim))
 
-    def get_video_raw(self, video_id: str) -> dict | None:
+    def get_video_raw(self, video_id: str) -> Entry | None:
         """Cached entry regardless of TTL, falling back to the pinned playlist copy."""
         with self._ram_lock:
             if video_id in self._ram_cache:
@@ -241,7 +242,7 @@ class Cache:
     def _stash_path(self) -> Path:
         return CACHE_DIR / "feed_home_stash.json"
 
-    def get_home_stash(self) -> list[dict]:
+    def get_home_stash(self) -> list[Entry]:
         """The previous session's stashed home entries (first unseen page); [] on any error."""
         path = self._stash_path
         if not path.exists():
@@ -255,7 +256,7 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return []
 
-    def put_home_stash(self, entries: list[dict]) -> None:
+    def put_home_stash(self, entries: list[Entry]) -> None:
         """Write up to ``_STASH_SIZE`` entries; the caller backfills so the next boot gets a full page."""
         slim = entries[: self._STASH_SIZE]
         try:
@@ -337,7 +338,7 @@ class Cache:
         expired, capped = self._prune_dir(VIDEO_DIR, "*.json", max_age_days, max_count)
         logger.debug("prune_old_videos: %d expired, %d capped", expired, capped)
 
-    def pin_video(self, video_id: str, entry: dict | None = None) -> None:
+    def pin_video(self, video_id: str, entry: Entry | None = None) -> None:
         """Copy ``entry`` (default: the cached entry) into the playlist cache that pruning skips."""
         if entry is None:
             entry = self.get_video_raw(video_id)

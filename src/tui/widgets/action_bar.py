@@ -10,6 +10,7 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
+from src.entries import Entry
 from src.sponsorblock import Segment
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
@@ -233,7 +234,7 @@ class ActionBar(Widget):
             self._wave_timer = None
         self._set_mode_actions()
 
-    def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:
+    def set_player_mode(self, entry: Entry, queue_len: int = 0) -> None:
         self._title = (entry.get("title") or "Unknown")[:52]
         self._channel = entry.get("uploader") or entry.get("channel") or ""
         self._playing = True

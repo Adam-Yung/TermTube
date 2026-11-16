@@ -8,6 +8,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ProgressBar, Static
 
 from src import library
+from src.entries import Entry
 
 
 class DownloadModal(ModalScreen[bool]):
@@ -17,7 +18,7 @@ class DownloadModal(ModalScreen[bool]):
         Binding("escape", "cancel_download", "Cancel", show=True),
     ]
 
-    def __init__(self, video_id: str, entry: dict, audio_only: bool = False, fmt: str = "") -> None:
+    def __init__(self, video_id: str, entry: Entry, audio_only: bool = False, fmt: str = "") -> None:
         super().__init__()
         self._video_id = video_id
         self._entry = entry

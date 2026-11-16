@@ -12,6 +12,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static
 
 from src import history, player as player_mod
+from src.entries import Entry
 from src.plat import (
     cleanup_ipc,
     get_video_ipc_path,
@@ -45,7 +46,7 @@ class WatchModal(ModalScreen[bool]):
         Binding("q,escape", "stop", "Stop", show=True),
     ]
 
-    def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def __init__(self, entry: Entry, *, ytdl_format: str = "") -> None:
         super().__init__()
         self._entry = entry
         self._ytdl_format = ytdl_format

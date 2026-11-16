@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable
 
 from src import innertube, logger
+from src.entries import VideoEntry
 
 _RSS_URL = "https://www.youtube.com/feeds/videos.xml?channel_id={}"
 _MAX_BYTES = 1_000_000
@@ -54,7 +55,7 @@ class _DeadFlag:
 _rss_state = _DeadFlag()
 
 
-def parse_atom(xml_bytes: bytes) -> list[dict]:
+def parse_atom(xml_bytes: bytes) -> list[VideoEntry]:
     """Video entries of a channel Atom feed, newest first as the feed lists them. Empty on malformed XML."""
     try:
         root = ET.fromstring(xml_bytes)
@@ -83,7 +84,7 @@ def parse_atom(xml_bytes: bytes) -> list[dict]:
     return entries
 
 
-def _fetch_rss(channel_id: str, timeout: int = 8) -> list[dict]:
+def _fetch_rss(channel_id: str, timeout: int = 8) -> list[VideoEntry]:
     """Anonymous GET of the feed. Empty on any failure; 404s feed the dead flag."""
     req = urllib.request.Request(_RSS_URL.format(channel_id), headers={"User-Agent": "Mozilla/5.0"})
     try:
@@ -100,7 +101,7 @@ def _fetch_rss(channel_id: str, timeout: int = 8) -> list[dict]:
     return parse_atom(body)
 
 
-def channel_latest(channel_id: str) -> list[dict]:
+def channel_latest(channel_id: str) -> list[VideoEntry]:
     """Latest uploads of ``channel_id``: RSS unless it is known dead, then InnerTube. Anonymous."""
     if not _rss_state.is_dead():
         entries = _fetch_rss(channel_id)

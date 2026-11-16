@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from textual.message import Message
 
+from src.entries import Entry
+
 
 class PlayerStateUpdated(Message):
     """Audio playback state, broadcast to every screen after each mpv poll.
@@ -22,7 +24,7 @@ class PlayerStateUpdated(Message):
 class AudioTrackChanged(Message):
     """A track started (or replaced the previous one); the action bar switches to player mode."""
 
-    def __init__(self, entry: dict, queue_len: int) -> None:
+    def __init__(self, entry: Entry, queue_len: int) -> None:
         super().__init__()
         self.entry = entry
         self.queue_len = queue_len

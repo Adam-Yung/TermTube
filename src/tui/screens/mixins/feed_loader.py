@@ -5,6 +5,7 @@ import threading
 from textual import work
 
 from src import logger
+from src.entries import Entry
 from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
 
 BATCH_FETCH_COUNT = 80
@@ -75,13 +76,13 @@ class FeedLoaderMixin:
         finally:
             self._worker_end()
 
-    def _show_one_page(self, panel: VideoListPanel, entries: list[dict]) -> None:
+    def _show_one_page(self, panel: VideoListPanel, entries: list[Entry]) -> None:
         call = self.app.call_from_thread
         call(panel.add_page, 1, entries)
         call(panel.load_page, 1)
         call(panel.finish_loading)
 
-    def _show_pages(self, panel: VideoListPanel, entries: list[dict]) -> None:
+    def _show_pages(self, panel: VideoListPanel, entries: list[Entry]) -> None:
         call = self.app.call_from_thread
         call(panel.add_entries, 1, entries)
         call(panel.load_page, 1)
@@ -98,7 +99,7 @@ class FeedLoaderMixin:
         cache = self.app.cache
         call = self.app.call_from_thread
 
-        def visible(entries: list[dict]) -> list[dict]:
+        def visible(entries: list[Entry]) -> list[Entry]:
             if feed_key != "home":
                 return entries
             return [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
@@ -116,7 +117,7 @@ class FeedLoaderMixin:
         shown_ids: set[str] = set()
         pages_used = 0
 
-        def on_first_batch(entries: list[dict]) -> None:
+        def on_first_batch(entries: list[Entry]) -> None:
             nonlocal pages_used
             batch = visible(entries)
             if not batch:
@@ -166,7 +167,7 @@ class FeedLoaderMixin:
         cache = self.app.cache
         if not cache.is_feed_fresh(feed_key):
             return False
-        entries: list[dict] = []
+        entries: list[Entry] = []
         for vid in cache.get_feed(feed_key) or []:
             if vid in stash_ids:
                 continue
@@ -181,7 +182,7 @@ class FeedLoaderMixin:
         logger.debug("feed %s: %d cached entries, no network", feed_key, len(entries))
         return True
 
-    def _eager_prefetch(self, entry: dict) -> None:
+    def _eager_prefetch(self, entry: Entry) -> None:
         """Resolve the first row's stream URL now so the first play starts fast."""
         vid = entry.get("id", "")
         if not vid or vid.startswith("__"):
@@ -233,9 +234,9 @@ class FeedLoaderMixin:
             self.app.call_from_thread(panel.set_empty_message, "Press / to search")
             return
         call = self.app.call_from_thread
-        shown: list[dict] = []
+        shown: list[Entry] = []
 
-        def on_first_batch(entries: list[dict]) -> None:
+        def on_first_batch(entries: list[Entry]) -> None:
             shown.extend(entries)
             call(panel.add_entries, 1, entries)
             call(panel.load_page, 1)
@@ -253,7 +254,7 @@ class FeedLoaderMixin:
         if rest:
             call(panel.add_entries, 1 + _pages_for(len(shown)), rest)
 
-    def _load_simple_list(self, panel: VideoListPanel, entries: list[dict]) -> None:
+    def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry]) -> None:
         if not entries:
             self.app.call_from_thread(panel.set_empty_message, "No items")
             return
@@ -322,7 +323,7 @@ class FeedLoaderMixin:
         finally:
             self._worker_end()
 
-    def _fetch_next_batch(self, panel: VideoListPanel) -> list[dict]:
+    def _fetch_next_batch(self, panel: VideoListPanel) -> list[Entry]:
         import src.ytdlp as ytdlp
 
         config, cache, tab = self.app.config, self.app.cache, self._current_tab
@@ -342,7 +343,7 @@ class FeedLoaderMixin:
         return []
 
     @staticmethod
-    def _append_pages(panel: VideoListPanel, entries: list[dict], show: bool) -> None:
+    def _append_pages(panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
         first = panel.total_pages + 1
         panel.add_entries(first, entries)
         if show:

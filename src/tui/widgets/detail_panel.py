@@ -13,6 +13,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from src import playlist
+from src.entries import Entry
 from src.tui.fmt import fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
@@ -26,14 +27,14 @@ class DetailPanel(Widget):
     class RerenderRequested(Message):
         """Posted on resize and screen resume so the screen re-renders the thumbnail."""
 
-        def __init__(self, entry: dict) -> None:
+        def __init__(self, entry: Entry) -> None:
             super().__init__()
             self.entry = entry
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._current_id: str = ""
-        self._last_entry: dict | None = None
+        self._last_entry: Entry | None = None
         self._resize_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
@@ -57,7 +58,7 @@ class DetailPanel(Widget):
         return self._current_id
 
     @property
-    def last_entry(self) -> dict | None:
+    def last_entry(self) -> Entry | None:
         return self._last_entry
 
     def _text(self, selector: str, markup: str) -> None:
@@ -71,7 +72,7 @@ class DetailPanel(Widget):
         for wid in ("#video-channel", "#video-stats", "#video-desc-header", "#video-desc", "#video-playlists"):
             self._text(wid, "")
 
-    def update_basic(self, entry: dict) -> None:
+    def update_basic(self, entry: Entry) -> None:
         """Paint title, channel and stats from the cached entry. Starts no workers.
 
         A missing description shows "Loading…" until the screen's focus worker fills it in.
@@ -93,7 +94,7 @@ class DetailPanel(Widget):
             self._text("#video-desc", "")
         self._text("#video-playlists", "")
 
-    def refresh_metadata(self, entry: dict) -> None:
+    def refresh_metadata(self, entry: Entry) -> None:
         """Repaint from a freshly enriched entry; ignored if the cursor has moved on."""
         if entry.get("id") != self._current_id:
             return
@@ -102,7 +103,7 @@ class DetailPanel(Widget):
         if entry.get("description"):
             self._set_description(entry["description"])
 
-    def _paint_channel_and_stats(self, entry: dict) -> None:
+    def _paint_channel_and_stats(self, entry: Entry) -> None:
         channel = entry.get("uploader") or entry.get("channel") or ""
         # screen.channel is resolved on the screen, not on this panel.
         self._text("#video-channel", f"[@click=screen.channel]📺 {channel}[/]" if channel else "")
@@ -169,7 +170,7 @@ class DetailPanel(Widget):
     def set_video_mode(self) -> None:
         self.action_bar.display = True
 
-    def update_channel_entry(self, entry: dict) -> None:
+    def update_channel_entry(self, entry: Entry) -> None:
         self._current_id = entry.get("id", "")
         self._last_entry = entry
         name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"

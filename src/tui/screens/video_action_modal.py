@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
+from src.entries import Entry
+
 _ACTIONS = [
     ("watch",         "▶",  "Watch video  [dim](v)[/dim]"),
     ("watch_quality", "▶·", "Watch — choose quality…  [dim](V)[/dim]"),
@@ -43,7 +45,7 @@ class VideoActionModal(ModalScreen[str | None]):
         Binding("k",      "cursor_up",   show=False),
     ]
 
-    def __init__(self, entry: dict, *, hide: set[str] = frozenset()) -> None:
+    def __init__(self, entry: Entry, *, hide: set[str] = frozenset()) -> None:
         super().__init__()
         self._entry = entry
         self._hide = hide

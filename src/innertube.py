@@ -11,6 +11,7 @@ from collections.abc import Callable
 from typing import Any
 
 from src import logger
+from src.entries import PlaylistEntry, VideoEntry
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 _BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
@@ -142,7 +143,7 @@ def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
 _CHANNEL_VIDEOS_PARAMS = "EgZ2aWRlb3PyBgQKAjoA"
 
 
-def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[dict]:
+def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[VideoEntry]:
     """Newest-first channel video entries from the /browse API (~600 ms for 30). Empty on failure."""
     payload = {
         "browseId": channel_id,
@@ -154,7 +155,7 @@ def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[dict]:
     if not data:
         return []
 
-    entries: list[dict] = []
+    entries: list[VideoEntry] = []
     try:
         tabs = (data.get("contents", {})
                 .get("twoColumnBrowseResultsRenderer", {})
@@ -179,7 +180,7 @@ def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[dict]:
     return entries
 
 
-def _parse_channel_video_item(item: dict) -> dict | None:
+def _parse_channel_video_item(item: dict) -> VideoEntry | None:
     """One /browse richGridRenderer item as a video entry, or None if it is not a video."""
     ri = item.get("richItemRenderer", {})
     if not ri:
@@ -313,7 +314,7 @@ def _text(node: dict | None) -> str:
     return node.get("simpleText") or "".join(r.get("text", "") for r in node.get("runs", []))
 
 
-def _parse_search_video(vr: dict) -> dict | None:
+def _parse_search_video(vr: dict) -> VideoEntry | None:
     video_id = vr.get("videoId")
     if not video_id:
         return None
@@ -340,9 +341,9 @@ def _parse_search_video(vr: dict) -> dict | None:
     }
 
 
-def _search_items(sections: list[dict]) -> tuple[list[dict], str]:
+def _search_items(sections: list[dict]) -> tuple[list[VideoEntry], str]:
     """Video entries and the next continuation token from a list of result sections."""
-    entries: list[dict] = []
+    entries: list[VideoEntry] = []
     token = ""
     for section in sections:
         for item in section.get("itemSectionRenderer", {}).get("contents", []):
@@ -359,8 +360,8 @@ def search_videos(
     *,
     count: int = 50,
     skip_ids: set[str] | None = None,
-    on_first_batch: Callable[[list[dict]], None] | None = None,
-) -> list[dict]:
+    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
+) -> list[VideoEntry]:
     """Video results for ``query`` through InnerTube ``/search``. Anonymous. Empty on any failure.
 
     Follows continuation tokens until ``count`` videos are collected or ``_MAX_SEARCH_PAGES`` pages are read.
@@ -368,7 +369,7 @@ def search_videos(
     """
     skip_ids = skip_ids or set()
     payload: dict = {"query": query, "context": _WEB_CONTEXT}
-    results: list[dict] = []
+    results: list[VideoEntry] = []
     seen = set(skip_ids)
     for _ in range(_MAX_SEARCH_PAGES):
         data = _post_json(_SEARCH_URL, payload)
@@ -444,7 +445,7 @@ def fetch_channel_info(channel_url: str) -> dict | None:
     }
 
 
-def _parse_playlist_item(item: dict) -> dict | None:
+def _parse_playlist_item(item: dict) -> PlaylistEntry | None:
     """One ``lockupViewModel`` grid item as a playlist entry, or None for any other content type."""
     lvm = item.get("lockupViewModel") or {}
     playlist_id = lvm.get("contentId", "")
@@ -469,7 +470,7 @@ def _parse_playlist_item(item: dict) -> dict | None:
     }
 
 
-def _playlist_page(data: dict) -> tuple[list[dict], str]:
+def _playlist_page(data: dict) -> tuple[list[PlaylistEntry], str]:
     """Playlist entries and the next continuation token from a Playlists-tab or continuation response."""
     actions = data.get("onResponseReceivedActions")
     if actions:
@@ -486,10 +487,10 @@ def _playlist_page(data: dict) -> tuple[list[dict], str]:
     return entries, token
 
 
-def fetch_channel_playlists(channel_id: str, *, count: int = 80, timeout: int = 12) -> list[dict]:
+def fetch_channel_playlists(channel_id: str, *, count: int = 80, timeout: int = 12) -> list[PlaylistEntry]:
     """Playlists of a channel from /browse, following continuations up to ``count``. Anonymous. Empty on failure."""
     payload: dict = {"browseId": channel_id, "params": _CHANNEL_PLAYLISTS_PARAMS, "context": _WEB_CONTEXT}
-    entries: list[dict] = []
+    entries: list[PlaylistEntry] = []
     for _ in range(_MAX_PLAYLIST_PAGES):
         data = _post_json(_BROWSE_URL, payload, timeout=timeout)
         if not data:

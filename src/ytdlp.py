@@ -15,6 +15,7 @@ from src import innertube, logger
 from src.bootstrap import get_deps_bin
 from src.cache import Cache
 from src.cookies import get_cookiejar, invalidate, is_auth_failure
+from src.entries import ChannelEntry, PlaylistEntry, VideoEntry
 
 
 def _make_ydl(opts: dict, config, *, auth: bool = False) -> yt_dlp.YoutubeDL:
@@ -88,13 +89,13 @@ FEED_URLS = {
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
 
-def _is_playable_video(entry: dict) -> bool:
+def _is_playable_video(entry: VideoEntry) -> bool:
     if not _VIDEO_ID_RE.match(entry.get("id", "")):
         return False
     return entry.get("_type", "video") not in ("playlist", "channel")
 
 
-def _normalise_entry(entry: dict) -> dict:
+def _normalise_entry(entry: VideoEntry) -> VideoEntry:
     """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
     if not entry.get("thumbnail"):
@@ -107,12 +108,12 @@ def _normalise_entry(entry: dict) -> dict:
 
 def _cached_entries(
     cache: Cache, key: str, skip_ids: set[str], count: int, minimum: int
-) -> list[dict] | None:
+) -> list[VideoEntry] | None:
     """Entries of the cached feed ``key`` minus ``skip_ids``, or None if too few are usable."""
     cached_ids = cache.get_feed(key)
     if not cached_ids or len(cached_ids) < minimum:
         return None
-    results: list[dict] = []
+    results: list[VideoEntry] = []
     for vid_id in cached_ids:
         if vid_id in skip_ids:
             continue
@@ -134,16 +135,16 @@ def _extract_videos(
     *,
     count: int,
     skip_ids: set[str],
-    on_first_batch: Callable[[list[dict]], None] | None = None,
+    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
     first_batch_size: int = 15,
     auth: bool = False,
-) -> tuple[list[dict], list[str]]:
+) -> tuple[list[VideoEntry], list[str]]:
     """Extract playable video entries from ``url``, caching each. Retries once on an empty result.
 
     Returns ``(entries, ids)``. ``on_first_batch`` fires once, when ``first_batch_size`` entries exist.
     """
     opts = _flat_opts(count)
-    results: list[dict] = []
+    results: list[VideoEntry] = []
     all_ids: list[str] = []
 
     cancel = new_cancel_event()
@@ -193,10 +194,10 @@ def fetch_page_batch(
     skip_ids: set[str] | None = None,
     count: int = 80,
     feed_key: str | None = None,
-    on_first_batch: Callable[[list[dict]], None] | None = None,
+    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
     first_batch_size: int = 15,
     auth: bool = False,
-) -> list[dict]:
+) -> list[VideoEntry]:
     """Up to ``count`` video entries from ``url`` minus ``skip_ids``; cache-first when ``feed_key`` is set.
 
     Blocking; run in a worker thread. ``on_first_batch`` gets the first ``first_batch_size`` entries early.
@@ -225,8 +226,8 @@ def fetch_search_batch(
     *,
     skip_ids: set[str] | None = None,
     count: int = 50,
-    on_first_batch: Callable[[list[dict]], None] | None = None,
-) -> list[dict]:
+    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
+) -> list[VideoEntry]:
     """Search results, cache-first. ``on_first_batch`` fires early with the first page; it does not fire for a cache hit."""
     skip_ids = skip_ids or set()
     cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
@@ -319,7 +320,7 @@ def fetch_channel_videos(
     *,
     sort: str = "date",
     count: int = 80,
-) -> list[dict]:
+) -> list[VideoEntry]:
     """Video entries from a channel. ``sort`` is ``date`` or ``views``."""
     url = _normalise_channel_url(channel_url) + ("/videos?sort=p" if sort == "views" else "/videos")
     logger.debug("fetch_channel_videos: url=%s sort=%s", url, sort)
@@ -332,11 +333,11 @@ def fetch_channel_playlists(
     cache: Cache,
     *,
     count: int = 80,
-) -> list[dict]:
+) -> list[PlaylistEntry]:
     url = _normalise_channel_url(channel_url) + "/playlists"
     logger.debug("fetch_channel_playlists: url=%s", url)
 
-    results: list[dict] = []
+    results: list[PlaylistEntry] = []
     cancel = new_cancel_event()
     try:
         with _make_ydl(_flat_opts(count), config) as ydl:
@@ -363,7 +364,7 @@ def fetch_channel_playlists(
     return results
 
 
-def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
+def fetch_subscribed_channels(config, cache: Cache) -> list[ChannelEntry]:
     """The user's subscribed channels, cache-first. Needs cookies."""
     cache_key = "subs:channels"
     cached = cache.get_feed(cache_key)
@@ -377,7 +378,7 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     opts = _flat_opts(200)
     opts['socket_timeout'] = 60
 
-    results: list[dict] = []
+    results: list[ChannelEntry] = []
     for attempt in range(2):
         try:
             results = _list_subscribed_channels(opts, config, cache)
@@ -393,9 +394,9 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     return results
 
 
-def _list_subscribed_channels(opts: dict, config, cache: Cache) -> list[dict]:
+def _list_subscribed_channels(opts: dict, config, cache: Cache) -> list[ChannelEntry]:
     """One authenticated pass over the subscriptions channel list; raises ``DownloadError``."""
-    results: list[dict] = []
+    results: list[ChannelEntry] = []
     cancel = new_cancel_event()
     try:
         with _make_ydl(opts, config, auth=True) as ydl:

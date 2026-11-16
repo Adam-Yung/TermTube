@@ -3,6 +3,7 @@ from __future__ import annotations
 import webbrowser
 
 from src import logger
+from src.entries import Entry
 from src.plat import clipboard_copy
 
 
@@ -10,7 +11,7 @@ def watch_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def _is_video(entry: dict | None) -> bool:
+def _is_video(entry: Entry | None) -> bool:
     """True for a row that is a playable video, not a playlist or channel placeholder."""
     return bool(entry) and not entry.get("_is_playlist") and not entry.get("_is_channel")
 
@@ -22,7 +23,7 @@ class ItemActionsMixin:
     Audio keys act on ``app.audio``, the one controller shared by every screen.
     """
 
-    def _hidden_menu_actions(self, entry: dict) -> set[str]:
+    def _hidden_menu_actions(self, entry: Entry) -> set[str]:
         return set() if self.app.audio.can_enqueue(entry) else {"enqueue"}
 
     def action_activate(self) -> None:
@@ -30,10 +31,10 @@ class ItemActionsMixin:
         if entry:
             self._activate_entry(entry)
 
-    def _activate_entry(self, entry: dict) -> None:
+    def _activate_entry(self, entry: Entry) -> None:
         self._open_action_menu(entry)
 
-    def _open_action_menu(self, entry: dict) -> None:
+    def _open_action_menu(self, entry: Entry) -> None:
         from src.tui.screens.video_action_modal import VideoActionModal
 
         dispatch = {
@@ -57,7 +58,7 @@ class ItemActionsMixin:
             VideoActionModal(entry, hide=self._hidden_menu_actions(entry)), on_action
         )
 
-    def _playable_entry(self) -> dict | None:
+    def _playable_entry(self) -> Entry | None:
         entry = self._selected_entry()
         return entry if _is_video(entry) else None
 
@@ -71,7 +72,7 @@ class ItemActionsMixin:
         if entry:
             self._pick_quality(audio_only=False, then=lambda fmt: self._watch(entry, fmt))
 
-    def _watch(self, entry: dict, ytdl_format: str = "") -> None:
+    def _watch(self, entry: Entry, ytdl_format: str = "") -> None:
         from src.tui.screens.watch_modal import WatchModal
 
         logger.info("watch %s", entry.get("id", "?"))
@@ -96,7 +97,7 @@ class ItemActionsMixin:
         if entry:
             self._pick_quality(audio_only=True, then=lambda fmt: self._play_audio(entry, fmt))
 
-    def _play_audio(self, entry: dict, ytdl_format: str = "") -> None:
+    def _play_audio(self, entry: Entry, ytdl_format: str = "") -> None:
         self.app.audio.play_audio(entry, ytdl_format=ytdl_format)
         self._sync_player_bar()
 
@@ -136,7 +137,7 @@ class ItemActionsMixin:
             DownloadPickerModal(title=entry.get("title", entry.get("id", ""))), on_pick
         )
 
-    def _download(self, entry: dict, *, audio_only: bool, fmt: str) -> None:
+    def _download(self, entry: Entry, *, audio_only: bool, fmt: str) -> None:
         from src.tui.screens.download_modal import DownloadModal
 
         title = entry.get("title", entry.get("id", ""))
@@ -159,7 +160,7 @@ class ItemActionsMixin:
         if entry:
             self._open_channel(entry)
 
-    def _open_channel(self, entry: dict) -> None:
+    def _open_channel(self, entry: Entry) -> None:
         from src.tui.screens.channel_screen import ChannelScreen
 
         url = entry.get("channel_url") or entry.get("uploader_url")

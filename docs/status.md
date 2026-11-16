@@ -45,6 +45,8 @@ Cold start (2026-11-15, import path of `main`, 3 runs): app import plus `src.ytd
 
 Audio lives on `app.audio` (`AudioController`, `src/tui/audio_controller.py`); screens mirror it through broadcast messages, `ChannelScreen` no longer scans the screen stack, and the old socket-path bug (stop after the session bump) is fixed.
 
+Rows have declared shapes (`src/entries.py`, annotations only); one mpv launch loop (`player.run_mpv_with_retries`) serves audio and video.
+
 Cookies are extracted on first authenticated use (home feed, subscription list), narrowed to YouTube and Google, and invalidated on an auth failure; nothing else reads the browser profile.
 
 Stream resolve: no yt-dlp variant beat the baseline by 1.5x (`docs/guides/benchmarks.md`); nothing changed.

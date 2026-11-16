@@ -4,6 +4,7 @@ from textual import work
 from textual.timer import Timer
 
 from src import logger
+from src.entries import Entry
 from src.tui.thumb_loader import load_thumbnail
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
@@ -44,7 +45,7 @@ class DetailFocusMixin:
     def _worker_end(self) -> None:
         """Hook: a background worker finished."""
 
-    def _focus_video(self, entry: dict) -> None:
+    def _focus_video(self, entry: Entry) -> None:
         vid = entry.get("id", "")
         detail = self._detail()
         detail.update_basic(entry)
@@ -72,14 +73,14 @@ class DetailFocusMixin:
         self._focus_session += 1
         self._thumb_session += 1
 
-    def _kick_thumb(self, vid: str, entry: dict) -> None:
+    def _kick_thumb(self, vid: str, entry: Entry) -> None:
         self._thumb_dwell_timer = None
         if self._detail().current_id != vid:
             return
         self._thumb_session += 1
         self._thumb_worker(vid, entry, self._thumb_session)
 
-    def _kick_focus(self, vid: str, entry: dict) -> None:
+    def _kick_focus(self, vid: str, entry: Entry) -> None:
         self._focus_dwell_timer = None
         if self._detail().current_id != vid or entry.get("description"):
             return
@@ -99,7 +100,7 @@ class DetailFocusMixin:
         )
 
     @work(thread=True, exclusive=True, group="focus")
-    def _detail_worker(self, vid: str, entry: dict, session: int) -> None:
+    def _detail_worker(self, vid: str, entry: Entry, session: int) -> None:
         from src import innertube
 
         self._worker_start()
@@ -131,7 +132,7 @@ class DetailFocusMixin:
             logger.debug("stream prefetch %s: %s", vid, exc)
 
     @work(thread=True, exclusive=True, group="thumb")
-    def _thumb_worker(self, vid: str, entry: dict, session: int) -> None:
+    def _thumb_worker(self, vid: str, entry: Entry, session: int) -> None:
         detail = self._detail()
         cols, rows = detail.thumbnail_cell_size()
         load_thumbnail(

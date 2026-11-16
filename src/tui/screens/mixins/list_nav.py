@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from textual.events import Key
 
+from src.entries import Entry
 from src.tui.keymap import FOCUS_RECLAIM_KEYS
 from src.tui.widgets.video_list import VideoListPanel
 
@@ -18,7 +19,7 @@ class ListNavMixin:
     def _list(self) -> VideoListPanel:
         return self.query_one(self._LIST_ID, VideoListPanel)
 
-    def _selected_entry(self) -> dict | None:
+    def _selected_entry(self) -> Entry | None:
         return self._list().selected_entry
 
     def action_cursor_down(self) -> None:

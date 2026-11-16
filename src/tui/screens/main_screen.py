@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Footer, RichLog, Tab, Tabs
 
 from src import logger
+from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.tui import keymap
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
@@ -294,7 +295,7 @@ class MainScreen(
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
         self.action_activate()
 
-    def _activate_entry(self, entry: dict) -> None:
+    def _activate_entry(self, entry: Entry) -> None:
         if entry.get("_is_playlist"):
             self._open_playlist(entry.get("_playlist_name", ""))
         elif entry.get("_is_channel"):
@@ -307,7 +308,7 @@ class MainScreen(
         super()._cancel_pending_focus_and_thumb()
         self._avatar_session += 1
 
-    def _focus_channel(self, entry: dict) -> None:
+    def _focus_channel(self, entry: Entry) -> None:
         vid = entry.get("id", "")
         detail = self._detail()
         detail.update_channel_entry(entry)
@@ -317,7 +318,7 @@ class MainScreen(
             detail.set_thumbnail_loading()
         self._load_channel_avatar(vid, entry.get("thumbnail", ""), entry)
 
-    def _load_channel_avatar(self, vid: str, thumb_url: str, entry: dict) -> None:
+    def _load_channel_avatar(self, vid: str, thumb_url: str, entry: Entry) -> None:
         if not vid:
             return
         if thumb_url:
@@ -338,7 +339,7 @@ class MainScreen(
         )
 
     @work(thread=True, exclusive=True, group="ch_focus")
-    def _channel_info_worker(self, vid: str, entry: dict) -> None:
+    def _channel_info_worker(self, vid: str, entry: Entry) -> None:
         import src.ytdlp as ytdlp
 
         url = entry.get("channel_url") or entry.get("uploader_url")

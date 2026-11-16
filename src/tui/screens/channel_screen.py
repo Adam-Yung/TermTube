@@ -10,6 +10,7 @@ from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
 from src import feeds, innertube, logger
+from src.entries import Entry, PlaylistEntry, VideoEntry
 from src.tui import keymap
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
@@ -91,7 +92,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _info_panel(self) -> ChannelInfoPanel:
         return self.query_one("#ch-info-panel", ChannelInfoPanel)
 
-    def _hidden_menu_actions(self, entry: dict) -> set[str]:
+    def _hidden_menu_actions(self, entry: Entry) -> set[str]:
         return super()._hidden_menu_actions(entry) | {"channel"}
 
     def action_channel(self) -> None:
@@ -175,7 +176,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             if session == self._content_session:
                 call(panel.set_error_message, str(exc))
 
-    def _fetch_playlists(self) -> list[dict]:
+    def _fetch_playlists(self) -> list[PlaylistEntry]:
         """InnerTube browse (fast); yt-dlp when the id is unknown or the response is empty."""
         import src.ytdlp as ytdlp
 
@@ -187,7 +188,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             logger.debug("InnerTube channel playlists empty; falling back to yt-dlp")
         return ytdlp.fetch_channel_playlists(self._channel_url, self.app.config, self.app.cache)
 
-    def _fetch_videos(self, sort: str) -> list[dict]:
+    def _fetch_videos(self, sort: str) -> list[VideoEntry]:
         """RSS or InnerTube for newest-first (fast); yt-dlp for other sorts or when both fail."""
         import src.ytdlp as ytdlp
 

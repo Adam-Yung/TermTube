@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.entries import Entry
 from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 
 
@@ -23,7 +24,7 @@ class AudioBarMixin:
         elif not audio.is_playing:
             bar.set_actions_mode()
 
-    def _refresh_queue_hint(self, focused_entry: dict | None = None) -> None:
+    def _refresh_queue_hint(self, focused_entry: Entry | None = None) -> None:
         """Hide the enqueue hint when the focused row is already playing or queued."""
         try:
             bar = self._detail().action_bar

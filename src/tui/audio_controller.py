@@ -10,6 +10,7 @@ from textual.message import Message
 from textual.timer import Timer
 
 from src import history, logger, player, streams
+from src.entries import Entry
 from src.plat import (
     IS_WINDOWS,
     ProcessRegistry,
@@ -53,8 +54,8 @@ class AudioController:
         self._app = app
         self.log: Callable[[str], None] = lambda _markup: None
         self._proc: subprocess.Popen | None = None
-        self._entry: dict | None = None
-        self._queue: list[dict] = []
+        self._entry: Entry | None = None
+        self._queue: list[Entry] = []
         self._session = 0
         self._stopped = False
         self._play_pending = False
@@ -70,11 +71,11 @@ class AudioController:
         return self._play_pending or (self._proc is not None and self._proc.poll() is None)
 
     @property
-    def entry(self) -> dict | None:
+    def entry(self) -> Entry | None:
         return self._entry
 
     @property
-    def queue(self) -> tuple[dict, ...]:
+    def queue(self) -> tuple[Entry, ...]:
         return tuple(self._queue)
 
     @property
@@ -86,7 +87,7 @@ class AudioController:
         """Last ``(pos, dur, paused)`` read from mpv for the current track, or None before the first poll."""
         return self._progress
 
-    def can_enqueue(self, entry: dict) -> bool:
+    def can_enqueue(self, entry: Entry) -> bool:
         """True while audio plays and ``entry`` is neither the current track nor already queued."""
         entry_id = entry.get("id")
         return (
@@ -95,13 +96,13 @@ class AudioController:
             and all(e.get("id") != entry_id for e in self._queue)
         )
 
-    def play_audio(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def play_audio(self, entry: Entry, *, ytdl_format: str = "") -> None:
         """Play ``entry`` now, replacing the current track. The queue is kept."""
         if self.is_playing:
             self._stop(keep_player_mode=True)
         self._start(entry, ytdl_format=ytdl_format)
 
-    def enqueue_audio(self, entry: dict) -> None:
+    def enqueue_audio(self, entry: Entry) -> None:
         if not self.is_playing:
             self.play_audio(entry)
             return
@@ -158,7 +159,7 @@ class AudioController:
             self._poll_timer.stop()
             self._poll_timer = None
 
-    def _start(self, entry: dict, *, ytdl_format: str = "") -> None:
+    def _start(self, entry: Entry, *, ytdl_format: str = "") -> None:
         self._play_pending = True
         self._entry = entry
         self._stopped = False
@@ -198,7 +199,7 @@ class AudioController:
         if session == self._session:
             self._stop()
 
-    def _launch_worker(self, entry: dict, session: int, ytdl_format: str) -> None:
+    def _launch_worker(self, entry: Entry, session: int, ytdl_format: str) -> None:
         if self._stale(session):
             self._clear_pending(session)
             return
@@ -271,7 +272,7 @@ class AudioController:
 
     def _play_with_retries(
         self,
-        entry: dict,
+        entry: Entry,
         session: int,
         exe: str,
         input_conf: str,
@@ -334,7 +335,7 @@ class AudioController:
         self._start(self._queue.pop(0))
         return True
 
-    def _on_finished(self, entry: dict, session: int) -> None:
+    def _on_finished(self, entry: Entry, session: int) -> None:
         if session != self._session:
             return
         title = entry.get("title", "")
@@ -349,7 +350,7 @@ class AudioController:
             if title:
                 self._app.notify(f"✓ Finished: {title[:50]}", timeout=4)
 
-    def _on_failed(self, entry: dict, returncode: int | None, stderr: str, session: int) -> None:
+    def _on_failed(self, entry: Entry, returncode: int | None, stderr: str, session: int) -> None:
         if session != self._session:
             return
         title = entry.get("title", "") or entry.get("id", "")

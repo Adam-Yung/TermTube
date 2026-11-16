@@ -1,8 +1,7 @@
 # src/player.py
 
 Launch helpers for mpv and the JSON IPC client used to control it. It owns the mpv executable lookup, the temporary `input.conf`, the
-headless audio command line, and the two IPC transports. It owns the launch loop (`run_mpv_with_retries`) but not what a result means: screens spawn through it and map the outcome.
-(`src/tui/audio_controller.py`, `src/tui/screens/watch_modal.py`).
+headless audio command line, and the two IPC transports. It owns the launch loop (`run_mpv_with_retries`) but not what a result means: screens spawn through it and map the outcome (`src/tui/audio_controller.py`, `src/tui/screens/watch_modal.py`).
 
 Decisions: `docs/decisions/playback.md`, `docs/decisions/concurrency.md`.
 

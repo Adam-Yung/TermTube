@@ -7,6 +7,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, ListItem, ListView, Static
 
 from src import playlist
+from src.entries import Entry
 
 
 class PlaylistModal(ModalScreen[None]):
@@ -19,7 +20,7 @@ class PlaylistModal(ModalScreen[None]):
         Binding("k",      "cursor_up",     show=False),
     ]
 
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: Entry) -> None:
         super().__init__()
         self._entry = entry
         self._video_id = entry.get("id", "")

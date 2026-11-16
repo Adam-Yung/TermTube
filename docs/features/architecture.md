@@ -19,6 +19,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
 | Feeds | `src/feeds.py` | channel latest uploads: RSS, then InnerTube |
 | Player | `src/player.py` | mpv command lines, IPC, polling |
+| Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
 | Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/config.py` | disk and RAM state |
 | Platform | `src/plat.py` | paths, clipboard, process registry, IPC paths |
 

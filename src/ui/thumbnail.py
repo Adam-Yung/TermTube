@@ -9,6 +9,7 @@ from pathlib import Path
 
 from src.cache import CACHE_DIR, THUMB_DIR
 from src import logger
+from src.entries import Entry
 
 RENDERED_DIR = CACHE_DIR / "rendered"
 
@@ -28,7 +29,7 @@ def _thumb_path(video_id: str) -> Path:
     return THUMB_DIR / f"{video_id}.jpg"
 
 
-def _resolve_local_thumb(video_id: str, entry: dict) -> Path | None:
+def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
     """Find the thumbnail yt-dlp wrote next to a downloaded file and copy it into the cache."""
     local_path = entry.get("_local_path")
     if not local_path:
@@ -76,7 +77,7 @@ def download(video_id: str, url: str) -> Path | None:
         return None
 
 
-def ensure_thumb_jpeg(video_id: str, entry: dict | None = None, *, url: str | None = None) -> Path | None:
+def ensure_thumb_jpeg(video_id: str, entry: Entry | None = None, *, url: str | None = None) -> Path | None:
     """Return a thumbnail path: disk cache, then library sidecar, then download.
 
     Pass `url` for channel avatars, `entry` for video thumbnails.
@@ -111,7 +112,7 @@ def validate_thumb(path: Path | None) -> bool:
 
 def render_pil_halfblock(
     video_id: str,
-    entry: dict,
+    entry: Entry,
     *,
     cols: int = 38,
     rows: int = 20,
@@ -173,7 +174,7 @@ _VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")
 _YTIMG_URL = "https://i.ytimg.com/vi/{}/mqdefault.jpg"
 
 
-def best_thumb_url(entry: dict) -> str:
+def best_thumb_url(entry: Entry) -> str:
     """Thumbnail URL for an entry: the extractor's choice, else derived from the video id.
 
     The derived URL needs no extraction, so rows that carry only an id (history,

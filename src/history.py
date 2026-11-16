@@ -7,17 +7,18 @@ import tempfile
 import threading
 import time
 
+from src.entries import Entry
 from src.plat import get_config_dir
 
 HISTORY_PATH = get_config_dir() / "history.json"
 
 _MAX_ENTRIES = 500
-_cache: list[dict] | None = None
+_cache: list[Entry] | None = None
 
 _lock = threading.Lock()
 
 
-def _load() -> list[dict]:
+def _load() -> list[Entry]:
     global _cache
     if _cache is not None:
         return _cache
@@ -31,7 +32,7 @@ def _load() -> list[dict]:
     return _cache
 
 
-def _save(entries: list[dict]) -> None:
+def _save(entries: list[Entry]) -> None:
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = json.dumps(entries, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     fd, tmp = tempfile.mkstemp(dir=HISTORY_PATH.parent, suffix=".tmp")
@@ -50,7 +51,7 @@ def _save(entries: list[dict]) -> None:
         raise
 
 
-def add(entry: dict) -> None:
+def add(entry: Entry) -> None:
     """Record a video as watched (most recent first, deduplicated by id, max 500)."""
     global _cache
     vid = entry.get("id") or entry.get("webpage_url_basename")
@@ -63,7 +64,7 @@ def add(entry: dict) -> None:
         _save(_cache)
 
 
-def all_entries() -> list[dict]:
+def all_entries() -> list[Entry]:
     """Return watch history, most recent first."""
     with _lock:
         return list(_load())

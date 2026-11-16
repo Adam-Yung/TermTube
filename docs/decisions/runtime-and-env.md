@@ -75,3 +75,7 @@ Thread safety: `YoutubeDL` is not thread-safe. Each concurrent operation creates
 ## 2026-11-15 — Keep `yt_dlp` off the main thread; keep-alive InnerTube transport
 
 `main.py` imported `src.ytdlp` on the main thread only to call `cancel_all` at exit, adding about 170 ms before the UI started (319 to 347 ms against 134 to 157 ms for app import alone). It now consults `sys.modules`. The planned lazy imports inside `ytdlp.py`, `streams.py` and `downloads.py` were skipped: the warmup worker already imports them off the main thread, so they would add edits at many `yt_dlp.` sites for no first-paint gain. `innertube._post_json` moved from `urllib.request.urlopen` to a per-thread `http.client.HTTPSConnection` with a single retry for a stale reused connection; certificate verification is unchanged.
+
+## 2026-11-15 — Row `TypedDict`s, annotations only
+
+Rows stay plain dicts (they come from JSON, yt-dlp and the disk cache, and are mutated with `setdefault` all over). `src/entries.py` names their shapes for readers and editors and a fixture test keeps the parsers inside the declared keys. A runtime schema or dataclass was rejected: it would cost conversions at every boundary for no behaviour the UI needs.

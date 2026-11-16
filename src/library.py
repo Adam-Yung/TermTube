@@ -6,7 +6,9 @@ import threading
 from pathlib import Path
 from typing import Iterator
 
-_cache: dict[tuple[str, str], tuple[float, float, list[dict]]] = {}
+from src.entries import LibraryEntry
+
+_cache: dict[tuple[str, str], tuple[float, float, list[LibraryEntry]]] = {}
 _lock = threading.Lock()
 _VIDEO_EXTS = (".mp4", ".mkv", ".webm", ".avi", ".mov")
 _NON_MEDIA_EXTS = (".json", ".jpg", ".png", ".webp")
@@ -19,7 +21,7 @@ def _dir_mtime(directory: Path) -> float:
         return 0.0
 
 
-def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> dict | None:
+def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> LibraryEntry | None:
     try:
         data = json.loads(info_path.read_text())
         media_stem = info_path.stem.removesuffix(".info")
@@ -33,7 +35,7 @@ def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> dict | None:
         return None
 
 
-def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
+def _scan_dir(directory: Path, media_type: str) -> Iterator[LibraryEntry]:
     if not directory.exists():
         return
     media_files: dict[str, Path] = {}
@@ -55,7 +57,7 @@ def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
             yield entry
 
 
-def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
+def all_entries(video_dir: Path, audio_dir: Path) -> list[LibraryEntry]:
     """Return library entries (video and audio merged by id), newest upload first.
 
     Cached until a directory mtime changes or `invalidate_cache()` is called.
@@ -72,7 +74,7 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
                 return cached_entries
 
         seen_ids: set[str] = set()
-        entries: list[dict] = []
+        entries: list[LibraryEntry] = []
 
         for entry in _scan_dir(video_dir, "video"):
             vid = entry.get("id", "")
@@ -80,7 +82,7 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
                 seen_ids.add(vid)
                 entries.append(entry)
 
-        entries_by_id: dict[str, dict] = {e.get("id", ""): e for e in entries if e.get("id")}
+        entries_by_id: dict[str, LibraryEntry] = {e.get("id", ""): e for e in entries if e.get("id")}
         for entry in _scan_dir(audio_dir, "audio"):
             vid = entry.get("id", "")
             if vid not in seen_ids:

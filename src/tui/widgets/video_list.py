@@ -11,6 +11,7 @@ from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 from src import logger
+from src.entries import Entry
 from src.tui.fmt import fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
@@ -20,13 +21,13 @@ _MAX_PAGES_IN_MEMORY = 30
 
 
 class _ItemClicked(Message):
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: Entry) -> None:
         super().__init__()
         self.entry = entry
 
 
 class _ItemDoubleClicked(Message):
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: Entry) -> None:
         super().__init__()
         self.entry = entry
 
@@ -46,7 +47,7 @@ def _fmt_watched(ts: float | None) -> str:
 
 
 class VideoListItem(ListItem):
-    def __init__(self, entry: dict) -> None:
+    def __init__(self, entry: Entry) -> None:
         super().__init__()
         self.entry = entry
         self._cached_markup: str = ""
@@ -136,13 +137,13 @@ class VideoListPanel(Widget):
 
     class Selected(Message):
         """Cursor moved to a new item."""
-        def __init__(self, entry: dict) -> None:
+        def __init__(self, entry: Entry) -> None:
             super().__init__()
             self.entry = entry
 
     class Activated(Message):
         """User pressed Enter on an item."""
-        def __init__(self, entry: dict) -> None:
+        def __init__(self, entry: Entry) -> None:
             super().__init__()
             self.entry = entry
 
@@ -154,7 +155,7 @@ class VideoListPanel(Widget):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._pages: dict[int, list[dict]] = {}
+        self._pages: dict[int, list[Entry]] = {}
         self._seen_ids: set[str] = set()
         self._current_page: int = 0
         self._max_visited_page: int = 0
@@ -179,7 +180,7 @@ class VideoListPanel(Widget):
         self._lv.focus()
 
     @property
-    def selected_entry(self) -> dict | None:
+    def selected_entry(self) -> Entry | None:
         if self._lv.index is None:
             return None
         try:
@@ -202,9 +203,9 @@ class VideoListPanel(Widget):
     def is_loading(self) -> bool:
         return self._is_loading
 
-    def add_page(self, page_num: int, entries: list[dict]) -> None:
+    def add_page(self, page_num: int, entries: list[Entry]) -> None:
         """Store a page, dropping ids already held. Evicts far-away pages beyond the cap."""
-        deduped: list[dict] = []
+        deduped: list[Entry] = []
         for entry in entries:
             vid = entry.get("id", "")
             if vid and vid in self._seen_ids:
@@ -273,9 +274,9 @@ class VideoListPanel(Widget):
             return False
         return self._current_page > 1 and (self._current_page - 1) in self._pages
 
-    def all_unseen_entries(self) -> list[dict]:
+    def all_unseen_entries(self) -> list[Entry]:
         """Entries of pages the user never opened (the home stash)."""
-        entries: list[dict] = []
+        entries: list[Entry] = []
         for pn in sorted(self._pages.keys()):
             if pn > self._max_visited_page:
                 entries.extend(self._pages[pn])
@@ -330,7 +331,7 @@ class VideoListPanel(Widget):
         self._lv.display = True
         self._breadcrumb.update(f"[#ff4444]{msg}[/#ff4444]")
 
-    def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
+    def update_entry_by_id(self, vid_id: str, entry: Entry) -> None:
         """Replace an entry (held page and visible row) with its enriched version."""
         for pn, page_entries in self._pages.items():
             for i, e in enumerate(page_entries):
@@ -351,7 +352,7 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    def add_entries(self, start_page: int, entries: list[dict]) -> None:
+    def add_entries(self, start_page: int, entries: list[Entry]) -> None:
         """Add ``entries`` as consecutive PAGE_SIZE pages starting at ``start_page``."""
         for n, i in enumerate(range(0, len(entries), PAGE_SIZE)):
             self.add_page(start_page + n, entries[i:i + PAGE_SIZE])
@@ -360,7 +361,7 @@ class VideoListPanel(Widget):
     def seen_ids(self) -> set[str]:
         return set(self._seen_ids)
 
-    def visited_entries(self) -> list[dict]:
+    def visited_entries(self) -> list[Entry]:
         """Entries of every held page, in page order."""
         return [e for pn in sorted(self._pages) for e in self._pages[pn]]
 
