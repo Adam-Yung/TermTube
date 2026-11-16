@@ -26,9 +26,10 @@ def _pages_for(count: int) -> int:
 class FeedLoaderMixin:
     """Loads each tab's entries into the ``VideoListPanel`` and keeps paging ahead of the user.
 
-    Needs ``_current_tab``, ``_search_query``, ``_log``, ``_worker_start`` and ``_worker_end``
-    from the screen, plus ``_show_empty_feed_modal`` and ``_prompt_ytdlp_update``.
-    Loaders run in the exclusive ``feed_loader`` worker group.
+    Needs ``_current_tab``, ``_search_query``, ``_feed_session``, ``_log``, ``_worker_start`` and
+    ``_worker_end`` from the screen, plus ``_show_empty_feed_modal`` and ``_prompt_ytdlp_update``.
+    Tab loads run in the exclusive ``feed_loader`` group and paging in ``feed_extend``, so neither cancels
+    the other; ``_feed_session`` makes a paging result from before a view change a no-op.
     """
 
     def _load_view(self, view: str) -> None:
@@ -38,6 +39,10 @@ class FeedLoaderMixin:
         detail.clear()
         if view not in CHANNEL_TABS:
             detail.set_video_mode()
+        self._start_view(view)
+
+    def _start_view(self, view: str) -> None:
+        self._feed_session += 1
         self._stream_view(view)
 
     @work(thread=True, exclusive=True, group="feed_loader")
@@ -296,15 +301,15 @@ class FeedLoaderMixin:
 
     def _on_last_page_reached(self) -> None:
         if self._current_tab in PAGED_TABS:
-            self._extend_feed(show=False)
+            self._extend_feed(show=False, session=self._feed_session)
 
     def _on_past_last_page(self) -> None:
         if self._current_tab in PAGED_TABS:
-            self._extend_feed(show=True)
+            self._extend_feed(show=True, session=self._feed_session)
 
-    @work(thread=True, exclusive=True, group="feed_loader")
-    def _extend_feed(self, *, show: bool) -> None:
-        """Fetch the next batch of pages. With ``show`` the user is waiting on it."""
+    @work(thread=True, exclusive=True, group="feed_extend")
+    def _extend_feed(self, *, show: bool, session: int) -> None:
+        """Fetch the next batch of pages. With ``show`` the user is waiting on it. Dropped if the view changed."""
         panel = self._list()
         call = self.app.call_from_thread
         if show:
@@ -313,13 +318,13 @@ class FeedLoaderMixin:
         try:
             entries = self._fetch_next_batch(panel)
             if entries:
-                call(self._append_pages, panel, entries, show)
+                call(self._apply_extension, session, panel, entries, show)
             elif show:
-                call(panel.finish_loading)
+                call(self._finish_extension, session, panel)
         except Exception as exc:
             logger.debug("extend feed: %s", exc)
             if show:
-                call(panel.finish_loading)
+                call(self._finish_extension, session, panel)
         finally:
             self._worker_end()
 
@@ -341,6 +346,14 @@ class FeedLoaderMixin:
                 self._search_query, config, cache, skip_ids=skip, count=SEARCH_FETCH_COUNT
             )
         return []
+
+    def _finish_extension(self, session: int, panel: VideoListPanel) -> None:
+        if session == self._feed_session:
+            panel.finish_loading()
+
+    def _apply_extension(self, session: int, panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
+        if session == self._feed_session:
+            self._append_pages(panel, entries, show)
 
     @staticmethod
     def _append_pages(panel: VideoListPanel, entries: list[Entry], show: bool) -> None:

@@ -4,10 +4,9 @@ Loads each tab's entries into the `VideoListPanel` and keeps the next pages read
 
 ## Worker group
 
-All loading runs in group `feed_loader`, `thread=True, exclusive=True`: `_stream_view` (tab load) and `_extend_feed` (next batch). Starting either cancels the other's worker object. Consequences:
+Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab load) and `feed_extend` for `_extend_feed` (next batch). They are separate so paging to the end during the first home fetch does not cancel that fetch.
 
-- Switching tabs cancels an in-flight extend, which is wanted.
-- An extend started while the initial home fetch is still streaming (the user pages to the end very fast) cancels the rest of that fetch. A cancelled thread keeps running until its network call returns and may still push pages through `call_from_thread`; there is no session check on these paths.
+`_feed_session` (on the screen) is bumped by `_start_view`, the only entry to `_stream_view`. `_extend_feed` carries the value it started under and its result goes through `_apply_extension` / `_finish_extension` on the UI thread, which drop it when the session moved on. A tab switch, search or playlist open therefore cannot receive pages from the view before it. A cancelled thread still runs until its network call returns, so `_stream_view`'s own late pushes to the panel remain unguarded (limit).
 
 `_worker_start`/`_worker_end` wrap the thread bodies so the header spinner counts them.
 

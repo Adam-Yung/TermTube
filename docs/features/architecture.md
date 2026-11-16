@@ -42,7 +42,8 @@ All are `@work(thread=True, exclusive=True)` unless noted. `exclusive` cancels t
 
 | Group | Screen | Worker | Purpose |
 |---|---|---|---|
-| `feed_loader` | Main | `_stream_view`, `_extend_feed` | tab load, next-batch fetch (they cancel each other) |
+| `feed_loader` | Main | `_stream_view` | tab load |
+| `feed_extend` | Main | `_extend_feed` | next-batch fetch; dropped when `_feed_session` moved on |
 | `focus` | Main, Channel | `_detail_worker` | InnerTube metadata for the highlighted row |
 | `stream_prefetch` | Main, Channel | `_prefetch_stream_worker` | resolve stream URL ahead of play |
 | `thumb` | Main, Channel | `_thumb_worker` | video thumbnail |
@@ -68,6 +69,7 @@ A worker is handed a number when it starts and drops its result if the counter h
 | `_avatar_session` | `MainScreen` | subscription avatar | cursor move, each avatar launch |
 | `_info_avatar_session` | `ChannelScreen` | info-column avatar | each `_apply_info` only |
 | `_content_session` | `ChannelScreen` | `ch_content` | tab, sort, reload |
+| `_feed_session` | `MainScreen` | result of `_extend_feed` | every tab load (`_start_view`) |
 | `_session` | `AudioController` | launch, poll, completion, socket path | every audio start |
 
 The channel info avatar must not share a counter the cursor bumps: it does not change with the cursor, and sharing one cancels it mid-load (fixed in ccebfaa).

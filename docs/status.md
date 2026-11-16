@@ -27,7 +27,6 @@
 
 ## Known problems
 
-- `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
 - InnerTube fetch errors become empty results (callers fall back to yt-dlp).
 - `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.
 

@@ -87,6 +87,7 @@ class MainScreen(
         self._search_query = ""
         self._nav_stack: list[str] = []
         self._opening_search_tab = False
+        self._feed_session = 0
         self._avatar_session = 0
         self._active_workers = 0
         self._workers_lock = threading.Lock()
@@ -282,7 +283,7 @@ class MainScreen(
         panel.clear_and_set_loading()
         panel.set_breadcrumb(f"🎵 {name}  ← backspace to go back")
         self._detail().clear()
-        self._stream_view(f"playlist:{name}")
+        self._start_view(f"playlist:{name}")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
