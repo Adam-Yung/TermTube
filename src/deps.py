@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import shutil
 import sys
 
-from src.plat import get_config_dir
+from src.plat import get_config_dir, get_deps_bin, is_tool_installed
 
 REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]
 
@@ -31,15 +30,15 @@ def print_cookies_help() -> None:
 
 
 def check_dependencies() -> bool:
-    """True if all required tools resolve on PATH (main.py puts the managed bin dir first).
+    """True if all required tools exist in the managed bin dir; system copies never count.
 
     If any are missing and stdin is a TTY, offers to install them via src.bootstrap.
     """
-    missing = [tool for tool in REQUIRED_TOOLS if shutil.which(tool) is None]
+    missing = [tool for tool in REQUIRED_TOOLS if not is_tool_installed(tool)]
     if not missing:
         return True
 
-    print("\n\033[31m✗ Required tools missing:\033[0m")
+    print(f"\n\033[31m✗ Required tools missing from {get_deps_bin()}:\033[0m")
     for tool in missing:
         print(f"  • {tool}")
 
@@ -51,7 +50,7 @@ def check_dependencies() -> bool:
 
 
 def _offer_bootstrap(missing: list[str]) -> bool:
-    from src.bootstrap import get_deps_bin, install_tool
+    from src.bootstrap import install_tool
 
     print()
     print("  TermTube can download these from GitHub into:")
@@ -82,8 +81,6 @@ def _offer_bootstrap(missing: list[str]) -> bool:
 
 
 def _print_bootstrap_hint() -> None:
-    from src.bootstrap import get_deps_bin
-
     print("\n  Install manually by running:")
     print("    \033[36mpython -m src.bootstrap\033[0m")
     print()

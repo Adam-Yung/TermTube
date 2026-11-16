@@ -17,6 +17,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from src.plat import get_deps_bin, get_deps_dir, is_tool_installed
+
 try:
     import ssl
 except ImportError:
@@ -50,20 +52,6 @@ def _detect_platform() -> tuple[str, str]:
 
 
 OS_NAME, ARCH = _detect_platform()
-
-
-def get_deps_dir() -> Path:
-    """Root directory for TermTube-managed dependencies."""
-    if OS_NAME == "windows":
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path.home() / ".local"
-    return base / "termtube-deps"
-
-
-def get_deps_bin() -> Path:
-    """Binary directory containing all TermTube-managed executables."""
-    return get_deps_dir() / "bin"
 
 
 def _versions_file() -> Path:
@@ -448,12 +436,6 @@ TOOLS = {
     "ffmpeg": _install_ffmpeg,
     "mpv": _install_mpv,
 }
-
-
-def is_tool_installed(name: str) -> bool:
-    """True if the tool exists in the managed bin dir. System PATH copies never count."""
-    exe = f"{name}.exe" if OS_NAME == "windows" else name
-    return (get_deps_bin() / exe).exists()
 
 
 def _install_and_record(name: str, bin_dir: Path) -> str | None:

@@ -4,10 +4,9 @@ Downloads and installs the three bundled tools (deno, ffmpeg, mpv) into `~/.loca
 
 ## Invariants
 
-- `is_tool_installed` looks only in the managed bin dir. A system copy never counts, so versions stay under our control.
+- `is_tool_installed`, `get_deps_dir` and `get_deps_bin` live in `src/plat.py` (stdlib, cheap to import) and are imported here. `is_tool_installed` looks only in the managed bin dir; a system copy never counts, so versions stay under our control.
 - `_download` writes `<dest>.tmp` and `os.replace()`s it after a size check against `Content-Length`. An interrupted download never overwrites a working binary.
 - yt-dlp is not installed here. It is a pip package, updated by `src/updater.py`.
-- `get_deps_bin()` is duplicated in `src/main.py` (PATH prepend) to keep this module out of cold start. Change both together.
 
 ## Platform quirks
 
@@ -20,7 +19,7 @@ Downloads and installs the three bundled tools (deno, ffmpeg, mpv) into `~/.loca
 
 ## Interface
 
-- Callers: `src/deps.py` (`install_tool`, `get_deps_bin`), `src/updater.py` (`install_all(force=True)`), `src/ytdlp.py` and `src/player.py` (`get_deps_bin`), `scripts/setup.sh` and `setup.ps1` (`python -m src.bootstrap`).
+- Callers: `src/deps.py` (`install_tool`), `src/updater.py` (`install_all(force=True)`), `scripts/setup.sh` and `setup.ps1` (`python -m src.bootstrap`).
 - Exit code of `python -m src.bootstrap` is 0 only if every tool installed. Setup continues on failure.
 
 ## Limits

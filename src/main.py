@@ -18,11 +18,10 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 
-# Managed tools win over system copies. Duplicates bootstrap.get_deps_bin() to keep bootstrap out of cold start.
-if sys.platform == "win32":
-    _deps_bin = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "termtube-deps" / "bin"
-else:
-    _deps_bin = Path.home() / ".local" / "termtube-deps" / "bin"
+# Managed tools win over system copies.
+from src.plat import get_deps_bin  # noqa: E402
+
+_deps_bin = get_deps_bin()
 if _deps_bin.is_dir():
     os.environ["PATH"] = str(_deps_bin) + os.pathsep + os.environ.get("PATH", "")
 

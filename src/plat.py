@@ -28,6 +28,25 @@ def get_config_dir() -> Path:
     return base / "TermTube"
 
 
+def get_deps_dir() -> Path:
+    """Root directory for TermTube-managed dependencies (deno, ffmpeg, mpv)."""
+    if IS_WINDOWS:
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path.home() / ".local"
+    return base / "termtube-deps"
+
+
+def get_deps_bin() -> Path:
+    """Binary directory containing all TermTube-managed executables."""
+    return get_deps_dir() / "bin"
+
+
+def is_tool_installed(name: str) -> bool:
+    """True if the tool exists in the managed bin dir. System PATH copies never count."""
+    return (get_deps_bin() / (f"{name}.exe" if IS_WINDOWS else name)).exists()
+
+
 def get_cache_dir() -> Path:
     """Cache directory (~/.cache/termtube or %LOCALAPPDATA%/TermTube/cache)."""
     if IS_WINDOWS:

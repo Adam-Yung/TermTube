@@ -12,10 +12,10 @@ from collections.abc import Callable
 import yt_dlp
 
 from src import innertube, logger
-from src.bootstrap import get_deps_bin
 from src.cache import Cache
 from src.cookies import get_cookiejar, invalidate, is_auth_failure
 from src.entries import ChannelEntry, PlaylistEntry, VideoEntry
+from src.plat import get_deps_bin
 
 
 def _make_ydl(opts: dict, config, *, auth: bool = False) -> yt_dlp.YoutubeDL:

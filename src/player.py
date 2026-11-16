@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from src import logger
-from src.plat import IS_WINDOWS, ProcessRegistry, get_ipc_path, get_popen_kwargs, install_hint
+from src.plat import IS_WINDOWS, ProcessRegistry, get_deps_bin, get_ipc_path, get_popen_kwargs, install_hint
 
 _persistent_sockets: dict[str, socket.socket] = {}
 _persistent_lock = threading.Lock()
@@ -111,7 +111,6 @@ def mpv_exe(*, headless: bool = False) -> str | None:
             return which
         return None
 
-    from src.bootstrap import get_deps_bin
     bundled_mpv = get_deps_bin() / ("mpv.exe" if IS_WINDOWS else "mpv")
     if bundled_mpv.exists():
         return str(bundled_mpv)
