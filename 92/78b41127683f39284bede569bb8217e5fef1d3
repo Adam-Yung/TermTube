@@ -1,0 +1,80 @@
+src/tui/screens/mixins/detail_focus.py
+  s_3690eae3737fe4::t_81c5dc68810b68 7,48,76,83,103,135
+src/tui/screens/download_modal.py
+  s_3690eae3737fe4::t_81c5dc68810b68 11,21
+src/tui/screens/playlist_modal.py
+  s_3690eae3737fe4::t_c165e136f75f0c 10,23
+src/tui/audio_controller.py
+  s_3690eae3737fe4::t_c165e136f75f0c 13,57-58,74,78,90,99,105,162,202,275,338,353
+src/tui/screens/mixins/feed_loader.py
+  s_3690eae3737fe4::t_81c5dc68810b68 8,79,85,102,120,170,185,237,239,257,326,346
+src/innertube.py
+  s_3690eae3737fe4::t_91379f1f5d8850 14,146,158,183,317,344,346,363-364,372,448,473,490,493
+docs/code/src/entries.py.md
+  s_3690eae3737fe4::t_b96d34835b085e 1-13
+docs/features/architecture.md
+  s_3690eae3737fe4::t_b96d34835b085e 22
+src/tui/widgets/detail_panel.py
+  s_3690eae3737fe4::t_81c5dc68810b68 16,30,37,61,75,97,106,173
+src/ui/thumbnail.py
+  s_3690eae3737fe4::t_c165e136f75f0c 12,32,80,115,177
+src/cache.py
+  s_3690eae3737fe4::t_c165e136f75f0c 14,75,112,124,245,259,341
+src/tui/messages.py
+  s_3690eae3737fe4::t_c165e136f75f0c 7-8,27
+docs/code/src/player.py.md
+  s_3690eae3737fe4::t_b96d34835b085e 4
+src/tui/widgets/video_list.py
+  s_3690eae3737fe4::t_81c5dc68810b68 14,24,30,50,140,146,158,183,206,208,277,279,334,355,364
+src/feeds.py
+  s_3690eae3737fe4::t_91379f1f5d8850 13,58,87,104
+src/tui/screens/watch_modal.py
+  s_3690eae3737fe4::t_81c5dc68810b68 15,49
+src/tui/screens/mixins/item_actions.py
+  s_3690eae3737fe4::t_81c5dc68810b68 6,14,26,34,37,61,75,100,140,163
+src/tui/screens/video_action_modal.py
+  s_3690eae3737fe4::t_c165e136f75f0c 9-10,48
+src/history.py
+  s_3690eae3737fe4::t_c165e136f75f0c 10,16,21,35,54,67
+src/tui/widgets/action_bar.py
+  s_3690eae3737fe4::t_81c5dc68810b68 13,237
+src/ytdlp.py
+  s_3690eae3737fe4::t_abb0610d6823de 18,92,98,111,116,138,141,147,197,200,229-230,323,336,340,367,381,397,399
+docs/decisions/runtime-and-env.md
+  s_3690eae3737fe4::t_b96d34835b085e 78-81
+src/tui/thumb_loader.py
+  s_3690eae3737fe4::t_c165e136f75f0c 10,39
+src/library.py
+  s_3690eae3737fe4::t_c8ca2028158a78 9-11,24,38,60,77,85
+src/tui/screens/channel_screen.py
+  s_3690eae3737fe4::t_abb0610d6823de 13,179,191
+  s_3690eae3737fe4::t_2fe1b5a6034235 95
+src/tests/unit/test_entries.py
+  s_3690eae3737fe4::t_2fe1b5a6034235 1-47
+docs/status.md
+  s_3690eae3737fe4::t_b96d34835b085e 48-49
+src/entries.py
+  s_3690eae3737fe4::t_81c5dc68810b68 1-73
+src/tui/screens/main_screen.py
+  s_3690eae3737fe4::t_81c5dc68810b68 14,298,311,321,342
+src/tui/screens/mixins/audio_bar.py
+  s_3690eae3737fe4::t_81c5dc68810b68 3,27
+src/tui/screens/mixins/list_nav.py
+  s_3690eae3737fe4::t_81c5dc68810b68 5,22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9278b41127683f39284bede569bb8217e5fef1d3",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
