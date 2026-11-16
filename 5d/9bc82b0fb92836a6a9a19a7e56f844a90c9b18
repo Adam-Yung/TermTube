@@ -1,0 +1,65 @@
+docs/plans/2026-11-15-handoff-PLAN.md
+  s_3690eae3737fe4::t_6fe1f526cdbb38 76
+docs/decisions/playback.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 75-78
+docs/code/src/player.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 5
+docs/glossary.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 12
+docs/status.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 46
+  s_3690eae3737fe4::t_e43bfad962bd38 47
+docs/code/src/tui/keymap.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 11
+docs/features/architecture.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 12-13,28,31,33,36,53-54,70,78,112,117
+src/tui/screens/mixins/audio_bar.py
+  s_3690eae3737fe4::t_0887ccbbaa2f35 1-59
+src/tests/tui/test_audio_controller.py
+  s_3690eae3737fe4::t_be2cb0fe03c82a 1-128
+docs/code/src/tui/audio_controller.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 1-48
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 7,13
+docs/code/src/tui/messages.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 6-8
+src/tui/screens/channel_screen.py
+  s_3690eae3737fe4::t_2c891835756784 14,34,37-38
+src/tui/audio_controller.py
+  s_3690eae3737fe4::t_966dc432d81b83 1-24,26-202,207-275,277-306,308-435
+  s_3690eae3737fe4::t_0887ccbbaa2f35 25,203-206,276,307
+src/tui/screens/main_screen.py
+  s_3690eae3737fe4::t_2c891835756784 16,52,57,110-111,408
+src/tests/tui/conftest.py
+  s_3690eae3737fe4::t_be2cb0fe03c82a 1-46
+docs/code/src/sponsorblock.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 3
+docs/code/src/tui/screens/main_screen.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 3,24
+src/tui/screens/mixins/item_actions.py
+  s_3690eae3737fe4::t_2c891835756784 21-22,26,100,106,110,113,116,119,122
+docs/code/src/tui/screens/channel_screen.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 3,7,10
+src/tui/messages.py
+  s_3690eae3737fe4::t_0887ccbbaa2f35 9,20-44
+src/tui/app.py
+  s_3690eae3737fe4::t_2c891835756784 15,32
+docs/code/src/tui/screens/mixins/audio_bar.py.md
+  s_3690eae3737fe4::t_a033f2a7547bb3 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5d9bc82b0fb92836a6a9a19a7e56f844a90c9b18",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
