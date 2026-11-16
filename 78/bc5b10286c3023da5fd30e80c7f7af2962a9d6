@@ -1,0 +1,23 @@
+src/tests/unit/test_config.py
+  s_3690eae3737fe4::t_b61685b8fc028c 159-168
+src/config.py
+  s_3690eae3737fe4::t_b61685b8fc028c 14
+docs/code/src/config.py.md
+  s_3690eae3737fe4::t_b61685b8fc028c 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "78bc5b10286c3023da5fd30e80c7f7af2962a9d6",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
