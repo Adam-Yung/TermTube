@@ -1,0 +1,60 @@
+README.md
+  s_3690eae3737fe4::t_4d5aad3497b7ee 166
+  s_3690eae3737fe4::t_76e017ae91d333 7,9,11,19,21-28,30,32,34,36,38-42,44-46,48,56-57,67-68,70,72-80,82,86,88,90-93,95,97-106,108-114,116-117,123-124,127,130-132,134-139,146,150,152-157,159,161,164-165,167,170-171,173,175,177-182,184-186,188,190,192-201,203,207,210-213,216-218,220,223-234
+docs/features/configuration.md
+  s_3690eae3737fe4::t_d20cdcb2806215 31
+  s_3690eae3737fe4::t_8513f107f5f318 1-30,32-45
+docs/history/2026-11-16-status-log.md
+  s_3690eae3737fe4::t_5273ccde8d9cb9 1-75
+docs/plans/2026-11-15-handoff-PLAN.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 1-2
+docs/features/playback.md
+  s_3690eae3737fe4::t_d20cdcb2806215 1-43
+docs/features/architecture.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 16
+docs/README.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 5,20,23,25
+docs/features/thumbnails.md
+  s_3690eae3737fe4::t_d20cdcb2806215 1-22
+docs/features/library-and-downloads.md
+  s_3690eae3737fe4::t_d20cdcb2806215 1-20,23-27
+  s_3690eae3737fe4::t_4a8e02a5e4f672 21-22
+docs/status.md
+  s_3690eae3737fe4::t_5273ccde8d9cb9 3-4,6,8-13,15,17-23,27,29,31,33-35,37
+AGENTS.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 35
+docs/glossary.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 15-19
+docs/todo.md
+  s_3690eae3737fe4::t_4d4b1bf07e1c1e 3,5-9
+docs/features/accounts-and-cookies.md
+  s_3690eae3737fe4::t_d20cdcb2806215 37,48
+  s_3690eae3737fe4::t_8513f107f5f318 1-36,38-47,49-51
+docs/guides/setup.md
+  s_3690eae3737fe4::t_8334fd20949af3 56,171,173
+  s_3690eae3737fe4::t_4d5aad3497b7ee 93
+  s_3690eae3737fe4::t_5f45de8110a698 1-55,57-92,94-170,172,174-218
+docs/features/sources.md
+  s_3690eae3737fe4::t_d20cdcb2806215 1-12,14-33
+  s_3690eae3737fe4::t_4a8e02a5e4f672 13
+docs/code/scripts/uninstall.sh.md
+  s_3690eae3737fe4::t_cbe47e2887c1bf 13
+scripts/uninstall.sh
+  s_3690eae3737fe4::t_8db5bfbbeb5766 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "cc2a5dd1bb85df9bf373f1986e789c4f773e38a7",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
