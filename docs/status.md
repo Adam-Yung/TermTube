@@ -28,7 +28,6 @@
 ## Known problems
 
 - `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
-- `--update` always exits 0.
 - InnerTube fetch errors become empty results (callers fall back to yt-dlp).
 - `sort_modal` and `channel_tab_modal` carry hardcoded colours and ignore themes.
 - `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.

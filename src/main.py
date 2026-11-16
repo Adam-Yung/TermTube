@@ -242,8 +242,7 @@ def main() -> None:
         from src.updater import self_update
         color = _supports_color()
         print(_c("1", "TermTube -- updating...", color=color))
-        self_update()
-        sys.exit(0)
+        sys.exit(0 if self_update() else 1)
 
     from src.deps import check_dependencies
     logger.debug("Running dependency check")

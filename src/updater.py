@@ -185,6 +185,8 @@ def run_all_updates(verbose: bool = False) -> bool:
     ytdlp_ok = update_ytdlp(verbose=verbose)
     if ytdlp_ok and verbose:
         _safe_print(f"  [ok] yt-dlp {get_ytdlp_version() or 'updated'}")
+    if not ytdlp_ok:
+        success = False
 
     if not update_app_code(install_dir, verbose=verbose):
         success = False
@@ -198,10 +200,10 @@ def run_all_updates(verbose: bool = False) -> bool:
     return success
 
 
-def self_update() -> None:
-    """Entry for ``termtube --update``: tools, yt-dlp and app code."""
+def self_update() -> bool:
+    """Entry for ``termtube --update``: tools, yt-dlp and app code. True if every step succeeded."""
     _safe_print("  Updating TermTube...")
-    run_all_updates(verbose=True)
+    return run_all_updates(verbose=True)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,11 @@ Mocks yt_dlp imports and filesystem I/O so tests run fully offline.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -114,3 +117,32 @@ class TestRunAllUpdates:
             mod.run_all_updates(verbose=True)
         out = capsys.readouterr().out
         assert "Re-downloading" in out or "yt-dlp" in out
+
+
+class TestUpdateExitStatus:
+    def test_a_failed_ytdlp_upgrade_fails_the_run(self, tmp_path):
+        mod = _make_updater(tmp_path)
+        with (
+            patch("src.bootstrap.install_all", return_value=True),
+            patch.object(mod, "update_ytdlp", return_value=False),
+            patch.object(mod, "update_app_code", return_value=True),
+        ):
+            assert mod.run_all_updates(verbose=False) is False
+
+    def _run_main(self, monkeypatch, tmp_path, result):
+        import src.main as main_mod
+        import src.updater as updater_mod
+
+        monkeypatch.setattr(sys, "argv", ["termtube", "--update"])
+        monkeypatch.setattr(updater_mod, "self_update", lambda: result)
+        monkeypatch.setattr(main_mod, "_migrate_legacy_windows_paths", lambda: None)
+        monkeypatch.setattr("src.logger.setup", lambda **kw: None)
+        with pytest.raises(SystemExit) as exc:
+            main_mod.main()
+        return exc.value.code
+
+    def test_update_exits_zero_on_success(self, monkeypatch, tmp_path):
+        assert self._run_main(monkeypatch, tmp_path, True) == 0
+
+    def test_update_exits_nonzero_on_failure(self, monkeypatch, tmp_path):
+        assert self._run_main(monkeypatch, tmp_path, False) == 1
