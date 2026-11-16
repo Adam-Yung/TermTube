@@ -1,0 +1,41 @@
+docs/guides/startup-debugging.md
+  s_3690eae3737fe4::t_6a441217de9e4f 244-251
+docs/code/scripts/e2e-local.py.md
+  s_3690eae3737fe4::t_6a441217de9e4f 7
+scripts/e2e-local.py
+  s_3690eae3737fe4::t_a9798bd41f6336 197
+  s_3690eae3737fe4::t_598dad5f5c9532 202-203
+  s_3690eae3737fe4::t_b088997e022243 233-236
+src/tests/unit/test_bootstrap_tags.py
+  s_3690eae3737fe4::t_b088997e022243 1-70
+src/bootstrap.py
+  s_3690eae3737fe4::t_02ca999f240c16 9,17,201-212,214-221,223-228,232,235
+  s_3690eae3737fe4::t_598dad5f5c9532 213,229-230
+docs/code/src/bootstrap.py.md
+  s_3690eae3737fe4::t_6a441217de9e4f 15
+src/tests/unit/test_mpv_commands.py
+  s_3690eae3737fe4::t_b088997e022243 35-41
+src/tui/audio_controller.py
+  s_3690eae3737fe4::t_b088997e022243 35-40,312
+src/player.py
+  s_3690eae3737fe4::t_b088997e022243 475,477,496-497
+.github/workflows/test.yml
+  s_3690eae3737fe4::t_598dad5f5c9532 48-49
+  s_3690eae3737fe4::t_6a441217de9e4f 78-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "704fa8f9c976ead03ae711d91af60955d063e5f1",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
