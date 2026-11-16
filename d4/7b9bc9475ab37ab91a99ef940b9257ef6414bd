@@ -1,0 +1,23 @@
+src/library.py
+  s_3690eae3737fe4::t_bc572a0ae4c6b4 6,20-30
+docs/code/src/library.py.md
+  s_3690eae3737fe4::t_24974a2b2333cd 17-19,21-22
+src/tests/unit/test_library.py
+  s_3690eae3737fe4::t_ea3de506032f8d 1-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d47b9bc9475ab37ab91a99ef940b9257ef6414bd",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
