@@ -12,7 +12,7 @@ from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 from src import logger
 from src.entries import Entry
-from src.tui.fmt import fmt_age, fmt_duration, fmt_subscribers, fmt_views
+from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
 
@@ -97,7 +97,7 @@ class VideoListItem(ListItem):
             vcnt = entry.get("video_count")
             parts = [f"{subs} subs" if subs else "", f"{vcnt} videos" if vcnt else ""]
             line2 = "  [dim]·[/dim]  ".join(f"[dim]{p}[/dim]" for p in parts if p)
-            line1 = f"[bold white]{ch_name}[/bold white] [{theme_color}]📺[/{theme_color}]"
+            line1 = f"[bold white]{escape_markup(ch_name)}[/bold white] [{theme_color}]📺[/{theme_color}]"
             return f"{line1}\n{line2}" if line2 else line1
 
         if is_playlist:
@@ -114,11 +114,11 @@ class VideoListItem(ListItem):
         if len(title) > 68:
             title = title[:65] + "…"
 
-        line1 = f"[bold white]{title}[/bold white]{badge}"
+        line1 = f"[bold white]{escape_markup(title)}[/bold white]{badge}"
 
         meta_parts = []
         if channel:
-            meta_parts.append(f"[{theme_color}]{channel}[/{theme_color}]")
+            meta_parts.append(f"[{theme_color}]{escape_markup(channel)}[/{theme_color}]")
         if duration:
             meta_parts.append(f"[dim]{duration}[/dim]")
         if views:

@@ -22,7 +22,7 @@ from src.plat import (
     terminate_process,
 )
 from src.sponsorblock import Segment, fetch_segments_async
-from src.tui.fmt import fmt_clock
+from src.tui.fmt import escape_markup, fmt_clock
 
 _DEFAULT_FORMAT = "bv+ba/b"
 
@@ -61,9 +61,9 @@ class WatchModal(ModalScreen[bool]):
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
         with Vertical(id="watch-dialog"):
             yield Static("📺  Now playing in mpv", id="np-header")
-            yield Static(f"[bold white]{title}[/bold white]", id="np-title", markup=True)
+            yield Static(f"[bold white]{escape_markup(title)}[/bold white]", id="np-title", markup=True)
             if channel:
-                yield Static(channel, id="np-channel")
+                yield Static(escape_markup(channel), id="np-channel", markup=True)
             yield Static("", id="np-progress", markup=True)
             yield Static("Loading…", id="np-time")
             yield Static(

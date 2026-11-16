@@ -5,6 +5,11 @@ from __future__ import annotations
 import datetime
 
 
+def escape_markup(text: str) -> str:
+    """Make ``text`` safe to embed in Rich/Textual markup. Titles and descriptions often contain ``[...]``."""
+    return text.replace("[", "\\[")
+
+
 def fmt_clock(secs: int | float) -> str:
     """Format seconds as H:MM:SS or M:SS; zero is ``0:00``."""
     h, rem = divmod(int(secs), 3600)

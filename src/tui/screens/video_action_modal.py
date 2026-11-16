@@ -7,6 +7,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
 from src.entries import Entry
+from src.tui.fmt import escape_markup
 
 _ACTIONS = [
     ("watch",         "▶",  "Watch video  [dim](v)[/dim]"),
@@ -55,13 +56,13 @@ class VideoActionModal(ModalScreen[str | None]):
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
         with Vertical(id="vaction-dialog"):
             yield Static(
-                f"[bold white]{title}[/bold white]",
+                f"[bold white]{escape_markup(title)}[/bold white]",
                 id="vaction-title",
                 markup=True,
             )
             if channel:
                 yield Static(
-                    f"[dim]{channel}[/dim]",
+                    f"[dim]{escape_markup(channel)}[/dim]",
                     id="vaction-channel",
                     markup=True,
                 )

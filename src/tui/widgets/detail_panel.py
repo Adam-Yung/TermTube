@@ -14,7 +14,7 @@ from textual.widgets import Static
 
 from src import playlist
 from src.entries import Entry
-from src.tui.fmt import fmt_age, fmt_duration, fmt_subscribers, fmt_views
+from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
@@ -80,7 +80,7 @@ class DetailPanel(Widget):
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
-        self._text("#video-title", f"[bold white]{entry.get('title') or 'Untitled'}[/bold white]")
+        self._text("#video-title", f"[bold white]{escape_markup(entry.get('title') or 'Untitled')}[/bold white]")
         self._paint_channel_and_stats(entry)
 
         desc = entry.get("description", "")
@@ -106,7 +106,7 @@ class DetailPanel(Widget):
     def _paint_channel_and_stats(self, entry: Entry) -> None:
         channel = entry.get("uploader") or entry.get("channel") or ""
         # screen.channel is resolved on the screen, not on this panel.
-        self._text("#video-channel", f"[@click=screen.channel]📺 {channel}[/]" if channel else "")
+        self._text("#video-channel", f"[@click=screen.channel]📺 {escape_markup(channel)}[/]" if channel else "")
         stats = [
             fmt_duration(entry.get("duration")),
             fmt_views(entry.get("view_count")),
@@ -119,7 +119,7 @@ class DetailPanel(Widget):
         if len(desc) > 500:
             desc = desc[:497] + "…"
         self._text("#video-desc-header", _DESC_HEADER)
-        self._text("#video-desc", f"[dim]{desc}[/dim]")
+        self._text("#video-desc", f"[dim]{escape_markup(desc)}[/dim]")
 
     def refresh_playlists(self, vid: str) -> None:
         names = playlist.video_playlists(vid) if vid and not vid.startswith("__") else []
@@ -179,9 +179,9 @@ class DetailPanel(Widget):
         url = entry.get("channel_url") or entry.get("uploader_url") or ""
         desc = entry.get("description") or ""
         stats = [f"{subs} subscribers" if subs else "", f"{vcnt} videos" if vcnt else ""]
-        self._text("#video-title", f"[bold white]{name}[/bold white]")
+        self._text("#video-title", f"[bold white]{escape_markup(name)}[/bold white]")
         self._text("#video-stats", "  ·  ".join(f"[dim]{p}[/dim]" for p in stats if p))
         self._text("#video-channel", f"[dim]{url[:60]}[/dim]" if url else "")
         self._text("#video-desc-header", "[dim]About[/dim]" if desc else "")
-        self._text("#video-desc", desc[:1500])
+        self._text("#video-desc", escape_markup(desc[:1500]))
         self._text("#video-playlists", "")

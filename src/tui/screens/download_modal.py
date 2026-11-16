@@ -11,6 +11,7 @@ from textual.widgets import ProgressBar, Static
 
 from src import library
 from src.entries import Entry
+from src.tui.fmt import escape_markup
 
 
 class DownloadModal(ModalScreen[bool]):
@@ -39,7 +40,7 @@ class DownloadModal(ModalScreen[bool]):
                 markup=True,
             )
             yield Static(
-                f"[dim]{title[:60]}[/dim]",
+                f"[dim]{escape_markup(title[:60])}[/dim]",
                 id="download-status",
                 markup=True,
             )

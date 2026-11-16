@@ -12,7 +12,7 @@ from textual.widgets import Static
 
 from src.entries import Entry
 from src.sponsorblock import Segment
-from src.tui.fmt import fmt_clock
+from src.tui.fmt import escape_markup, fmt_clock
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
 
@@ -198,7 +198,7 @@ class ActionBar(Widget):
         color = self._get_theme_color()
         keys = (
             f"[bold {color}]⎵[/bold {color}] [dim]pause[/dim]  "
-            f"[bold {color}][[/bold {color}][dim]/[/dim][bold {color}]][/bold {color}] [dim]±5s[/dim]  "
+            f"[bold {color}]\\[[/bold {color}][dim]/[/dim][bold {color}]][/bold {color}] [dim]±5s[/dim]  "
             f"[bold {color}]{{[/bold {color}][dim]/[/dim][bold {color}]}}[/bold {color}] [dim]±10s[/dim]  "
             f"[bold {color}]0[/bold {color}][dim]–[/dim][bold {color}]9[/bold {color}] [dim]seek%[/dim]  "
             f"[bold {color}]x[/bold {color}] [dim]stop[/dim]"
@@ -310,10 +310,10 @@ class ActionBar(Widget):
         self._refresh_player()
 
     def _refresh_player(self) -> None:
-        paused_tag = "  [dim bold][PAUSED][/dim bold]" if self._paused else ""
-        chan = f"  [dim]· {self._channel}[/dim]" if self._channel else ""
+        paused_tag = "  [dim bold]\\[PAUSED][/dim bold]" if self._paused else ""
+        chan = f"  [dim]· {escape_markup(self._channel)}[/dim]" if self._channel else ""
         self.query_one("#np-title-line", Static).update(
-            f"[bold white]🎵  {self._title}[/bold white]{chan}{paused_tag}"
+            f"[bold white]🎵  {escape_markup(self._title)}[/bold white]{chan}{paused_tag}"
         )
 
         inner_w = max(8, (self.size.width or 60) - 4)

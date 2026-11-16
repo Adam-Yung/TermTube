@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
 from textual.widgets import Static
 
-from src.tui.fmt import fmt_subscribers
+from src.tui.fmt import escape_markup, fmt_subscribers
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
 
@@ -53,7 +53,7 @@ class ChannelInfoPanel(Vertical):
         name = info.get("channel", "") or info.get("uploader", "")
         subs = fmt_subscribers(info.get("subscriber_count"))
         url = info.get("channel_url", "") or info.get("uploader_url", "")
-        self.query_one("#ch-name", Static).update(f"[bold white]{name}[/bold white]")
+        self.query_one("#ch-name", Static).update(f"[bold white]{escape_markup(name)}[/bold white]")
         self.query_one("#ch-subs", Static).update(f"[dim]{subs}[/dim]" if subs else "")
         self.query_one("#ch-url", Static).update(f"[dim]{url[:50]}[/dim]" if url else "")
         self.query_one("#ch-sep", Static).update("─" * 24)

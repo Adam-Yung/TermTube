@@ -8,6 +8,7 @@ from textual.widgets import Input, ListItem, ListView, Static
 
 from src import playlist
 from src.entries import Entry
+from src.tui.fmt import escape_markup
 
 
 class PlaylistModal(ModalScreen[None]):
@@ -29,7 +30,7 @@ class PlaylistModal(ModalScreen[None]):
         title = self._entry.get("title", self._video_id)
         with Vertical(id="playlist-dialog"):
             yield Static(
-                f"🎵  Playlists — [dim]{title[:50]}[/dim]",
+                f"🎵  Playlists — [dim]{escape_markup(title[:50])}[/dim]",
                 id="playlist-title",
                 markup=True,
             )
@@ -61,7 +62,7 @@ class PlaylistModal(ModalScreen[None]):
             count = len(playlist.get_playlist(name))
             item = ListItem(
                 Static(
-                    f"{check}[bold]{name}[/bold]  [dim]{count} videos[/dim]",
+                    f"{check}[bold]{escape_markup(name)}[/bold]  [dim]{count} videos[/dim]",
                     markup=True,
                 )
             )
