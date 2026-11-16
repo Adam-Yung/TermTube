@@ -1,0 +1,27 @@
+src/tui/theme.tcss
+  s_3690eae3737fe4::t_744fbada22d986 704-729
+docs/decisions/ui.md
+  s_3690eae3737fe4::t_da57b367988535 1-5
+docs/decisions/README.md
+  s_3690eae3737fe4::t_da57b367988535 13
+docs/code/src/tui/theme.tcss.md
+  s_3690eae3737fe4::t_da57b367988535 9
+src/tests/tui/test_toast_style.py
+  s_3690eae3737fe4::t_440170861e0795 1-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "33d650d8ed23b09f92e358fb7405706ddde78c6d",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
