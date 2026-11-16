@@ -76,3 +76,7 @@ Measured warmed reuse, direct `140/251`, manifest skipping and four `player_clie
 ## 2026-11-15 — Audio moved to an app-level `AudioController`
 
 State and mpv control left `AudioPlayerMixin` (on `MainScreen`) for `AudioController` on `TermTubeApp` (`app.audio`). Screens mirror it through messages the controller broadcasts to every screen on the stack, so a covered screen's bar stays current and no screen finds another by scanning `screen_stack`. Workers are plain daemon threads, and the poll keeps its old "one at a time" behaviour with a busy flag. Two fixes came with the move: `play_audio` stops the old track before the session counter moves (the `quit` IPC and cleanup used to hit the new socket), and the socket path is derived from the session a worker holds, not the current one. A launch failure of an older track no longer stops the newer track.
+
+## 2026-11-15 — One mpv launch loop
+
+`player.run_mpv_with_retries` replaced the two copies of the spawn, wait and retry loop (audio controller, `WatchModal`). It returns an outcome and each caller keeps its own reaction. Two small behaviour changes: audio processes are now unregistered from `ProcessRegistry` when they exit (only video were), and video also stops retrying as soon as the modal is stopped, after an exit as well as before a launch.

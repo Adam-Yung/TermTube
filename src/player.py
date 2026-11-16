@@ -5,13 +5,17 @@ import json
 import os
 import shutil
 import socket
+import subprocess
 import tempfile
 import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from src import logger
-from src.plat import IS_WINDOWS, get_ipc_path
+from src.plat import IS_WINDOWS, ProcessRegistry, get_ipc_path, get_popen_kwargs, install_hint
 
 _persistent_sockets: dict[str, socket.socket] = {}
 _persistent_lock = threading.Lock()
@@ -495,3 +499,76 @@ def audio_command(
     if raw:
         cmd.append(f"--ytdl-raw-options={raw}")
     return cmd + ["--", page_url]
+
+
+# mpv exit codes: 0 end of file, 3 killed by a signal, 4 quit by command.
+_EXIT_EOF, _EXIT_SIGNAL, _EXIT_QUIT = 0, 3, 4
+MPV_MAX_ATTEMPTS = 3
+
+
+@dataclass(frozen=True)
+class MpvOutcome:
+    """How ``run_mpv_with_retries`` ended: ``ok`` (exit 0 or 4), ``killed`` (3), ``stale``, ``failed`` or ``launch_error``."""
+
+    status: str
+    returncode: int | None = None
+    stderr: str = ""
+    message: str = ""
+
+
+def run_mpv_with_retries(
+    build_cmd: Callable[[int], list[str]],
+    *,
+    headless: bool,
+    is_stale: Callable[[], bool],
+    on_spawn: Callable[[subprocess.Popen, int], None] | None = None,
+    on_retry: Callable[[int], None] | None = None,
+    capture_stderr: bool = False,
+    max_attempts: int = MPV_MAX_ATTEMPTS,
+    retry_delay: float = 1.0,
+) -> MpvOutcome:
+    """Run mpv to completion, relaunching after an abnormal exit. Blocks the calling worker thread.
+
+    ``build_cmd(attempt)`` returns the command line; later attempts should re-resolve an expired stream URL.
+    ``is_stale`` is checked before each launch and after each exit. ``on_spawn`` runs once the process is
+    registered with ``ProcessRegistry``; the process is unregistered when it exits.
+    """
+    for attempt in range(1, max_attempts + 1):
+        if is_stale():
+            return MpvOutcome("stale")
+        try:
+            proc = subprocess.Popen(
+                build_cmd(attempt),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE if capture_stderr else subprocess.DEVNULL,
+                text=capture_stderr,
+                **get_popen_kwargs(headless=headless),
+            )
+        except FileNotFoundError:
+            return MpvOutcome("launch_error", message=f"mpv not found — install with: {install_hint('mpv')}")
+        except OSError as exc:
+            return MpvOutcome("launch_error", message=f"Failed to launch mpv: {exc}")
+        ProcessRegistry.get().register(proc)
+        if on_spawn:
+            on_spawn(proc, attempt)
+        try:
+            _, err = proc.communicate()
+        except Exception:
+            err = ""
+        finally:
+            ProcessRegistry.get().unregister(proc)
+        stderr = (err or "").strip()
+        if is_stale():
+            return MpvOutcome("stale", proc.returncode, stderr)
+        if proc.returncode in (_EXIT_EOF, _EXIT_QUIT):
+            return MpvOutcome("ok", proc.returncode, stderr)
+        if proc.returncode == _EXIT_SIGNAL:
+            return MpvOutcome("killed", proc.returncode, stderr)
+        if attempt == max_attempts:
+            logger.warning("mpv failed after %d attempts (rc=%s): %s", max_attempts, proc.returncode, stderr or "(no stderr output)")
+            return MpvOutcome("failed", proc.returncode, stderr)
+        logger.debug("mpv retry %d/%d (rc=%s)", attempt, max_attempts, proc.returncode)
+        if on_retry:
+            on_retry(attempt)
+        time.sleep(retry_delay)
+    return MpvOutcome("failed")

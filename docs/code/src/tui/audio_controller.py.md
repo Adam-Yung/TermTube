@@ -21,10 +21,12 @@ State changes reach screens as messages broadcast to every screen on `app.screen
 
 ## Launch and retry loop
 
+Launch and retry run through `player.run_mpv_with_retries` (`docs/code/src/player.py.md`).
+
 1. Suppress the video from the home feed, start the SponsorBlock fetch in the background.
 2. Resolve the stream URL via `streams.resolve_for_playback` (cache, then yt-dlp, then CDN warm-up; no cookies, public CDN URLs). Local files (`_local_path`) skip this and play directly.
 3. `_play_with_retries`: up to 3 attempts, 1 s apart. Attempts after the first re-resolve the URL (`streams.re_resolve`), because the usual cause is an expired or rejected CDN URL. mpv's stderr is captured.
-4. Exit code 0 (end of file) or 4 (quit command) means finished; 3 (killed by signal) means stopped by us, no message; anything else retries, and after the last attempt `_on_failed` shows the first stderr line via `player.friendly_mpv_error` and moves to the next queued track.
+4. Outcome `ok` (exit 0 or 4) means finished; `killed` (3) means stopped by us, no message; `failed` calls `_on_failed`, which shows the first stderr line via `player.friendly_mpv_error` and moves to the next queued track; `stale` only clears the pending flag.
 
 A missing or GUI-only mpv (mpv.net on Windows) is a launch failure, not a retry.
 

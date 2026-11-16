@@ -11,11 +11,9 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-from src import history, logger as _logger, player as player_mod
+from src import history, player as player_mod
 from src.plat import (
-    ProcessRegistry,
     cleanup_ipc,
-    get_popen_kwargs,
     get_video_ipc_path,
     install_hint,
     terminate_process,
@@ -23,7 +21,6 @@ from src.plat import (
 from src.sponsorblock import Segment, fetch_segments_async
 
 _DEFAULT_FORMAT = "bv+ba/b"
-_MAX_ATTEMPTS = 3
 
 
 def _fmt_secs(s: float) -> str:
@@ -137,63 +134,34 @@ class WatchModal(ModalScreen[bool]):
         def build(stream_urls: list[str] | None) -> list[str]:
             return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args)
 
-        cmd = build(urls)
-        for attempt in range(1, _MAX_ATTEMPTS + 1):
-            if self._stopped:
-                return
+        current = urls
+
+        def build_cmd(attempt: int) -> list[str]:
+            nonlocal current
             if attempt > 1 and not local_path and vid and config:
-                fresh = streams.re_resolve(vid, config, fmt)
-                if fresh:
-                    cmd = build(fresh)
+                current = streams.re_resolve(vid, config, fmt) or current
+            return build(current)
 
-            try:
-                self._proc = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    **get_popen_kwargs(headless=False),
-                )
-                ProcessRegistry.get().register(self._proc)
-            except FileNotFoundError:
-                self._fail_launch(f"mpv not found — install with: {install_hint('mpv')}")
-                return
-            except OSError as exc:
-                self._fail_launch(f"Failed to launch mpv: {exc}")
-                return
-
+        def on_spawn(proc: subprocess.Popen, attempt: int) -> None:
+            self._proc = proc
             if attempt == 1:
                 history.add(self._entry)
 
-            try:
-                self._proc.wait()
-            finally:
-                ProcessRegistry.get().unregister(self._proc)
-
-            returncode = self._proc.returncode
-            # 0 and 4 are normal exits, 3 is a kill (the stop key).
-            if returncode in (0, 3, 4) or self._stopped:
-                break
-
-            if attempt < _MAX_ATTEMPTS:
-                _logger.debug("video retry %d/%d for %s (rc=%s)", attempt, _MAX_ATTEMPTS, vid, returncode)
-                time.sleep(1.0)
-            else:
-                _logger.warning(
-                    "video mpv failed after %d attempts (rc=%s) for %s", _MAX_ATTEMPTS, returncode, vid
-                )
-                self._cleanup_ipc(input_conf)
-                self.app.call_from_thread(
-                    self.app.notify,
-                    f"✗ Video playback failed (exit code {returncode})",
-                    severity="error",
-                    timeout=8,
-                )
-                if not self._stopped:
-                    self._dismiss_from_thread(False)
-                return
-
+        outcome = player_mod.run_mpv_with_retries(
+            build_cmd, headless=False, is_stale=lambda: self._stopped, on_spawn=on_spawn
+        )
         self._cleanup_ipc(input_conf)
-        if not self._stopped:
+        if outcome.status == "launch_error":
+            self._fail_launch(outcome.message)
+        elif outcome.status == "failed":
+            self.app.call_from_thread(
+                self.app.notify,
+                f"✗ Video playback failed (exit code {outcome.returncode})",
+                severity="error",
+                timeout=8,
+            )
+            self._dismiss_from_thread(False)
+        elif outcome.status != "stale":
             self._dismiss_from_thread(True)
             if title:
                 try:

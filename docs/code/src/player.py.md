@@ -1,7 +1,7 @@
 # src/player.py
 
 Launch helpers for mpv and the JSON IPC client used to control it. It owns the mpv executable lookup, the temporary `input.conf`, the
-headless audio command line, and the two IPC transports. It does not own process lifetime: screens spawn and register the mpv processes
+headless audio command line, and the two IPC transports. It owns the launch loop (`run_mpv_with_retries`) but not what a result means: screens spawn through it and map the outcome.
 (`src/tui/audio_controller.py`, `src/tui/screens/watch_modal.py`).
 
 Decisions: `docs/decisions/playback.md`, `docs/decisions/concurrency.md`.
@@ -76,3 +76,13 @@ one, mpv resolves `page_url` through its own yt-dlp hook, with `--ytdl-format` a
 - The IPC reply read on Unix returns once a newline arrives, so one extra queued event line can be left in the stream. Request-id matching
   makes the polling path immune. `send_ipc_command` returns the first parsed line, which can be an event rather than the reply if mpv
   emitted one just before.
+
+## Launch loop
+
+`run_mpv_with_retries(build_cmd, ...)` is the only place mpv is spawned and retried; the audio controller (`headless=True`, stderr captured) and `WatchModal` (`headless=False`, stderr discarded) share it and keep their own command builders. It returns an `MpvOutcome` instead of acting on it:
+
+- `ok` (exit 0 or 4) and `killed` (exit 3, the stop key or a signal) are normal exits; the caller decides what each means (audio advances the queue on `ok` and says nothing on `killed`; video dismisses on both).
+- Any other exit retries after 1 s, up to `MPV_MAX_ATTEMPTS` (3), then `failed` with the last exit code and stderr. `build_cmd(attempt)` is where a caller re-resolves an expired stream URL for attempts after the first.
+- `stale` is returned when `is_stale()` is true before a launch or after an exit; the process may have run, and the caller discards the result.
+- `launch_error` (mpv missing, or `OSError`) is never retried; `message` is ready to show.
+- The process is registered with `ProcessRegistry` before `on_spawn` runs and unregistered when it exits, so `on_spawn` is where callers store the `Popen` and clear their "pending" flag.

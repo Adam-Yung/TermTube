@@ -4,7 +4,6 @@ import functools
 import os
 import subprocess
 import threading
-import time
 from collections.abc import Callable
 
 from textual.message import Message
@@ -16,7 +15,6 @@ from src.plat import (
     ProcessRegistry,
     cleanup_ipc,
     get_audio_ipc_path,
-    get_popen_kwargs,
     install_hint,
     terminate_process,
 )
@@ -24,12 +22,8 @@ from src.sponsorblock import Segment, fetch_segments_async
 from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 from src.tui.screens.mixins.item_actions import watch_url
 
-_MAX_ATTEMPTS = 3
-_RETRY_DELAY_S = 1.0
 _POLL_INTERVAL_S = 0.5
 _DEFAULT_AUDIO_FORMAT = "ba/b"
-# mpv exit codes: 0 end of file, 3 killed by a signal, 4 quit by command.
-_EXIT_EOF, _EXIT_SIGNAL, _EXIT_QUIT = 0, 3, 4
 
 
 @functools.cache
@@ -289,71 +283,50 @@ class AudioController:
         local = entry.get("_local_path")
         fmt = ytdl_format or _DEFAULT_AUDIO_FORMAT
         cookie_args = config.browser_cookie_args()
+        url = stream_url
 
-        for attempt in range(1, _MAX_ATTEMPTS + 1):
-            if self._stale(session):
-                self._clear_pending(session)
-                return
+        def build_cmd(attempt: int) -> list[str]:
+            nonlocal url
             if attempt > 1 and vid and not local:
-                urls = streams.re_resolve(vid, config, fmt)
-                if urls:
-                    stream_url = urls[0]
+                fresh = streams.re_resolve(vid, config, fmt)
+                if fresh:
+                    url = fresh[0]
             cmd = player.audio_command(
                 exe,
                 input_conf=input_conf,
                 socket_path=_socket_for(session),
                 title=entry.get("title", ""),
-                stream_url=stream_url,
+                stream_url=url,
                 page_url=local or watch_url(vid),
                 ytdl_format=ytdl_format,
                 cookie_args=cookie_args,
             )
             logger.debug("audio mpv cmd: %s", " ".join(cmd))
-            try:
-                returncode, stderr = self._run_mpv(cmd, session)
-            except FileNotFoundError:
-                self._launch_failed(session, f"mpv not found — install with: {install_hint('mpv')}")
-                return
-            except OSError as exc:
-                self._launch_failed(session, f"Failed to launch mpv: {exc}")
-                return
+            return cmd
 
-            if self._stale(session):
-                logger.debug("audio mpv stderr (stale session): %s", stderr)
-                return
-            if returncode in (_EXIT_EOF, _EXIT_QUIT):
-                self._app.call_from_thread(self._on_finished, entry, session)
-                return
-            if returncode == _EXIT_SIGNAL:
-                return
-            if attempt < _MAX_ATTEMPTS:
-                logger.debug("audio retry %d/%d for %s (rc=%s)", attempt, _MAX_ATTEMPTS, vid, returncode)
-                self._app.call_from_thread(self.log, f"[dim]Retrying audio ({attempt}/{_MAX_ATTEMPTS})…[/dim]")
-                time.sleep(_RETRY_DELAY_S)
-            else:
-                logger.warning(
-                    "audio mpv failed after %d attempts (rc=%s) for %s: %s",
-                    _MAX_ATTEMPTS, returncode, vid, stderr or "(no stderr output)",
-                )
-                self._app.call_from_thread(self._on_failed, entry, returncode, stderr, session)
+        def on_spawn(proc: subprocess.Popen, _attempt: int) -> None:
+            self._proc = proc
+            self._clear_pending(session)
 
-    def _run_mpv(self, cmd: list[str], session: int) -> tuple[int, str]:
-        """Run mpv to completion. Blocks the worker thread; returns its exit code and stderr."""
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            **get_popen_kwargs(headless=True),
+        outcome = player.run_mpv_with_retries(
+            build_cmd,
+            headless=True,
+            is_stale=lambda: self._stale(session),
+            on_spawn=on_spawn,
+            on_retry=lambda attempt: self._app.call_from_thread(
+                self.log, f"[dim]Retrying audio ({attempt}/{player.MPV_MAX_ATTEMPTS})…[/dim]"
+            ),
+            capture_stderr=True,
         )
-        self._proc = proc
-        self._clear_pending(session)
-        ProcessRegistry.get().register(proc)
-        try:
-            _, stderr = proc.communicate()
-        except Exception:
-            stderr = ""
-        return proc.returncode, (stderr or "").strip()
+        if outcome.status == "stale":
+            self._clear_pending(session)
+            logger.debug("audio mpv stale session: %s", outcome.stderr)
+        elif outcome.status == "launch_error":
+            self._launch_failed(session, outcome.message)
+        elif outcome.status == "ok":
+            self._app.call_from_thread(self._on_finished, entry, session)
+        elif outcome.status == "failed":
+            self._app.call_from_thread(self._on_failed, entry, outcome.returncode, outcome.stderr, session)
 
     def _advance_queue(self) -> bool:
         if not self._queue:
