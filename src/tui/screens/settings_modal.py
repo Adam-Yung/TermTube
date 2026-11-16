@@ -107,22 +107,22 @@ class SettingsModal(ModalScreen[None]):
         lv_id = event.list_view.id
 
         if lv_id == "theme-list":
-            config._data["theme"] = event.item.value
+            config.set("theme", event.item.value)
             self.app.remove_class("theme-crimson", "theme-amber", "theme-ocean", "theme-midnight")
             self.app.add_class(f"theme-{event.item.value}")
             self._refresh_list("theme-list", _THEMES, event.item.value)
             self._refresh_live_theme()
 
         elif lv_id == "quality-list-s":
-            config._data["preferred_quality"] = event.item.value
+            config.set("preferred_quality", event.item.value)
             self._refresh_list("quality-list-s", _QUALITY_OPTS, event.item.value)
 
         elif lv_id == "thumb-list":
-            config._data["thumbnail_format"] = event.item.value
+            config.set("thumbnail_format", event.item.value)
             self._refresh_list("thumb-list", _THUMB_OPTS, event.item.value)
 
         elif lv_id == "browser-list":
-            config._data["browser"] = event.item.value
+            config.set("browser", event.item.value)
             self._refresh_list("browser-list", self._browser_opts, event.item.value)
 
         config.save()

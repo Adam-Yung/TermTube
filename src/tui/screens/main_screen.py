@@ -127,7 +127,7 @@ class MainScreen(
 
         def on_done(never_show: bool) -> None:
             if never_show:
-                config._data["thumbnail_warning_dismissed"] = True
+                config.set("thumbnail_warning_dismissed", True)
                 config.save()
 
         self.app.push_screen(ImageWarningModal(), on_done)

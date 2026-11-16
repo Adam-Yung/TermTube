@@ -27,7 +27,7 @@ class TermTubeApp(App):
     def __init__(self, config: Config) -> None:
         super().__init__()
         self.config = config
-        self.cache = Cache(config._data.get("cache_ttl", {}))
+        self.cache = Cache(config.get("cache_ttl", {}))
         self._housekeeping_done = threading.Event()
         self.audio = AudioController(self)
         atexit.register(self._atexit_cleanup)

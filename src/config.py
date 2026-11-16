@@ -148,3 +148,7 @@ class Config:
 
     def get(self, key: str, default=None):
         return self._data.get(key, default)
+
+    def set(self, key: str, value) -> None:
+        """Change a top-level setting in memory; ``save()`` persists it."""
+        self._data[key] = value

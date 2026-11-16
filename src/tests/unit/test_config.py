@@ -144,3 +144,15 @@ class TestSaveAndReload:
 
         cfg2 = Config(path=str(config_path))
         assert cfg2.sponsorblock_enabled is False
+
+
+def test_set_changes_memory_and_save_persists(tmp_path):
+    from src.config import Config
+
+    path = tmp_path / "config.yaml"
+    config = Config(path=str(path))
+    config.set("theme", "ocean")
+    assert config.theme == "ocean"
+    assert Config(path=str(path)).theme == "crimson"
+    config.save()
+    assert Config(path=str(path)).theme == "ocean"

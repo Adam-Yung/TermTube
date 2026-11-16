@@ -12,7 +12,7 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
 - Typed properties validate: unknown `theme` falls back to `crimson`, unknown `thumbnail_format` to `auto`, a non-list
   `sponsorblock.categories` to the default list. Raw access (`config["x"]`, `config.get`) does not validate.
 - `cookies_file` from old configs is dropped on load. Auth now uses a browser only (see `docs/decisions/cookies-and-auth.md`).
-- The settings modal writes `config._data[...]` directly, then calls `save()`.
+- Callers change a setting with `config.set(key, value)` (memory only) and persist with `save()`; nothing outside this module touches `_data`. The settings modal and the thumbnail warning dialog do this.
 
 ## Keys
 
