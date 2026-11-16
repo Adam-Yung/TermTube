@@ -701,3 +701,29 @@ App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7; }
 App.theme-midnight ProgressBar .bar--bar, App.theme-midnight ProgressBar .bar--complete { color: #a855f7; }
 App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
 App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
+
+/* Notifications: dialog colours, a thick accent bar like the list highlight, top right under the tab bar. */
+ToastRack {
+    dock: top;
+    align: right top;
+    margin: 3 1 0 0;
+    scrollbar-size-vertical: 0;
+}
+
+Toast {
+    width: auto;
+    min-width: 24;
+    max-width: 50;
+    margin-top: 0;
+    padding: 0 1;
+    background: #141414;
+    color: #e0e0e0;
+    border: solid #333333;
+    border-left: thick #ff4444;
+}
+
+Toast.-warning { border-left: thick #ddc800; }
+Toast.-error { border: solid #ff4444; border-left: thick #ff4444; color: #ffb3b3; }
+App.theme-amber Toast.-information { border-left: thick #e8820c; }
+App.theme-ocean Toast.-information { border-left: thick #0ea5e9; }
+App.theme-midnight Toast.-information { border-left: thick #a855f7; }
