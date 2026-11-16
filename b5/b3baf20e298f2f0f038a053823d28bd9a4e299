@@ -1,0 +1,39 @@
+docs/status.md
+  s_3690eae3737fe4::t_b28479b34327c3 39
+docs/code/src/entries.py.md
+  s_3690eae3737fe4::t_e2082b70bd487f 7,9
+src/tests/unit/test_entries.py
+  s_3690eae3737fe4::t_e2082b70bd487f 7
+src/entries.py
+  s_3690eae3737fe4::t_e2082b70bd487f 27
+docs/guides/benchmarks.md
+  s_3690eae3737fe4::t_b28479b34327c3 22
+docs/code/src/tui/screens/channel_screen.py.md
+  s_3690eae3737fe4::t_b28479b34327c3 34
+docs/decisions/feeds-and-paging.md
+  s_3690eae3737fe4::t_b28479b34327c3 66-69
+docs/plans/2026-11-15-optimization-PLAN.md
+  s_3690eae3737fe4::t_b28479b34327c3 93
+src/tui/screens/channel_screen.py
+  s_3690eae3737fe4::t_e2082b70bd487f 12,193,198,204
+docs/plans/2026-11-15-handoff-PLAN.md
+  s_3690eae3737fe4::t_b28479b34327c3 40
+src/tests/unit/test_innertube_parsers.py
+  s_3690eae3737fe4::t_0341c5fb2dc9c4 226-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "b5b3baf20e298f2f0f038a053823d28bd9a4e299",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
