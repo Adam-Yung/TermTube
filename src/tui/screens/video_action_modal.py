@@ -1,5 +1,3 @@
-"""VideoActionModal — shown when user presses Enter on a video."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -8,19 +6,17 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
-
-# (action_key, icon, label)
 _ACTIONS = [
-    ("watch",         "▶",  "Watch video"),
-    ("watch_quality", "▶·", "Watch — choose quality…"),
-    ("listen",        "♪",  "Listen (audio only)"),
-    ("listen_quality","♪·", "Listen — choose quality…"),
-    ("queue",         "♪+", "Add to queue  [dim](e)[/dim]"),
+    ("watch",         "▶",  "Watch video  [dim](v)[/dim]"),
+    ("watch_quality", "▶·", "Watch — choose quality…  [dim](V)[/dim]"),
+    ("audio",         "♪",  "Play audio  [dim](a)[/dim]"),
+    ("audio_quality", "♪·", "Play audio — choose quality…  [dim](A)[/dim]"),
+    ("enqueue",       "♪+", "Add audio to queue  [dim](e)[/dim]"),
     ("download",      "↓",  "Download…  [dim](d)[/dim]"),
     ("channel",       "📺", "Browse channel  [dim](c)[/dim]"),
     ("copy_url",      "⎘",  "Copy video URL  [dim](y)[/dim]"),
-    ("playlist",      "+",  "Add to playlist"),
-    ("browser",       "🌐", "Open in browser"),
+    ("playlist",      "+",  "Add to playlist  [dim](p)[/dim]"),
+    ("browser",       "🌐", "Open in browser  [dim](b)[/dim]"),
 ]
 
 
@@ -47,10 +43,10 @@ class VideoActionModal(ModalScreen[str | None]):
         Binding("k",      "cursor_up",   show=False),
     ]
 
-    def __init__(self, entry: dict, *, hide_queue: bool = False) -> None:
+    def __init__(self, entry: dict, *, hide: set[str] = frozenset()) -> None:
         super().__init__()
         self._entry = entry
-        self._hide_queue = hide_queue
+        self._hide = hide
 
     def compose(self) -> ComposeResult:
         title = (self._entry.get("title") or "Video")[:50]
@@ -77,11 +73,10 @@ class VideoActionModal(ModalScreen[str | None]):
     def on_mount(self) -> None:
         lv = self.query_one("#vaction-list", ListView)
         for key, icon, label in _ACTIONS:
-            if key == "queue" and self._hide_queue:
+            if key in self._hide:
                 continue
             lv.append(_ActionItem(key, icon, label))
         lv.focus()
-
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if isinstance(event.item, _ActionItem):

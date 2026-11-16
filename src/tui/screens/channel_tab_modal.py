@@ -1,5 +1,3 @@
-"""ChannelTabModal — tab picker popup for channel screen (backtick key)."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -20,10 +18,8 @@ class ChannelTabModal(ModalScreen[str | None]):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
         Binding("q", "cancel", "Cancel", show=False),
-        Binding("1", "pick_videos", show=False),
-        Binding("2", "pick_playlists", show=False),
-        Binding("v", "pick_videos", show=False),
-        Binding("p", "pick_playlists", show=False),
+        Binding("1,v", "pick('ch-tab-videos')", show=False),
+        Binding("2,p", "pick('ch-tab-playlists')", show=False),
     ]
 
     DEFAULT_CSS = """
@@ -70,8 +66,5 @@ class ChannelTabModal(ModalScreen[str | None]):
     def action_cancel(self) -> None:
         self.dismiss(None)
 
-    def action_pick_videos(self) -> None:
-        self.dismiss("ch-tab-videos")
-
-    def action_pick_playlists(self) -> None:
-        self.dismiss("ch-tab-playlists")
+    def action_pick(self, tab_id: str) -> None:
+        self.dismiss(tab_id)

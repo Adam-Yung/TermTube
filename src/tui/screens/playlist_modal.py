@@ -1,5 +1,3 @@
-"""PlaylistModal — manage playlist membership for a video."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -7,6 +5,8 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Input, ListItem, ListView, Static
+
+from src import playlist
 
 
 class PlaylistModal(ModalScreen[None]):
@@ -48,7 +48,6 @@ class PlaylistModal(ModalScreen[None]):
         self.query_one("#playlist-list", ListView).focus()
 
     def _refresh_list(self) -> None:
-        from src import playlist
         lv = self.query_one("#playlist-list", ListView)
         lv.clear()
         names = playlist.list_names()
@@ -72,39 +71,35 @@ class PlaylistModal(ModalScreen[None]):
         item = event.item
         if not hasattr(item, "_pl_name"):
             return
-        from src import playlist
         name = item._pl_name  # type: ignore[attr-defined]
         if playlist.is_in_playlist(name, self._video_id):
             playlist.remove_video(name, self._video_id)
             self.app.notify(f'Removed from "{name}"')
-            # Unpin if removed from ALL playlists
-            if not playlist.video_playlists(self._video_id):
-                if hasattr(self.app, "cache"):
-                    self.app.cache.unpin_video(self._video_id)
+            if not playlist.video_playlists(self._video_id) and hasattr(self.app, "cache"):
+                self.app.cache.unpin_video(self._video_id)
         else:
             playlist.add_video(name, self._video_id)
             self.app.notify(f'Added to "{name}"')
-            # Pin video data for playlist protection
-            if hasattr(self.app, "cache"):
-                self.app.cache.pin_video(self._video_id)
-                self.app.cache.pin_thumb(self._video_id)
+            self._pin_video()
         self._refresh_list()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         name = event.value.strip()
         if not name:
             return
-        from src import playlist
         playlist.create(name)
         playlist.add_video(name, self._video_id)
-        # Pin video data for playlist protection
-        if hasattr(self.app, "cache"):
-            self.app.cache.pin_video(self._video_id)
-            self.app.cache.pin_thumb(self._video_id)
+        self._pin_video()
         event.input.value = ""
         self._refresh_list()
         self.app.notify(f'Created playlist "{name}" and added video')
         self.query_one("#playlist-list", ListView).focus()
+
+    def _pin_video(self) -> None:
+        """Protect the video's cached data from eviction while it is in a playlist."""
+        if hasattr(self.app, "cache"):
+            self.app.cache.pin_video(self._video_id)
+            self.app.cache.pin_thumb(self._video_id)
 
     def action_new_playlist(self) -> None:
         self.query_one("#playlist-new-input", Input).focus()

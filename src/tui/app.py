@@ -1,4 +1,4 @@
-"""TermTubeApp — Textual application entry point."""
+"""TermTubeApp: Textual app root. Owns config, cache and process cleanup."""
 
 from __future__ import annotations
 
@@ -6,40 +6,17 @@ import atexit
 import threading
 from pathlib import Path
 
-from textual.app import App, ComposeResult
-from textual.message import Message
+from textual.app import App
 
 from src import logger
 from src.cache import Cache
 from src.config import Config
 
-_VALID_THEMES = {"crimson", "amber", "ocean", "midnight"}
-
-# Housekeeping fires once 60 s after mount so the home feed renders without
-# competing for disk I/O. It also runs on unmount as a backstop.
 _HOUSEKEEPING_DELAY_S = 60.0
 
 
 class TermTubeApp(App):
-    """
-    TermTube — YouTube TUI powered by yt-dlp + Textual.
-
-    config and cache are stored on the App so any widget can access them via
-    self.app.config / self.app.cache.
-    """
-
-    class PlayerStateUpdated(Message):
-        """Broadcast from the App after each audio IPC poll.
-
-        Other screens (e.g. ChannelScreen) subscribe to this message to sync
-        their ActionBar without needing their own independent IPC poll timer.
-        """
-        def __init__(self, pos: float, dur: float, paused: bool, playing: bool) -> None:
-            super().__init__()
-            self.pos = pos
-            self.dur = dur
-            self.paused = paused
-            self.playing = playing
+    """`config` and `cache` live here so widgets reach them as `self.app.config` / `self.app.cache`."""
 
     TITLE = "TermTube"
     CSS_PATH = Path(__file__).parent / "theme.tcss"
@@ -53,28 +30,19 @@ class TermTubeApp(App):
         atexit.register(self._atexit_cleanup)
 
     def on_mount(self) -> None:
-        # Clean up any orphaned processes/sockets from a previous crash
         from src.plat import reap_orphans
         try:
             reap_orphans()
         except Exception:
             pass
 
-        # Apply colour theme as a CSS class on the App root
         theme = self.config.theme
         logger.debug("App mounting (theme=%s)", theme)
-        if theme in _VALID_THEMES and theme != "crimson":
+        if theme != "crimson":
             self.add_class(f"theme-{theme}")
 
-        # Warm up yt-dlp extractors in background so the first feed fetch is faster
         threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
-
-        # Pre-extract browser cookies so first play doesn't pay the 5-15s cost
         threading.Thread(target=self._warmup_cookies, daemon=True, name="cookie-warmup").start()
-
-        # Defer housekeeping until 60 s after launch so it doesn't compete with
-        # the home feed render. If the app is closed earlier, on_unmount runs
-        # the same prune as a backstop.
         self.set_timer(_HOUSEKEEPING_DELAY_S, self._launch_housekeeping)
 
         from src.tui.screens.main_screen import MainScreen
@@ -82,25 +50,12 @@ class TermTubeApp(App):
         self.push_screen(MainScreen())
 
     def on_unmount(self) -> None:
-        # Kill all tracked subprocesses so they don't orphan on exit.
-        try:
-            from src.plat import ProcessRegistry
-            ProcessRegistry.get().kill_all(timeout=1.5)
-        except Exception:
-            pass
-        try:
-            import src.ytdlp as ytdlp
-            ytdlp.cancel_all()
-        except Exception:
-            pass
-        # Backstop: if the user quits before the 60 s timer fires, still prune
-        # before exit. Synchronous run is fine — process is exiting anyway.
+        self._atexit_cleanup()
         if not self._housekeeping_done.is_set():
             self._run_housekeeping()
 
     @staticmethod
     def _warmup_ytdlp() -> None:
-        """Background warmup of yt-dlp extractor registry."""
         try:
             from src.ytdlp import warmup
             warmup()
@@ -108,10 +63,9 @@ class TermTubeApp(App):
             pass
 
     def _warmup_cookies(self) -> None:
-        """Pre-extract browser cookies so first play doesn't block on this."""
         try:
-            from src.ytdlp import _get_shared_cookiejar
-            _get_shared_cookiejar(self.config)
+            from src.cookies import get_cookiejar
+            get_cookiejar(self.config)
         except Exception:
             pass
 
@@ -121,13 +75,11 @@ class TermTubeApp(App):
         threading.Thread(target=self._run_housekeeping, daemon=True).start()
 
     def _run_housekeeping(self) -> None:
-        """Prune stale files from the cache directories."""
         if self._housekeeping_done.is_set():
             return
         self._housekeeping_done.set()
         try:
             logger.debug("Housekeeping: pruning thumbnails + video JSON + rendered cache")
-            # Pin playlist videos before pruning to protect them
             self.cache.pin_all_playlist_videos()
             self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
             self.cache.prune_old_videos(max_age_days=3, max_count=400)
@@ -138,11 +90,10 @@ class TermTubeApp(App):
                 pass
         except Exception as exc:
             logger.exception("Housekeeping failed: %s", exc)
-            # Fail silently so it never crashes the TUI
 
     @staticmethod
     def _atexit_cleanup() -> None:
-        """Last-resort cleanup: kill any orphaned subprocesses on exit."""
+        """Kill tracked subprocesses and cancel yt-dlp work. Idempotent; shared by `on_unmount` and `atexit`."""
         try:
             from src.plat import ProcessRegistry
             ProcessRegistry.get().kill_all(timeout=1.5)

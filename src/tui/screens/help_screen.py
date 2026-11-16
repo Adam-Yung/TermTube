@@ -8,107 +8,75 @@ from textual.containers import ScrollableContainer, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-_HELP_CONTENT = """\
-[bold {COLOR}]TermTube — Keyboard Reference[/bold {COLOR}]
+_RULE = "[bold #888888]" + "─" * 70 + "[/bold #888888]"
 
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]NAVIGATION[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
+_SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
+    ("MOVE", [
+        ("j / k", "Cursor down / up"),
+        ("h / l  ← / →", "Previous / next page of the list"),
+        ("g / G", "First / last item of the whole list"),
+        ("H / L", "Previous / next tab"),
+        ("Enter", "Action menu for the row"),
+        ("Backspace / Esc", "Back (out of a playlist or channel)"),
+        ("F1–F7  `", "Jump to a tab / open the tab picker"),
+    ]),
+    ("PLAY", [
+        ("v / V", "Watch video / choose quality first"),
+        ("a / A", "Play audio / choose quality first (replaces the current track)"),
+        ("e", "Add audio to the queue"),
+        (">", "Skip to the next queued track"),
+        ("Space", "Pause / resume audio"),
+        ("x", "Stop audio and clear the queue"),
+        ("[ / ]", "Audio seek −5 s / +5 s"),
+        ("{ / }", "Audio seek −10 s / +10 s"),
+        ("0–9", "Audio seek to 0%–90%"),
+    ]),
+    ("VIDEO PLAYER", [
+        ("h / l  ← / →", "Seek −5 s / +5 s"),
+        ("H / L", "Seek −10 s / +10 s"),
+        ("Space  0–9", "Pause / seek to a percentage"),
+        ("q / Esc", "Stop"),
+    ]),
+    ("ROW ACTIONS", [
+        ("d", "Download (video or audio, quality picker)"),
+        ("c", "Open the channel page"),
+        ("p", "Add to a playlist"),
+        ("y", "Copy the video URL"),
+        ("b", "Open in the browser"),
+    ]),
+    ("APP", [
+        ("/", "Search"),
+        ("r", "Refresh the current feed (clears its cache)"),
+        (",", "Settings"),
+        ("?", "This screen"),
+        ("Ctrl+D", "Debug log panel"),
+        ("q", "Quit"),
+    ]),
+    ("CHANNEL PAGE", [
+        ("s", "Sort (date / views)"),
+        ("r", "Reload"),
+        ("Esc", "Back to the previous page"),
+    ]),
+]
 
-  [{COLOR}]j / ↓[/{COLOR}]          Move cursor down
-  [{COLOR}]k / ↑[/{COLOR}]          Move cursor up
-  [{COLOR}]] / [[/{COLOR}]          Next page / previous page
-  [{COLOR}]← / →[/{COLOR}]          Previous page / next page
-  [{COLOR}]g[/{COLOR}]              Jump to first page
-  [{COLOR}]G[/{COLOR}]              Jump to last page
-  [{COLOR}]Backspace[/{COLOR}]      Go back (e.g. from playlist drill-down)
-  [{COLOR}]Enter[/{COLOR}]          Open video action menu (Watch / Listen / Download / …)
+_CONFIG_KEYS = [
+    ("browser", "auto / none / firefox / chrome / … (cookie source for your account feeds)"),
+    ("preferred_quality", "best / 1080 / 720 / 480 / 360"),
+    ("video_dir", "Download directory for videos"),
+    ("audio_dir", "Download directory for audio"),
+]
 
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]PAGES  (F-keys or backtick picker)[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
 
-  [{COLOR}]F1[/{COLOR}]             🏠  Home / Recommended
-  [{COLOR}]F2[/{COLOR}]             📺  Subscriptions
-  [{COLOR}]F3[/{COLOR}]             🔍  Search
-  [{COLOR}]F4[/{COLOR}]             🕐  History
-  [{COLOR}]F5[/{COLOR}]             📁  Library (downloaded files)
-  [{COLOR}]F6[/{COLOR}]             🎵  Playlists
-  [{COLOR}]F7[/{COLOR}]             ❓  Help (this screen)
-  [{COLOR}]`  (backtick)[/{COLOR}]  Show page-picker popup
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]PLAYBACK[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  [{COLOR}]w[/{COLOR}]              Watch video (best quality)
-  [{COLOR}]W[/{COLOR}]              Watch video — pick quality first
-  [{COLOR}]l[/{COLOR}]              Listen (audio-only, in-TUI player)
-  [{COLOR}]L[/{COLOR}]              Listen — pick quality first
-
-  [dim]During audio playback (embedded in action bar — browse freely while listening):[/dim]
-  [{COLOR}]Space[/{COLOR}]          Pause / Resume
-  [{COLOR}]h[/{COLOR}]              Seek back 5 seconds
-  [{COLOR}]l[/{COLOR}]              Seek forward 5 seconds  [dim](replaces Listen action)[/dim]
-  [{COLOR}]H[/{COLOR}]              Seek back 10 seconds
-  [{COLOR}]L[/{COLOR}]              Seek forward 10 seconds  [dim](replaces Listen Quality)[/dim]
-  [{COLOR}]0–9[/{COLOR}]            Seek to 0% / 10% / … / 90% of track
-  [{COLOR}]e[/{COLOR}]              Add focused video to audio queue
-  [{COLOR}]>[/{COLOR}]              Skip to next track in queue
-  [{COLOR}]s[/{COLOR}]              Stop audio + clear queue  [dim](replaces Subscribe action)[/dim]
-
-  [dim]During video playback (mpv window, same bindings):[/dim]
-  [{COLOR}]h / l[/{COLOR}]          ±5 seconds
-  [{COLOR}]H / L[/{COLOR}]          ±10 seconds
-  [{COLOR}]0–9[/{COLOR}]            Seek to 0% / 10% / … / 90%
-  [{COLOR}]q[/{COLOR}]              Quit mpv
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]DOWNLOADS & ACTIONS[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  [{COLOR}]d[/{COLOR}]              Download video to Library
-  [{COLOR}]a[/{COLOR}]              Download audio (MP3) to Library
-  [{COLOR}]y[/{COLOR}]              Copy video URL to clipboard
-  [{COLOR}]s[/{COLOR}]              Open channel page in browser (subscribe)
-  [{COLOR}]p[/{COLOR}]              Add video to a playlist
-  [{COLOR}]b[/{COLOR}]              Open video in browser
-  [{COLOR}]r[/{COLOR}]              Refresh current feed (clears cache)
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]SEARCH & MISC[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  [{COLOR}]/[/{COLOR}]              Open search dialog
-  [{COLOR}]?[/{COLOR}]              Toggle this Help screen
-  [{COLOR}],[/{COLOR}]              Open Settings (theme, quality, …)
-  [{COLOR}]Ctrl+D[/{COLOR}]         Toggle debug log panel
-  [{COLOR}]q[/{COLOR}]              Quit TermTube
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]LAZY LOADING[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  Results stream in batches of 20. Scroll near the bottom to
-  automatically load the next batch — no manual action needed.
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-[bold white]CONFIGURATION  (TermTube.yaml)[/bold white]
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  [{COLOR}]browser[/{COLOR}]           chrome / firefox / brave  (for yt-dlp auth)
-  [{COLOR}]browser[/{COLOR}]           Browser for authentication (auto/none/firefox/chrome/...)
-  [{COLOR}]preferred_quality[/{COLOR}] best / 1080 / 720 / 480 / 360
-  [{COLOR}]thumbnail_format[/{COLOR}]  auto (default) / symbols / ascii
-                       auto/symbols = high-quality Unicode block art (always works)
-                       ascii = restrict to ASCII symbols (most compatible)
-  [{COLOR}]video_dir[/{COLOR}]         Download directory for videos
-  [{COLOR}]audio_dir[/{COLOR}]         Download directory for audio files
-
-[bold #888888]──────────────────────────────────────────────────────────────────────[/bold #888888]
-
-  [dim]Press [bold]?[/bold], [bold]q[/bold] or [bold]Esc[/bold] to close this screen.[/dim]
-"""
+def _render_help(color: str) -> str:
+    lines = [f"[bold {color}]TermTube — Keyboard Reference[/bold {color}]", ""]
+    for title, rows in _SECTIONS:
+        lines += [_RULE, f"[bold white]{title}[/bold white]", _RULE, ""]
+        lines += [f"  [{color}]{key:<16}[/{color}] {text}" for key, text in rows]
+        lines.append("")
+    lines += [_RULE, "[bold white]CONFIG  (~/.config/TermTube/config.yaml)[/bold white]", _RULE, ""]
+    lines += [f"  [{color}]{key:<18}[/{color}] {text}" for key, text in _CONFIG_KEYS]
+    lines += ["", "  [dim]Press [bold]?[/bold], [bold]q[/bold] or [bold]Esc[/bold] to close.[/dim]"]
+    return "\n".join(lines)
 
 
 class HelpScreen(ModalScreen[None]):
@@ -160,7 +128,7 @@ class HelpScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         color = self._get_theme_color()
-        content = _HELP_CONTENT.format(COLOR=color)
+        content = _render_help(color)
 
         with Vertical(id="help-outer"):
             with ScrollableContainer(id="help-scroll"):

@@ -1,57 +1,39 @@
-"""ThumbnailWidget — high-quality thumbnail display via textual-image (TGP/sixel).
-
-Falls back to PIL half-block ANSI art when textual-image is not available.
-"""
+"""Thumbnail display: textual-image (kitty/sixel) when usable, else PIL half-block ANSI."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import Static
 
-# ── Optional textual-image integration ────────────────────────────────────────
-# textual_image.widget MUST be imported before Textual starts (terminal detection
-# and cell-size query run at import time and won't work after Textual's I/O threads
-# are running). main.py does this import at the right moment.
-#
-# Image rendering is disabled when:
-#   - textual-image is not installed
-#   - running inside tmux (TMUX env var set) — sixel/TGP passthrough is
-#     unreliable in tmux and causes flickering; PIL half-block is safer there
-#   - terminal reports no image protocol support (textual-image auto-detects
-#     this and falls back to halfcell/unicode, which we accept as "supported")
-#
-# Override: set MYYOUTUBE_IMAGES=1 to force images even inside tmux.
+from src.plat import IS_WINDOWS
 
-import os as _os
-
-from src.plat import IS_WINDOWS as _IS_WINDOWS
-_IN_TMUX = bool(_os.environ.get("TMUX")) and not _IS_WINDOWS
-_FORCE_IMAGES = _os.environ.get("MYYOUTUBE_IMAGES") == "1"
+# textual_image probes the terminal at import time, so it must be imported before Textual
+# starts its I/O threads (src/main.py does). Pixel images are off inside tmux (passthrough
+# flickers) unless MYYOUTUBE_IMAGES=1.
+_IN_TMUX = bool(os.environ.get("TMUX")) and not IS_WINDOWS
+_FORCE_IMAGES = os.environ.get("MYYOUTUBE_IMAGES") == "1"
 
 _HAS_TEXTUAL_IMAGE = False
 if not _IN_TMUX or _FORCE_IMAGES:
     try:
-        from textual_image.widget import Image as _TIImage  # type: ignore[import]
+        from textual_image.widget import Image as _TIImage
         from textual_image.renderable import Image as _AutoRenderable
         from textual_image.renderable.unicode import Image as _UnicodeRenderable
         if _AutoRenderable is not _UnicodeRenderable:
             _HAS_TEXTUAL_IMAGE = True
-        elif _IS_WINDOWS and bool(_os.environ.get("WT_SESSION")):
+        elif IS_WINDOWS and bool(os.environ.get("WT_SESSION")):
             _HAS_TEXTUAL_IMAGE = True
     except ImportError:
         pass
 
 
 class ThumbnailWidget(Widget):
-    """Thumbnail display widget.
-
-    When textual-image is installed it renders via TGP (Kitty) or sixel (other
-    terminals) — real pixel-quality images. Otherwise falls back to PIL
-    half-block ANSI art passed in via set_ansi().
-    """
+    """Updates are keyed by id (`set_video_id`); a result for a stale id is dropped."""
 
     DEFAULT_CSS = """
     ThumbnailWidget {
@@ -82,7 +64,7 @@ class ThumbnailWidget(Widget):
     def compose(self) -> ComposeResult:
         yield Static("[dim]▪ No thumbnail[/dim]", id="thumb-status", markup=True)
         if _HAS_TEXTUAL_IMAGE:
-            yield _TIImage(id="thumb-image")  # type: ignore[call-arg]
+            yield _TIImage(id="thumb-image")
 
     def on_mount(self) -> None:
         if _HAS_TEXTUAL_IMAGE:
@@ -91,59 +73,43 @@ class ThumbnailWidget(Widget):
             except Exception:
                 pass
 
-    # ── Public API ────────────────────────────────────────────────────────────
-
     def set_video_id(self, video_id: str) -> None:
-        """Set the active video ID to guard against stale updates."""
         self._current_id = video_id
 
     def set_loading(self) -> None:
-        """Show a loading placeholder."""
         self._show_status("[dim]⏳ Loading…[/dim]")
 
     def set_placeholder(self) -> None:
-        """Show a 'no thumbnail' placeholder."""
         self._show_status("[dim]▪ No thumbnail[/dim]")
 
     def set_image_path(self, video_id: str, path: Path) -> None:
-        """Display a thumbnail from a filesystem path via textual-image.
-
-        Called from main thread (via call_from_thread). Only acts if video_id
-        matches the currently selected video and textual-image is available.
-        """
+        """Show an image file via textual-image; no-op without it."""
         if video_id != self._current_id:
             return
         if not _HAS_TEXTUAL_IMAGE:
             return
         try:
             img = self.query_one("#thumb-image")
-            img.image = path  # type: ignore[attr-defined]
+            img.image = path
             img.display = True
             self.query_one("#thumb-status").display = False
         except Exception:
             self.set_placeholder()
 
     def set_ansi(self, video_id: str, ansi: str) -> None:
-        """Display PIL half-block ANSI art inside the status Static.
-
-        Used when textual-image is not installed. When textual-image IS present
-        this is a no-op (set_image_path handles display instead).
-        """
+        """Show half-block ANSI art; no-op when textual-image is active."""
         if video_id != self._current_id:
             return
         if _HAS_TEXTUAL_IMAGE:
             return
         if ansi:
             try:
-                from rich.text import Text
                 self.query_one("#thumb-status", Static).update(Text.from_ansi(ansi))
                 self.query_one("#thumb-status").display = True
             except Exception:
                 self.set_placeholder()
         else:
             self.set_placeholder()
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _show_status(self, text: str) -> None:
         try:

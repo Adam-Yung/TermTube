@@ -11,7 +11,7 @@ from src.player import (
     send_ipc_command,
     poll_audio_properties,
     _poll_audio_properties_batched,
-    _cookie_args_to_ytdl_raw,
+    cookie_args_to_ytdl_raw,
 )
 
 # socket.AF_UNIX does not exist on Windows — skip Unix-socket tests there.
@@ -225,27 +225,27 @@ class TestPollAudioProperties:
 
 
 class TestCookieArgsToYtdlRaw:
-    """Tests for _cookie_args_to_ytdl_raw formatting."""
+    """Tests for cookie_args_to_ytdl_raw formatting."""
 
     def test_cookies_file_flag(self):
-        result = _cookie_args_to_ytdl_raw(["--cookies", "/path/to/cookies.txt"])
+        result = cookie_args_to_ytdl_raw(["--cookies", "/path/to/cookies.txt"])
         assert result == "cookies=/path/to/cookies.txt"
 
     def test_cookies_from_browser_flag(self):
-        result = _cookie_args_to_ytdl_raw(["--cookies-from-browser", "chrome"])
+        result = cookie_args_to_ytdl_raw(["--cookies-from-browser", "chrome"])
         assert result == "cookies-from-browser=chrome"
 
     def test_multiple_flags(self):
         args = ["--cookies", "/tmp/c.txt", "--cookies-from-browser", "firefox"]
-        result = _cookie_args_to_ytdl_raw(args)
+        result = cookie_args_to_ytdl_raw(args)
         assert "cookies=/tmp/c.txt" in result
         assert "cookies-from-browser=firefox" in result
         assert result == "cookies=/tmp/c.txt,cookies-from-browser=firefox"
 
     def test_empty_args(self):
-        result = _cookie_args_to_ytdl_raw([])
+        result = cookie_args_to_ytdl_raw([])
         assert result == ""
 
     def test_ignores_standalone_flags(self):
-        result = _cookie_args_to_ytdl_raw(["--no-check-certificate"])
+        result = cookie_args_to_ytdl_raw(["--no-check-certificate"])
         assert result == ""

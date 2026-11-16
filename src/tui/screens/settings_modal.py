@@ -1,5 +1,3 @@
-"""SettingsModal — in-TUI configuration editor."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -7,6 +5,10 @@ from textual.binding import Binding
 from textual.containers import ScrollableContainer, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
+
+from src.browsers import YTDLP_SUPPORTED_BROWSERS, detect_installed_browsers, get_browser_label
+from src.tui.widgets.action_bar import ActionBar
+from src.tui.widgets.video_list import VideoListItem
 
 _THEMES = [
     ("crimson",  "🔴  Crimson   — deep red accents (default)"),
@@ -52,7 +54,7 @@ class SettingsModal(ModalScreen[None]):
 
     def __init__(self) -> None:
         super().__init__()
-        self._active_list = "theme"
+        self._browser_opts: list[tuple[str, str]] = []
 
     def compose(self) -> ComposeResult:
         with Vertical(id="settings-dialog"):
@@ -75,29 +77,11 @@ class SettingsModal(ModalScreen[None]):
 
     def on_mount(self) -> None:
         config = self.app.config  # type: ignore[attr-defined]
+        self._refresh_list("theme-list", _THEMES, config.theme)
+        self._refresh_list("quality-list-s", _QUALITY_OPTS, config.preferred_quality)
+        self._refresh_list("thumb-list", _THUMB_OPTS, config.thumbnail_format)
+        self.query_one("#theme-list", ListView).focus()
 
-        # Theme list
-        tl = self.query_one("#theme-list", ListView)
-        for val, label in _THEMES:
-            item = _ChoiceItem(val, ("▶ " if val == config.theme else "  ") + label)
-            tl.append(item)
-        tl.focus()
-
-        # Quality list
-        ql = self.query_one("#quality-list-s", ListView)
-        cur_q = config.preferred_quality
-        for val, label in _QUALITY_OPTS:
-            item = _ChoiceItem(val, ("▶ " if val == cur_q else "  ") + label)
-            ql.append(item)
-
-        # Thumbnail format list
-        tfl = self.query_one("#thumb-list", ListView)
-        cur_tf = config.thumbnail_format
-        for val, label in _THUMB_OPTS:
-            item = _ChoiceItem(val, ("▶ " if val == cur_tf else "  ") + label)
-            tfl.append(item)
-
-        # Browser auth status
         cur_browser = config.get("browser", "auto")
         if cur_browser and cur_browser.lower() != "none":
             status_line = f"  [dim]mode:[/dim] [green]browser session[/green] ({cur_browser})"
@@ -105,26 +89,16 @@ class SettingsModal(ModalScreen[None]):
             status_line = "  [dim]mode:[/dim] [yellow]none (unauthenticated)[/yellow]"
         self.query_one("#s-browser-status", Static).update(status_line)
 
-        # Browser list — dynamically populated from detected browsers
-        from src.browsers import detect_installed_browsers, YTDLP_SUPPORTED_BROWSERS, get_browser_label
-        bl = self.query_one("#browser-list", ListView)
-        cur_b = config.get("browser", "auto")
         detected = detect_installed_browsers()
         detected_names = {b["name"] for b in detected}
-
-        # Build options: "auto" first, then installed browsers, then unavailable ones dimmed
-        browser_opts: list[tuple[str, str]] = [("auto", "Auto-detect")]
-        for b in detected:
-            browser_opts.append((b["name"], b["label"]))
-        for name in YTDLP_SUPPORTED_BROWSERS:
-            if name not in detected_names:
-                browser_opts.append((name, f"{get_browser_label(name)} (not found)"))
-
-        for val, label in browser_opts:
-            item = _ChoiceItem(val, ("▶ " if val == cur_b else "  ") + label)
-            bl.append(item)
-        self._browser_opts = browser_opts
-
+        self._browser_opts = [("auto", "Auto-detect")]
+        self._browser_opts += [(b["name"], b["label"]) for b in detected]
+        self._browser_opts += [
+            (name, f"{get_browser_label(name)} (not found)")
+            for name in YTDLP_SUPPORTED_BROWSERS
+            if name not in detected_names
+        ]
+        self._refresh_list("browser-list", self._browser_opts, cur_browser)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         if not isinstance(event.item, _ChoiceItem):
@@ -149,17 +123,12 @@ class SettingsModal(ModalScreen[None]):
 
         elif lv_id == "browser-list":
             config._data["browser"] = event.item.value
-            self._refresh_list("browser-list", getattr(self, "_browser_opts", []), event.item.value)
+            self._refresh_list("browser-list", self._browser_opts, event.item.value)
 
-
-        # Persist immediately
         config.save()
 
     def _refresh_live_theme(self) -> None:
         """Re-render Rich-markup widgets that bake the theme color at compose time."""
-        from src.tui.widgets.video_list import VideoListItem
-        from src.tui.widgets.action_bar import ActionBar
-        from textual.widgets import Static
         for item in self.app.query(VideoListItem):
             try:
                 item._cached_markup = item._build_markup()

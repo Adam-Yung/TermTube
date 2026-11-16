@@ -111,18 +111,6 @@ class TestFeed:
 
         assert temp_cache.get_feed("home") is None
 
-    def test_get_feed_stale_ignores_ttl(self, temp_cache):
-        from src.cache import CACHE_DIR
-
-        stale = {"_cached_at": time.time() - 99999, "ids": ["old1", "old2"]}
-        (CACHE_DIR / "feed_home.json").write_text(json.dumps(stale))
-
-        result = temp_cache.get_feed_stale("home")
-        assert result == ["old1", "old2"]
-
-    def test_get_feed_stale_missing_returns_none(self, temp_cache):
-        assert temp_cache.get_feed_stale("missing") is None
-
 
 class TestFeedFreshness:
     def test_is_feed_fresh_true(self, temp_cache):
@@ -136,15 +124,6 @@ class TestFeedFreshness:
         (CACHE_DIR / "feed_search.json").write_text(json.dumps(stale))
 
         assert temp_cache.is_feed_fresh("search") is False
-
-    def test_feed_age_returns_approximate_age(self, temp_cache):
-        temp_cache.put_feed("home", ["a"])
-        age = temp_cache.feed_age("home")
-        assert age is not None
-        assert 0 <= age < 2  # should be essentially zero
-
-    def test_feed_age_missing_returns_none(self, temp_cache):
-        assert temp_cache.feed_age("nope") is None
 
 
 class TestPruneVideoCacheFifo:

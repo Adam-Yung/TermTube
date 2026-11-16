@@ -1,26 +1,23 @@
-"""Platform abstraction layer for TermTube.
-
-Centralises all OS-specific logic: paths, IPC, process management, clipboard,
-and capability detection. Every other module should import from here rather than
-doing ad-hoc platform checks.
-"""
+"""OS-specific logic: directories, mpv IPC paths, clipboard, subprocess handling. Other modules import from here."""
 
 from __future__ import annotations
 
+import glob
 import os
+import shutil
+import signal
+import subprocess
 import sys
+import tempfile
+import threading
+import time
 from pathlib import Path
 
-# ── OS Detection ──────────────────────────────────────────────────────────────
 
 IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
 
-# ── Directory Paths ───────────────────────────────────────────────────────────
-# Follow platform conventions:
-#   macOS/Linux: XDG Base Directory Specification
-#   Windows:     %APPDATA% (roaming config), %LOCALAPPDATA% (local data/cache)
 
 
 def get_config_dir() -> Path:
@@ -43,66 +40,43 @@ def get_cache_dir() -> Path:
 
 
 def get_log_dir() -> Path:
-    """Log/temp directory (system temp dir / TermTube).
-
-    Uses the platform temp directory ($TMPDIR on macOS/Linux, %TEMP% on Windows,
-    falling back to /tmp if unset).
-    """
-    import tempfile
-    base = Path(tempfile.gettempdir())
-    return base / "TermTube"
+    """Log/temp directory under the system temp dir."""
+    return Path(tempfile.gettempdir()) / "TermTube"
 
 
-# ── IPC Paths ─────────────────────────────────────────────────────────────────
 
 
 def _unix_ipc_dir() -> str:
-    """Return the directory for IPC sockets, namespaced per user."""
+    """Per-user directory for IPC sockets."""
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
     if runtime_dir:
         return runtime_dir
     return f"/tmp/termtube-{os.getuid()}"
 
 
-def get_ipc_path() -> str:
-    """Return the mpv IPC socket/pipe path for this platform.
-
-    Unix: $XDG_RUNTIME_DIR/termtube-mpv.sock or /tmp/termtube-<uid>/termtube-mpv.sock
-    Windows: \\\\.\\pipe\\termtube-mpv (named pipe)
-    """
+def _ipc_path(name: str) -> str:
+    """Named pipe on Windows; socket in a 0700 per-user directory elsewhere."""
     if IS_WINDOWS:
-        return r"\\.\pipe\termtube-mpv"
+        return rf"\\.\pipe\{name}"
     ipc_dir = _unix_ipc_dir()
     os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
-    return os.path.join(ipc_dir, "termtube-mpv.sock")
+    return os.path.join(ipc_dir, f"{name}.sock")
+
+
+def get_ipc_path() -> str:
+    return _ipc_path("termtube-mpv")
 
 
 def get_audio_ipc_path() -> str:
-    """IPC path for the background audio mpv instance."""
-    if IS_WINDOWS:
-        return r"\\.\pipe\termtube-mpv-audio"
-    ipc_dir = _unix_ipc_dir()
-    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
-    return os.path.join(ipc_dir, "termtube-mpv-audio.sock")
+    return _ipc_path("termtube-mpv-audio")
 
 
 def get_video_ipc_path() -> str:
-    """IPC path for the video mpv instance."""
-    if IS_WINDOWS:
-        return r"\\.\pipe\termtube-mpv-video"
-    ipc_dir = _unix_ipc_dir()
-    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
-    return os.path.join(ipc_dir, "termtube-mpv-video.sock")
-
-
-# ── Clipboard ─────────────────────────────────────────────────────────────────
+    return _ipc_path("termtube-mpv-video")
 
 
 def clipboard_copy(text: str) -> bool:
     """Copy text to the system clipboard. Returns True on success."""
-    import subprocess
-    import shutil
-
     if IS_WINDOWS:
         try:
             subprocess.run(
@@ -127,7 +101,6 @@ def clipboard_copy(text: str) -> bool:
         except (FileNotFoundError, subprocess.CalledProcessError):
             return False
 
-    # Linux: try wl-copy (Wayland), xclip, xsel
     for cmd in (
         ["wl-copy"],
         ["xclip", "-selection", "clipboard"],
@@ -142,17 +115,10 @@ def clipboard_copy(text: str) -> bool:
     return False
 
 
-# ── Process Management ────────────────────────────────────────────────────────
 
 
 def get_subprocess_flags(*, headless: bool = False) -> dict:
-    """Return platform-specific kwargs for subprocess.Popen / subprocess.run.
-
-    Args:
-        headless: If True, hide the process window (Windows only).
-    """
-    import subprocess
-
+    """Popen/run kwargs: new process group on Windows, plus no console window if headless."""
     if not IS_WINDOWS:
         return {}
 
@@ -163,20 +129,12 @@ def get_subprocess_flags(*, headless: bool = False) -> dict:
 
 
 def get_popen_kwargs(*, headless: bool = False) -> dict:
-    """Return kwargs for subprocess.Popen on any platform.
-
-    On Windows, adds creation flags. On Unix, returns empty dict.
-    Use for Popen calls that need platform awareness.
-    """
+    """Alias of get_subprocess_flags."""
     return get_subprocess_flags(headless=headless)
 
 
 def terminate_process(proc, *, timeout: float = 3.0) -> None:
-    """Gracefully terminate a subprocess, then force-kill if it doesn't exit.
-
-    Works cross-platform: uses terminate() first (SIGTERM on Unix,
-    TerminateProcess on Windows), waits briefly, then kills if needed.
-    """
+    """terminate(), wait up to timeout, then kill(). Accepts None."""
     if proc is None or proc.poll() is not None:
         return
     try:
@@ -191,11 +149,7 @@ def terminate_process(proc, *, timeout: float = 3.0) -> None:
 
 
 def cleanup_ipc(ipc_path: str) -> None:
-    """Remove the IPC endpoint if applicable.
-
-    Unix sockets leave a file on disk that must be removed.
-    Windows named pipes are kernel objects, cleaned up automatically.
-    """
+    """Unlink a Unix socket file. Windows pipes vanish with their last handle."""
     if IS_WINDOWS:
         return
     try:
@@ -204,23 +158,16 @@ def cleanup_ipc(ipc_path: str) -> None:
         pass
 
 
-# ── Terminal / Graphics Capabilities ──────────────────────────────────────────
-
-
-def in_windows_terminal() -> bool:
-    """True if running inside Windows Terminal (which supports Sixel natively)."""
-    return IS_WINDOWS and bool(os.environ.get("WT_SESSION"))
 
 
 def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
-    """Download a file using Python stdlib urllib (cross-platform, no subprocess).
+    """Fetch a thumbnail to dest. True on success.
 
-    Tries verified SSL first, falls back to unverified on certificate errors
-    (common on corporate networks with MITM proxies). Thumbnail images are
-    public CDN content so skipping verification is acceptable as a fallback.
-    Returns True on success.
+    Retries without certificate verification after an SSL failure (MITM proxies on corporate
+    networks). Acceptable only because thumbnails are public CDN images; never reuse for anything else.
     """
     import ssl
+    import urllib.error
     import urllib.request
 
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -234,8 +181,6 @@ def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
             Path(dest).write_bytes(data)
             return True
         except ssl.SSLError:
-            continue
-        except ssl.SSLCertVerificationError:
             continue
         except urllib.error.URLError as e:
             if "SSL" in str(e) or "certificate" in str(e).lower():
@@ -259,19 +204,8 @@ def _ssl_context_unverified():
     return ctx
 
 
-# ── Unified Process Registry ──────────────────────────────────────────────────
-
-import subprocess
-import threading
-
-
 class ProcessRegistry:
-    """Global registry of all child processes spawned by TermTube.
-
-    Tracks mpv (audio/video), yt-dlp, and any other subprocesses so they
-    can all be killed on exit — regardless of exit path (normal quit, Ctrl+C,
-    SIGTERM, os._exit failsafe).
-    """
+    """Singleton set of child processes (mpv etc.) so every exit path can kill them."""
 
     _instance: "ProcessRegistry | None" = None
 
@@ -281,28 +215,20 @@ class ProcessRegistry:
 
     @classmethod
     def get(cls) -> "ProcessRegistry":
-        """Return the singleton registry instance."""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
 
     def register(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
-        """Add a subprocess to the registry."""
         with self._lock:
             self._procs.add(proc)
 
     def unregister(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
-        """Remove a subprocess from the registry (e.g. after it exits normally)."""
         with self._lock:
             self._procs.discard(proc)
 
     def kill_all(self, timeout: float = 2.0) -> int:
-        """Kill every tracked subprocess. Returns count of processes killed.
-
-        Sends SIGTERM first, waits up to timeout, then SIGKILL for stragglers.
-        """
-        import time
-
+        """terminate() all tracked processes, wait up to timeout in total, kill stragglers. Returns the count terminated."""
         with self._lock:
             procs = list(self._procs)
             self._procs.clear()
@@ -337,24 +263,12 @@ class ProcessRegistry:
 
         return killed
 
-    @property
-    def active_count(self) -> int:
-        with self._lock:
-            return sum(1 for p in self._procs if p.poll() is None)
-
 
 def reap_orphans() -> None:
-    """Kill stale TermTube processes and remove stale IPC sockets on startup.
-
-    Handles the case where a previous instance was SIGKILL'd or crashed without
-    cleanup. Checks for orphaned mpv processes with TermTube-specific
-    command-line patterns, and removes stale socket files.
-    """
-    import glob as _glob
-
+    """Startup: remove stale mpv sockets and SIGTERM mpv processes left by a crashed instance."""
     ipc_dir = _unix_ipc_dir()
     if os.path.isdir(ipc_dir):
-        for sock in _glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
+        for sock in glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
             try:
                 os.unlink(sock)
             except OSError:
@@ -364,7 +278,6 @@ def reap_orphans() -> None:
         return
 
     try:
-        import signal
         my_pid = os.getpid()
         result = subprocess.run(
             ["pgrep", "-f", "mpv.*termtube-mpv"],
@@ -384,8 +297,6 @@ def reap_orphans() -> None:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
-
-# ── Install Hints ─────────────────────────────────────────────────────────────
 
 _INSTALL_HINTS: dict[str, dict[str, str]] = {
     "yt-dlp": {
@@ -412,7 +323,6 @@ _INSTALL_HINTS: dict[str, dict[str, str]] = {
 
 
 def install_hint(tool: str) -> str:
-    """Return a user-friendly install command for the given tool on this platform."""
     hints = _INSTALL_HINTS.get(tool, {})
     if IS_WINDOWS:
         return hints.get("windows", f"Install {tool} manually")

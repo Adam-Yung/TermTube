@@ -1,15 +1,10 @@
-"""Thumbnail rendering — download URL → render to ANSI terminal art.
-
-Rendering pipeline:
-  1. textual-image (Kitty TGP / Sixel) — pixel-perfect, handled by widget
-  2. PIL half-block (pure Python) — 24-bit colored half-block characters
-  3. Text placeholder — last resort
-
-Rendered PIL output is cached on disk per (video_id, cols, rows) so that
-re-rendering at the same panel size is essentially free.
-"""
+"""Thumbnail files: resolve/download a JPEG, validate it, render PIL half-block ANSI art."""
 
 from __future__ import annotations
+
+import re
+import shutil
+import time
 from pathlib import Path
 
 from src.cache import CACHE_DIR, THUMB_DIR
@@ -33,15 +28,8 @@ def _thumb_path(video_id: str) -> Path:
     return THUMB_DIR / f"{video_id}.jpg"
 
 
-# ── Download ───────────────────────────────────────────────────────────────────
-
-
 def _resolve_local_thumb(video_id: str, entry: dict) -> Path | None:
-    """Check for a thumbnail file adjacent to a library entry's media file.
-
-    yt-dlp writes thumbnails alongside downloaded media with the same stem.
-    If found, copy it into the thumbnail cache so subsequent lookups are free.
-    """
+    """Find the thumbnail yt-dlp wrote next to a downloaded file and copy it into the cache."""
     local_path = entry.get("_local_path")
     if not local_path:
         return None
@@ -56,7 +44,6 @@ def _resolve_local_thumb(video_id: str, entry: dict) -> Path | None:
                 return dest
             try:
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                import shutil
                 shutil.copy2(str(candidate), str(dest))
                 return dest
             except OSError:
@@ -89,19 +76,10 @@ def download(video_id: str, url: str) -> Path | None:
         return None
 
 
-# ── Shared helpers for thumbnail workers ───────────────────────────────────────
-
-
 def ensure_thumb_jpeg(video_id: str, entry: dict | None = None, *, url: str | None = None) -> Path | None:
-    """Resolve a thumbnail JPEG for *video_id*, downloading if necessary.
+    """Return a thumbnail path: disk cache, then library sidecar, then download.
 
-    Resolution order:
-      1. Disk cache hit  (~/.cache/termtube/thumbs/{vid}.jpg)
-      2. Local sidecar   (library entries only, via _resolve_local_thumb)
-      3. Network download (from *url* or best URL extracted from *entry*)
-
-    Pass *url* directly for channel avatars.  Pass *entry* for video
-    thumbnails (URL is extracted via _best_thumb_url).
+    Pass `url` for channel avatars, `entry` for video thumbnails.
     """
     local = _thumb_path(video_id)
     if local.exists():
@@ -110,7 +88,7 @@ def ensure_thumb_jpeg(video_id: str, entry: dict | None = None, *, url: str | No
         found = _resolve_local_thumb(video_id, entry)
         if found and found.exists():
             return found
-    dl_url = url or (_best_thumb_url(entry) if entry else "")
+    dl_url = url or (best_thumb_url(entry) if entry else "")
     if dl_url:
         result = download(video_id, dl_url)
         if result and result.exists():
@@ -119,7 +97,7 @@ def ensure_thumb_jpeg(video_id: str, entry: dict | None = None, *, url: str | No
 
 
 def validate_thumb(path: Path | None) -> bool:
-    """Return True if *path* is a valid image file PIL can decode."""
+    """Return True if PIL can fully decode the file."""
     if not path or not path.exists():
         return False
     try:
@@ -131,8 +109,6 @@ def validate_thumb(path: Path | None) -> bool:
         return False
 
 
-# ── PIL half-block renderer ───────────────────────────────────────────────────
-
 def render_pil_halfblock(
     video_id: str,
     entry: dict,
@@ -140,17 +116,9 @@ def render_pil_halfblock(
     cols: int = 38,
     rows: int = 20,
 ) -> str:
-    """Render thumbnail as 24-bit colored Unicode half-block art using Pillow.
+    """Render 24-bit half-block ANSI art (two pixel rows per cell); "" if no image is available.
 
-    Each terminal cell covers 2 pixel rows: the upper half-block character
-    is drawn with the top pixel as foreground color and the bottom pixel as
-    background color, giving effectively double the vertical resolution.
-
-    Works in any terminal supporting 24-bit ANSI color (iTerm2, WezTerm,
-    Ghostty, Alacritty, Kitty, Windows Terminal, VS Code/Cursor, GNOME
-    Terminal, etc.). Pillow is a hard dependency so this always works.
-
-    Result is cached to RENDERED_DIR so re-renders at the same size are free.
+    Cached on disk per (video_id, cols, rows).
     """
     cache_path = _rendered_cache_path(video_id, cols, rows, "pil")
     if cache_path.exists():
@@ -161,15 +129,14 @@ def render_pil_halfblock(
 
     local = _thumb_path(video_id)
     if not local.exists():
-        local = _resolve_local_thumb(video_id, entry) or local
-    if not local.exists():
-        url = _best_thumb_url(entry)
+        local = _resolve_local_thumb(video_id, entry)
+    if not local:
+        url = best_thumb_url(entry)
         if not url:
             logger.debug("render_pil_halfblock: no URL for %s", video_id)
             return ""
-        local = download(video_id, url) or Path("")
-
-    if not local.exists():
+        local = download(video_id, url)
+    if not local or not local.exists():
         return ""
 
     try:
@@ -193,39 +160,42 @@ def render_pil_halfblock(
         logger.debug("PIL halfblock render failed for %s: %s", video_id, exc)
         return ""
 
-    if ansi:
-        _ensure_rendered_dir()
-        try:
-            cache_path.write_text(ansi, encoding="utf-8")
-        except OSError:
-            pass
+    _ensure_rendered_dir()
+    try:
+        cache_path.write_text(ansi, encoding="utf-8")
+    except OSError:
+        pass
 
     return ansi
 
 
-# ── URL selection ──────────────────────────────────────────────────────────────
+_VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")
+_YTIMG_URL = "https://i.ytimg.com/vi/{}/mqdefault.jpg"
 
-def _best_thumb_url(entry: dict) -> str:
-    """Pick the best thumbnail URL from a yt-dlp entry."""
+
+def best_thumb_url(entry: dict) -> str:
+    """Thumbnail URL for an entry: the extractor's choice, else derived from the video id.
+
+    The derived URL needs no extraction, so rows that carry only an id (history,
+    playlists, queue) still get a thumbnail.
+    """
     if entry.get("thumbnail"):
         return entry["thumbnail"]
     thumbs = entry.get("thumbnails") or []
     if thumbs:
-        jpg_thumbs = [t for t in thumbs if "jpg" in t.get("url", "")]
-        candidates = jpg_thumbs or thumbs
-        best = candidates[-1] if candidates else thumbs[-1]
-        return best.get("url", "")
+        jpgs = [t for t in thumbs if "jpg" in t.get("url", "")]
+        return (jpgs or thumbs)[-1].get("url", "")
+    vid = entry.get("id", "")
+    if _VIDEO_ID.fullmatch(vid) and not entry.get("_is_channel"):
+        return _YTIMG_URL.format(vid)
     return ""
 
-
-# ── Cache pruning ─────────────────────────────────────────────────────────────
 
 def prune_old_rendered(max_age_days: int = 7, max_count: int = 600) -> None:
     """Delete cached rendered ANSI files older than max_age_days, then cap to max_count."""
     if not RENDERED_DIR.exists():
         return
-    import time as _time
-    cutoff = _time.time() - max_age_days * 86400
+    cutoff = time.time() - max_age_days * 86400
     files: list[tuple[float, Path]] = []
     deleted = 0
     for f in RENDERED_DIR.glob("*.ansi"):

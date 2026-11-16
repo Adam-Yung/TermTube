@@ -1,5 +1,3 @@
-"""QualityModal — select a yt-dlp quality format before playback or download."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -8,7 +6,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
-from src.ytdlp import AUDIO_QUALITY_CHOICES, QUALITY_CHOICES
+from src.downloads import AUDIO_QUALITY_CHOICES, QUALITY_CHOICES
 
 
 class _QualityItem(ListItem):

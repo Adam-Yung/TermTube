@@ -65,31 +65,6 @@ class TestGetPlaylist:
         assert playlist.get_playlist("ghost") == []
 
 
-class TestDelete:
-    def test_delete_existing(self, temp_playlists):
-        playlist.create("Temp")
-        result = playlist.delete("Temp")
-        assert result is True
-        assert "Temp" not in playlist.list_names()
-
-    def test_delete_nonexistent_returns_false(self, temp_playlists):
-        assert playlist.delete("nope") is False
-
-
-class TestRename:
-    def test_rename_preserves_order(self, temp_playlists):
-        playlist.create("Alpha", ["v1", "v2"])
-        playlist.create("Beta", ["v3"])
-        playlist.rename("Alpha", "Gamma")
-
-        names = playlist.list_names()
-        assert names == ["Gamma", "Beta"]
-        assert playlist.get_playlist("Gamma") == ["v1", "v2"]
-
-    def test_rename_nonexistent_returns_false(self, temp_playlists):
-        assert playlist.rename("ghost", "new") is False
-
-
 class TestIsInPlaylist:
     def test_membership_true(self, temp_playlists):
         playlist.create("Fav", ["abc"])

@@ -1,28 +1,21 @@
-"""mpv player interface with custom seek bindings and IPC support."""
+"""mpv launch helpers and JSON IPC client (Unix socket, Windows named pipe)."""
 
 from __future__ import annotations
 import json
 import os
 import shutil
 import socket
-import subprocess
 import tempfile
 import threading
 from pathlib import Path
 from typing import Any
 
 from src import logger
-from src.plat import IS_WINDOWS, get_ipc_path, get_subprocess_flags, cleanup_ipc
+from src.plat import IS_WINDOWS, get_ipc_path
 
-# ── Persistent IPC socket pool ────────────────────────────────────────────────
-# Keyed by socket_path → socket.socket (Unix only).
-# Windows named pipes don't support persistent connections so they stay
-# connect-per-call.  Each entry is created on first use and reused until
-# mpv closes the other end (EPIPE / ECONNRESET), at which point we reconnect.
 _persistent_sockets: dict[str, socket.socket] = {}
 _persistent_lock = threading.Lock()
 
-# Per-socket-path locks for serializing IPC send/recv operations.
 _ipc_locks: dict[str, threading.Lock] = {}
 _ipc_locks_lock = threading.Lock()
 
@@ -31,7 +24,7 @@ _IPC_LOCKS_MAX = 20
 
 
 def _get_ipc_lock(socket_path: str) -> threading.Lock:
-    """Return (or create) a per-path lock for serializing IPC operations."""
+    """Return the lock that serializes send/recv on one socket path."""
     with _ipc_locks_lock:
         lock = _ipc_locks.get(socket_path)
         if lock is None:
@@ -42,7 +35,6 @@ def _get_ipc_lock(socket_path: str) -> threading.Lock:
         return lock
 
 
-# Custom mpv input.conf — loaded for every playback session
 _INPUT_CONF = """\
 # TermTube seek bindings
 0 seek 0 absolute-percent
@@ -71,7 +63,7 @@ IPC_SOCKET = get_ipc_path()
 _temp_input_confs: set[str] = set()
 
 
-def _write_input_conf() -> str:
+def write_input_conf() -> str:
     """Write input.conf to a temp file and return its path."""
     f = tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False, prefix="termtube-mpv-")
     f.write(_INPUT_CONF)
@@ -82,35 +74,23 @@ def _write_input_conf() -> str:
 
 
 def _is_real_cli_mpv(path: str) -> bool:
-    """Return True if `path` is the real upstream mpv CLI (not mpv.net's shim).
-
-    mpv.net ships an `mpv.exe` in its install directory that is a stub
-    redirecting to `mpvnet.exe` — which ALWAYS opens a GUI window even with
-    `--force-window=no`. Detect that case by checking the parent directory
-    for `mpvnet.exe`.
-    """
+    """Return True unless `path` is mpv.net's `mpv.exe` shim (detected by a sibling `mpvnet.exe`)."""
     if not IS_WINDOWS:
         return True
     try:
-        from pathlib import Path
         parent = Path(path).resolve().parent
         return not (parent / "mpvnet.exe").exists()
     except Exception:
         return True
 
 
-def _mpv_exe(*, headless: bool = False) -> str | None:
-    """Return the mpv executable path.
+def mpv_exe(*, headless: bool = False) -> str | None:
+    """Return the mpv executable path, or None.
 
-    Args:
-        headless: If True on Windows, REQUIRE a standalone mpv.exe (no GUI
-                  window). Will not fall back to mpv.net or its `mpv.exe`
-                  shim — those always open a GUI window even with
-                  `--force-window=no` and `--no-video`.
+    `headless=True` on Windows never returns mpv.net or its shim (they always open a window).
     """
     if headless and IS_WINDOWS:
         localappdata = os.environ.get("LOCALAPPDATA", "")
-        # 1. TermTube's bundled standalone CLI mpv (installed by bootstrap.py)
         termtube_mpv = Path(localappdata) / "termtube-deps" / "bin" / "mpv.exe"
         exists = termtube_mpv.exists()
         logger.debug(
@@ -119,23 +99,17 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
         )
         if exists:
             return str(termtube_mpv)
-        # 2. PATH mpv, but only if it's not mpv.net's shim
         which = shutil.which("mpv")
         real = bool(which) and _is_real_cli_mpv(which)
         logger.debug("mpv probe: shutil.which=%r real_cli=%s", which, real)
         if which and real:
             return which
-        # 3. No headless-capable mpv. Return None so the caller surfaces a
-        #    clear "install standalone mpv" error rather than silently
-        #    spawning mpvnet (which pops a window).
         return None
 
-    # Check bundled mpv first (explicit path, not PATH-dependent)
     from src.bootstrap import get_deps_bin
     bundled_mpv = get_deps_bin() / ("mpv.exe" if IS_WINDOWS else "mpv")
     if bundled_mpv.exists():
         return str(bundled_mpv)
-    # Fall back to PATH
     which_mpv = shutil.which("mpv")
     if which_mpv:
         return which_mpv
@@ -147,23 +121,15 @@ def _mpv_exe(*, headless: bool = False) -> str | None:
     return None
 
 
-def _mpv_available() -> bool:
-    return _mpv_exe() is not None
-
-
-# ── Public API ────────────────────────────────────────────────────────────────
-
-# ── IPC helpers ───────────────────────────────────────────────────────────────
-
 def _ipc_send_recv(data: bytes, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> bytes:
-    """Low-level send/receive over the IPC transport (Unix socket or Windows named pipe)."""
+    """Send bytes and return the first reply chunk(s) over the platform transport; b"" on failure."""
     if IS_WINDOWS:
         return _ipc_send_recv_pipe(data, pipe_path=socket_path, timeout=timeout)
     return _ipc_send_recv_socket(data, socket_path=socket_path, timeout=timeout)
 
 
 def _get_persistent_socket(socket_path: str, timeout: float) -> socket.socket | None:
-    """Return (or create) a persistent Unix domain socket for socket_path."""
+    """Return the pooled socket for socket_path, connecting on first use; None if mpv is not listening."""
     with _persistent_lock:
         s = _persistent_sockets.get(socket_path)
         if s is not None:
@@ -179,7 +145,7 @@ def _get_persistent_socket(socket_path: str, timeout: float) -> socket.socket | 
 
 
 def _drop_persistent_socket(socket_path: str) -> None:
-    """Close and remove a stale persistent socket so the next call reconnects."""
+    """Close and forget the pooled socket so the next call reconnects."""
     with _persistent_lock:
         s = _persistent_sockets.pop(socket_path, None)
         if s is not None:
@@ -192,12 +158,12 @@ def _drop_persistent_socket(socket_path: str) -> None:
 
 
 def close_persistent_socket(socket_path: str) -> None:
-    """Public API: close the persistent socket for socket_path (e.g. on track end)."""
+    """Close the pooled socket for socket_path (call when a track ends)."""
     _drop_persistent_socket(socket_path)
 
 
 def close_all_sockets() -> None:
-    """Close all persistent IPC sockets and clean temp files (called on app exit)."""
+    """Close all pooled sockets and delete temp input.conf files (app exit)."""
     with _persistent_lock:
         for s in _persistent_sockets.values():
             try:
@@ -216,7 +182,7 @@ def close_all_sockets() -> None:
 
 
 def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> bytes:
-    """Unix domain socket transport — reuses a persistent connection."""
+    """Unix transport on the pooled socket; one reconnect retry after a broken pipe."""
     lock = _get_ipc_lock(socket_path)
     with lock:
         for _attempt in range(2):
@@ -240,22 +206,16 @@ def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> b
                 return buf
             except (OSError, BrokenPipeError, ConnectionResetError):
                 _drop_persistent_socket(socket_path)
-                # second attempt will reconnect
         return b""
 
 
 def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes:
-    """Windows named pipe transport using pywin32.
-
-    Handles ERROR_PIPE_BUSY with WaitNamedPipe retry, and reads responses
-    until a newline-terminated JSON response is received.
-    """
+    """Windows named-pipe transport (pywin32), connect-per-call; b"" if pywin32 or the pipe is missing."""
     try:
         import pywintypes
         import win32file
         import win32pipe
 
-        # Wait for the pipe to become available (mpv may be processing another request)
         timeout_ms = int(timeout * 1000)
         try:
             win32pipe.WaitNamedPipe(pipe_path, timeout_ms)
@@ -274,7 +234,6 @@ def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes
             return b""
 
         try:
-            # Set pipe to message mode for cleaner reads
             win32pipe.SetNamedPipeHandleState(
                 handle, win32pipe.PIPE_READMODE_BYTE, None, None
             )
@@ -300,7 +259,7 @@ def _ipc_send_recv_pipe(data: bytes, *, pipe_path: str, timeout: float) -> bytes
 
 
 def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float = 1.0) -> dict | None:
-    """Send a JSON command to a running mpv IPC socket. Returns the response dict or None."""
+    """Send a JSON command to mpv; return the first parsed reply line or None."""
     if logger.is_debug():
         logger.debug("mpv ipc → %s @ %s", cmd.get("command", cmd), socket_path)
     payload = (json.dumps(cmd) + "\n").encode()
@@ -318,7 +277,7 @@ def send_ipc_command(cmd: dict, *, socket_path: str = IPC_SOCKET, timeout: float
 
 
 def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
-    """Get an mpv property via IPC socket. Returns the value or None."""
+    """Return an mpv property value, or None on any failure."""
     resp = send_ipc_command({"command": ["get_property", prop]}, socket_path=socket_path)
     if resp and resp.get("error") == "success":
         return resp.get("data")
@@ -328,14 +287,34 @@ def get_ipc_property(prop: str, *, socket_path: str = IPC_SOCKET) -> Any:
 def poll_audio_properties(
     *, socket_path: str = IPC_SOCKET
 ) -> tuple[float | None, float | None, bool]:
-    """Return (time_pos, duration, is_paused) in a single IPC connection.
-
-    Batches all three get_property requests into one connection lifecycle,
-    reducing overhead from 3 connect/send/recv/close cycles to one.
-    """
+    """Return (time_pos, duration, is_paused) from one batched IPC round trip."""
     if IS_WINDOWS:
         return _poll_audio_properties_batched_pipe(socket_path=socket_path)
     return _poll_audio_properties_batched(socket_path=socket_path)
+
+
+_POLL_PROPS = ("time-pos", "duration", "pause")
+
+
+def _poll_payload() -> bytes:
+    return b"".join(
+        (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
+        for i, prop in enumerate(_POLL_PROPS)
+    )
+
+
+def _collect_replies(buf: bytes, results: dict[int, dict]) -> bytes:
+    """Parse complete lines in buf into results by request_id; return the unfinished tail."""
+    *lines, tail = buf.split(b"\n")
+    for raw in lines:
+        try:
+            resp = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        rid = resp.get("request_id") if isinstance(resp, dict) else None
+        if rid is not None:
+            results[rid] = resp
+    return tail
 
 
 def _poll_audio_properties_batched_pipe(
@@ -368,47 +347,24 @@ def _poll_audio_properties_batched_pipe(
             win32pipe.SetNamedPipeHandleState(
                 handle, win32pipe.PIPE_READMODE_BYTE, None, None
             )
-            # Write all 3 requests at once
-            payload = b""
-            for i, prop in enumerate(("time-pos", "duration", "pause")):
-                payload += (json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n").encode()
-            win32file.WriteFile(handle, payload)
-
-            # Read all 3 responses
+            win32file.WriteFile(handle, _poll_payload())
             buf = b""
             results: dict[int, dict] = {}
-            while len(results) < 3:
+            while len(results) < len(_POLL_PROPS):
                 try:
                     _, chunk = win32file.ReadFile(handle, 4096)
-                    if not chunk:
-                        break
-                    buf += chunk
-                    while b"\n" in buf:
-                        line, buf = buf.split(b"\n", 1)
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            resp = json.loads(line)
-                            rid = resp.get("request_id")
-                            if rid is not None:
-                                results[rid] = resp
-                        except json.JSONDecodeError:
-                            pass
                 except pywintypes.error:
                     break
+                if not chunk:
+                    break
+                buf = _collect_replies(buf + chunk, results)
             return _extract_poll_results(results)
         finally:
             win32file.CloseHandle(handle)
     except ImportError:
-        # pywin32 not installed — fall back to sequential
-        pos = get_ipc_property("time-pos", socket_path=socket_path)
-        dur = get_ipc_property("duration", socket_path=socket_path)
-        paused = get_ipc_property("pause", socket_path=socket_path)
-        return (
-            float(pos) if pos is not None else None,
-            float(dur) if dur is not None else None,
-            paused is True,
+        return _extract_poll_results(
+            {i: {"error": "success", "data": get_ipc_property(prop, socket_path=socket_path)}
+             for i, prop in enumerate(_POLL_PROPS)}
         )
     except Exception:
         return None, None, False
@@ -435,12 +391,7 @@ def _poll_audio_properties_batched(
     *, socket_path: str
 ) -> tuple[float | None, float | None, bool]:
     """Unix: batch all three requests on the persistent socket connection."""
-    payload = b""
-    for i, prop in enumerate(("time-pos", "duration", "pause")):
-        payload += (
-            json.dumps({"command": ["get_property", prop], "request_id": i}) + "\n"
-        ).encode()
-
+    payload = _poll_payload()
     lock = _get_ipc_lock(socket_path)
     with lock:
         for _attempt in range(2):
@@ -453,23 +404,11 @@ def _poll_audio_properties_batched(
                 buf = b""
                 results: dict[int, dict] = {}
                 try:
-                    while len(results) < 3:
+                    while len(results) < len(_POLL_PROPS):
                         chunk = s.recv(4096)
                         if not chunk:
                             raise OSError("connection closed")
-                        buf += chunk
-                        *complete_lines, buf = buf.split(b"\n")
-                        for raw in complete_lines:
-                            raw = raw.strip()
-                            if not raw:
-                                continue
-                            try:
-                                resp = json.loads(raw)
-                                rid = resp.get("request_id")
-                                if rid is not None:
-                                    results[rid] = resp
-                            except json.JSONDecodeError:
-                                pass
+                        buf = _collect_replies(buf + chunk, results)
                 except socket.timeout:
                     pass
                 return _extract_poll_results(results)
@@ -478,18 +417,14 @@ def _poll_audio_properties_batched(
         return None, None, False
 
 
-def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
-    """
-    Convert yt-dlp cookie flags to mpv --ytdl-raw-options format.
-    e.g. ['--cookies', '/path/to/cookies.txt']  →  'cookies=/path/to/cookies.txt'
-         ['--cookies-from-browser', 'chrome']    →  'cookies-from-browser=chrome'
-    """
+def cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
+    """Convert yt-dlp flags to mpv `--ytdl-raw-options`: ['--cookies-from-browser', 'chrome'] -> 'cookies-from-browser=chrome'."""
     opts: list[str] = []
     i = 0
     while i < len(cookie_args):
         arg = cookie_args[i]
         if arg.startswith("--") and i + 1 < len(cookie_args) and not cookie_args[i + 1].startswith("--"):
-            key = arg[2:]          # strip leading '--'
+            key = arg[2:]
             val = cookie_args[i + 1]
             opts.append(f"{key}={val}")
             i += 2
@@ -497,3 +432,66 @@ def _cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
             i += 1
     return ",".join(opts)
 
+
+_MPV_ERROR_HINTS: tuple[tuple[str, str], ...] = (
+    ("could not open/read", "Network error — video unavailable or region-blocked"),
+    ("http error 403", "Access denied — check browser authentication in Settings"),
+    ("http error 429", "Rate limited by YouTube — wait a moment and try again"),
+    ("no video", "No playable video stream found"),
+    ("no audio", "No playable audio stream found"),
+    ("connection refused", "Network connection failed"),
+    ("timed out", "Connection timed out"),
+    ("does not exist", "Video not found or deleted"),
+    ("drm", "DRM-protected content cannot be played"),
+    ("login required", "Video requires login — set a browser in Settings"),
+    ("private video", "This video is private"),
+    ("age-restricted", "Age-restricted — browser authentication required"),
+)
+
+
+def friendly_mpv_error(raw: str) -> str:
+    """Map mpv or yt-dlp stderr to a short message; unknown text is truncated to 100 characters."""
+    lower = raw.lower()
+    for pattern, friendly in _MPV_ERROR_HINTS:
+        if pattern in lower:
+            return friendly
+    return raw[:100]
+
+
+def audio_command(
+    exe: str,
+    *,
+    input_conf: str,
+    socket_path: str,
+    title: str = "",
+    stream_url: str | None = None,
+    page_url: str = "",
+    ytdl_format: str = "",
+    cookie_args: list[str] | None = None,
+) -> list[str]:
+    """Build the headless mpv command for background audio.
+
+    With ``stream_url`` mpv plays it directly. Without one, mpv resolves ``page_url``
+    itself through its yt-dlp hook, using ``ytdl_format`` and the cookie options.
+    """
+    cmd = [
+        exe,
+        f"--input-conf={input_conf}",
+        f"--input-ipc-server={socket_path}",
+        "--no-video",
+        "--force-window=no",
+        "--no-terminal",
+        "--msg-level=all=error",
+        "--cache=yes",
+        "--demuxer-max-bytes=150M",
+        "--demuxer-readahead-secs=30",
+    ]
+    if title:
+        cmd += [f"--title={title}", f"--force-media-title={title}"]
+    if stream_url:
+        return cmd + ["--no-ytdl", "--", stream_url]
+    cmd.append(f"--ytdl-format={ytdl_format or 'ba/b'}")
+    raw = cookie_args_to_ytdl_raw(cookie_args or [])
+    if raw:
+        cmd.append(f"--ytdl-raw-options={raw}")
+    return cmd + ["--", page_url]

@@ -1,8 +1,9 @@
-"""ActionBar — bottom-right panel with two modes: action hints and now-playing."""
+"""Bottom-right panel: action hints, or the now-playing bar."""
 
 from __future__ import annotations
 
 import math
+import time
 
 from rich.table import Table
 from textual.app import ComposeResult
@@ -12,7 +13,6 @@ from textual.widgets import Static
 from src.sponsorblock import Segment
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
-_WAVE_SPEED = 0.4
 
 
 def _fmt_secs(s: float) -> str:
@@ -35,12 +35,17 @@ def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") ->
     return "  ".join(parts)
 
 
+THEME_COLORS = {
+    "crimson": "#ff6666",
+    "amber": "#e8820c",
+    "ocean": "#0ea5e9",
+    "midnight": "#a855f7",
+}
+_PROGRESS_COLORS = {**THEME_COLORS, "crimson": "#6666ff"}
+
+
 class ActionBar(Widget):
-    """
-    Dual-mode bottom panel:
-      • Actions mode  — keyboard shortcut grid
-      • Player mode   — embedded now-playing bar with text progress and queue hints
-    """
+    """Actions mode (shortcut grid) or player mode (progress bar, queue hint)."""
 
     _HEIGHT_ACTIONS = 7
     _HEIGHT_PLAYER = 11
@@ -78,8 +83,7 @@ class ActionBar(Widget):
         self._segments: list[Segment] = []
         self._wave_frame: int = 0
         self._wave_timer = None
-        # Pre-computed segment column map: list[bool] of length == last rendered width.
-        # Invalidated when _segments or _dur changes.
+        self._buffering_since: float = 0.0
         self._segment_cols: list[bool] = []
         self._segment_cols_width: int = 0
         self._segment_cols_dur: float = 0.0
@@ -98,33 +102,17 @@ class ActionBar(Widget):
         self._update_np_keys()
         self._set_mode_actions()
 
-    # ── Theme Resolvers ───────────────────────────────────────────────────────
+    def _theme(self) -> str:
+        try:
+            return self.app.config.theme
+        except Exception:
+            return "crimson"
 
     def _get_theme_color(self) -> str:
-        try:
-            theme = self.app.config.theme
-        except Exception:
-            theme = "crimson"
-        return {
-            "crimson": "#ff6666",
-            "amber": "#e8820c",
-            "ocean": "#0ea5e9",
-            "midnight": "#a855f7",
-        }.get(theme, "#ff6666")
+        return THEME_COLORS.get(self._theme(), "#ff6666")
 
     def _get_progress_color(self) -> str:
-        try:
-            theme = self.app.config.theme
-        except Exception:
-            theme = "crimson"
-        return {
-            "crimson": "#6666ff",
-            "amber": "#e8820c",
-            "ocean": "#0ea5e9",
-            "midnight": "#a855f7",
-        }.get(theme, "#6666ff")
-
-    # ── UI Builders ───────────────────────────────────────────────────────────
+        return _PROGRESS_COLORS.get(self._theme(), "#6666ff")
 
     def _get_actions_table(self) -> Table:
         table = Table.grid(padding=(0, 4))
@@ -141,14 +129,14 @@ class ActionBar(Widget):
 
         table.add_row(
             r1("⏎", "Video actions"),
-            r1("w", "Watch"),
-            r1("l", "Listen"),
+            r1("v", "Video"),
+            r1("a", "Audio"),
             r1("d", "Download"),
             r1("c", "Channel"),
         )
         table.add_row(
             r2("y", "Copy URL"),
-            r2("s", "Subscribe"),
+            r2("/", "Search"),
             r2("p", "Playlist"),
             r2("b", "Browser"),
             r2("r", "Refresh"),
@@ -157,7 +145,7 @@ class ActionBar(Widget):
         return table
 
     def _build_segment_cols(self, width: int, dur: float) -> list[bool]:
-        """Pre-compute which columns fall inside a SponsorBlock segment."""
+        """Mark the columns that fall inside a SponsorBlock segment."""
         cols: list[bool] = []
         for col in range(width):
             t = (col / width) * dur
@@ -165,7 +153,7 @@ class ActionBar(Widget):
         return cols
 
     def _get_segment_cols(self, width: int, dur: float) -> list[bool]:
-        """Return cached segment-column map, rebuilding only when inputs change."""
+        """Cached column map; rebuilt when width, duration or segments change."""
         if (
             self._segment_cols_width != width
             or self._segment_cols_dur != dur
@@ -217,19 +205,16 @@ class ActionBar(Widget):
         color = self._get_theme_color()
         keys = (
             f"[bold {color}]⎵[/bold {color}] [dim]pause[/dim]  "
-            f"[bold {color}]h[/bold {color}][dim]/[/dim][bold {color}]l[/bold {color}] [dim]±5s[/dim]  "
-            f"[bold {color}]H[/bold {color}][dim]/[/dim][bold {color}]L[/bold {color}] [dim]±10s[/dim]  "
+            f"[bold {color}][[/bold {color}][dim]/[/dim][bold {color}]][/bold {color}] [dim]±5s[/dim]  "
+            f"[bold {color}]{{[/bold {color}][dim]/[/dim][bold {color}]}}[/bold {color}] [dim]±10s[/dim]  "
             f"[bold {color}]0[/bold {color}][dim]–[/dim][bold {color}]9[/bold {color}] [dim]seek%[/dim]  "
-            f"[bold {color}]s[/bold {color}] [dim]stop[/dim]"
+            f"[bold {color}]x[/bold {color}] [dim]stop[/dim]"
         )
         self.query_one("#np-keys", Static).update(keys)
 
-    # ── Public API ────────────────────────────────────────────────────────────
-
     def set_segments(self, segments: list[Segment]) -> None:
-        """Set SponsorBlock segments for progress bar overlay."""
         self._segments = segments
-        self._segment_cols = []  # invalidate cache
+        self._segment_cols = []
 
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
@@ -249,7 +234,6 @@ class ActionBar(Widget):
         self._set_mode_actions()
 
     def set_player_mode(self, entry: dict, queue_len: int = 0) -> None:
-        import time
         self._title = (entry.get("title") or "Unknown")[:52]
         self._channel = entry.get("uploader") or entry.get("channel") or ""
         self._playing = True
@@ -269,9 +253,7 @@ class ActionBar(Widget):
         if dur > 0 and self._wave_timer is not None:
             self._wave_timer.stop()
             self._wave_timer = None
-        # Skip redundant redraws: ignore sub-half-second position drift while
-        # pause state is unchanged — suppresses renders when paused and avoids
-        # re-renders when position has barely changed since the last poll.
+        # Skip redraws for sub-half-second drift with unchanged pause state.
         if (
             paused == self._paused
             and abs(pos - self._pos) < 0.5
@@ -291,16 +273,8 @@ class ActionBar(Widget):
             _queue_hint(queue_len, hide_e=hide_e, color=self._get_theme_color())
         )
 
-    # ── Private ───────────────────────────────────────────────────────────────
-
     def _animate_wave(self) -> None:
-        """Animate the waveform while buffering (dur == 0)."""
-        if self._dur > 0:
-            if self._wave_timer is not None:
-                self._wave_timer.stop()
-                self._wave_timer = None
-            return
-        if not self._playing:
+        if self._dur > 0 or not self._playing:
             if self._wave_timer is not None:
                 self._wave_timer.stop()
                 self._wave_timer = None
@@ -309,7 +283,6 @@ class ActionBar(Widget):
         self._refresh_player()
 
     def _wave_bar(self, width: int) -> str:
-        """Generate an animated sine-wave equalizer bar."""
         color = self._get_progress_color()
         chars = []
         for col in range(width):
@@ -361,7 +334,6 @@ class ActionBar(Widget):
             pct = int(min(self._pos / self._dur, 1.0) * 100)
             time_str = f"{elapsed}  /  {total}  ({pct}%)"
         else:
-            import time
-            wait_s = int(time.monotonic() - getattr(self, "_buffering_since", time.monotonic()))
+            wait_s = int(time.monotonic() - self._buffering_since)
             time_str = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
         self.query_one("#np-time-line", Static).update(f"[dim]{time_str}[/dim]")

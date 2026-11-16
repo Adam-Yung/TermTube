@@ -1,24 +1,15 @@
-"""Local library — videos/audio downloaded to disk via this TUI.
-
-Each downloaded file has a .info.json sidecar written by yt-dlp
-(--write-info-json flag). We scan both video_dir and audio_dir for
-these sidecars to populate the Library page.
-"""
+"""Library page data: scans the download dirs for yt-dlp `.info.json` sidecars."""
 
 from __future__ import annotations
 import json
-import os
 import threading
 from pathlib import Path
 from typing import Iterator
 
-# Module-level result cache keyed by (video_dir, audio_dir).
-# Each value is (mtime_video, mtime_audio, entries).
-# We compare directory mtime before returning cached results — on most
-# filesystems a newly created/deleted file bumps the parent dir mtime,
-# making this a cheap O(1) staleness check.
 _cache: dict[tuple[str, str], tuple[float, float, list[dict]]] = {}
 _lock = threading.Lock()
+_VIDEO_EXTS = (".mp4", ".mkv", ".webm", ".avi", ".mov")
+_NON_MEDIA_EXTS = (".json", ".jpg", ".png", ".webp")
 
 
 def _dir_mtime(directory: Path) -> float:
@@ -28,22 +19,14 @@ def _dir_mtime(directory: Path) -> float:
         return 0.0
 
 
-def _load_sidecar(info_path: Path, media_files: dict[str, Path] | None = None) -> dict | None:
+def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> dict | None:
     try:
         data = json.loads(info_path.read_text())
-        stem = info_path.stem  # e.g. "Title_Channel.info"
-        media_stem = stem.removesuffix(".info") if stem.endswith(".info") else stem
-        if media_files is not None:
-            media = media_files.get(media_stem)
-            if media:
-                data["_local_path"] = str(media)
-                data["_local_type"] = "video" if media.suffix in (".mp4", ".mkv", ".webm", ".avi", ".mov") else "audio"
-        else:
-            for sibling in info_path.parent.iterdir():
-                if sibling.stem == media_stem and sibling.suffix not in (".json", ".jpg", ".png", ".webp"):
-                    data["_local_path"] = str(sibling)
-                    data["_local_type"] = "video" if sibling.suffix in (".mp4", ".mkv", ".webm", ".avi", ".mov") else "audio"
-                    break
+        media_stem = info_path.stem.removesuffix(".info")
+        media = media_files.get(media_stem)
+        if media:
+            data["_local_path"] = str(media)
+            data["_local_type"] = "video" if media.suffix in _VIDEO_EXTS else "audio"
         data["_sidecar_path"] = str(info_path)
         return data
     except (json.JSONDecodeError, OSError):
@@ -61,7 +44,7 @@ def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
                 continue
             if f.name.endswith(".info.json"):
                 info_files.append(f)
-            elif f.suffix not in (".json", ".jpg", ".png", ".webp"):
+            elif f.suffix not in _NON_MEDIA_EXTS:
                 media_files[f.stem] = f
     except OSError:
         pass
@@ -73,10 +56,9 @@ def _scan_dir(directory: Path, media_type: str) -> Iterator[dict]:
 
 
 def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
-    """Return all library entries (video + audio), sorted newest first.
+    """Return library entries (video and audio merged by id), newest upload first.
 
-    Results are cached in memory and invalidated when either directory's
-    mtime changes (i.e. a file is added or removed).
+    Cached until a directory mtime changes or `invalidate_cache()` is called.
     """
     with _lock:
         cache_key = (str(video_dir), str(audio_dir))
@@ -110,7 +92,6 @@ def all_entries(video_dir: Path, audio_dir: Path) -> list[dict]:
                     existing["_has_audio"] = True
                     existing["_audio_path"] = entry.get("_local_path")
 
-        # Sort by upload_date desc (yt-dlp uses YYYYMMDD strings)
         entries.sort(key=lambda e: e.get("upload_date", "0"), reverse=True)
 
         _cache[cache_key] = (cur_v_mtime, cur_a_mtime, entries)

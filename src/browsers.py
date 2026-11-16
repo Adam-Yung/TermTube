@@ -1,24 +1,18 @@
-"""Browser detection for cookie extraction.
-
-Detects installed browsers that yt-dlp can extract cookies from.
-Supports macOS, Windows, and Linux with zero external dependencies.
-"""
+"""Detect installed browsers that yt-dlp can read cookies from."""
 
 from __future__ import annotations
 
 import os
-import sys
+import shutil
 from pathlib import Path
 
 from src.plat import IS_MACOS, IS_WINDOWS, IS_LINUX
 
-# All browsers supported by yt-dlp's --cookies-from-browser
 YTDLP_SUPPORTED_BROWSERS: list[str] = [
     "brave", "chrome", "chromium", "edge", "firefox",
     "opera", "safari", "vivaldi", "whale",
 ]
 
-# Human-readable labels
 _BROWSER_LABELS: dict[str, str] = {
     "brave": "Brave",
     "chrome": "Google Chrome",
@@ -31,9 +25,7 @@ _BROWSER_LABELS: dict[str, str] = {
     "whale": "Naver Whale",
 }
 
-# macOS: .app bundle names in /Applications (and ~/Applications)
-# Ordered by reliability: Firefox doesn't require keychain access,
-# Chrome/Chromium need keychain approval, Safari is sandboxed.
+# Order is detection priority: Firefox needs no keychain approval, Chromium-family does, Safari is sandboxed.
 _MACOS_APP_BUNDLES: dict[str, str] = {
     "firefox": "Firefox.app",
     "brave": "Brave Browser.app",
@@ -46,8 +38,6 @@ _MACOS_APP_BUNDLES: dict[str, str] = {
     "safari": "Safari.app",
 }
 
-# Windows: path components under Program Files / LocalAppData.
-# Use tuples of path parts for cross-platform Path joining.
 _WINDOWS_EXE_PARTS: dict[str, list[tuple[str, ...]]] = {
     "brave": [
         ("BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
@@ -76,7 +66,6 @@ _WINDOWS_EXE_PARTS: dict[str, list[tuple[str, ...]]] = {
     ],
 }
 
-# Linux: yt-dlp looks for browser data dirs, but we check for executables on PATH
 _LINUX_EXECUTABLES: dict[str, list[str]] = {
     "brave": ["brave-browser", "brave"],
     "chrome": ["google-chrome", "google-chrome-stable"],
@@ -89,77 +78,55 @@ _LINUX_EXECUTABLES: dict[str, list[str]] = {
 }
 
 
-def detect_installed_browsers() -> list[dict[str, str]]:
-    """Detect browsers installed on this system that yt-dlp can extract cookies from.
+def _entry(name: str) -> dict[str, str]:
+    return {"name": name, "label": _BROWSER_LABELS[name]}
 
-    Returns a list of dicts with keys:
-        - name: yt-dlp browser identifier (e.g. "chrome")
-        - label: human-readable name (e.g. "Google Chrome")
-    """
+
+def detect_installed_browsers() -> list[dict[str, str]]:
+    """Installed browsers as ``{"name": yt-dlp id, "label": display name}``, in detection priority order."""
     if IS_MACOS:
         return _detect_macos()
-    elif IS_WINDOWS:
+    if IS_WINDOWS:
         return _detect_windows()
-    elif IS_LINUX:
+    if IS_LINUX:
         return _detect_linux()
     return []
 
 
 def _detect_macos() -> list[dict[str, str]]:
-    found: list[dict[str, str]] = []
     search_dirs = [Path("/Applications"), Path.home() / "Applications"]
-
-    for name, bundle in _MACOS_APP_BUNDLES.items():
-        for base in search_dirs:
-            if (base / bundle).exists():
-                found.append({"name": name, "label": _BROWSER_LABELS[name]})
-                break
-
-    return found
+    return [
+        _entry(name)
+        for name, bundle in _MACOS_APP_BUNDLES.items()
+        if any((base / bundle).exists() for base in search_dirs)
+    ]
 
 
 def _detect_windows() -> list[dict[str, str]]:
-    found: list[dict[str, str]] = []
-
-    search_roots: list[Path] = []
-    for env_var in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):
-        val = os.environ.get(env_var)
-        if val:
-            search_roots.append(Path(val))
-
-    for name, parts_list in _WINDOWS_EXE_PARTS.items():
-        detected = False
-        for root in search_roots:
-            for parts in parts_list:
-                if (root / Path(*parts)).exists():
-                    detected = True
-                    break
-            if detected:
-                break
-        if detected:
-            found.append({"name": name, "label": _BROWSER_LABELS[name]})
-
-    return found
+    roots = [
+        Path(val)
+        for env_var in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")
+        if (val := os.environ.get(env_var))
+    ]
+    return [
+        _entry(name)
+        for name, parts_list in _WINDOWS_EXE_PARTS.items()
+        if any((root / Path(*parts)).exists() for root in roots for parts in parts_list)
+    ]
 
 
 def _detect_linux() -> list[dict[str, str]]:
-    import shutil
-
-    found: list[dict[str, str]] = []
-    for name, executables in _LINUX_EXECUTABLES.items():
-        for exe in executables:
-            if shutil.which(exe):
-                found.append({"name": name, "label": _BROWSER_LABELS[name]})
-                break
-
-    return found
+    return [
+        _entry(name)
+        for name, executables in _LINUX_EXECUTABLES.items()
+        if any(shutil.which(exe) for exe in executables)
+    ]
 
 
 def get_browser_label(name: str) -> str:
-    """Return human-readable label for a browser name."""
     return _BROWSER_LABELS.get(name, name.title())
 
 
 def is_auto_browser(value: str | None) -> bool:
-    """Return True if the browser config value indicates auto-detection should run."""
+    """True if the config value asks for auto-detection (None, empty or ``"auto"``)."""
     return value is None or value == "auto" or value == ""

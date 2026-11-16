@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 @pytest.fixture
 def mock_all_externals(tmp_path, monkeypatch):
     """Mock all external dependencies so TermTubeApp can boot."""
+    monkeypatch.setattr("src.tui.screens.main_screen._force_exit", lambda: None)
     monkeypatch.setattr("src.cache.CACHE_DIR", tmp_path)
     monkeypatch.setattr("src.cache.VIDEO_DIR", tmp_path / "videos")
     monkeypatch.setattr("src.cache.THUMB_DIR", tmp_path / "thumbs")
@@ -41,6 +42,7 @@ def app(mock_all_externals, tmp_path):
     from src.tui.app import TermTubeApp
     config = Config(path=str(tmp_path / "config.yaml"))
     config._data["thumbnail_warning_dismissed"] = True
+    config._data["browser"] = "none"
     return TermTubeApp(config)
 
 

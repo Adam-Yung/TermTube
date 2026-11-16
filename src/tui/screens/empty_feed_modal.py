@@ -1,5 +1,3 @@
-"""EmptyFeedModal — shown when the feed returns no videos."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -10,10 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 
 class EmptyFeedModal(ModalScreen[str]):
-    """
-    Shown when a feed returns no results.
-    Dismisses with "update", "settings", or "skip".
-    """
+    """Shown when a feed returns no results. Dismisses with "update", "settings" or "skip"."""
 
     BINDINGS = [Binding("escape", "skip", "Skip", show=False)]
 

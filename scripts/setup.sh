@@ -8,7 +8,6 @@
 
 set -euo pipefail
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 readonly VERSION="$(cat "$(dirname "$0")/../VERSION")"
 readonly APP_NAME="TermTube"
 readonly APP_DIR="$HOME/.local/share/TermTube"
@@ -16,7 +15,6 @@ readonly BIN_DIR="$HOME/.local/bin"
 readonly CONFIG_DIR="$HOME/.config/TermTube"
 readonly PYTHON_MIN="3.11"
 
-# ── Colours & Output ──────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
     RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
     CYAN='\033[0;36m'; BLUE='\033[0;34m'; BOLD='\033[1m'
@@ -32,7 +30,6 @@ error()   { echo -e "${RED}✗${RESET} $*" >&2; }
 header()  { echo -e "\n${BOLD}$*${RESET}"; }
 step()    { echo -e "${BLUE}→${RESET} $*"; }
 
-# ── Help ──────────────────────────────────────────────────────────────────────
 show_help() {
     cat <<'EOF'
 
@@ -60,7 +57,6 @@ EOF
     exit 0
 }
 
-# ── Argument Parsing ──────────────────────────────────────────────────────────
 SKIP_DEPS=false
 INTERACTIVE=true
 
@@ -76,7 +72,6 @@ done
 # Resolve repo root (one level above the scripts/ directory)
 ORIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ── Prerequisite Checks ───────────────────────────────────────────────────────
 check_prerequisites() {
     local missing=()
 
@@ -93,7 +88,6 @@ check_prerequisites() {
     success "Prerequisites OK (curl)"
 }
 
-# ── Python Detection ──────────────────────────────────────────────────────────
 check_python_version() {
     local py="$1"
     "$py" -c "
@@ -116,7 +110,6 @@ find_python() {
     return 1
 }
 
-# ── Venv Setup ────────────────────────────────────────────────────────────────
 setup_venv() {
     local venv_dir="$1"
     local requirements="$2"
@@ -173,7 +166,6 @@ setup_venv() {
     success "Python environment ready."
 }
 
-# ── File Installation ─────────────────────────────────────────────────────────
 install_files() {
     if [[ "${ORIG_DIR}" == "${APP_DIR}" ]]; then
         info "Already running from install directory."
@@ -207,7 +199,6 @@ install_files() {
     success "Project files installed to ${APP_DIR}"
 }
 
-# ── PATH Symlink ──────────────────────────────────────────────────────────────
 install_binary() {
     local do_install=true
 
@@ -238,7 +229,6 @@ install_binary() {
     fi
 }
 
-# ── Bootstrap Dependencies ────────────────────────────────────────────────────
 bootstrap_deps() {
     header "Binary Dependencies"
     info "Downloading yt-dlp, deno, ffmpeg, mpv from GitHub releases..."
@@ -263,7 +253,6 @@ bootstrap_deps() {
     return $rc
 }
 
-# ── Desktop Shortcut ──────────────────────────────────────────────────────────
 install_shortcut() {
     if [[ "$INTERACTIVE" == true ]]; then
         echo ""
@@ -351,7 +340,6 @@ EOF
     warn "First launch: right-click → Open to bypass Gatekeeper (unsigned app)."
 }
 
-# ── Write VERSION ─────────────────────────────────────────────────────────────
 write_version() {
     local version_file="${APP_DIR}/VERSION"
     local tag=""
@@ -364,7 +352,6 @@ write_version() {
     info "Version: $tag"
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     local title="TermTube Installer"
     local subtitle="${VERSION}"

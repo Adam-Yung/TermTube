@@ -14,10 +14,7 @@ class TestDefaultConfig:
         cfg = Config(path=str(config_path))
 
         assert cfg["preferred_quality"] == "best"
-        assert cfg["preferred_player"] == "mpv"
         assert cfg["browser"] == "auto"
-        assert cfg["thumbnail_cols"] == 38
-        assert cfg["thumbnail_rows"] == 20
         assert cfg["theme"] == "crimson"
 
     def test_creates_config_file_if_missing(self, tmp_path):

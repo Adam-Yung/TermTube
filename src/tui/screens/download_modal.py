@@ -1,8 +1,4 @@
-"""DownloadModal -- shows live download progress inside the TUI."""
-
 from __future__ import annotations
-
-import subprocess
 
 from textual import work
 from textual.app import ComposeResult
@@ -10,6 +6,8 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ProgressBar, Static
+
+from src import library
 
 
 class DownloadModal(ModalScreen[bool]):
@@ -26,9 +24,6 @@ class DownloadModal(ModalScreen[bool]):
         self._audio_only = audio_only
         self._fmt = fmt
         self._cancelled = False
-        self._download_proc: "subprocess.Popen | None" = None
-        self._phase = "video" if not audio_only else "audio"
-        self._error_msg: str = ""
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
@@ -56,33 +51,33 @@ class DownloadModal(ModalScreen[bool]):
 
     @work(thread=True, exclusive=True, group="download")
     def _start_download(self) -> None:
-        import src.ytdlp as ytdlp
-        app = self.app  # type: ignore[attr-defined]
+        import src.downloads as downloads
+
+        app = self.app
         error_lines: list[str] = []
 
         def on_progress(line: str, pct: float) -> None:
             if self._cancelled:
                 return
-            if pct == ytdlp.PHASE_NEW_STREAM:
+            if pct == downloads.PHASE_NEW_STREAM:
                 self.app.call_from_thread(self._switch_to_audio_phase)
-            elif pct == ytdlp.PHASE_POSTPROCESS:
+            elif pct == downloads.PHASE_POSTPROCESS:
                 self.app.call_from_thread(self._switch_to_postprocess, line)
             elif pct >= 0:
                 self.app.call_from_thread(self._update_progress, pct, line)
-            # Capture error lines from yt-dlp output for display on failure
             stripped = line.strip()
             if stripped.startswith("ERROR:") or "error" in stripped.lower():
                 error_lines.append(stripped[:120])
 
         try:
             if self._audio_only:
-                success = ytdlp.download_audio_with_progress(
+                success = downloads.download_audio_with_progress(
                     self._video_id,
                     app.config,
                     on_progress=on_progress,
                 )
             else:
-                success = ytdlp.download_video_with_progress(
+                success = downloads.download_video_with_progress(
                     self._video_id,
                     app.config,
                     quality_format=self._fmt,
@@ -100,8 +95,6 @@ class DownloadModal(ModalScreen[bool]):
             self.app.call_from_thread(self._on_done, success, err)
 
     def _switch_to_audio_phase(self) -> None:
-        """Second stream detected -- reset bar and update title for audio download."""
-        self._phase = "audio"
         try:
             self.query_one("#download-title", Static).update(
                 "\u2b07  Downloading audio"
@@ -115,8 +108,6 @@ class DownloadModal(ModalScreen[bool]):
             pass
 
     def _switch_to_postprocess(self, line: str) -> None:
-        """Post-processing started -- switch to indeterminate state."""
-        self._phase = "postprocess"
         try:
             if "Merger" in line or "Merging" in line:
                 label = "Merging video + audio..."
@@ -163,15 +154,12 @@ class DownloadModal(ModalScreen[bool]):
                 bar.update(total=100, progress=100)
             except Exception:
                 pass
-            # Invalidate library cache so next Library tab open reflects new file
             try:
-                from src import library as lib
-                lib.invalidate_cache()
+                library.invalidate_cache()
             except Exception:
                 pass
             self.dismiss(True)
         else:
-            # Show the error inline so the user knows what went wrong
             try:
                 self.query_one("#download-title", Static).update(
                     "[bold red]\u26a0  Download failed[/bold red]"
@@ -187,13 +175,7 @@ class DownloadModal(ModalScreen[bool]):
                 bar.update(total=100, progress=0)
             except Exception:
                 pass
-            self._error_msg = error_msg
 
     def action_cancel_download(self) -> None:
         self._cancelled = True
-        if self._download_proc and self._download_proc.poll() is None:
-            try:
-                self._download_proc.terminate()
-            except Exception:
-                pass
         self.dismiss(False)

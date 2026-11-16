@@ -1,12 +1,8 @@
-"""Updater for TermTube system tools (yt-dlp, mpv, deno, ffmpeg) and app code.
-
-Update policy: don't update until something breaks. When a tool failure is
-detected, re-bootstrap that tool from GitHub releases. If it still fails
-after update, suggest the user file a bug report.
-"""
+"""Updates for the bundled tools, yt-dlp (pip) and the app code itself."""
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import sys
@@ -15,21 +11,12 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from src.plat import IS_WINDOWS, get_cache_dir
+from src.plat import IS_WINDOWS
 
-# -- Constants -----------------------------------------------------------------
-
-_CACHE_DIR: Path = get_cache_dir()
-_LAST_VERSION: Path = _CACHE_DIR / "LAST_VERSION"
-_PENDING_VERSION_NOTIFY: Path = _CACHE_DIR / "PENDING_VERSION_NOTIFY"
 _GITHUB_REPO = "Adam-Yung/TermTube"
 
 
-
-# -- Version tracking ----------------------------------------------------------
-
 def get_ytdlp_version() -> str | None:
-    """Return the currently installed yt-dlp version string, or None."""
     try:
         import yt_dlp
         return yt_dlp.version.__version__
@@ -37,70 +24,23 @@ def get_ytdlp_version() -> str | None:
         return None
 
 
-def _read_last_version() -> str | None:
-    try:
-        return _LAST_VERSION.read_text().strip() or None
-    except FileNotFoundError:
-        return None
-
-
-def _write_last_version(version: str) -> None:
-    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    _LAST_VERSION.write_text(version)
-
-
-def check_for_update_notification() -> str | None:
-    """Return a pending update notification string and clear it, or None.
-
-    After update_ytdlp() succeeds it writes a PENDING_VERSION_NOTIFY file with
-    the "old -> new" message.  We read and delete it here (called once at startup)
-    so the notification fires exactly once without spawning yt-dlp --version.
-    """
-    if not _PENDING_VERSION_NOTIFY.exists():
-        return None
-    try:
-        msg = _PENDING_VERSION_NOTIFY.read_text().strip()
-        _PENDING_VERSION_NOTIFY.unlink(missing_ok=True)
-        return msg or None
-    except OSError:
-        return None
-
-
-
-
 def update_ytdlp(verbose: bool = False) -> bool:
-    """Update yt-dlp and yt-dlp-ejs to latest via pip. Returns True on success."""
-    old_ver = get_ytdlp_version()
-
-    # Find pip in same venv as current Python
+    """Upgrade yt-dlp and yt-dlp-ejs with the pip of the running venv. True on success."""
+    bin_dir = Path(sys.executable).parent
     if sys.platform == "win32":
-        pip_path = Path(sys.executable).parent / "pip.exe"
+        pip_path = bin_dir / "pip.exe"
     else:
-        pip_path = Path(sys.executable).parent / "pip3"
+        pip_path = bin_dir / "pip3"
     if not pip_path.exists():
-        pip_path = Path(sys.executable).parent / "pip"
+        pip_path = bin_dir / "pip"
 
     cmd = [str(pip_path), "install", "-U", "yt-dlp", "yt-dlp-ejs", "--quiet"]
     try:
         result = subprocess.run(cmd, capture_output=not verbose, timeout=120)
-        if result.returncode == 0:
-            new_ver = get_ytdlp_version()
-            if new_ver:
-                _write_last_version(new_ver)
-                if old_ver and new_ver != old_ver:
-                    try:
-                        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-                        _PENDING_VERSION_NOTIFY.write_text(
-                            f"yt-dlp updated  {old_ver} -> {new_ver}"
-                        )
-                    except OSError:
-                        pass
-            return True
-        return False
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False
+    return result.returncode == 0
 
-# -- App code self-update ------------------------------------------------------
 
 def _github_latest_release(repo: str) -> tuple[str, str] | None:
     """Return (tag_name, zip_url) for the latest GitHub release, or None."""
@@ -108,31 +48,45 @@ def _github_latest_release(repo: str) -> tuple[str, str] | None:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Updater/1.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
-            import json
             data = json.loads(resp.read())
-            tag = data.get("tag_name", "").strip()
-            if not tag:
-                return None
-            zip_url = f"https://github.com/{repo}/archive/refs/tags/{tag}.zip"
-            return tag, zip_url
     except Exception:
         return None
+    tag = data.get("tag_name", "").strip()
+    if not tag:
+        return None
+    return tag, f"https://github.com/{repo}/archive/refs/tags/{tag}.zip"
 
 
 def _read_installed_version(install_dir: Path) -> str:
-    version_file = install_dir / "VERSION"
     try:
-        return version_file.read_text().strip()
+        return (install_dir / "VERSION").read_text().strip()
     except OSError:
         return ""
 
 
-def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
-    """Download the latest TermTube release from GitHub and update src/ and scripts/.
+def _swap_dir(extracted: Path, install_dir: Path, subdir: str) -> None:
+    """Replace install_dir/subdir with the extracted copy via .new/.old siblings."""
+    src = extracted / subdir
+    if not src.is_dir():
+        return
+    dst = install_dir / subdir
+    dst_new = install_dir / f"{subdir}.new"
+    dst_old = install_dir / f"{subdir}.old"
+    for stale in (dst_new, dst_old):
+        if stale.exists():
+            shutil.rmtree(str(stale))
+    shutil.copytree(str(src), str(dst_new))
+    if dst.exists():
+        dst.rename(dst_old)
+    dst_new.rename(dst)
+    if dst_old.exists():
+        shutil.rmtree(str(dst_old))
 
-    Skips if the installed VERSION matches the latest tag, or if VERSION is
-    'dev' (developer installs never auto-update over themselves).
-    Returns True if already up-to-date or update succeeded, False on failure.
+
+def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
+    """Replace src/ and scripts/ with the latest GitHub release.
+
+    A VERSION of "dev" is never overwritten. True if up to date or updated.
     """
     if verbose:
         _safe_print("  Checking for TermTube app updates...")
@@ -170,9 +124,8 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
         with zipfile.ZipFile(zip_path) as zf:
             zf.extractall(tmp_dir)
 
-        # GitHub names the extracted folder TermTube-{tag} (strips leading 'v')
-        tag_stripped = latest_tag.lstrip("v")
-        extracted = tmp_dir / f"TermTube-{tag_stripped}"
+        # GitHub names the folder TermTube-<tag without leading v>.
+        extracted = tmp_dir / f"TermTube-{latest_tag.lstrip('v')}"
         if not extracted.exists():
             candidates = [d for d in tmp_dir.iterdir() if d.is_dir() and d.name != "__MACOSX"]
             extracted = candidates[0] if candidates else None
@@ -181,26 +134,9 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
                 _safe_print("  [!] Could not find extracted directory.")
             return False
 
-        # Atomically replace src/ and scripts/
         for subdir in ("src", "scripts"):
-            src = extracted / subdir
-            dst = install_dir / subdir
-            if not src.is_dir():
-                continue
-            dst_tmp = install_dir / f"{subdir}.new"
-            dst_old = install_dir / f"{subdir}.old"
-            if dst_tmp.exists():
-                shutil.rmtree(str(dst_tmp))
-            shutil.copytree(str(src), str(dst_tmp))
-            if dst_old.exists():
-                shutil.rmtree(str(dst_old))
-            if dst.exists():
-                dst.rename(dst_old)
-            dst_tmp.rename(dst)
-            if dst_old.exists():
-                shutil.rmtree(str(dst_old))
+            _swap_dir(extracted, install_dir, subdir)
 
-        # Re-run pip if requirements.txt changed
         req_file = extracted / "requirements.txt"
         if IS_WINDOWS:
             pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
@@ -212,7 +148,6 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
                 check=False,
             )
 
-        # Write new version
         (install_dir / "VERSION").write_text(latest_tag)
         if verbose:
             _safe_print(f"  [ok] app: updated to {latest_tag}")
@@ -226,10 +161,8 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
         shutil.rmtree(str(tmp_dir), ignore_errors=True)
 
 
-# -- Bootstrap-based update ----------------------------------------------------
-
 def _safe_print(msg: str) -> None:
-    """Print a message, falling back to ASCII-safe output on Windows cp1252."""
+    """Print, degrading to ASCII on consoles that cannot encode it (Windows cp1252)."""
     try:
         print(msg, flush=True)
     except UnicodeEncodeError:
@@ -237,11 +170,7 @@ def _safe_print(msg: str) -> None:
 
 
 def run_all_updates(verbose: bool = False) -> bool:
-    """Re-bootstrap all tools from GitHub releases and update app code.
-
-    Called directly for ``termtube --update`` (verbose=True, foreground).
-    Returns True if all tools were successfully updated.
-    """
+    """Re-download all bundled tools, upgrade yt-dlp, update app code. True if all succeeded."""
     from src.bootstrap import install_all
 
     install_dir = Path(__file__).parent.parent
@@ -251,17 +180,13 @@ def run_all_updates(verbose: bool = False) -> bool:
 
     success = install_all(force=True)
 
-    # Update yt-dlp and yt-dlp-ejs via pip
     if verbose:
         _safe_print("  Updating yt-dlp via pip...")
     ytdlp_ok = update_ytdlp(verbose=verbose)
     if ytdlp_ok and verbose:
-        ver = get_ytdlp_version()
-        _safe_print(f"  [ok] yt-dlp {ver or 'updated'}")
+        _safe_print(f"  [ok] yt-dlp {get_ytdlp_version() or 'updated'}")
 
-    # Update app code from latest GitHub release
-    app_ok = update_app_code(install_dir, verbose=verbose)
-    if not app_ok:
+    if not update_app_code(install_dir, verbose=verbose):
         success = False
 
     if verbose:
@@ -273,30 +198,13 @@ def run_all_updates(verbose: bool = False) -> bool:
     return success
 
 
-def update_tool(name: str, verbose: bool = False) -> bool:
-    """Re-bootstrap a single tool. Called on failure detection."""
-    from src.bootstrap import install_tool
-
-    if verbose:
-        _safe_print(f"  Re-downloading {name} from GitHub releases...")
-
-    return install_tool(name, force=True)
-
-
-# -- Self-update (termtube --update) ------------------------------------------
-
 def self_update() -> None:
-    """Update TermTube app code and all tools. Delegates to update_app_code + run_all_updates."""
-    install_dir = Path(__file__).parent.parent
+    """Entry for ``termtube --update``: tools, yt-dlp and app code."""
     _safe_print("  Updating TermTube...")
-    update_app_code(install_dir, verbose=True)
     run_all_updates(verbose=True)
 
-
-# -- __main__ (direct invocation: python -m src.updater --run) ----------------
 
 if __name__ == "__main__":
     if "--run" in sys.argv:
         verbose = "--verbose" in sys.argv or "-v" in sys.argv
-        ok = run_all_updates(verbose=verbose)
-        sys.exit(0 if ok else 1)
+        sys.exit(0 if run_all_updates(verbose=verbose) else 1)

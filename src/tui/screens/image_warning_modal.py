@@ -1,5 +1,3 @@
-"""ImageWarningModal — one-time startup notice when Kitty/Sixel image rendering is unavailable."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -10,10 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 
 class ImageWarningModal(ModalScreen[bool]):
-    """
-    Shown once at startup when the terminal lacks Kitty/Sixel graphics support.
-    Dismisses with False (OK) or True (never show again).
-    """
+    """Startup notice for terminals without Kitty/Sixel. Dismisses with True for "never show again"."""
 
     BINDINGS = [Binding("escape", "ok", "OK", show=False)]
 

@@ -15,7 +15,7 @@ import pytest
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]))
 
-from src.ytdlp import (
+from src.downloads import (
     PHASE_NEW_STREAM,
     PHASE_POSTPROCESS,
     _make_progress_hook,
@@ -138,8 +138,8 @@ class TestDownloadVideoWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", config)
         assert result is True
 
@@ -150,8 +150,8 @@ class TestDownloadVideoWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", config)
         assert result is False
 
@@ -163,8 +163,8 @@ class TestDownloadVideoWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", config)
         assert result is False
 
@@ -180,8 +180,8 @@ class TestDownloadVideoWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             download_video_with_progress("abc123def45", config, quality_format="bestvideo+bestaudio/best")
 
         assert captured_opts.get('format') == "bestvideo+bestaudio/best"
@@ -207,8 +207,8 @@ class TestDownloadAudioWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_audio_with_progress("xyz789ghj12", config)
         assert result is True
 
@@ -219,8 +219,8 @@ class TestDownloadAudioWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_audio_with_progress("xyz789ghj12", config)
         assert result is False
 
@@ -236,8 +236,8 @@ class TestDownloadAudioWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             download_audio_with_progress("xyz789ghj12", config)
 
         assert captured_opts.get('format') == 'bestaudio/best'

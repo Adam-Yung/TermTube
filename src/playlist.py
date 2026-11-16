@@ -1,10 +1,9 @@
-"""Playlist management — stored as JSON in the TermTube config directory."""
+"""Local playlists: name -> list of video ids, stored in `playlists.json`."""
 
 from __future__ import annotations
 import json
 import os
 import tempfile
-from pathlib import Path
 
 from src.plat import get_config_dir
 
@@ -56,16 +55,6 @@ def create(name: str, video_ids: list[str] | None = None) -> None:
     _save(data)
 
 
-def delete(name: str) -> bool:
-    """Delete a playlist. Returns False if it did not exist."""
-    data = _load()
-    if name not in data:
-        return False
-    del data[name]
-    _save(data)
-    return True
-
-
 def add_video(name: str, video_id: str) -> bool:
     """Add video_id to playlist, creating it if needed. Returns False if already present."""
     data = _load()
@@ -85,17 +74,6 @@ def remove_video(name: str, video_id: str) -> bool:
         return False
     data[name].remove(video_id)
     _save(data)
-    return True
-
-
-def rename(old_name: str, new_name: str) -> bool:
-    """Rename a playlist. Returns False if old_name does not exist."""
-    data = _load()
-    if old_name not in data:
-        return False
-    # Preserve insertion order by rebuilding the dict
-    new_data = {(new_name if k == old_name else k): v for k, v in data.items()}
-    _save(new_data)
     return True
 
 

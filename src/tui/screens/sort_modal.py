@@ -1,5 +1,3 @@
-"""SortModal — sort order picker popup for channel videos."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -20,10 +18,8 @@ class SortModal(ModalScreen[str | None]):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
         Binding("q", "cancel", "Cancel", show=False),
-        Binding("1", "pick_date", show=False),
-        Binding("2", "pick_views", show=False),
-        Binding("d", "pick_date", show=False),
-        Binding("v", "pick_views", show=False),
+        Binding("1,d", "pick('date')", show=False),
+        Binding("2,v", "pick('views')", show=False),
     ]
 
     DEFAULT_CSS = """
@@ -70,8 +66,5 @@ class SortModal(ModalScreen[str | None]):
     def action_cancel(self) -> None:
         self.dismiss(None)
 
-    def action_pick_date(self) -> None:
-        self.dismiss("date")
-
-    def action_pick_views(self) -> None:
-        self.dismiss("views")
+    def action_pick(self, sort: str) -> None:
+        self.dismiss(sort)

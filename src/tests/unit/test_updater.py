@@ -15,32 +15,8 @@ import pytest
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _make_updater(tmp_path: Path):
-    """Return the updater module with its cache paths redirected to *tmp_path*
-    so each test gets a clean state."""
     import src.updater as mod
-
-    mod._CACHE_DIR = tmp_path
-    mod._LAST_VERSION = tmp_path / "LAST_VERSION"
-    mod._PENDING_VERSION_NOTIFY = tmp_path / "PENDING_VERSION_NOTIFY"
     return mod
-
-
-# ── Version file helpers ───────────────────────────────────────────────────────
-
-class TestVersionHelpers:
-    def test_write_last_version_persists(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.05.05.233942")
-        assert mod._LAST_VERSION.read_text() == "2026.05.05.233942"
-
-    def test_read_last_version_missing_returns_none(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        assert mod._read_last_version() is None
-
-    def test_read_last_version_roundtrip(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        mod._write_last_version("2026.03.17")
-        assert mod._read_last_version() == "2026.03.17"
 
 
 # ── get_ytdlp_version ─────────────────────────────────────────────────────────
@@ -75,45 +51,10 @@ class TestGetYtdlpVersion:
         assert ver is None
 
 
-# ── check_for_update_notification ─────────────────────────────────────────────
-
-class TestCheckForUpdateNotification:
-    def test_no_pending_file_returns_none(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        result = mod.check_for_update_notification()
-        assert result is None
-
-    def test_pending_file_returns_message_and_deletes(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        tmp_path.mkdir(parents=True, exist_ok=True)
-        mod._PENDING_VERSION_NOTIFY.write_text("yt-dlp updated  2026.03.17 -> 2026.05.05")
-        result = mod.check_for_update_notification()
-        assert result is not None
-        assert "2026.03.17" in result
-        assert "2026.05.05" in result
-        assert not mod._PENDING_VERSION_NOTIFY.exists()
-
-    def test_empty_pending_file_returns_none(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        tmp_path.mkdir(parents=True, exist_ok=True)
-        mod._PENDING_VERSION_NOTIFY.write_text("")
-        result = mod.check_for_update_notification()
-        assert result is None
-
-    def test_only_fires_once(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        tmp_path.mkdir(parents=True, exist_ok=True)
-        mod._PENDING_VERSION_NOTIFY.write_text("yt-dlp updated  old -> new")
-        first = mod.check_for_update_notification()
-        second = mod.check_for_update_notification()
-        assert first is not None
-        assert second is None
-
-
 # ── update_ytdlp ──────────────────────────────────────────────────────────────
 
 class TestUpdateYtdlp:
-    def test_success_writes_version(self, tmp_path):
+    def test_success_returns_true(self, tmp_path):
         mod = _make_updater(tmp_path)
         with (
             patch("subprocess.run", return_value=MagicMock(returncode=0)),
@@ -121,7 +62,6 @@ class TestUpdateYtdlp:
         ):
             ok = mod.update_ytdlp(verbose=False)
         assert ok is True
-        assert mod._read_last_version() == "2026.06.01"
 
     def test_pip_failure_returns_false(self, tmp_path):
         mod = _make_updater(tmp_path)
@@ -140,26 +80,6 @@ class TestUpdateYtdlp:
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("pip", 120)):
             ok = mod.update_ytdlp(verbose=False)
         assert ok is False
-
-    def test_version_change_writes_notification(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        call_count = [0]
-        def _fake_version():
-            call_count[0] += 1
-            if call_count[0] <= 1:
-                return "2026.01.01"
-            return "2026.06.01"
-
-        with (
-            patch("subprocess.run", return_value=MagicMock(returncode=0)),
-            patch.object(mod, "get_ytdlp_version", side_effect=_fake_version),
-        ):
-            ok = mod.update_ytdlp(verbose=False)
-        assert ok is True
-        assert mod._PENDING_VERSION_NOTIFY.exists()
-        assert "2026.01.01" in mod._PENDING_VERSION_NOTIFY.read_text()
-        assert "2026.06.01" in mod._PENDING_VERSION_NOTIFY.read_text()
-
 
 # ── run_all_updates ────────────────────────────────────────────────────────────
 
@@ -197,21 +117,3 @@ class TestRunAllUpdates:
             mod.run_all_updates(verbose=True)
         out = capsys.readouterr().out
         assert "Re-downloading" in out or "yt-dlp" in out
-
-
-# ── update_tool ───────────────────────────────────────────────────────────────
-
-class TestUpdateTool:
-    def test_delegates_to_bootstrap_install_tool(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        with patch("src.bootstrap.install_tool", return_value=True) as mock_install:
-            result = mod.update_tool("yt-dlp", verbose=False)
-        assert result is True
-        mock_install.assert_called_once_with("yt-dlp", force=True)
-
-    def test_returns_false_on_failure(self, tmp_path):
-        mod = _make_updater(tmp_path)
-        with patch("src.bootstrap.install_tool", return_value=False):
-            result = mod.update_tool("ffmpeg", verbose=False)
-        assert result is False
-

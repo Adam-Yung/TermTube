@@ -1,5 +1,3 @@
-"""SearchModal — floating search input dialog."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -33,11 +31,7 @@ class SearchModal(ModalScreen[str | None]):
         self.query_one("#search-input", Input).focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        query = event.value.strip()
-        if query:
-            self.dismiss(query)
-        else:
-            self.dismiss(None)
+        self.dismiss(event.value.strip() or None)
 
     def action_dismiss_none(self) -> None:
         self.dismiss(None)

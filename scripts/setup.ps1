@@ -33,7 +33,6 @@ $ErrorActionPreference = "Stop"
 # Ensure the console can render Unicode box-drawing characters
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 $Version = (Get-Content "$PSScriptRoot\..\VERSION" -Raw).Trim()
 $AppName = "TermTube"
 $AppDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"
@@ -45,7 +44,6 @@ $PythonMin = "3.11"
 # Used by migration code in Install-Files to clean up old layouts.
 $LegacyAppDir = Join-Path $env:LOCALAPPDATA "TermTube"
 
-# ── Output Helpers ────────────────────────────────────────────────────────────
 function Write-Info    { param($Msg) Write-Host "  > " -NoNewline -ForegroundColor Cyan; Write-Host $Msg }
 function Write-Success { param($Msg) Write-Host "  + " -NoNewline -ForegroundColor Green; Write-Host $Msg }
 function Write-Warn    { param($Msg) Write-Host "  ! " -NoNewline -ForegroundColor Yellow; Write-Host $Msg }
@@ -53,7 +51,6 @@ function Write-Err     { param($Msg) Write-Host "  x " -NoNewline -ForegroundCol
 function Write-Step    { param($Msg) Write-Host "  → " -NoNewline -ForegroundColor Blue; Write-Host $Msg }
 function Write-Header  { param($Msg) Write-Host ""; Write-Host "  $Msg" -ForegroundColor White }
 
-# ── Help ──────────────────────────────────────────────────────────────────────
 if ($Help) {
     Write-Host @"
 
@@ -77,7 +74,6 @@ if ($Help) {
     exit 0
 }
 
-# ── Utilities ─────────────────────────────────────────────────────────────────
 function Test-Command {
     param([string]$Name)
     $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
@@ -123,7 +119,6 @@ function Remove-PathSafe {
     }
 }
 
-# ── Python Detection ──────────────────────────────────────────────────────────
 function Test-PythonVersion {
     param([string]$Version)
     if (-not $Version) { return $false }
@@ -156,7 +151,6 @@ function Find-Python {
     return $null
 }
 
-# ── Venv Setup ────────────────────────────────────────────────────────────────
 function Setup-Venv {
     param(
         [string]$VenvDir,
@@ -246,7 +240,6 @@ function Setup-Venv {
     return $true
 }
 
-# ── File Installation ─────────────────────────────────────────────────────────
 function Install-Files {
     $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { Split-Path -Parent (Split-Path -Parent $MyInvocation.ScriptName) }
     if ($origDir -eq $AppDir) {
@@ -254,7 +247,7 @@ function Install-Files {
         return
     }
 
-    # ── Migrate from legacy layout (pre-2026-05) ──────────────────────────
+    # Migrate from legacy layout (pre-2026-05)
     # Old installs put code at %LOCALAPPDATA%\TermTube, conflicting with the
     # data dir. If we detect that old layout, salvage its .venv and clean it
     # up so the data dir (mpv binary, cache) is left intact at the same path.
@@ -351,7 +344,6 @@ function Install-Files {
     Write-Success "Installed to $AppDir"
 }
 
-# ── Create Launcher Batch File ────────────────────────────────────────────────
 function Install-Launcher {
     $origDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { Split-Path -Parent (Split-Path -Parent $MyInvocation.ScriptName) }
     $srcCmd  = Join-Path $origDir "termtube.cmd"
@@ -393,7 +385,6 @@ function Install-Launcher {
 }
 
 
-# ── Bootstrap Dependencies (via Python) ──────────────────────────────────────
 function Bootstrap-Dependencies {
     <#
     .SYNOPSIS
@@ -425,7 +416,6 @@ function Bootstrap-Dependencies {
     }
 }
 
-# ── Write VERSION ────────────────────────────────────────────────────────────
 function Write-Version {
     $versionFile = Join-Path $AppDir "VERSION"
     $tag = "dev"
@@ -441,7 +431,6 @@ function Write-Version {
     Write-Info "Version: $($tag.Trim())"
 }
 
-# ── Desktop Shortcut ─────────────────────────────────────────────────────────
 function Install-Shortcut {
     if ($NoPrompt) { return }
     Write-Host ""
@@ -476,7 +465,6 @@ function Install-Shortcut {
     }
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
 function Main {
     Write-Host ""
     $title    = "TermTube Installer"

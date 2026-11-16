@@ -1,13 +1,16 @@
-"""Configuration management for TermTube."""
+"""User config (`~/.config/TermTube/config.yaml`) with defaults and validated accessors."""
 
 from __future__ import annotations
 from pathlib import Path
 import yaml
 
+from src import logger
 from src.plat import get_config_dir
 
-_CONFIG_DIR = get_config_dir()
-_DEFAULT_CONFIG_PATH = _CONFIG_DIR / "config.yaml"
+_DEFAULT_CONFIG_PATH = get_config_dir() / "config.yaml"
+_THEMES = ("crimson", "amber", "ocean", "midnight")
+_THUMBNAIL_FORMATS = ("auto", "symbols", "sixel", "ascii")
+_DEFAULT_SB_CATEGORIES = ["sponsor", "selfpromo"]
 
 DEFAULT_CONFIG: dict = {
     "browser": "auto",
@@ -16,29 +19,19 @@ DEFAULT_CONFIG: dict = {
     "video_format": "%(title)s_%(uploader)s.%(ext)s",
     "audio_format": "%(title)s_%(uploader)s.%(ext)s",
     "preferred_quality": "best",
-    "preferred_player": "mpv",
     "cache_ttl": {
         "home": 3600,
         "subscriptions": 3600,
         "search": 1800,
         "metadata": 86400,
     },
-    "thumbnail_cols": 38,
-    "thumbnail_rows": 20,
-    # thumbnail_format: rendering mode for thumbnails when textual-image is unavailable.
-    # "auto"    (default) = PIL half-block art with 24-bit color.
-    # "symbols"           = same as auto.
-    # "ascii"             = reserved for future ASCII-only fallback.
     "thumbnail_format": "auto",
-    # theme: UI color theme. Options: crimson | amber | ocean | midnight
     "theme": "crimson",
-    # thumbnail_warning_dismissed: set to true after user clicks "Never show again"
     "thumbnail_warning_dismissed": False,
-    # sponsorblock: SponsorBlock integration settings
     "sponsorblock": {
         "enabled": True,
         "auto_skip": True,
-        "categories": ["sponsor", "selfpromo"],
+        "categories": list(_DEFAULT_SB_CATEGORIES),
     },
     "prefetch_video": False,
 }
@@ -49,40 +42,25 @@ class Config:
         self._data: dict = dict(DEFAULT_CONFIG)
         self._data["cache_ttl"] = dict(DEFAULT_CONFIG["cache_ttl"])
         self._data["sponsorblock"] = dict(DEFAULT_CONFIG["sponsorblock"])
-
-        if path:
-            self.path = Path(path)
-        else:
-            self.path = self._find_config()
+        self.path = Path(path) if path else _DEFAULT_CONFIG_PATH
 
         self._load()
         if not self.path.exists():
             self.save()
-
-    # ── Discovery ────────────────────────────────────────────────────────────
-
-    def _find_config(self) -> Path:
-        return _DEFAULT_CONFIG_PATH
 
     def _load(self) -> None:
         if not self.path.exists():
             return
         with open(self.path, encoding="utf-8") as f:
             loaded = yaml.safe_load(f) or {}
-        # Deep merge cache_ttl
-        if "cache_ttl" in loaded and isinstance(loaded["cache_ttl"], dict):
-            self._data["cache_ttl"].update(loaded["cache_ttl"])
-            loaded.pop("cache_ttl")
-        # Deep merge sponsorblock
-        if "sponsorblock" in loaded and isinstance(loaded["sponsorblock"], dict):
-            self._data["sponsorblock"].update(loaded["sponsorblock"])
-            loaded.pop("sponsorblock")
+        for section in ("cache_ttl", "sponsorblock"):
+            if isinstance(loaded.get(section), dict):
+                self._data[section].update(loaded.pop(section))
         self._data.update(loaded)
-        # Strip deprecated keys from old configs
         self._data.pop("cookies_file", None)
 
     def browser_cookie_args(self) -> list[str]:
-        """Return yt-dlp CLI cookie flags for mpv passthrough."""
+        """Return yt-dlp cookie flags for mpv passthrough (empty when browser is none)."""
         browser = self.get("browser", "auto")
         if not browser or browser.lower() == "none":
             return []
@@ -94,11 +72,8 @@ class Config:
             return ["--cookies-from-browser", browser]
         return []
 
-    # ── Convenience properties ────────────────────────────────────────────────
-
     @property
     def browser(self) -> str:
-        """Return configured browser, or 'auto' for auto-detection."""
         return self._data.get("browser", "auto")
 
     @property
@@ -122,18 +97,14 @@ class Config:
         return str(self._data.get("preferred_quality", "best"))
 
     @property
-    def preferred_player(self) -> str:
-        return self._data.get("preferred_player", "mpv")
-
-    @property
     def thumbnail_format(self) -> str:
         fmt = self._data.get("thumbnail_format", "auto")
-        return fmt if fmt in ("auto", "symbols", "sixel", "ascii") else "auto"
+        return fmt if fmt in _THUMBNAIL_FORMATS else "auto"
 
     @property
     def theme(self) -> str:
         t = self._data.get("theme", "crimson")
-        return t if t in ("crimson", "amber", "ocean", "midnight") else "crimson"
+        return t if t in _THEMES else "crimson"
 
     @property
     def sponsorblock_enabled(self) -> bool:
@@ -148,10 +119,10 @@ class Config:
         cats = self._data.get("sponsorblock", {}).get("categories")
         if isinstance(cats, list):
             return cats
-        return ["sponsor", "selfpromo"]
+        return list(_DEFAULT_SB_CATEGORIES)
 
     def save(self) -> None:
-        """Persist current config back to disk (only user-visible keys)."""
+        """Merge current values into the file on disk, preserving unknown keys. Failures are logged, not raised."""
         try:
             existing: dict = {}
             if self.path.exists():
@@ -165,7 +136,6 @@ class Config:
             with open(self.path, "w") as f:
                 yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
         except Exception as exc:
-            from src import logger
             logger.warning("Config.save() failed: %s (path=%s)", exc, self.path)
 
     def cache_ttl(self, key: str) -> int:

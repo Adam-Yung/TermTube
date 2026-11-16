@@ -1,16 +1,12 @@
-"""YouTube InnerTube API client — lightweight, stdlib-only metadata fetching.
-
-Provides near-instant (~220ms) video metadata without spawning yt-dlp subprocesses.
-Uses YouTube's internal /player API endpoint via a single HTTP POST.
-
-This module has NO external dependencies beyond Python stdlib (json, urllib.request).
-"""
+"""YouTube InnerTube client: stdlib-only video metadata (~220 ms) and channel browse."""
 
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from typing import Any
 
 from src import logger
@@ -35,7 +31,7 @@ _HEADERS = {
 
 
 def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
-    """POST JSON to a YouTube API endpoint. Returns parsed response or None."""
+    """POST JSON; the parsed response, or None on any network or decode error."""
     data = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data, headers=_HEADERS)
     try:
@@ -47,15 +43,7 @@ def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
 
 
 def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
-    """Fetch video metadata via InnerTube /player API (~220ms).
-
-    Returns a normalized dict compatible with the cache/detail panel format:
-    {id, title, description, view_count, like_count, upload_date, channel,
-     channel_id, channel_url, uploader, uploader_id, uploader_url, duration,
-     categories, is_live, keywords}
-
-    Returns None on failure (network error, invalid video, etc.).
-    """
+    """Video metadata from the /player API, shaped like a yt-dlp info dict (``_innertube`` is set). None on failure."""
     payload = {
         "videoId": video_id,
         "context": _WEB_CONTEXT,
@@ -73,14 +61,13 @@ def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
 
     mf = data.get("microformat", {}).get("playerMicroformatRenderer", {})
 
-    # Normalize upload_date to YYYYMMDD compact format (yt-dlp convention)
+    # yt-dlp convention: YYYYMMDD
     upload_date = mf.get("uploadDate") or mf.get("publishDate")
     if upload_date and "T" in upload_date:
         upload_date = upload_date.split("T")[0]
     if upload_date:
         upload_date = upload_date.replace("-", "")
 
-    # Extract @handle from ownerProfileUrl (e.g. "http://www.youtube.com/@RickAstleyYT")
     owner_url = mf.get("ownerProfileUrl", "")
     uploader_id = ""
     if "/@" in owner_url:
@@ -108,11 +95,8 @@ def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
     }
 
 
-
-# ── Channel video params (protobuf-encoded tab selectors) ─────────────────────
-# These are base64-encoded protobuf values that select the Videos tab with sort.
-_CHANNEL_VIDEOS_DATE = "EgZ2aWRlb3PyBgQKAjoA"      # Videos tab, sorted by date (newest)
-_CHANNEL_VIDEOS_POPULAR = "EgZ2aWRlb3PyBgQKAjoA"   # Videos tab (popular sort not reliably supported; falls back to date)
+# Base64 protobuf tab selector for the Videos tab, newest first.
+_CHANNEL_VIDEOS_PARAMS = "EgZ2aWRlb3PyBgQKAjoA"
 
 
 def fetch_channel_videos(
@@ -121,18 +105,13 @@ def fetch_channel_videos(
     sort: str = "date",
     timeout: int = 12,
 ) -> list[dict]:
-    """Fetch channel videos via InnerTube /browse API (~600ms for 30 videos).
+    """Channel video entries from the /browse API (~600 ms for 30). Empty on failure.
 
-    Returns a list of normalized video entry dicts compatible with the video list.
-    sort: "date" (newest first) or "views" (most popular first).
-
-    Returns empty list on failure.
+    ``sort`` is accepted for API parity but only newest-first is supported; "views" falls back to date.
     """
-    params = _CHANNEL_VIDEOS_POPULAR if sort == "views" else _CHANNEL_VIDEOS_DATE
-
     payload = {
         "browseId": channel_id,
-        "params": params,
+        "params": _CHANNEL_VIDEOS_PARAMS,
         "context": _WEB_CONTEXT,
     }
 
@@ -140,7 +119,6 @@ def fetch_channel_videos(
     if not data:
         return []
 
-    # Navigate response structure to find video items
     entries: list[dict] = []
     try:
         tabs = (data.get("contents", {})
@@ -167,7 +145,7 @@ def fetch_channel_videos(
 
 
 def _parse_channel_video_item(item: dict) -> dict | None:
-    """Parse a single video item from the /browse richGridRenderer response."""
+    """One /browse richGridRenderer item as a video entry, or None if it is not a video."""
     ri = item.get("richItemRenderer", {})
     if not ri:
         return None
@@ -180,11 +158,9 @@ def _parse_channel_video_item(item: dict) -> dict | None:
     if not video_id:
         return None
 
-    # Extract metadata
     meta = lvm.get("metadata", {}).get("lockupMetadataViewModel", {})
     title = meta.get("title", {}).get("content", "")
 
-    # Extract views and relative date from metadata rows
     view_count_text = ""
     published_text = ""
     meta_rows = (meta.get("metadata", {})
@@ -198,7 +174,6 @@ def _parse_channel_video_item(item: dict) -> dict | None:
             elif "ago" in text.lower() or "streamed" in text.lower():
                 published_text = text
 
-    # Extract duration from overlay badges
     duration_text = ""
     overlays = (lvm.get("contentImage", {})
                 .get("thumbnailViewModel", {})
@@ -215,7 +190,6 @@ def _parse_channel_video_item(item: dict) -> dict | None:
         if duration_text:
             break
 
-    # Extract thumbnail
     thumbnail = ""
     sources = (lvm.get("contentImage", {})
                .get("thumbnailViewModel", {})
@@ -240,7 +214,6 @@ def _parse_channel_video_item(item: dict) -> dict | None:
 
 def _parse_view_count(text: str) -> int | None:
     """Parse view count from text like '105K views' or '1.2M views'."""
-    import re
     if not text:
         return None
     match = re.search(r"([\d,.]+)\s*([KMB]?)", text)
@@ -277,6 +250,7 @@ def _parse_duration_text(text: str) -> int | None:
         pass
     return None
 
+
 def _parse_int(value) -> int | None:
     """Safely parse a value to int, returning None on failure."""
     if value is None:
@@ -285,3 +259,146 @@ def _parse_int(value) -> int | None:
         return int(value)
     except (ValueError, TypeError):
         return None
+
+
+_SEARCH_URL = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false"
+_RESOLVE_URL = "https://www.youtube.com/youtubei/v1/navigation/resolve_url?prettyPrint=false"
+_MAX_SEARCH_PAGES = 4
+
+
+def _text(node: dict | None) -> str:
+    """Plain text of an InnerTube text node (``simpleText`` or ``runs``)."""
+    if not node:
+        return ""
+    return node.get("simpleText") or "".join(r.get("text", "") for r in node.get("runs", []))
+
+
+def _parse_search_video(vr: dict) -> dict | None:
+    video_id = vr.get("videoId")
+    if not video_id:
+        return None
+    owner = vr.get("ownerText") or vr.get("longBylineText") or {}
+    browse = ((owner.get("runs") or [{}])[0].get("navigationEndpoint") or {}).get("browseEndpoint") or {}
+    thumbs = (vr.get("thumbnail") or {}).get("thumbnails") or []
+    badges = {b.get("metadataBadgeRenderer", {}).get("style", "") for b in vr.get("badges") or []}
+    name = _text(owner)
+    channel_id = browse.get("browseId", "")
+    return {
+        "id": video_id,
+        "title": _text(vr.get("title")),
+        "uploader": name,
+        "channel": name,
+        "channel_id": channel_id,
+        "channel_url": f"https://www.youtube.com/channel/{channel_id}" if channel_id else "",
+        "duration": _parse_duration_text(_text(vr.get("lengthText"))),
+        "view_count": _parse_view_count(_text(vr.get("viewCountText"))),
+        "published_text": _text(vr.get("publishedTimeText")),
+        "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+        "is_live": "BADGE_STYLE_TYPE_LIVE_NOW" in badges,
+        "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
+        "_type": "url",
+    }
+
+
+def _search_items(sections: list[dict]) -> tuple[list[dict], str]:
+    """Video entries and the next continuation token from a list of result sections."""
+    entries: list[dict] = []
+    token = ""
+    for section in sections:
+        for item in section.get("itemSectionRenderer", {}).get("contents", []):
+            entry = _parse_search_video(item.get("videoRenderer", {}))
+            if entry:
+                entries.append(entry)
+        cont = section.get("continuationItemRenderer", {})
+        token = cont.get("continuationEndpoint", {}).get("continuationCommand", {}).get("token", token)
+    return entries, token
+
+
+def search_videos(
+    query: str,
+    *,
+    count: int = 50,
+    skip_ids: set[str] | None = None,
+    on_first_batch: Callable[[list[dict]], None] | None = None,
+) -> list[dict]:
+    """Video results for ``query`` through InnerTube ``/search``. Anonymous. Empty on any failure.
+
+    Follows continuation tokens until ``count`` videos are collected or ``_MAX_SEARCH_PAGES`` pages are read.
+    ``on_first_batch`` receives the first page's videos as soon as that page arrives.
+    """
+    skip_ids = skip_ids or set()
+    payload: dict = {"query": query, "context": _WEB_CONTEXT}
+    results: list[dict] = []
+    seen = set(skip_ids)
+    for _ in range(_MAX_SEARCH_PAGES):
+        data = _post_json(_SEARCH_URL, payload)
+        if not data:
+            break
+        if "contents" in data:
+            sections = (data["contents"].get("twoColumnSearchResultsRenderer", {})
+                        .get("primaryContents", {}).get("sectionListRenderer", {}).get("contents", []))
+        else:
+            actions = data.get("onResponseReceivedCommands") or [{}]
+            sections = actions[0].get("appendContinuationItemsAction", {}).get("continuationItems", [])
+        entries, token = _search_items(sections)
+        for entry in entries:
+            if entry["id"] not in seen:
+                seen.add(entry["id"])
+                results.append(entry)
+        if on_first_batch and results:
+            on_first_batch(list(results))
+            on_first_batch = None
+        if len(results) >= count or not token:
+            break
+        payload = {"continuation": token, "context": _WEB_CONTEXT}
+    return results[:count]
+
+
+def _find_text(node, pattern: re.Pattern) -> str:
+    """First string anywhere under ``node`` that matches ``pattern``."""
+    if isinstance(node, str):
+        return node if pattern.search(node) else ""
+    children = node.values() if isinstance(node, dict) else node if isinstance(node, list) else ()
+    for child in children:
+        found = _find_text(child, pattern)
+        if found:
+            return found
+    return ""
+
+
+_SUBSCRIBERS = re.compile(r"^[\d.,]+\s*[KMB]?\s+subscribers?$", re.IGNORECASE)
+
+
+def resolve_channel_id(channel_url: str) -> str | None:
+    """The ``UC…`` id for a channel URL (``/channel/UC…``, ``/@handle``, ``/user/…``, ``/c/…``)."""
+    match = re.search(r"/channel/(UC[\w-]{22})", channel_url)
+    if match:
+        return match.group(1)
+    data = _post_json(_RESOLVE_URL, {"url": channel_url, "context": _WEB_CONTEXT})
+    browse = ((data or {}).get("endpoint") or {}).get("browseEndpoint") or {}
+    browse_id = browse.get("browseId", "")
+    return browse_id if browse_id.startswith("UC") else None
+
+
+def fetch_channel_info(channel_url: str) -> dict | None:
+    """Channel name, description, subscriber count and avatar from InnerTube. Anonymous.
+
+    Same keys as ``ytdlp.fetch_channel_info`` (minus the cache key). None on failure.
+    """
+    channel_id = resolve_channel_id(channel_url)
+    if not channel_id:
+        return None
+    data = _post_json(_BROWSE_URL, {"browseId": channel_id, "context": _WEB_CONTEXT})
+    meta = ((data or {}).get("metadata") or {}).get("channelMetadataRenderer")
+    if not meta:
+        return None
+    avatars = (meta.get("avatar") or {}).get("thumbnails") or []
+    return {
+        "channel_url": f"https://www.youtube.com/channel/{channel_id}",
+        "channel": meta.get("title", ""),
+        "channel_id": channel_id,
+        "description": meta.get("description", ""),
+        "subscriber_count": _parse_view_count(_find_text(data.get("header", {}), _SUBSCRIBERS)),
+        "thumbnail": avatars[-1].get("url", "") if avatars else "",
+        "uploader_url": (meta.get("vanityChannelUrl") or "").replace("http://", "https://"),
+    }

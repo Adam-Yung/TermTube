@@ -1,6 +1,8 @@
-"""Shared formatting helpers for the TUI layer."""
+"""Display formatters for durations, view counts and ages."""
 
 from __future__ import annotations
+
+import datetime
 
 
 def fmt_duration(secs: int | float | None) -> str:
@@ -26,12 +28,22 @@ def fmt_views(n: int | None) -> str:
     return f"{n} views"
 
 
+def fmt_subscribers(n: int | None) -> str:
+    """Format a subscriber count compactly (e.g. 1.2M, 340K); the caller adds the noun."""
+    if not n:
+        return ""
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n // 1_000}K"
+    return str(n)
+
+
 def fmt_age(upload_date: str | None) -> str:
     """Format a YYYYMMDD upload date as a relative age string."""
     if not upload_date or len(upload_date) < 8:
         return ""
     try:
-        import datetime
         y, m, d = int(upload_date[:4]), int(upload_date[4:6]), int(upload_date[6:8])
         delta = datetime.date.today() - datetime.date(y, m, d)
         days = delta.days
@@ -50,16 +62,3 @@ def fmt_age(upload_date: str | None) -> str:
         return f"{days // 365}y ago"
     except (ValueError, TypeError):
         return ""
-
-
-def fmt_age_seconds(secs: float) -> str:
-    """Compact human age string from seconds (e.g. '4m ago', '2h ago')."""
-    secs = int(secs)
-    if secs < 60:
-        return "just now"
-    if secs < 3600:
-        return f"{secs // 60}m ago"
-    if secs < 86400:
-        return f"{secs // 3600}h ago"
-    days = secs // 86400
-    return f"{days}d ago"

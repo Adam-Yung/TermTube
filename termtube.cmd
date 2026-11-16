@@ -8,7 +8,6 @@ set "REPO_DIR=%SCRIPT_DIR%"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 
-rem ── Handle Uninstall ──────────────────────────────────────────────────────
 if "%~1"=="--uninstall" (
     if exist "%SCRIPT_DIR%\scripts\uninstall.ps1" (
         powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\uninstall.ps1"
@@ -22,17 +21,17 @@ if "%~1"=="--uninstall" (
     exit /b 1
 )
 
-rem ── 1. Venv next to this script ───────────────────────────────────────────
+rem 1. Venv next to this script
 set "PYTHON=%SCRIPT_DIR%\.venv\Scripts\python.exe"
 if exist "%PYTHON%" goto :run
 
-rem ── 2. Fallback to standard install location ──────────────────────────────
+rem 2. Fallback to standard install location
 :try_install_dir
 set "PYTHON=%LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe"
 set "SCRIPT_DIR=%LOCALAPPDATA%\Programs\TermTube"
 if exist "%PYTHON%" goto :run
 
-rem ── 3. Auto-install if still no venv ─────────────────────────────────────
+rem 3. Auto-install if still no venv
 :auto_install
 set "SETUP=%REPO_DIR%\scripts\setup.ps1"
 if not exist "%SETUP%" set "SETUP=%LOCALAPPDATA%\Programs\TermTube\scripts\setup.ps1"
@@ -45,7 +44,7 @@ set "PYTHON=%LOCALAPPDATA%\Programs\TermTube\.venv\Scripts\python.exe"
 set "SCRIPT_DIR=%LOCALAPPDATA%\Programs\TermTube"
 if exist "%PYTHON%" goto :run
 
-rem ── 4. No setup script found ──────────────────────────────────────────────
+rem 4. No setup script found
 :no_setup
 echo TermTube is not set up and no setup script was found.
 echo   Clone the repo and run: .\scripts\setup.ps1

@@ -1,0 +1,45 @@
+"""The keymap: the only place keys are bound in code. Prose lives in docs/features/keybindings.md."""
+
+from __future__ import annotations
+
+from textual.binding import Binding
+
+LIST_NAV = [
+    Binding("j", "cursor_down", show=False),
+    Binding("k", "cursor_up", show=False),
+    Binding("h,left", "page_prev", show=False),
+    Binding("l,right", "page_next", show=False),
+    Binding("g", "goto_start", show=False),
+    Binding("G", "goto_end", show=False),
+    Binding("H", "tab_prev", show=False),
+    Binding("L", "tab_next", show=False),
+    Binding("enter", "activate", show=False),
+]
+
+PLAYBACK = [
+    Binding("v", "watch", show=False),
+    Binding("V", "watch_quality", show=False),
+    Binding("a", "audio", show=False),
+    Binding("A", "audio_quality", show=False),
+    Binding("e", "audio_enqueue", show=False),
+    Binding(">", "audio_skip", show=False),
+    Binding("space", "audio_pause", show=False),
+    Binding("x", "audio_stop", show=False),
+    Binding("left_square_bracket", "audio_seek(-5)", show=False),
+    Binding("right_square_bracket", "audio_seek(5)", show=False),
+    Binding("left_curly_bracket", "audio_seek(-10)", show=False),
+    Binding("right_curly_bracket", "audio_seek(10)", show=False),
+    *[Binding(str(n), f"audio_seek_pct({n * 10})", show=False) for n in range(10)],
+]
+
+ITEM_ACTIONS = [
+    Binding("d", "download", show=False),
+    Binding("c", "channel", show=False),
+    Binding("y", "copy_url", show=False),
+    Binding("p", "playlist", show=False),
+    Binding("b", "browser", show=False),
+]
+
+FOCUS_RECLAIM_KEYS = frozenset(
+    {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}
+)

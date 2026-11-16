@@ -13,7 +13,6 @@ while [ -h "$SOURCE" ]; do
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
-# ── Handle Uninstall ───────────────────────────────────────────────────────
 if [[ "${1:-}" == "--uninstall" ]]; then
     UNINSTALLER="$SCRIPT_DIR/scripts/uninstall.sh"
     if [[ ! -f "$UNINSTALLER" ]]; then
@@ -27,7 +26,7 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     fi
 fi
 
-# ── Locate Python (4-step) ────────────────────────────────────────────────
+# Locate Python (4-step)
 # 1. Venv next to this script
 PYTHON="$SCRIPT_DIR/.venv/bin/python3"
 

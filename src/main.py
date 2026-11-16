@@ -2,19 +2,23 @@
 """TermTube entry point."""
 
 from __future__ import annotations
+
 import argparse
+import atexit
+import datetime
 import os
+import signal
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-# Ensure project root is on sys.path
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 
-# Prepend TermTube-managed deps bin to PATH so shutil.which() finds them.
-# Inlined to avoid importing the full bootstrap module (heavy stdlib imports).
+# Managed tools win over system copies. Duplicates bootstrap.get_deps_bin() to keep bootstrap out of cold start.
 if sys.platform == "win32":
     _deps_bin = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "termtube-deps" / "bin"
 else:
@@ -25,10 +29,8 @@ if _deps_bin.is_dir():
 _VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
 
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
-
 def _supports_color() -> bool:
-    """True if the terminal likely supports ANSI colour codes."""
+    """Honors NO_COLOR and TERM=dumb."""
     if os.environ.get("NO_COLOR") or os.environ.get("TERM") == "dumb":
         return False
     return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
@@ -39,22 +41,20 @@ def _c(code: str, text: str, *, color: bool) -> str:
 
 
 def _print_help() -> None:
-    """Print a styled, colourful help screen."""
+
     color = _supports_color()
 
-    # ── Banner ────────────────────────────────────────────────────────────────
-    width   = 41
-    inner   = width - 2
-    line    = "\u2500" * inner          # ─
-    tl, tr  = "\u250c", "\u2510"        # ┌ ┐
-    bl, br  = "\u2514", "\u2518"        # └ ┘
-    vbar    = "\u2502"                  # │
+    inner = 39
+    line = "\u2500" * inner
+    tl, tr = "\u250c", "\u2510"
+    bl, br = "\u2514", "\u2518"
+    vbar = "\u2502"
 
     def _banner_row(text: str) -> str:
-        pad   = (inner - len(text)) // 2
+        pad = (inner - len(text)) // 2
         right = inner - len(text) - pad
-        row   = vbar + " " * pad + text + " " * right + vbar
-        return "  " + (_c("1", row, color=color) if color else row)
+        row = vbar + " " * pad + text + " " * right + vbar
+        return "  " + _c("1", row, color=color)
 
     print()
     print("  " + _c("1", tl + line + tr, color=color))
@@ -63,18 +63,15 @@ def _print_help() -> None:
     print("  " + _c("1", bl + line + br, color=color))
     print()
 
-    # ── Usage ─────────────────────────────────────────────────────────────────
     prog = _c("1;32", "termtube", color=color)
     opts = _c("36", "[OPTIONS]", color=color)
     print(f"  {_c('1', 'Usage:', color=color)}  {prog} {opts}")
     print()
 
-    # ── Options ───────────────────────────────────────────────────────────────
     def _opt(flags: str, meta: str, desc: str) -> None:
         flag_str = _c("36", flags, color=color)
         meta_str = _c("33", meta,  color=color) if meta else ""
         lhs = f"  {flag_str}" + (f" {meta_str}" if meta_str else "")
-        # pad to column 32
         lhs_plain = f"  {flags}" + (f" {meta}" if meta else "")
         pad = max(1, 34 - len(lhs_plain))
         print(lhs + " " * pad + desc)
@@ -91,7 +88,6 @@ def _print_help() -> None:
     _opt("-h, --help",      "",      "Show this message and exit")
     print()
 
-    # ── Paths ─────────────────────────────────────────────────────────────────
     print("  " + _c("1", "Paths:", color=color))
     if sys.platform == "win32":
         appdata  = os.environ.get("APPDATA",    r"%APPDATA%")
@@ -103,18 +99,13 @@ def _print_help() -> None:
     print(f"    {_c('2', 'Config: ', color=color)}  {_c('36', cfg_path, color=color)}")
     print()
 
-    # ── Docs hint ─────────────────────────────────────────────────────────────
     print("  " + _c("2", "Browser setup:", color=color)
           + "  " + _c("36", "termtube --browser-help", color=color))
     print()
 
 
 def _run_tests() -> None:
-    """Run the full test suite, printing results to terminal and saving to a log file."""
-    import subprocess
-    import tempfile
-    import datetime
-
+    """Run pytest, echoing to the terminal and saving a copy in the temp dir."""
     project_root = Path(__file__).parent.parent
     tests_dir = project_root / "src" / "tests"
 
@@ -123,7 +114,6 @@ def _run_tests() -> None:
         print(f"Expected at: {tests_dir}")
         sys.exit(1)
 
-    # Determine log file location
     tmp_base = Path(tempfile.gettempdir()) / "TermTube"
     tmp_base.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -135,7 +125,6 @@ def _run_tests() -> None:
     print(f"  Log file: \033[36m{log_path}\033[0m")
     print()
 
-    # Run pytest with output to both terminal and file
     cmd = [
         sys.executable, "-m", "pytest",
         str(tests_dir),
@@ -161,7 +150,6 @@ def _run_tests() -> None:
         lines.append(line)
     proc.wait()
 
-    # Write to log file
     with open(log_path, "w") as f:
         f.write(f"TermTube Test Results — {datetime.datetime.now().isoformat()}\n")
         f.write(f"Command: {' '.join(cmd)}\n")
@@ -181,18 +169,10 @@ def _run_tests() -> None:
     sys.exit(proc.returncode)
 
 
-
 def _migrate_legacy_windows_paths() -> None:
-    r"""One-time migration for Windows users whose data landed at the wrong path.
-
-    Older builds hardcoded Path.home() / ".config" / "TermTube" instead of
-    using get_config_dir() which resolves to %APPDATA%\TermTube on Windows.
-    Move any files found at the legacy location to the correct one.
-    """
-    import os
-    if os.sys.platform != "win32":
+    r"""Move history/playlists from the old ~/.config/TermTube to %APPDATA%\TermTube (Windows only)."""
+    if sys.platform != "win32":
         return
-    from pathlib import Path
     from src.plat import get_config_dir
     correct = get_config_dir()
     legacy  = Path.home() / ".config" / "TermTube"
@@ -207,6 +187,7 @@ def _migrate_legacy_windows_paths() -> None:
                 old.rename(new)
             except OSError:
                 pass
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -235,12 +216,10 @@ def main() -> None:
         _print_help()
         sys.exit(0)
 
-    # Handle --test before any other setup
     if args.test:
         _run_tests()
         sys.exit(0)
 
-    # Set up logging before anything else
     from src import logger
     logger.setup(debug=args.debug, level=args.level)
     logger.info("TermTube starting (debug=%s, level=%s)", args.debug, args.level)
@@ -256,7 +235,6 @@ def main() -> None:
         print_cookies_help()
         sys.exit(0)
 
-    # --update: download latest TermTube + update all tools, then exit (no TUI)
     if args.update:
         from src.updater import self_update
         color = _supports_color()
@@ -264,14 +242,12 @@ def main() -> None:
         self_update()
         sys.exit(0)
 
-    # Dependency check
     from src.deps import check_dependencies
     logger.debug("Running dependency check")
     if not check_dependencies():
         logger.error("Dependency check failed; exiting")
         sys.exit(1)
 
-    # Load config
     from src.config import Config
     config = Config(args.config)
     logger.debug("Config loaded from %s", getattr(config, "path", args.config or "default"))
@@ -284,26 +260,19 @@ def main() -> None:
         print("Cache cleared.")
         sys.exit(0)
 
-    # Import textual_image.widget BEFORE launching Textual — the library queries the
-    # terminal for sixel/TGP support and cell dimensions at import time, and those
-    # queries stop working once Textual's I/O threads are running.
+    # Must precede Textual: textual_image probes the terminal at import time, and that fails once Textual's I/O threads run.
     try:
-        import textual_image.widget  # noqa: F401 — side-effect import for detection
+        import textual_image.widget  # side-effect import: terminal detection
     except ImportError:
         pass
 
-    # Launch Textual TUI
     from src.tui.app import TermTubeApp
     app = TermTubeApp(config)
 
-    # ── Signal & atexit cleanup ────────────────────────────────────────────────
-    import atexit
-    import signal
     from src import ytdlp as _ytdlp
     from src.plat import ProcessRegistry
 
     def _emergency_cleanup() -> None:
-        """Kill all tracked subprocesses (mpv, yt-dlp, etc.) on exit."""
         try:
             ProcessRegistry.get().kill_all(timeout=1.5)
         except Exception:
@@ -319,7 +288,6 @@ def main() -> None:
             pass
 
     def _signal_handler(signum: int, frame) -> None:
-        """Handle SIGTERM/SIGHUP by cleaning up child processes then exiting."""
         _emergency_cleanup()
         sys.exit(128 + signum)
 

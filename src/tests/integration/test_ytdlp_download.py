@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from src.ytdlp import (
+from src.downloads import (
     download_video_with_progress,
     download_audio_with_progress,
     PHASE_POSTPROCESS,
@@ -46,8 +46,8 @@ class TestDownloadVideoWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_video_with_progress(
                 "abc123def45", fake_config,
                 quality_format="bestvideo+bestaudio/best",
@@ -65,8 +65,8 @@ class TestDownloadVideoWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_video_with_progress("abc123def45", fake_config)
 
         assert "720" in captured_opts['format']
@@ -97,8 +97,8 @@ class TestDownloadVideoWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_video_with_progress("abc123def45", fake_config, on_progress=on_progress)
 
         assert len(received) == 3
@@ -108,15 +108,15 @@ class TestDownloadVideoWithProgress:
 
     def test_returns_true_on_success(self, fake_config):
         mock_ydl = _mock_ydl(0)
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", fake_config)
         assert result is True
 
     def test_returns_false_on_failure(self, fake_config):
         mock_ydl = _mock_ydl(1)
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", fake_config)
         assert result is False
 
@@ -127,8 +127,8 @@ class TestDownloadVideoWithProgress:
         mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
         mock_ydl.__exit__ = MagicMock(return_value=False)
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_video_with_progress("abc123def45", fake_config)
         assert result is False
 
@@ -140,8 +140,8 @@ class TestDownloadVideoWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_video_with_progress("abc123def45", fake_config)
 
         assert captured_opts.get('writeinfojson') is True
@@ -159,8 +159,8 @@ class TestDownloadAudioWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_audio_with_progress("xyz789ghj12", fake_config)
 
         assert captured_opts['format'] == "bestaudio/best"
@@ -178,8 +178,8 @@ class TestDownloadAudioWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_audio_with_progress("xyz789ghj12", fake_config)
 
         assert captured_opts['format'] == "bestaudio/best"
@@ -207,8 +207,8 @@ class TestDownloadAudioWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_audio_with_progress("xyz789ghj12", fake_config, on_progress=on_progress)
 
         assert PHASE_POSTPROCESS in received
@@ -221,8 +221,8 @@ class TestDownloadAudioWithProgress:
             captured_opts.update(opts)
             return mock_ydl
 
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", side_effect=capture), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture), \
+             patch("src.downloads.base_opts", return_value={}):
             download_audio_with_progress("xyz789ghj12", fake_config)
 
         assert captured_opts.get('writeinfojson') is True
@@ -230,14 +230,14 @@ class TestDownloadAudioWithProgress:
 
     def test_returns_true_on_success(self, fake_config):
         mock_ydl = _mock_ydl(0)
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_audio_with_progress("xyz789ghj12", fake_config)
         assert result is True
 
     def test_returns_false_on_failure(self, fake_config):
         mock_ydl = _mock_ydl(1)
-        with patch("src.ytdlp.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.ytdlp._base_opts", return_value={}):
+        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
+             patch("src.downloads.base_opts", return_value={}):
             result = download_audio_with_progress("xyz789ghj12", fake_config)
         assert result is False

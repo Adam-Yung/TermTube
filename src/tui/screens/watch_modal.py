@@ -1,9 +1,8 @@
-"""WatchModal — in-TUI video player popup with progress tracking."""
-
 from __future__ import annotations
 
 import os
 import subprocess
+import time
 
 from textual import work
 from textual.app import ComposeResult
@@ -12,8 +11,19 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-from src.sponsorblock import Segment
-from src import logger as _logger
+from src import history, logger as _logger, player as player_mod
+from src.plat import (
+    ProcessRegistry,
+    cleanup_ipc,
+    get_popen_kwargs,
+    get_video_ipc_path,
+    install_hint,
+    terminate_process,
+)
+from src.sponsorblock import Segment, fetch_segments_async
+
+_DEFAULT_FORMAT = "bv+ba/b"
+_MAX_ATTEMPTS = 3
 
 
 def _fmt_secs(s: float) -> str:
@@ -26,41 +36,17 @@ def _fmt_secs(s: float) -> str:
 
 
 class WatchModal(ModalScreen[bool]):
-    """
-    Video watch screen: launches mpv (with video visible), shows a live progress
-    bar in the TUI, and handles keyboard seek/pause/stop via IPC.
-    """
+    """Launches mpv with a video window, shows progress in the TUI, and seeks/pauses/stops over IPC."""
 
     BINDINGS = [
-        Binding("space",  "pause_toggle",  "Pause/Resume", show=True),
-        Binding("h",      "seek_back",     "−5s",          show=True),
-        Binding("l",      "seek_fwd",      "+5s",          show=True),
-        Binding("H",      "seek_back_big", "−10s",         show=False),
-        Binding("L",      "seek_fwd_big",  "+10s",         show=False),
-        Binding("left",   "seek_back",     "−5s",          show=False),
-        Binding("right",  "seek_fwd",      "+5s",          show=False),
-        Binding("0",      "seek_pct_0",    "0%",           show=False),
-        Binding("1",      "seek_pct_10",   "10%",          show=False),
-        Binding("2",      "seek_pct_20",   "20%",          show=False),
-        Binding("3",      "seek_pct_30",   "30%",          show=False),
-        Binding("4",      "seek_pct_40",   "40%",          show=False),
-        Binding("5",      "seek_pct_50",   "50%",          show=False),
-        Binding("6",      "seek_pct_60",   "60%",          show=False),
-        Binding("7",      "seek_pct_70",   "70%",          show=False),
-        Binding("8",      "seek_pct_80",   "80%",          show=False),
-        Binding("9",      "seek_pct_90",   "90%",          show=False),
-        Binding("q",      "stop",          "Stop",         show=True),
-        Binding("escape", "stop",          "Stop",         show=False),
+        Binding("space", "pause_toggle", "Pause/Resume", show=True),
+        Binding("h,left,left_square_bracket", "seek(-5)", "−5s", show=True),
+        Binding("l,right,right_square_bracket", "seek(5)", "+5s", show=True),
+        Binding("H,left_curly_bracket", "seek(-10)", "−10s", show=False),
+        Binding("L,right_curly_bracket", "seek(10)", "+10s", show=False),
+        *[Binding(str(n), f"seek_pct({n * 10})", f"{n * 10}%", show=False) for n in range(10)],
+        Binding("q,escape", "stop", "Stop", show=True),
     ]
-
-    _SOCKET = None  # Lazy-initialized
-
-    @classmethod
-    def _get_socket(cls) -> str:
-        if cls._SOCKET is None:
-            from src.plat import get_video_ipc_path
-            cls._SOCKET = get_video_ipc_path()
-        return cls._SOCKET
 
     def __init__(self, entry: dict, *, ytdl_format: str = "") -> None:
         super().__init__()
@@ -73,7 +59,7 @@ class WatchModal(ModalScreen[bool]):
         self._sb_next_idx: int = 0  # sorted pointer for O(1) segment scan
         self._dur: float = 0.0
         self._poll_timer = None
-        # Pre-computed segment column map for progress bar — invalidated on segments/dur change
+        self._socket = get_video_ipc_path()
         self._segment_cols: list[bool] = []
         self._segment_cols_width: int = 0
         self._segment_cols_dur: float = 0.0
@@ -90,8 +76,8 @@ class WatchModal(ModalScreen[bool]):
             yield Static("Loading…", id="np-time")
             yield Static(
                 "[dim]space[/dim] pause  "
-                "[dim]h/l[/dim] ±5s  "
-                "[dim]H/L[/dim] ±10s  "
+                "[dim]h/l[/dim] or [dim]\\[ \\][/dim] ±5s  "
+                "[dim]H/L[/dim] or [dim]{ }[/dim] ±10s  "
                 "[dim]0–9[/dim] seek%  "
                 "[dim]q[/dim] stop",
                 id="np-hint",
@@ -99,149 +85,68 @@ class WatchModal(ModalScreen[bool]):
             )
 
     def on_mount(self) -> None:
-        import time
         self._buffering_since = time.monotonic()
         self._launch_video()
         self._poll_timer = self.set_interval(0.5, self._poll_mpv)
 
-    # ── Background mpv launcher ───────────────────────────────────────────────
-
     @work(thread=True, exclusive=True, group="video_player")
     def _launch_video(self) -> None:
-        from src import player as player_mod
+        from src import streams
 
         vid = self._entry.get("id", "")
+        local_path = self._entry.get("_local_path")
+        title = self._entry.get("title", "")
+        config = getattr(self.app, "config", None)
+        fmt = self._ytdl_format or _DEFAULT_FORMAT
+
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)
 
-        # Fetch SponsorBlock segments in parallel with URL resolution
-        config = getattr(self.app, "config", None)
         sb_thread = None
         if config and config.sponsorblock_enabled and vid:
-            import threading
-            from src.sponsorblock import fetch_segments
-
-            def _fetch_sb():
-                segs = fetch_segments(vid, config.sponsorblock_categories)
-                segs.sort(key=lambda s: s.start)
-                self._segments = segs
-                self._sb_next_idx = 0
-                self._segment_cols = []
-
-            sb_thread = threading.Thread(target=_fetch_sb, daemon=True)
-            sb_thread.start()
-
-        url = (
-            self._entry.get("_local_path")
-            or f"https://www.youtube.com/watch?v={vid}"
-        )
-        title = self._entry.get("title", "")
-
-        cookie_args = config.browser_cookie_args() if config else []
-
-        # Use pre-cached stream URL if available, otherwise resolve on-demand.
-        resolved_urls: list[str] | None = None
-        url_from_cache = False
-        if not self._entry.get("_local_path") and vid and config:
-            import src.ytdlp as ytdlp
-            fmt = self._ytdl_format or "bv+ba/b"
-            cached = ytdlp.get_cached_stream_url(vid, fmt)
-            if not cached:
-                cached = ytdlp.wait_for_prefetch(vid, fmt, timeout=2.0)
-                if self._stopped:
-                    return
-            if cached:
-                resolved_urls = cached
-                url_from_cache = True
-                _logger.debug("video using pre-cached %d URL(s) for %s", len(cached), vid)
-            else:
-                self.app.call_from_thread(
-                    self.app.notify, "Resolving stream…", timeout=5
-                )
-                resolved_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
-                if resolved_urls:
-                    ytdlp.put_cached_stream_url(vid, fmt, resolved_urls)
-                    _logger.debug("video resolved %d URL(s) for %s", len(resolved_urls), vid)
-
-        # Wait for CDN propagation only if URL was resolved inline (not from cache)
-        if resolved_urls and vid and not url_from_cache:
-            import src.ytdlp as ytdlp
-            fmt = self._ytdl_format or "bv+ba/b"
-            ytdlp.wait_for_stream_url_ready(vid, fmt)
-
-        # Wait for SponsorBlock (should be done by now — ran in parallel)
-        if sb_thread:
-            sb_thread.join(timeout=2.0)
-
-        mpv_exe = player_mod._mpv_exe()
-        if not mpv_exe:
-            from src.plat import install_hint
-            self.app.call_from_thread(
-                self.app.notify,
-                f"mpv not found — install with: {install_hint('mpv')}",
-                severity="error",
+            sb_thread = fetch_segments_async(
+                vid, config.sponsorblock_categories, self._set_segments
             )
-            self.app.call_from_thread(self.dismiss, False)
-            return
 
-        input_conf = player_mod._write_input_conf()
-        cmd = [
-            mpv_exe,
-            f"--input-conf={input_conf}",
-            f"--input-ipc-server={self._get_socket()}",
-            "--no-terminal",
-            "--really-quiet",
-            "--msg-level=all=no",
-            "--cache=yes",
-            "--demuxer-max-bytes=150M",
-        ]
-        if title:
-            cmd += [f"--title={title}", f"--force-media-title={title}"]
-        if resolved_urls:
-            cmd += ["--no-ytdl"]
-            if len(resolved_urls) == 2:
-                cmd += [f"--audio-file={resolved_urls[1]}", "--", resolved_urls[0]]
-            else:
-                cmd += ["--", resolved_urls[0]]
-        else:
-            if self._ytdl_format:
-                cmd += [f"--ytdl-format={self._ytdl_format}"]
-            else:
-                cmd += ["--ytdl-format=bv+ba/b"]
-            ytdl_raw = player_mod._cookie_args_to_ytdl_raw(cookie_args)
-            if ytdl_raw:
-                cmd += [f"--ytdl-raw-options={ytdl_raw}"]
-            cmd += ["--", url]
-
-        import time as _time_mod
-
-        max_retries = 3
-        for attempt in range(1, max_retries + 1):
+        urls: list[str] | None = None
+        if not local_path and vid and config:
+            urls, _ = streams.resolve_for_playback(
+                vid,
+                config,
+                fmt,
+                cancelled=lambda: self._stopped,
+                on_resolving=lambda: self.app.call_from_thread(
+                    self.app.notify, "Resolving stream…", timeout=5
+                ),
+            )
             if self._stopped:
                 return
 
-            # On 2nd+ retry, re-resolve stream URL (may have expired)
-            if attempt > 1 and not self._entry.get("_local_path") and vid and config:
-                import src.ytdlp as ytdlp
-                fmt = self._ytdl_format or "bv+ba/b"
-                ytdlp.invalidate_cached_stream_url(vid, fmt)
-                new_urls = ytdlp.resolve_stream_url(vid, config, format_spec=fmt)
-                if new_urls:
-                    resolved_urls = new_urls
-                    ytdlp.put_cached_stream_url(vid, fmt, new_urls)
-                    ytdlp.wait_for_stream_url_ready(vid, fmt)
-                    _logger.debug("video re-resolved %d URL(s) for %s (attempt %d)", len(new_urls), vid, attempt)
-                    # Rebuild cmd tail with new URLs
-                    cmd = cmd[:cmd.index("--") + 1] if "--" in cmd else cmd
-                    cmd = [c for c in cmd if not c.startswith("--no-ytdl") and not c.startswith("--audio-file=")]
-                    cmd += ["--no-ytdl"]
-                    if len(new_urls) == 2:
-                        cmd += [f"--audio-file={new_urls[1]}", "--", new_urls[0]]
-                    else:
-                        cmd += ["--", new_urls[0]]
+        if sb_thread:
+            sb_thread.join(timeout=2.0)
+
+        mpv_exe = player_mod.mpv_exe()
+        if not mpv_exe:
+            self._fail_launch(f"mpv not found — install with: {install_hint('mpv')}")
+            return
+
+        input_conf = player_mod.write_input_conf()
+        page_url = local_path or f"https://www.youtube.com/watch?v={vid}"
+        cookie_args = config.browser_cookie_args() if config else []
+
+        def build(stream_urls: list[str] | None) -> list[str]:
+            return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args)
+
+        cmd = build(urls)
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            if self._stopped:
+                return
+            if attempt > 1 and not local_path and vid and config:
+                fresh = streams.re_resolve(vid, config, fmt)
+                if fresh:
+                    cmd = build(fresh)
 
             try:
-                from src.plat import get_popen_kwargs, ProcessRegistry
                 self._proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
@@ -250,99 +155,110 @@ class WatchModal(ModalScreen[bool]):
                 )
                 ProcessRegistry.get().register(self._proc)
             except FileNotFoundError:
-                from src.plat import install_hint
-                self.app.call_from_thread(
-                    self.app.notify,
-                    f"mpv not found — install with: {install_hint('mpv')}",
-                    severity="error",
-                )
-                self.app.call_from_thread(self.dismiss, False)
+                self._fail_launch(f"mpv not found — install with: {install_hint('mpv')}")
                 return
             except OSError as exc:
-                self.app.call_from_thread(
-                    self.app.notify, f"Failed to launch mpv: {exc}", severity="error"
-                )
-                self.app.call_from_thread(self.dismiss, False)
+                self._fail_launch(f"Failed to launch mpv: {exc}")
                 return
 
             if attempt == 1:
-                from src import history
                 history.add(self._entry)
 
             try:
                 self._proc.wait()
             finally:
-                from src.plat import ProcessRegistry
                 ProcessRegistry.get().unregister(self._proc)
 
             returncode = self._proc.returncode
-
-            # Successful exit or user-quit — done
-            if returncode in (0, 4) or self._stopped:
-                break
-            # Killed by signal (e.g. user pressed stop) — done
-            if returncode == 3:
+            # 0 and 4 are normal exits, 3 is a kill (the stop key).
+            if returncode in (0, 3, 4) or self._stopped:
                 break
 
-            # Non-zero exit — retry if attempts remain
-            if attempt < max_retries:
-                _logger.debug(
-                    "video retry %d/%d for %s (rc=%d)",
-                    attempt, max_retries, vid, returncode or -1,
-                )
-                _time_mod.sleep(1.0)
+            if attempt < _MAX_ATTEMPTS:
+                _logger.debug("video retry %d/%d for %s (rc=%s)", attempt, _MAX_ATTEMPTS, vid, returncode)
+                time.sleep(1.0)
             else:
                 _logger.warning(
-                    "video mpv failed after %d attempts (rc=%s) for %s",
-                    max_retries, returncode, vid,
+                    "video mpv failed after %d attempts (rc=%s) for %s", _MAX_ATTEMPTS, returncode, vid
                 )
+                self._cleanup_ipc(input_conf)
                 self.app.call_from_thread(
                     self.app.notify,
                     f"✗ Video playback failed (exit code {returncode})",
                     severity="error",
                     timeout=8,
                 )
-                try:
-                    os.unlink(input_conf)
-                except OSError:
-                    pass
-                from src.player import close_persistent_socket
-                close_persistent_socket(self._get_socket())
-                from src.plat import cleanup_ipc
-                cleanup_ipc(self._get_socket())
                 if not self._stopped:
-                    try:
-                        self.app.call_from_thread(self.dismiss, False)
-                    except Exception:
-                        pass
+                    self._dismiss_from_thread(False)
                 return
 
+        self._cleanup_ipc(input_conf)
+        if not self._stopped:
+            self._dismiss_from_thread(True)
+            if title:
+                try:
+                    self.app.call_from_thread(self.app.notify, f"✓ Finished: {title[:50]}", timeout=4)
+                except Exception:
+                    pass
+
+    def _set_segments(self, segments: list[Segment]) -> None:
+        self._segments = segments
+        self._sb_next_idx = 0
+        self._segment_cols = []
+
+    def _build_command(
+        self,
+        exe: str,
+        input_conf: str,
+        title: str,
+        urls: list[str] | None,
+        page_url: str,
+        fmt: str,
+        cookie_args: list[str],
+    ) -> list[str]:
+        cmd = [
+            exe,
+            f"--input-conf={input_conf}",
+            f"--input-ipc-server={self._socket}",
+            "--no-terminal",
+            "--really-quiet",
+            "--msg-level=all=no",
+            "--cache=yes",
+            "--demuxer-max-bytes=150M",
+        ]
+        if title:
+            cmd += [f"--title={title}", f"--force-media-title={title}"]
+        if urls:
+            cmd.append("--no-ytdl")
+            if len(urls) == 2:
+                cmd.append(f"--audio-file={urls[1]}")
+            return cmd + ["--", urls[0]]
+        cmd.append(f"--ytdl-format={fmt}")
+        raw = player_mod.cookie_args_to_ytdl_raw(cookie_args)
+        if raw:
+            cmd.append(f"--ytdl-raw-options={raw}")
+        return cmd + ["--", page_url]
+
+    def _fail_launch(self, message: str) -> None:
+        self.app.call_from_thread(self.app.notify, message, severity="error")
+        self.app.call_from_thread(self.dismiss, False)
+
+    def _dismiss_from_thread(self, result: bool) -> None:
+        try:
+            self.app.call_from_thread(self.dismiss, result)
+        except Exception:
+            pass
+
+    def _cleanup_ipc(self, input_conf: str) -> None:
         try:
             os.unlink(input_conf)
         except OSError:
             pass
-        from src.player import close_persistent_socket
-        close_persistent_socket(self._get_socket())
-        from src.plat import cleanup_ipc
-        cleanup_ipc(self._get_socket())
-
-        if not self._stopped:
-            try:
-                self.app.call_from_thread(self.dismiss, True)
-            except Exception:
-                pass
-            if title:
-                try:
-                    self.app.call_from_thread(
-                        self.app.notify, f"✓ Finished: {title[:50]}", timeout=4
-                    )
-                except Exception:
-                    pass
-
-    # ── IPC polling ───────────────────────────────────────────────────────────
+        player_mod.close_persistent_socket(self._socket)
+        cleanup_ipc(self._socket)
 
     def _poll_mpv(self) -> None:
-        # Auto-dismiss if the user manually closes the external mpv window
+        # The user closed the external mpv window.
         if self._proc and self._proc.poll() is not None:
             if not self._stopped:
                 self._stopped = True
@@ -355,15 +271,13 @@ class WatchModal(ModalScreen[bool]):
 
     @work(thread=True, exclusive=True, group="mpv_poll")
     def _poll_mpv_threaded(self) -> None:
-        from src.player import poll_audio_properties
-
-        pos, dur, paused = poll_audio_properties(socket_path=self._get_socket())
+        pos, dur, paused = player_mod.poll_audio_properties(socket_path=self._socket)
         if pos is not None and dur and float(dur) > 0:
             pos_f = float(pos)
             dur_f = float(dur)
             self._dur = dur_f
 
-            # Auto-skip sponsor segments — O(1) via sorted pointer
+            # Segments are sorted by start; the pointer only moves forward.
             config = getattr(self.app, "config", None)
             if config and config.sponsorblock_auto_skip and self._segments:
                 segs = self._segments
@@ -397,8 +311,7 @@ class WatchModal(ModalScreen[bool]):
 
             self.app.call_from_thread(_update_ui)
         elif self._buffering_since > 0:
-            import time as time_mod
-            wait_s = int(time_mod.monotonic() - self._buffering_since)
+            wait_s = int(time.monotonic() - self._buffering_since)
             buf_text = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
             def _update_buf():
                 try:
@@ -406,8 +319,6 @@ class WatchModal(ModalScreen[bool]):
                 except Exception:
                     pass
             self.app.call_from_thread(_update_buf)
-
-    # ── Progress bar rendering ─────────────────────────────────────────────
 
     def _render_bar(self, pos: float, dur: float, width: int) -> str:
         width = max(4, width)
@@ -426,7 +337,6 @@ class WatchModal(ModalScreen[bool]):
                 f"[#2a2a40]{'░' * empty}[/#2a2a40]"
             )
 
-        # Rebuild segment column map only when width or duration changes
         if (
             self._segment_cols_width != width
             or self._segment_cols_dur != dur
@@ -462,42 +372,17 @@ class WatchModal(ModalScreen[bool]):
             parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
         return "".join(parts)
 
-    # ── IPC helper ────────────────────────────────────────────────────────────
-
     def _ipc(self, cmd: list) -> None:
-        from src.player import send_ipc_command
-        send_ipc_command({"command": cmd}, socket_path=self._get_socket())
-
-    # ── Key actions ───────────────────────────────────────────────────────────
+        player_mod.send_ipc_command({"command": cmd}, socket_path=self._socket)
 
     def action_pause_toggle(self) -> None:
         self._ipc(["cycle", "pause"])
 
-    def action_seek_back(self) -> None:
-        self._ipc(["seek", -5, "relative"])
+    def action_seek(self, seconds: int) -> None:
+        self._ipc(["seek", seconds, "relative"])
 
-    def action_seek_fwd(self) -> None:
-        self._ipc(["seek", 5, "relative"])
-
-    def action_seek_back_big(self) -> None:
-        self._ipc(["seek", -10, "relative"])
-
-    def action_seek_fwd_big(self) -> None:
-        self._ipc(["seek", 10, "relative"])
-
-    def _seek_pct(self, pct: int) -> None:
+    def action_seek_pct(self, pct: int) -> None:
         self._ipc(["seek", pct, "absolute-percent"])
-
-    def action_seek_pct_0(self)  -> None: self._seek_pct(0)
-    def action_seek_pct_10(self) -> None: self._seek_pct(10)
-    def action_seek_pct_20(self) -> None: self._seek_pct(20)
-    def action_seek_pct_30(self) -> None: self._seek_pct(30)
-    def action_seek_pct_40(self) -> None: self._seek_pct(40)
-    def action_seek_pct_50(self) -> None: self._seek_pct(50)
-    def action_seek_pct_60(self) -> None: self._seek_pct(60)
-    def action_seek_pct_70(self) -> None: self._seek_pct(70)
-    def action_seek_pct_80(self) -> None: self._seek_pct(80)
-    def action_seek_pct_90(self) -> None: self._seek_pct(90)
 
     def action_stop(self) -> None:
         if self._stopped:
@@ -507,7 +392,6 @@ class WatchModal(ModalScreen[bool]):
             self._poll_timer.stop()
             self._poll_timer = None
         self._ipc(["quit"])
-        from src.plat import terminate_process, ProcessRegistry
         terminate_process(self._proc, timeout=2.0)
         if self._proc:
             ProcessRegistry.get().unregister(self._proc)

@@ -29,7 +29,6 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 # New layout (post-2026-05): code lives under \Programs\TermTube, data under
 # \TermTube. We also detect the legacy layout where code lived directly under
 # \TermTube and conflicted with the data dir.
@@ -42,13 +41,11 @@ $MpvDir       = Join-Path $DataDir "mpv"                  # bundled standalone m
 $DepsDir      = Join-Path $env:LOCALAPPDATA "termtube-deps"  # bootstrap-managed deps
 $TempDir      = Join-Path $env:TEMP "TermTube"
 
-# ── Output Helpers ────────────────────────────────────────────────────────────
 function Write-Info    { param($Msg) Write-Host "  > " -NoNewline -ForegroundColor Cyan; Write-Host $Msg }
 function Write-Success { param($Msg) Write-Host "  + " -NoNewline -ForegroundColor Green; Write-Host $Msg }
 function Write-Warn    { param($Msg) Write-Host "  ! " -NoNewline -ForegroundColor Yellow; Write-Host $Msg }
 function Write-Err     { param($Msg) Write-Host "  x " -NoNewline -ForegroundColor Red; Write-Host $Msg }
 
-# ── Help ──────────────────────────────────────────────────────────────────────
 if ($Help) {
     Write-Host @"
 
@@ -71,7 +68,6 @@ if ($Help) {
     exit 0
 }
 
-# ── Discovery ─────────────────────────────────────────────────────────────────
 Write-Host ""
 $title = "TermTube Uninstaller"
 $width = 37
@@ -172,7 +168,6 @@ if (-not $Purge) {
     Write-Host "      Use -Purge to remove everything." -ForegroundColor DarkGray
 }
 
-# ── Confirmation ──────────────────────────────────────────────────────────────
 if (-not $Force) {
     Write-Host ""
     $reply = Read-Host "  Proceed with uninstall? [y/N]"
@@ -183,7 +178,6 @@ if (-not $Force) {
     }
 }
 
-# ── Kill Running Processes ────────────────────────────────────────────────────
 $procs = Get-Process -Name "python*" -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -like "*TermTube*" }
 if ($procs) {
@@ -192,7 +186,6 @@ if ($procs) {
     Start-Sleep -Seconds 1
 }
 
-# ── Removal ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  Removing..." -ForegroundColor White
 
@@ -234,7 +227,6 @@ if ($Purge) {
     Remove-SafeItem $DataDir   "Data directory"
 }
 
-# ── Clean PATH ────────────────────────────────────────────────────────────────
 # Strip both the new $AppDir and the historical $BinDir from user PATH.
 $legacyBinDir = Join-Path $env:LOCALAPPDATA "Programs\TermTube"   # same as $AppDir today
 $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
@@ -249,7 +241,6 @@ if ($userPath) {
     }
 }
 
-# ── Summary ───────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host ("  " + ("=" * 41)) -ForegroundColor White
 Write-Host "  TermTube uninstalled successfully." -ForegroundColor Green

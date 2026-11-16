@@ -1,5 +1,3 @@
-"""YtdlpUpdateModal — prompt to update yt-dlp when extraction errors occur."""
-
 from __future__ import annotations
 
 from textual.app import ComposeResult
@@ -10,10 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 
 class YtdlpUpdateModal(ModalScreen[str]):
-    """
-    Shown when feed loading fails with extraction errors.
-    Dismisses with "update" or "skip".
-    """
+    """Shown on feed extraction errors. Dismisses with "update" or "skip"."""
 
     BINDINGS = [Binding("escape", "dismiss_modal", "Cancel", show=False)]
 

@@ -6,7 +6,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
-from src.ytdlp import QUALITY_CHOICES
+from src.downloads import QUALITY_CHOICES
 
 _VIDEO_DL_QUALITY = QUALITY_CHOICES
 _AUDIO_DL_QUALITY = [
@@ -28,11 +28,7 @@ class _SelectItem(ListItem):
 
 
 class DownloadPickerModal(ModalScreen):
-    """Two-step modal: choose Video or Audio, then quality.
-
-    Dismisses with (type, fmt_string) or None on cancel.
-    Esc on step 2 goes back to step 1.
-    """
+    """Choose video or audio, then quality. Dismisses with (type, format) or None; Esc on step 2 goes back."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True),
@@ -74,10 +70,8 @@ class DownloadPickerModal(ModalScreen):
         lv.clear()
         self.query_one("#dlpick-sub", Static).update("Choose format")
         c = self._theme_color()
-        ob = chr(91) + "bold " + c + chr(93)
-        cb = chr(91) + "/bold " + c + chr(93)
         for key, label in _TYPE_CHOICES:
-            lv.append(_SelectItem(key, ob + label + cb))
+            lv.append(_SelectItem(key, f"[bold {c}]{label}[/bold {c}]"))
         lv.focus()
 
     def _render_step2(self) -> None:

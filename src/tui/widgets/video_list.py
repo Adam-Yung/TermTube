@@ -1,16 +1,8 @@
-"""VideoListPanel — paged video list with fixed 20-entry pages.
-
-Architecture:
-- Holds all fetched pages in `_pages` dict (page_num → list of entries).
-- Displays one page at a time via `load_page()`.
-- PageIndicator at the bottom for ◀ / ▶ navigation.
-- Page switches are only allowed when the target page is ready.
-- Deduplication across all pages via `_seen_ids` set.
-"""
+"""Paged video list: fixed-size pages held in memory, one shown at a time."""
 
 from __future__ import annotations
 
-import time as _time
+import time
 
 from textual.app import ComposeResult
 from textual.events import Click
@@ -19,34 +11,29 @@ from textual.widget import Widget
 from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 from src import logger
+from src.tui.fmt import fmt_age, fmt_duration, fmt_subscribers, fmt_views
+from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
 
 PAGE_SIZE = 20
 _MAX_PAGES_IN_MEMORY = 30
 
 
-# ── Private click messages (internal to this module) ──────────────────────────
-
 class _ItemClicked(Message):
-    """Fired by VideoListItem on a single mouse click."""
     def __init__(self, entry: dict) -> None:
         super().__init__()
         self.entry = entry
 
 
 class _ItemDoubleClicked(Message):
-    """Fired by VideoListItem on a double mouse click."""
     def __init__(self, entry: dict) -> None:
         super().__init__()
         self.entry = entry
 
-from src.tui.fmt import fmt_duration as _fmt_duration, fmt_views as _fmt_views, fmt_age as _fmt_age
-
-
 def _fmt_watched(ts: float | None) -> str:
     if not ts:
         return ""
-    delta = _time.time() - ts
+    delta = time.time() - ts
     if delta < 60:
         return "watched just now"
     if delta < 3600:
@@ -69,24 +56,15 @@ class VideoListItem(ListItem):
         yield Static(self._cached_markup, markup=True, shrink=True)
 
     def on_click(self, event: Click) -> None:
-        """Single click: focus if not already focused, activate if already focused."""
         event.stop()
         event.prevent_default()
         self.post_message(_ItemClicked(self.entry))
 
     def on_double_click(self, event: Click) -> None:
-        """Double click: focus this item then activate."""
         event.stop()
         event.prevent_default()
-        try:
-            lv = self.parent
-            if lv is not None:
-                for i, child in enumerate(lv.children):
-                    if child is self:
-                        lv.index = i  # type: ignore[attr-defined]
-                        break
-        except Exception:
-            pass
+        if isinstance(self.parent, ListView):
+            self.parent.index = self.parent.children.index(self)
         self.post_message(_ItemDoubleClicked(self.entry))
 
     def _build_markup(self) -> str:
@@ -95,19 +73,14 @@ class VideoListItem(ListItem):
         except Exception:
             theme = "crimson"
 
-        theme_color = {
-            "crimson": "#ff6666",
-            "amber": "#e8820c",
-            "ocean": "#0ea5e9",
-            "midnight": "#a855f7",
-        }.get(theme, "#ff6666")
+        theme_color = THEME_COLORS.get(theme, "#ff6666")
 
         entry = self.entry
         title = entry.get("title") or "Untitled"
         channel = entry.get("uploader") or entry.get("channel") or ""
-        duration = _fmt_duration(entry.get("duration"))
-        views = _fmt_views(entry.get("view_count"))
-        age = _fmt_age(entry.get("upload_date"))
+        duration = fmt_duration(entry.get("duration"))
+        views = fmt_views(entry.get("view_count"))
+        age = fmt_age(entry.get("upload_date")) or entry.get("published_text", "")
         watched = _fmt_watched(entry.get("_watched_at"))
 
         local_type = entry.get("_local_type", "")
@@ -117,23 +90,14 @@ class VideoListItem(ListItem):
 
         if is_channel:
             ch_name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"
-            if len(ch_name) > 50: ch_name = ch_name[:47] + "..."
-            subs = entry.get("subscriber_count")
+            if len(ch_name) > 50:
+                ch_name = ch_name[:47] + "..."
+            subs = fmt_subscribers(entry.get("subscriber_count"))
             vcnt = entry.get("video_count")
-            subs_s = ""
-            if subs is not None:
-                if subs >= 1000000: subs_s = str(round(subs * 1e-6, 1)) + "M"
-                elif subs >= 1000: subs_s = str(int(subs * 0.001)) + "K"
-                else: subs_s = str(subs)
-                subs_s += " subs"
-            vcnt_s = str(vcnt) + " videos" if vcnt else ""
-            parts = [p for p in [subs_s, vcnt_s] if p]
-            sep = "  [dim]·[/dim]  "
-            line2 = sep.join("[dim]" + p + "[/dim]" for p in parts)
-            ch_badge = " [" + theme_color + "]📺[/" + theme_color + "]"
-            line1 = "[bold white]" + ch_name + "[/bold white]" + ch_badge
-            return (line1 + chr(10) + line2) if line2 else line1
-
+            parts = [f"{subs} subs" if subs else "", f"{vcnt} videos" if vcnt else ""]
+            line2 = "  [dim]·[/dim]  ".join(f"[dim]{p}[/dim]" for p in parts if p)
+            line1 = f"[bold white]{ch_name}[/bold white] [{theme_color}]📺[/{theme_color}]"
+            return f"{line1}\n{line2}" if line2 else line1
 
         if is_playlist:
             badge = " [#6b9eff]▶ PLAYLIST[/]"
@@ -168,9 +132,7 @@ class VideoListItem(ListItem):
 
 
 class VideoListPanel(Widget):
-    """Paged video list panel. Shows PAGE_SIZE entries at a time."""
-
-    # ── Messages ──────────────────────────────────────────────────────────────
+    """Pages of ``PAGE_SIZE`` entries, deduplicated by id across pages."""
 
     class Selected(Message):
         """Cursor moved to a new item."""
@@ -190,8 +152,6 @@ class VideoListPanel(Widget):
             super().__init__()
             self.direction = direction
 
-    # ── Init / compose / mount ────────────────────────────────────────────────
-
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._pages: dict[int, list[dict]] = {}
@@ -199,8 +159,6 @@ class VideoListPanel(Widget):
         self._current_page: int = 0
         self._max_visited_page: int = 0
         self._is_loading: bool = False
-        self._prefetching: bool = False
-        self._freshness: str = ""
         self._items_by_id: dict[str, VideoListItem] = {}
         self._lv: ListView
         self._anim: LoadingIndicator
@@ -220,8 +178,6 @@ class VideoListPanel(Widget):
         self._page_indicator = self.query_one("#list-page-indicator", PageIndicator)
         self._lv.focus()
 
-    # ── Public properties ─────────────────────────────────────────────────────
-
     @property
     def selected_entry(self) -> dict | None:
         if self._lv.index is None:
@@ -239,21 +195,15 @@ class VideoListPanel(Widget):
         return self._current_page
 
     @property
-    def max_visited_page(self) -> int:
-        return self._max_visited_page
-
-    @property
     def total_pages(self) -> int:
-        return max(len(self._pages), 1)
+        return max(self._pages, default=1)
 
     @property
     def is_loading(self) -> bool:
         return self._is_loading
 
-    # ── Page management ───────────────────────────────────────────────────────
-
     def add_page(self, page_num: int, entries: list[dict]) -> None:
-        """Store a fetched page. Deduplicates by video ID across all pages."""
+        """Store a page, dropping ids already held. Evicts far-away pages beyond the cap."""
         deduped: list[dict] = []
         for entry in entries:
             vid = entry.get("id", "")
@@ -263,7 +213,6 @@ class VideoListPanel(Widget):
                 self._seen_ids.add(vid)
             deduped.append(entry)
         self._pages[page_num] = deduped
-        # Evict oldest pages if we exceed the cap
         if len(self._pages) > _MAX_PAGES_IN_MEMORY:
             keep_min = max(1, self._current_page - 2)
             keep_max = self._current_page + 2
@@ -279,8 +228,8 @@ class VideoListPanel(Widget):
         self._update_page_indicator()
         logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
 
-    def load_page(self, page_num: int) -> bool:
-        """Display a specific page. Returns False if page not available."""
+    def load_page(self, page_num: int, *, cursor: str = "first") -> bool:
+        """Display a page with the cursor on its first or last row. False if the page is not held."""
         if page_num not in self._pages:
             return False
 
@@ -307,48 +256,39 @@ class VideoListPanel(Widget):
         self._lv.extend(items_to_mount)
 
         if entries:
-            self._lv.call_after_refresh(lambda: setattr(self._lv, "index", 0))
+            row = len(entries) - 1 if cursor == "last" else 0
+            self._lv.call_after_refresh(lambda: setattr(self._lv, "index", row))
 
         self._lv.focus()
         self._update_page_indicator()
         return True
 
     def can_go_next(self) -> bool:
-        """True if the next page exists and we're not loading."""
         if self._is_loading:
             return False
         return (self._current_page + 1) in self._pages
 
     def can_go_prev(self) -> bool:
-        """True if previous page exists and we're not loading."""
         if self._is_loading:
             return False
         return self._current_page > 1 and (self._current_page - 1) in self._pages
 
-    def page_entries(self, page_num: int) -> list[dict]:
-        """Return entries for a given page number, or empty list."""
-        return self._pages.get(page_num, [])
-
     def all_unseen_entries(self) -> list[dict]:
-        """Return entries from pages the user hasn't visited, for stashing."""
+        """Entries of pages the user never opened (the home stash)."""
         entries: list[dict] = []
         for pn in sorted(self._pages.keys()):
             if pn > self._max_visited_page:
                 entries.extend(self._pages[pn])
         return entries
 
-    # ── State management ──────────────────────────────────────────────────────
-
     def clear_and_set_loading(self) -> None:
-        """Full reset: wipe all pages and show loading indicator."""
+        """Wipe all pages and show the loading indicator."""
         self._pages.clear()
         self._seen_ids.clear()
         self._items_by_id.clear()
         self._current_page = 0
         self._max_visited_page = 0
         self._is_loading = True
-        self._prefetching = False
-        self._freshness = ""
 
         self._anim.display = True
         self._lv.display = False
@@ -358,7 +298,6 @@ class VideoListPanel(Widget):
         self._update_page_indicator()
 
     def finish_loading(self) -> None:
-        """Mark loading as done."""
         self._is_loading = False
         if self._anim.display:
             self._anim.display = False
@@ -367,7 +306,7 @@ class VideoListPanel(Widget):
         self._update_page_indicator()
 
     def show_next_page_loading(self) -> None:
-        """Advance to the next page number and show the loading spinner."""
+        """Reserve the next page number and show the spinner until ``add_entries``/``load_page``."""
         self._current_page += 1
         self._is_loading = True
         self._items_by_id.clear()
@@ -375,9 +314,6 @@ class VideoListPanel(Widget):
         self._anim.display = True
         self._lv.display = False
         self._update_page_indicator()
-
-    def set_freshness(self, text: str) -> None:
-        self._freshness = text or ""
 
     def set_breadcrumb(self, text: str) -> None:
         self._breadcrumb.update(f"[dim]{text}[/dim]")
@@ -394,10 +330,8 @@ class VideoListPanel(Widget):
         self._lv.display = True
         self._breadcrumb.update(f"[#ff4444]{msg}[/#ff4444]")
 
-    # ── Entry management ──────────────────────────────────────────────────────
-
     def update_entry_by_id(self, vid_id: str, entry: dict) -> None:
-        """In-place update of an already-visible list item (enrichment callback)."""
+        """Replace an entry (held page and visible row) with its enriched version."""
         for pn, page_entries in self._pages.items():
             for i, e in enumerate(page_entries):
                 if e.get("id") == vid_id:
@@ -417,10 +351,24 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    # ── Cursor helpers (used by MainScreen) ───────────────────────────────────
+    def add_entries(self, start_page: int, entries: list[dict]) -> None:
+        """Add ``entries`` as consecutive PAGE_SIZE pages starting at ``start_page``."""
+        for n, i in enumerate(range(0, len(entries), PAGE_SIZE)):
+            self.add_page(start_page + n, entries[i:i + PAGE_SIZE])
 
-    def cursor_index(self) -> int | None:
-        return self._lv.index
+    @property
+    def seen_ids(self) -> set[str]:
+        return set(self._seen_ids)
+
+    def visited_entries(self) -> list[dict]:
+        """Entries of every held page, in page order."""
+        return [e for pn in sorted(self._pages) for e in self._pages[pn]]
+
+    def focus_list(self) -> None:
+        self._lv.focus()
+
+    def list_has_focus(self) -> bool:
+        return self.app.focused is self._lv
 
     def cursor_down(self) -> None:
         self._lv.action_cursor_down()
@@ -428,7 +376,12 @@ class VideoListPanel(Widget):
     def cursor_up(self) -> None:
         self._lv.action_cursor_up()
 
-    # ── Internal helpers ──────────────────────────────────────────────────────
+    def cursor_first(self) -> None:
+        self._lv.index = 0
+
+    def cursor_last(self) -> None:
+        if len(self._lv):
+            self._lv.index = len(self._lv) - 1
 
     def _update_page_indicator(self) -> None:
         try:
@@ -439,15 +392,11 @@ class VideoListPanel(Widget):
                 current=current,
                 total=total,
                 next_ready=next_ready,
-                prefetching=self._prefetching,
             )
         except Exception:
             pass
 
-    # ── Event handlers ────────────────────────────────────────────────────────
-
     def on__item_clicked(self, msg: _ItemClicked) -> None:
-        """Single click: move highlight if not focused; activate if already focused."""
         highlighted = self._lv.highlighted_child
         already_focused = (
             isinstance(highlighted, VideoListItem)
@@ -462,7 +411,6 @@ class VideoListPanel(Widget):
                     break
 
     def on__item_double_clicked(self, msg: _ItemDoubleClicked) -> None:
-        """Double click: activate (highlight was already moved by VideoListItem)."""
         self.post_message(self.Activated(msg.entry))
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:

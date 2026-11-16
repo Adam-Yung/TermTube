@@ -3,7 +3,6 @@
 
 set -euo pipefail
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 readonly APP_DIR="$HOME/.local/share/TermTube"
 readonly BIN_LINK="$HOME/.local/bin/termtube"
 readonly CONFIG_DIR="$HOME/.config/TermTube"
@@ -11,7 +10,6 @@ readonly CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/TermTube"
 readonly LOG_DIR="${TMPDIR:-/tmp}/TermTube"
 readonly DEPS_DIR="$HOME/.local/termtube-deps"
 
-# ── Colours & Output ──────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
     RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
     BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
@@ -24,7 +22,6 @@ success() { echo -e "  ${GREEN}✓${RESET} $*"; }
 warn()    { echo -e "  ${YELLOW}⚠${RESET}  $*"; }
 error()   { echo -e "  ${RED}✗${RESET} $*" >&2; }
 
-# ── Argument Parsing ──────────────────────────────────────────────────────────
 PURGE=false
 FORCE=false
 
@@ -58,7 +55,6 @@ EOF
     esac
 done
 
-# ── Discovery ─────────────────────────────────────────────────────────────────
 _box_center() {
     local text="$1" w="$2"
     local len=${#text}
@@ -132,7 +128,6 @@ if [[ "$PURGE" != true ]]; then
     echo -e "      ${DIM}Use --purge to remove everything.${RESET}"
 fi
 
-# ── Confirmation ──────────────────────────────────────────────────────────────
 if [[ "$FORCE" != true ]]; then
     echo ""
     read -r -p "  Proceed with uninstall? [y/N] " reply
@@ -143,7 +138,6 @@ if [[ "$FORCE" != true ]]; then
     fi
 fi
 
-# ── Kill running processes ────────────────────────────────────────────────────
 if pgrep -f "termtube" &>/dev/null 2>&1; then
     warn "TermTube process detected. Stopping…"
     pkill -f "termtube" 2>/dev/null || true
@@ -155,7 +149,6 @@ if [[ -S "/tmp/termtube-mpv.sock" ]]; then
     rm -f "/tmp/termtube-mpv.sock"
 fi
 
-# ── Removal ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "  ${BOLD}Removing…${RESET}"
 
@@ -180,7 +173,6 @@ if [[ "$PURGE" == true ]]; then
     remove_item "$LOG_DIR"    "Log files"
 fi
 
-# ── Summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo -e "${GREEN}${BOLD}  TermTube uninstalled successfully.${RESET}"

@@ -1,9 +1,10 @@
-"""Disk-based cache with per-key TTL."""
+"""Disk cache for video metadata, feed id lists, suppression state and the home stash."""
 
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import threading
 import time
 from collections import OrderedDict
@@ -16,14 +17,12 @@ CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"
 VIDEO_DIR = CACHE_DIR / "videos"
 
-# Protected playlist cache — not subject to eviction
+# Playlist copies; pruning never touches these.
 PLAYLIST_VIDEO_DIR = CACHE_DIR / "playlist_videos"
 PLAYLIST_THUMB_DIR = CACHE_DIR / "playlist_thumbs"
 
 _SUPPRESSED_PATH = CACHE_DIR / "suppressed.json"
 
-# Lock protecting all cache file writes so concurrent enrichment threads don't
-# interleave partial writes on the same file.
 _write_lock = threading.Lock()
 
 
@@ -38,7 +37,7 @@ _ensure_dirs()
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write text to path atomically via a tmp file + os.replace()."""
+    """Write via a tmp file and ``os.replace`` so readers never see a partial file. Silently drops on OSError."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
@@ -58,7 +57,7 @@ class Cache:
     _RAM_CACHE_MAX = 64
 
     def __init__(self, ttl_map: dict[str, int]) -> None:
-        self._ttl = ttl_map  # e.g. {"home": 3600, "metadata": 86400}
+        self._ttl = ttl_map
         self._suppressed: OrderedDict[str, None] = OrderedDict()
         self._focus_counts: dict[str, int] = {}
         self._suppression_loaded = False
@@ -66,9 +65,14 @@ class Cache:
         self._ram_cache: OrderedDict[str, dict] = OrderedDict()
         self._ram_lock = threading.Lock()
 
-    # ── Video metadata ────────────────────────────────────────────────────────
+    def _ram_put(self, video_id: str, data: dict) -> None:
+        with self._ram_lock:
+            self._ram_cache[video_id] = data
+            if len(self._ram_cache) > self._RAM_CACHE_MAX:
+                self._ram_cache.popitem(last=False)
 
     def get_video(self, video_id: str) -> dict | None:
+        """Cached entry within the ``metadata`` TTL, else None. Checks RAM, then disk."""
         with self._ram_lock:
             if video_id in self._ram_cache:
                 self._ram_cache.move_to_end(video_id)
@@ -88,16 +92,12 @@ class Cache:
             ttl = self._ttl.get("metadata", 86400)
             if age > ttl:
                 return None
-            with self._ram_lock:
-                self._ram_cache[video_id] = data
-                if len(self._ram_cache) > self._RAM_CACHE_MAX:
-                    self._ram_cache.popitem(last=False)
+            self._ram_put(video_id, data)
             return data
         except (json.JSONDecodeError, OSError):
             return None
 
-    # Fields from a full yt-dlp fetch that are large and never read back from
-    # cache.  Stripping them cuts average JSON size from ~48 KB to ~2 KB.
+    # Large yt-dlp fields never read back; stripping them cuts a full-fetch entry from ~48 KB to ~2 KB.
     _FAT_FIELDS = frozenset({
         "formats",
         "requested_formats",
@@ -117,14 +117,11 @@ class Cache:
         path = VIDEO_DIR / f"{vid}.json"
         with _write_lock:
             _atomic_write(path, json.dumps(slim, ensure_ascii=False))
-        with self._ram_lock:
-            self._ram_cache[vid] = slim
-            if len(self._ram_cache) > self._RAM_CACHE_MAX:
-                self._ram_cache.popitem(last=False)
+        self._ram_put(vid, slim)
         logger.debug("cache.put_video %s (%d keys)", vid, len(slim))
 
     def get_video_raw(self, video_id: str) -> dict | None:
-        """Get cached entry regardless of TTL (used by preview script)."""
+        """Cached entry regardless of TTL, falling back to the pinned playlist copy."""
         with self._ram_lock:
             if video_id in self._ram_cache:
                 self._ram_cache.move_to_end(video_id)
@@ -137,18 +134,13 @@ class Cache:
             return None
         try:
             data = json.loads(path.read_text())
-            with self._ram_lock:
-                self._ram_cache[video_id] = data
-                if len(self._ram_cache) > self._RAM_CACHE_MAX:
-                    self._ram_cache.popitem(last=False)
+            self._ram_put(video_id, data)
             return data
         except (json.JSONDecodeError, OSError):
             return None
 
-    # ── Feed lists ────────────────────────────────────────────────────────────
-
     def get_feed(self, key: str) -> list[str] | None:
-        """Returns list of video IDs for a feed, or None if stale/missing."""
+        """Video ids of a feed, or None if missing or past its TTL (default 1 h)."""
         path = CACHE_DIR / f"feed_{key}.json"
         if not path.exists():
             return None
@@ -161,32 +153,9 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return None
 
-    def get_feed_stale(self, key: str) -> list[str] | None:
-        """Return cached feed IDs even if TTL has expired (stale-while-revalidate).
-        Returns None only if no cache file exists at all."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
-        try:
-            data = json.loads(path.read_text())
-            return data.get("ids") or None
-        except (json.JSONDecodeError, OSError):
-            return None
-
     def is_feed_fresh(self, key: str) -> bool:
         """True if the feed cache exists and is within TTL."""
         return self.get_feed(key) is not None
-
-    def feed_age(self, key: str) -> float | None:
-        """Return age (seconds) of the cached feed file, or None if no cache exists."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
-        try:
-            mtime = path.stat().st_mtime
-            return max(0.0, time.time() - mtime)
-        except OSError:
-            return None
 
     def put_feed(self, key: str, ids: list[str]) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
@@ -194,10 +163,8 @@ class Cache:
             _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
         logger.debug("cache.put_feed %s (%d ids)", key, len(ids))
 
-    # ── Home feed suppression ─────────────────────────────────────────────────
-
     def _load_suppressed(self) -> None:
-        """Load suppression set from disk (once per process)."""
+        """Load suppression state from disk, once per process."""
         with self._suppression_lock:
             if self._suppression_loaded:
                 return
@@ -207,9 +174,7 @@ class Cache:
             try:
                 data = json.loads(_SUPPRESSED_PATH.read_text())
                 self._suppressed = OrderedDict.fromkeys(data.get("ids", []))
-                self._focus_counts = {
-                    k: v for k, v in data.get("focus_counts", {}).items()
-                }
+                self._focus_counts = dict(data.get("focus_counts", {}))
             except (json.JSONDecodeError, OSError):
                 pass
 
@@ -227,11 +192,7 @@ class Cache:
             )
 
     def register_focus(self, video_id: str) -> None:
-        """Increment focus count for a video; suppress after 3 focuses.
-
-        Counts are accumulated in memory and only flushed to disk when the
-        suppression threshold is crossed — no disk I/O on every cursor move.
-        """
+        """Count a focus; the third suppresses the video. Counts stay in memory until a suppression flushes."""
         self._load_suppressed()
         with self._suppression_lock:
             if video_id in self._suppressed:
@@ -245,29 +206,26 @@ class Cache:
             self._prune_focus_counts()
 
     def _prune_focus_counts(self) -> None:
-        """Cap _focus_counts at 5000 entries to prevent unbounded growth."""
+        """Cap ``_focus_counts`` at 5000: drop suppressed ids first, then the lowest counts."""
         if len(self._focus_counts) <= 5000:
             return
-        # Remove entries already suppressed (they won't be incremented again)
         self._focus_counts = {
             k: v for k, v in self._focus_counts.items()
             if k not in self._suppressed
         }
         if len(self._focus_counts) <= 5000:
             return
-        # Still over cap: remove lowest-count entries
         sorted_items = sorted(self._focus_counts.items(), key=lambda x: x[1])
         keep = sorted_items[len(sorted_items) - 5000:]
         self._focus_counts = dict(keep)
 
     def suppress_video(self, video_id: str) -> None:
-        """Immediately suppress a video (e.g. after listening to it)."""
+        """Suppress a video now. Past 2000 suppressed ids the oldest are evicted down to 1500."""
         self._load_suppressed()
         with self._suppression_lock:
             if video_id not in self._suppressed:
                 self._suppressed[video_id] = None
                 if len(self._suppressed) > 2000:
-                    # Evict oldest entries (first in insertion order)
                     while len(self._suppressed) > 1500:
                         self._suppressed.popitem(last=False)
                 self._save_suppressed()
@@ -277,13 +235,6 @@ class Cache:
         self._load_suppressed()
         return video_id in self._suppressed
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
-
-    # ── Home-feed quick-start stash ───────────────────────────────────────────
-    # Up to _STASH_SIZE full entry dicts from the previous session's unconsumed
-    # buffer are saved here so the next boot can show something instantly while
-    # the fresh 100-entry background fetch is running.
-
     _STASH_SIZE = 20
 
     @property
@@ -291,11 +242,7 @@ class Cache:
         return CACHE_DIR / "feed_home_stash.json"
 
     def get_home_stash(self) -> list[dict]:
-        """Return up to _STASH_SIZE stashed entries from the previous session.
-
-        These represent the first unseen page from last session, ensuring fresh
-        content on every boot. Never raises; returns [] on any error.
-        """
+        """The previous session's stashed home entries (first unseen page); [] on any error."""
         path = self._stash_path
         if not path.exists():
             return []
@@ -309,12 +256,7 @@ class Cache:
             return []
 
     def put_home_stash(self, entries: list[dict]) -> None:
-        """Atomically write up to _STASH_SIZE entries to the stash file.
-
-        Called on exit with the first unseen page's entries. If fewer than
-        _STASH_SIZE entries are provided, the caller should backfill so the
-        user always gets a full page on next boot.
-        """
+        """Write up to ``_STASH_SIZE`` entries; the caller backfills so the next boot gets a full page."""
         slim = entries[: self._STASH_SIZE]
         try:
             with _write_lock:
@@ -330,7 +272,7 @@ class Cache:
             pass
 
     def clear_home_stash(self) -> None:
-        """Delete the stash file (used by R-refresh)."""
+        """Delete the stash file."""
         try:
             self._stash_path.unlink(missing_ok=True)
             logger.debug("cache.clear_home_stash")
@@ -346,100 +288,57 @@ class Cache:
             pass
 
     def clear_all(self) -> None:
-        feeds = videos = thumbs = 0
-        for f in CACHE_DIR.glob("feed_*.json"):
-            f.unlink(missing_ok=True); feeds += 1
-        for f in VIDEO_DIR.glob("*.json"):
-            f.unlink(missing_ok=True); videos += 1
-        for f in THUMB_DIR.glob("*.jpg"):
-            f.unlink(missing_ok=True); thumbs += 1
+        counts = []
+        for directory, pattern in ((CACHE_DIR, "feed_*.json"), (VIDEO_DIR, "*.json"), (THUMB_DIR, "*.jpg")):
+            files = list(directory.glob(pattern))
+            for f in files:
+                f.unlink(missing_ok=True)
+            counts.append(len(files))
+        feeds, videos, thumbs = counts
         logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
 
-    def prune_video_cache_fifo(self, max_count: int = 100) -> None:
-        """Enforce a hard cap on video metadata cache entries (FIFO by mtime).
+    @staticmethod
+    def _prune_dir(directory: Path, pattern: str, max_age_days: int | None, max_count: int) -> tuple[int, int]:
+        """Delete files older than ``max_age_days`` (if given), then the oldest by mtime beyond ``max_count``.
 
-        Evicts the oldest entries by file modification time until
-        only max_count remain. Called after batch fetches to keep the
-        cache lean.
+        Returns ``(expired, capped)``.
         """
+        cutoff = time.time() - max_age_days * 86400 if max_age_days is not None else None
         files: list[tuple[float, Path]] = []
-        for f in VIDEO_DIR.glob("*.json"):
+        expired = 0
+        for f in directory.glob(pattern):
             try:
-                files.append((f.stat().st_mtime, f))
+                mtime = f.stat().st_mtime
+                if cutoff is not None and mtime < cutoff:
+                    f.unlink(missing_ok=True)
+                    expired += 1
+                else:
+                    files.append((mtime, f))
             except OSError:
                 pass
-        if len(files) <= max_count:
-            return
+        capped = max(0, len(files) - max_count)
         files.sort()
-        evict_count = len(files) - max_count
-        for _, f in files[:evict_count]:
+        for _, f in files[:capped]:
             f.unlink(missing_ok=True)
-        logger.debug("prune_video_cache_fifo: evicted %d, kept %d", evict_count, max_count)
+        return expired, capped
+
+    def prune_video_cache_fifo(self, max_count: int = 100) -> None:
+        """Cap video metadata files at ``max_count``, evicting the oldest by mtime."""
+        _, capped = self._prune_dir(VIDEO_DIR, "*.json", None, max_count)
+        if capped:
+            logger.debug("prune_video_cache_fifo: evicted %d", capped)
 
     def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
-        """Delete thumbnails older than max_age_days, then enforce max_count cap."""
-        cutoff = time.time() - max_age_days * 86400
-        files: list[tuple[float, Path]] = []
-        deleted = 0
-        for f in THUMB_DIR.glob("*.jpg"):
-            try:
-                mtime = f.stat().st_mtime
-                if mtime < cutoff:
-                    f.unlink(missing_ok=True)
-                    deleted += 1
-                else:
-                    files.append((mtime, f))
-            except OSError:
-                pass
-        # Hard cap: evict oldest by access time if still over limit.
-        capped = 0
-        if len(files) > max_count:
-            files.sort()
-            for _, f in files[: len(files) - max_count]:
-                f.unlink(missing_ok=True)
-                capped += 1
-        logger.debug("prune_old_thumbnails: %d expired, %d capped, %d kept",
-                     deleted, capped, max(0, len(files) - capped))
+        expired, capped = self._prune_dir(THUMB_DIR, "*.jpg", max_age_days, max_count)
+        logger.debug("prune_old_thumbnails: %d expired, %d capped", expired, capped)
 
     def prune_old_videos(self, max_age_days: int = 3, max_count: int = 100) -> None:
-        """Delete video JSONs older than max_age_days, then enforce max_count cap.
-
-        Uses file mtime as a proxy for cache age. Since put_video() always
-        creates a new file via atomic write, mtime reflects when the entry
-        was last cached/refreshed.
-        """
-        now = time.time()
-        cutoff = now - max_age_days * 86400
-        files: list[tuple[float, Path]] = []
-        deleted = 0
-        for f in VIDEO_DIR.glob("*.json"):
-            try:
-                mtime = f.stat().st_mtime
-                if mtime < cutoff:
-                    f.unlink(missing_ok=True)
-                    deleted += 1
-                else:
-                    files.append((mtime, f))
-            except OSError:
-                pass
-        # Hard cap: evict oldest by mtime if still over limit.
-        capped = 0
-        if len(files) > max_count:
-            files.sort()
-            for _, f in files[: len(files) - max_count]:
-                f.unlink(missing_ok=True)
-                capped += 1
-        logger.debug("prune_old_videos: %d expired, %d capped, %d kept",
-                     deleted, capped, max(0, len(files) - capped))
-
-    # ── Playlist pinning (protected from eviction) ─────────────────────────────
+        """mtime is the cache age: ``put_video`` always rewrites the file."""
+        expired, capped = self._prune_dir(VIDEO_DIR, "*.json", max_age_days, max_count)
+        logger.debug("prune_old_videos: %d expired, %d capped", expired, capped)
 
     def pin_video(self, video_id: str, entry: dict | None = None) -> None:
-        """Copy video metadata to the protected playlist cache.
-
-        If entry is provided, writes it directly. Otherwise copies from
-        the main video cache if available.
-        """
+        """Copy ``entry`` (default: the cached entry) into the playlist cache that pruning skips."""
         if entry is None:
             entry = self.get_video_raw(video_id)
         if entry is None:
@@ -450,8 +349,7 @@ class Cache:
         logger.debug("cache.pin_video %s", video_id)
 
     def pin_thumb(self, video_id: str) -> None:
-        """Copy thumbnail to the protected playlist cache."""
-        import shutil
+        """Copy the thumbnail into the playlist cache that pruning skips."""
         src = THUMB_DIR / f"{video_id}.jpg"
         if not src.exists():
             return
@@ -465,7 +363,7 @@ class Cache:
             pass
 
     def unpin_video(self, video_id: str) -> None:
-        """Remove video from the protected playlist cache."""
+        """Remove the video and thumbnail from the playlist cache."""
         for path in (
             PLAYLIST_VIDEO_DIR / f"{video_id}.json",
             PLAYLIST_THUMB_DIR / f"{video_id}.jpg",
@@ -477,7 +375,7 @@ class Cache:
         logger.debug("cache.unpin_video %s", video_id)
 
     def pin_all_playlist_videos(self) -> None:
-        """One-time migration: pin all videos currently in any playlist."""
+        """Pin every video in any playlist (startup migration; skips already-pinned)."""
         from src import playlist
         all_ids: set[str] = set()
         for name in playlist.list_names():

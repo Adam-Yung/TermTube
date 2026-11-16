@@ -1,4 +1,4 @@
-"""Local watch history â tracks videos watched via this TUI (not Google account)."""
+"""Local watch history (videos played in this TUI), capped at 500 entries."""
 
 from __future__ import annotations
 import json
@@ -6,15 +6,12 @@ import os
 import tempfile
 import threading
 import time
-from pathlib import Path
-from typing import Iterator
 
 from src.plat import get_config_dir
 
 HISTORY_PATH = get_config_dir() / "history.json"
 
-# Module-level in-memory cache â populated on first load, mutated on add().
-# Avoids a full JSON read + write round-trip for every play event.
+_MAX_ENTRIES = 500
 _cache: list[dict] | None = None
 
 _lock = threading.Lock()
@@ -54,39 +51,19 @@ def _save(entries: list[dict]) -> None:
 
 
 def add(entry: dict) -> None:
-    """Record a video as watched. entry should be a video metadata dict."""
+    """Record a video as watched (most recent first, deduplicated by id, max 500)."""
+    global _cache
+    vid = entry.get("id") or entry.get("webpage_url_basename")
+    if not vid:
+        return
     with _lock:
-        entries = _load()
-        vid = entry.get("id") or entry.get("webpage_url_basename")
-        if not vid:
-            return
-        entries = [e for e in entries if e.get("id") != vid]
-        entries.insert(0, {
-            **entry,
-            "id": vid,
-            "_watched_at": time.time(),
-        })
-        trimmed = entries[:500]
-        global _cache
-        _cache = trimmed
-        _save(trimmed)
+        entries = [e for e in _load() if e.get("id") != vid]
+        entries.insert(0, {**entry, "id": vid, "_watched_at": time.time()})
+        _cache = entries[:_MAX_ENTRIES]
+        _save(_cache)
 
 
 def all_entries() -> list[dict]:
     """Return watch history, most recent first."""
     with _lock:
         return list(_load())
-
-
-def iter_entries() -> Iterator[dict]:
-    with _lock:
-        snapshot = list(_load())
-    for e in snapshot:
-        yield e
-
-
-def invalidate_cache() -> None:
-    """Force reload from disk on next access (e.g. if modified externally)."""
-    with _lock:
-        global _cache
-        _cache = None

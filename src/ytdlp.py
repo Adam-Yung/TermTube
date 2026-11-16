@@ -1,297 +1,151 @@
-"""yt-dlp interface — direct Python library integration (no subprocess).
-
-Progressive streaming design:
-  fetch_page_batch()   →  cache-first paged fetch: uses extract_info with
-                          lazy_playlist for incremental entry retrieval.
-  fetch_search_batch() →  same, keyed by query hash.
-"""
+"""yt-dlp options, feed/search/channel fetching, cancellation."""
 
 from __future__ import annotations
+
 import hashlib
 import re
+import sys
 import threading
-from typing import Callable
+import time
+from collections.abc import Callable
 
 import yt_dlp
 
+from src import innertube, logger
+from src.bootstrap import get_deps_bin
 from src.cache import Cache
-from src import logger
+from src.cookies import get_cookiejar
 
 
-# ── Session-cached cookie jar ─────────────────────────────────────────────────
-
-_shared_jar = None
-_jar_lock = threading.Lock()
-_jar_extracted_at: float = 0.0
-_JAR_MAX_AGE = 600  # re-extract cookies after 10 minutes of staleness
-
-
-def _resolve_browser(config) -> str | None:
-    """Resolve the configured browser name (handles 'auto' detection)."""
-    browser = config.get("browser", "auto")
-    if not browser or browser.lower() == "none":
-        return None
-    from src.browsers import detect_installed_browsers, is_auto_browser
-    if is_auto_browser(browser):
-        detected = detect_installed_browsers()
-        return detected[0]["name"] if detected else None
-    return browser
-
-
-def _get_shared_cookiejar(config):
-    """Extract browser cookies once and cache for the process lifetime.
-
-    Automatically re-extracts if the cached jar is older than _JAR_MAX_AGE
-    seconds (handles account switches in the browser mid-session).
-    """
-    global _shared_jar, _jar_extracted_at
-    import time as _t
-    if _shared_jar is not None and (_t.time() - _jar_extracted_at) < _JAR_MAX_AGE:
-        return _shared_jar
-    with _jar_lock:
-        if _shared_jar is not None and (_t.time() - _jar_extracted_at) < _JAR_MAX_AGE:
-            return _shared_jar
-        browser = _resolve_browser(config)
-        if not browser:
-            return None
-        try:
-            from yt_dlp.cookies import extract_cookies_from_browser
-            _shared_jar = extract_cookies_from_browser(browser)
-            _jar_extracted_at = _t.time()
-            logger.debug("Extracted cookies from %s (cached for session)", browser)
-        except Exception as exc:
-            logger.debug("Cookie extraction failed: %s", exc)
-            return None
-    return _shared_jar
-
-
-def _get_shared_cookiejar_nonblocking(config):
-    """Return cached cookies if ready, else None without blocking.
-
-    Used by prefetch paths that can proceed unauthenticated rather than
-    wait 5-15s for cookie extraction to complete.
-    """
-    if _shared_jar is not None:
-        return _shared_jar
-    if _jar_lock.locked():
-        return None
-    return _get_shared_cookiejar(config)
-
-
-def invalidate_shared_cookiejar() -> None:
-    """Reset the cached cookie jar so the next extraction re-reads from the browser.
-
-    Call this on auth failures (403, sign-in required) to force a fresh cookie
-    extraction on the next yt-dlp call. Handles mid-session account switches
-    in the user's browser gracefully.
-    """
-    global _shared_jar, _jar_extracted_at
-    with _jar_lock:
-        _shared_jar = None
-        _jar_extracted_at = 0.0
-    logger.debug("Cookie jar invalidated — will re-extract on next use")
-
-
-def _make_ydl(opts: dict, config, *, blocking_cookies: bool = True) -> yt_dlp.YoutubeDL:
-    """Create a YoutubeDL instance with cookies for account-specific operations.
-
-    Used only by feed fetching, subscriptions, and channel browsing — NOT by
-    stream resolution or downloads (those use plain YoutubeDL() without cookies
-    to avoid YouTube's degraded authenticated responses).
-
-    When blocking_cookies=False, proceeds without cookies if extraction is
-    still in progress (used for background feed prefetch on cold start).
-    """
+def _make_ydl(opts: dict, config) -> yt_dlp.YoutubeDL:
+    """YoutubeDL carrying the browser's cookies, for account-bound fetches only (see the mirror doc)."""
     ydl = yt_dlp.YoutubeDL(opts)
-    if blocking_cookies:
-        jar = _get_shared_cookiejar(config)
-    else:
-        jar = _get_shared_cookiejar_nonblocking(config)
+    jar = get_cookiejar(config)
     if jar:
         ydl.cookiejar = jar
     return ydl
 
 
-# ── Shared options builder ────────────────────────────────────────────────────
-
-def _base_opts(config) -> dict:
-    """Build base YoutubeDL options for feed/metadata fetching.
-
-    Skips DASH/HLS manifest parsing for speed (only metadata needed).
-    Use _make_ydl() to get a YoutubeDL instance with cookies for
-    account-specific operations (home feed, subscriptions).
-    """
-    from src.bootstrap import get_deps_bin
-    import sys
-
-    deno_name = "deno.exe" if sys.platform == "win32" else "deno"
-    deno_path = get_deps_bin() / deno_name
-
-    opts: dict = {
-        'quiet': True,
-        'no_warnings': True,
-        'extractor_args': {'youtube': {'skip': ['dash', 'hls']}},
-        'socket_timeout': 30,
-    }
+def base_opts(*, skip_manifests: bool = True) -> dict:
+    """Base YoutubeDL options. ``skip_manifests=False`` keeps DASH/HLS data, which format selection needs."""
+    deno_path = get_deps_bin() / ("deno.exe" if sys.platform == "win32" else "deno")
+    opts: dict = {'quiet': True, 'no_warnings': True, 'socket_timeout': 30}
+    if skip_manifests:
+        opts['extractor_args'] = {'youtube': {'skip': ['dash', 'hls']}}
     if deno_path.exists():
         opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
     return opts
 
 
-def _playback_opts(config) -> dict:
-    """Build YoutubeDL options for stream resolution and downloads.
-
-    Unlike _base_opts(), this does NOT skip DASH/HLS manifest parsing because
-    resolve_stream_url() and download functions need format data to work.
-
-    Callers (resolve_stream_url, download_*) create a plain YoutubeDL()
-    directly — cookies are intentionally excluded from playback paths to
-    avoid YouTube's degraded "tv player" responses.
-    """
-    from src.bootstrap import get_deps_bin
-    import sys
-
-    deno_name = "deno.exe" if sys.platform == "win32" else "deno"
-    deno_path = get_deps_bin() / deno_name
-
-    opts: dict = {
-        'quiet': True,
-        'no_warnings': True,
-        'socket_timeout': 30,
-    }
-    if deno_path.exists():
-        opts['js_runtimes'] = {'deno': {'path': str(deno_path)}}
+def _flat_opts(count: int) -> dict:
+    """Options for metadata-only listing of up to ``count`` entries."""
+    opts = base_opts()
+    opts.update(
+        extract_flat='in_playlist',
+        lazy_playlist=True,
+        source_address='0.0.0.0',
+        geo_bypass=True,
+        playlistend=count,
+    )
+    opts['extractor_args']['youtubetab'] = {'approximate_date': ['']}
     return opts
 
-
-# ── Cancellation infrastructure ───────────────────────────────────────────────
 
 _cancel_events: set[threading.Event] = set()
 _cancel_lock = threading.Lock()
 
 
-def _new_cancel_event() -> threading.Event:
+def new_cancel_event() -> threading.Event:
     ev = threading.Event()
     with _cancel_lock:
         _cancel_events.add(ev)
     return ev
 
 
-def _release_cancel_event(ev: threading.Event) -> None:
+def release_cancel_event(ev: threading.Event) -> None:
     with _cancel_lock:
         _cancel_events.discard(ev)
 
 
 def cancel_all() -> None:
-    """Signal all active yt-dlp operations to stop.
-
-    Called by the TUI before exit so that worker threads blocked on
-    yt-dlp network I/O unblock immediately, preventing the app from hanging.
-    """
+    """Signal every active yt-dlp operation to stop, so workers blocked on network I/O unblock at exit."""
     with _cancel_lock:
         for ev in _cancel_events:
             ev.set()
         _cancel_events.clear()
 
 
-# ── Feed URLs ─────────────────────────────────────────────────────────────────
-
 _MAX_RETRIES = 1
 _RETRY_DELAY_S = 2.0
+_MIN_FEED_COUNT = 15
+_MIN_SEARCH_COUNT = 5
 
 FEED_URLS = {
     "home":          "https://www.youtube.com/",
     "subscriptions": "https://www.youtube.com/feed/subscriptions",
 }
 
-# ── Entry normalisation ───────────────────────────────────────────────────────
-
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
 
 def _is_playable_video(entry: dict) -> bool:
-    """Return True only for proper YouTube video entries."""
-    vid = entry.get("id", "")
-    if not _VIDEO_ID_RE.match(vid):
+    if not _VIDEO_ID_RE.match(entry.get("id", "")):
         return False
-    etype = entry.get("_type", "video")
-    if etype in ("playlist", "channel"):
-        return False
-    return True
+    return entry.get("_type", "video") not in ("playlist", "channel")
 
 
 def _normalise_entry(entry: dict) -> dict:
     """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
     if not entry.get("thumbnail"):
-        from src.ui.thumbnail import _best_thumb_url
-        url = _best_thumb_url(entry)
+        from src.ui.thumbnail import best_thumb_url
+        url = best_thumb_url(entry)
         if url:
             entry["thumbnail"] = url
     return entry
 
 
-# ── Paged batch fetch ─────────────────────────────────────────────────────────
+def _cached_entries(
+    cache: Cache, key: str, skip_ids: set[str], count: int, minimum: int
+) -> list[dict] | None:
+    """Entries of the cached feed ``key`` minus ``skip_ids``, or None if too few are usable."""
+    cached_ids = cache.get_feed(key)
+    if not cached_ids or len(cached_ids) < minimum:
+        return None
+    results: list[dict] = []
+    for vid_id in cached_ids:
+        if vid_id in skip_ids:
+            continue
+        if len(results) >= count:
+            break
+        entry = cache.get_video_raw(vid_id)
+        if entry:
+            results.append(entry)
+    if len(results) >= minimum:
+        logger.debug("cache hit for '%s' (%d entries)", key, len(results))
+        return results
+    return None
 
-def fetch_page_batch(
+
+def _extract_videos(
     url: str,
     config,
     cache: Cache,
     *,
-    skip_ids: set[str] | None = None,
-    count: int = 80,
-    feed_key: str | None = None,
-    on_first_batch: "Callable[[list[dict]], None] | None" = None,
+    count: int,
+    skip_ids: set[str],
+    on_first_batch: Callable[[list[dict]], None] | None = None,
     first_batch_size: int = 15,
-) -> list[dict]:
-    """Fetch up to `count` entries from a URL, skipping IDs in skip_ids.
+) -> tuple[list[dict], list[str]]:
+    """Extract playable video entries from ``url``, caching each. Retries once on an empty result.
 
-    Used by the paged feed system. Returns a flat list of entry dicts.
-    Caches each entry individually. Optionally saves the feed index.
-    This is a blocking call meant to run in a background thread.
-
-    If *on_first_batch* is provided, it is called with the first
-    *first_batch_size* entries as soon as they are available, allowing
-    progressive display while the rest of the fetch continues.
+    Returns ``(entries, ids)``. ``on_first_batch`` fires once, when ``first_batch_size`` entries exist.
     """
-    if skip_ids is None:
-        skip_ids = set()
-
-    _MIN_FEED_COUNT = 15
-    if feed_key:
-        cached_ids = cache.get_feed(feed_key)
-        if cached_ids and len(cached_ids) >= _MIN_FEED_COUNT:
-            logger.debug("fetch_page_batch cache hit for '%s' (%d ids)", feed_key, len(cached_ids))
-            results: list[dict] = []
-            for vid_id in cached_ids:
-                if vid_id in skip_ids:
-                    continue
-                if len(results) >= count:
-                    break
-                entry = cache.get_video_raw(vid_id)
-                if entry:
-                    results.append(entry)
-            if len(results) >= _MIN_FEED_COUNT:
-                return results
-            logger.debug("fetch_page_batch: only %d cached entries usable, refetching", len(results))
-
-    logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
-
-    opts = _base_opts(config)
-    opts['extract_flat'] = 'in_playlist'
-    opts['lazy_playlist'] = True
-    opts['source_address'] = '0.0.0.0'
-    opts['geo_bypass'] = True
-    opts['playlistend'] = count
-    opts['extractor_args'] = {
-        'youtube': {'skip': ['dash', 'hls']},
-        'youtubetab': {'approximate_date': ['']},
-    }
-
+    opts = _flat_opts(count)
     results: list[dict] = []
     all_ids: list[str] = []
 
-    cancel = _new_cancel_event()
+    cancel = new_cancel_event()
     try:
         for attempt in range(_MAX_RETRIES + 1):
             results = []
@@ -302,40 +156,60 @@ def fetch_page_batch(
                     if info is None:
                         break
                     for entry in (info.get('entries') or []):
-                        if cancel.is_set():
+                        if cancel.is_set() or len(results) >= count:
                             break
-                        if len(results) >= count:
-                            break
-                        if entry is None:
-                            continue
-                        if not _is_playable_video(entry):
+                        if entry is None or not _is_playable_video(entry):
                             continue
                         _normalise_entry(entry)
                         vid = entry.get("id", "")
-                        if vid and vid in skip_ids:
+                        if vid in skip_ids:
                             continue
                         cache.put_video(entry)
-                        if vid:
-                            all_ids.append(vid)
+                        all_ids.append(vid)
                         results.append(entry)
                         if on_first_batch and len(results) == first_batch_size:
                             on_first_batch(list(results))
                             on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
-                logger.debug("fetch_page_batch error: %s", exc)
+                logger.debug("extract %s error: %s", url, exc)
 
             if results or attempt >= _MAX_RETRIES:
                 break
-            logger.debug("fetch_page_batch: empty result, retrying (%d/%d)", attempt + 1, _MAX_RETRIES)
-            import time
+            logger.debug("extract %s: empty result, retrying (%d/%d)", url, attempt + 1, _MAX_RETRIES)
             time.sleep(_RETRY_DELAY_S)
     finally:
-        _release_cancel_event(cancel)
+        release_cancel_event(cancel)
+    return results, all_ids
 
+
+def fetch_page_batch(
+    url: str,
+    config,
+    cache: Cache,
+    *,
+    skip_ids: set[str] | None = None,
+    count: int = 80,
+    feed_key: str | None = None,
+    on_first_batch: Callable[[list[dict]], None] | None = None,
+    first_batch_size: int = 15,
+) -> list[dict]:
+    """Up to ``count`` video entries from ``url`` minus ``skip_ids``; cache-first when ``feed_key`` is set.
+
+    Blocking; run in a worker thread. ``on_first_batch`` gets the first ``first_batch_size`` entries early.
+    """
+    skip_ids = skip_ids or set()
+    if feed_key:
+        cached = _cached_entries(cache, feed_key, skip_ids, count, _MIN_FEED_COUNT)
+        if cached is not None:
+            return cached
+
+    logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
+    results, all_ids = _extract_videos(
+        url, config, cache, count=count, skip_ids=skip_ids,
+        on_first_batch=on_first_batch, first_batch_size=first_batch_size,
+    )
     if feed_key and len(all_ids) >= _MIN_FEED_COUNT:
         cache.put_feed(feed_key, all_ids)
-        logger.debug("fetch_page_batch: saved feed '%s' (%d ids)", feed_key, len(all_ids))
-
     return results
 
 
@@ -346,221 +220,31 @@ def fetch_search_batch(
     *,
     skip_ids: set[str] | None = None,
     count: int = 50,
+    on_first_batch: Callable[[list[dict]], None] | None = None,
 ) -> list[dict]:
-    """Fetch search results as a batch (for paged search). Returns list of dicts."""
-    if skip_ids is None:
-        skip_ids = set()
-
+    """Search results, cache-first. ``on_first_batch`` fires early with the first page; it does not fire for a cache hit."""
+    skip_ids = skip_ids or set()
     cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
-    _MIN_SEARCH_COUNT = 5
+    cached = _cached_entries(cache, cache_key, skip_ids, count, _MIN_SEARCH_COUNT)
+    if cached is not None:
+        return cached
 
-    cached_ids = cache.get_feed(cache_key)
-    if cached_ids and len(cached_ids) >= _MIN_SEARCH_COUNT:
-        logger.debug("fetch_search_batch cache hit for '%s' (%d ids)", query, len(cached_ids))
-        results: list[dict] = []
-        for vid_id in cached_ids:
-            if vid_id in skip_ids:
-                continue
-            entry = cache.get_video_raw(vid_id)
-            if entry:
-                results.append(entry)
-        if len(results) >= _MIN_SEARCH_COUNT:
-            return results
-
-    url = f"ytsearch{count}:{query}"
-    opts = _base_opts(config)
-    opts['extract_flat'] = 'in_playlist'
-    opts['lazy_playlist'] = True
-    opts['source_address'] = '0.0.0.0'
-    opts['geo_bypass'] = True
-    opts['playlistend'] = count
-    opts['extractor_args'] = {
-        'youtube': {'skip': ['dash', 'hls']},
-        'youtubetab': {'approximate_date': ['']},
-    }
-
-    results: list[dict] = []
-    all_ids: list[str] = []
-
-    cancel = _new_cancel_event()
-    try:
-        for attempt in range(_MAX_RETRIES + 1):
-            results = []
-            all_ids = []
-            try:
-                with _make_ydl(opts, config) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info is None:
-                        break
-                    for entry in (info.get('entries') or []):
-                        if cancel.is_set():
-                            break
-                        if entry is None:
-                            continue
-                        if not _is_playable_video(entry):
-                            continue
-                        _normalise_entry(entry)
-                        vid = entry.get("id", "")
-                        if vid and skip_ids and vid in skip_ids:
-                            continue
-                        cache.put_video(entry)
-                        if vid:
-                            all_ids.append(vid)
-                        results.append(entry)
-            except yt_dlp.utils.DownloadError as exc:
-                logger.debug("fetch_search_batch error: %s", exc)
-
-            if results or attempt >= _MAX_RETRIES:
-                break
-            logger.debug("fetch_search_batch: empty result, retrying (%d/%d)", attempt + 1, _MAX_RETRIES)
-            import time
-            time.sleep(_RETRY_DELAY_S)
-    finally:
-        _release_cancel_event(cancel)
-
+    results = innertube.search_videos(
+        query, count=count, skip_ids=skip_ids, on_first_batch=on_first_batch
+    )
+    all_ids = [e["id"] for e in results]
+    for entry in results:
+        cache.put_video(entry)
+    if not results:
+        logger.debug("InnerTube search empty for %r; falling back to yt-dlp", query)
+        results, all_ids = _extract_videos(
+            f"ytsearch{count}:{query}", config, cache, count=count, skip_ids=skip_ids,
+            on_first_batch=on_first_batch,
+        )
     if len(all_ids) >= _MIN_SEARCH_COUNT:
         cache.put_feed(cache_key, all_ids)
     return results
 
-
-# ── Download ──────────────────────────────────────────────────────────────────
-
-# Quality helpers (public constants used by UI modals)
-QUALITY_CHOICES: list[tuple[str, str]] = [
-    ("best  (highest available)",          "bestvideo+bestaudio/best"),
-    ("1080p (Full HD)",                    "bestvideo[height<=1080]+bestaudio/best"),
-    ("720p  (HD)",                         "bestvideo[height<=720]+bestaudio/best"),
-    ("480p  (SD)",                         "bestvideo[height<=480]+bestaudio/best"),
-    ("360p  (low)",                        "bestvideo[height<=360]+bestaudio/best"),
-    ("Audio only (best quality)",          "bestaudio/best"),
-]
-
-AUDIO_QUALITY_CHOICES: list[tuple[str, str]] = [
-    ("best audio",   "bestaudio/best"),
-    ("medium audio", "bestaudio[abr<=128]/bestaudio/best"),
-]
-
-PHASE_NEW_STREAM = -2.0
-PHASE_POSTPROCESS = -3.0
-
-
-def _make_progress_hook(on_progress: Callable[[str, float], None] | None, cancel: threading.Event):
-    """Create a yt-dlp progress hook bridging to the app's UI callback."""
-    def hook(d: dict) -> None:
-        if cancel.is_set():
-            raise yt_dlp.utils.DownloadError("Cancelled by user")
-        if on_progress is None:
-            return
-        status = d.get('status')
-        if status == 'downloading':
-            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-            downloaded = d.get('downloaded_bytes', 0)
-            if total > 0:
-                pct = downloaded / total * 100.0
-            else:
-                pct = -1.0
-            on_progress(d.get('_default_template', ''), pct)
-        elif status == 'finished':
-            on_progress("Post-processing...", PHASE_POSTPROCESS)
-    return hook
-
-
-def _make_postprocessor_hook(on_progress: Callable[[str, float], None] | None):
-    """Create a yt-dlp postprocessor hook for merge/extraction progress."""
-    def hook(d: dict) -> None:
-        if on_progress is None:
-            return
-        status = d.get('status')
-        if status == 'started':
-            on_progress(f"[{d.get('postprocessor', 'PP')}] Processing...", PHASE_POSTPROCESS)
-    return hook
-
-
-def _quality_to_format(quality: str) -> str:
-    """Convert a config quality value (e.g. 'best', '1080') to a format string."""
-    if quality == "best":
-        return "bestvideo+bestaudio/best"
-    return f"bestvideo[height<={quality}]+bestaudio/best"
-
-
-def download_video_with_progress(
-    video_id: str,
-    config,
-    *,
-    quality_format: str = "",
-    on_progress: Callable[[str, float], None] | None = None,
-) -> bool:
-    """Download video with live progress. quality_format overrides preferred_quality."""
-    config.video_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    if quality_format:
-        fmt = quality_format
-    else:
-        fmt = _quality_to_format(config.preferred_quality)
-
-    logger.info("download_video %s (format=%s)", video_id, fmt)
-
-    opts = _playback_opts(config)
-    opts['format'] = fmt
-    opts['merge_output_format'] = 'mp4'
-    opts['outtmpl'] = str(config.video_dir / config.video_format)
-    opts['writeinfojson'] = True
-    opts['writethumbnail'] = True
-    opts['noprogress'] = True
-
-    cancel = _new_cancel_event()
-    opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
-    opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
-    try:
-        ydl = yt_dlp.YoutubeDL(opts)
-        with ydl:
-            return ydl.download([url]) == 0
-    except yt_dlp.utils.DownloadError as exc:
-        logger.debug("download_video error: %s", exc)
-        return False
-    finally:
-        _release_cancel_event(cancel)
-
-
-def download_audio_with_progress(
-    video_id: str,
-    config,
-    *,
-    on_progress: Callable[[str, float], None] | None = None,
-) -> bool:
-    """Download audio with live progress."""
-    config.audio_dir.mkdir(parents=True, exist_ok=True)
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    logger.info("download_audio %s", video_id)
-
-    opts = _playback_opts(config)
-    opts['format'] = 'bestaudio/best'
-    opts['outtmpl'] = str(config.audio_dir / config.audio_format)
-    opts['postprocessors'] = [{
-        'key': 'FFmpegExtractAudio',
-        'preferredcodec': 'mp3',
-        'preferredquality': '0',
-    }]
-    opts['writeinfojson'] = True
-    opts['writethumbnail'] = True
-    opts['noprogress'] = True
-
-    cancel = _new_cancel_event()
-    opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
-    opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
-    try:
-        ydl = yt_dlp.YoutubeDL(opts)
-        with ydl:
-            return ydl.download([url]) == 0
-    except yt_dlp.utils.DownloadError as exc:
-        logger.debug("download_audio error: %s", exc)
-        return False
-    finally:
-        _release_cancel_event(cancel)
-
-
-# ── Channel browsing ──────────────────────────────────────────────────────────
 
 _CH_SUFFIX_RE = re.compile(
     r"/(videos|shorts|streams|playlists|community|about|featured|membership|store)(/.*)?$",
@@ -573,18 +257,21 @@ def _normalise_channel_url(url: str) -> str:
     return _CH_SUFFIX_RE.sub("", url.rstrip("/"))
 
 
-def fetch_channel_info(
-    channel_url: str,
-    config,
-    cache: Cache,
-) -> dict | None:
-    """Fetch basic channel metadata (name, description, subscriber count)."""
+def fetch_channel_info(channel_url: str, config, cache: Cache) -> dict | None:
+    """Channel name, description, subscriber count and avatar. Unauthenticated (public data)."""
     cache_key = "ch:info:" + hashlib.md5(channel_url.encode()).hexdigest()[:12]
     cached = cache.get_video(cache_key)
     if cached:
         return cached
 
-    opts = _base_opts(config)
+    info = innertube.fetch_channel_info(_normalise_channel_url(channel_url))
+    if info:
+        info["_cache_key"] = cache_key
+        cache.put_video(info)
+        return info
+    logger.debug("InnerTube channel info failed for %s; falling back to yt-dlp", channel_url)
+
+    opts = base_opts()
     opts['extract_flat'] = 'in_playlist'
     opts['playlist_items'] = '0'
 
@@ -628,12 +315,8 @@ def fetch_channel_videos(
     sort: str = "date",
     count: int = 80,
 ) -> list[dict]:
-    """Fetch video entries from a channel. sort: date | views."""
-    base_url = _normalise_channel_url(channel_url)
-    if sort == "views":
-        url = base_url + "/videos?sort=p"
-    else:
-        url = base_url + "/videos"
+    """Video entries from a channel. ``sort`` is ``date`` or ``views``."""
+    url = _normalise_channel_url(channel_url) + ("/videos?sort=p" if sort == "views" else "/videos")
     logger.debug("fetch_channel_videos: url=%s sort=%s", url, sort)
     return fetch_page_batch(url, config, cache, count=count)
 
@@ -645,37 +328,22 @@ def fetch_channel_playlists(
     *,
     count: int = 80,
 ) -> list[dict]:
-    """Fetch playlist entries from a channel."""
     url = _normalise_channel_url(channel_url) + "/playlists"
     logger.debug("fetch_channel_playlists: url=%s", url)
 
-    opts = _base_opts(config)
-    opts['extract_flat'] = 'in_playlist'
-    opts['lazy_playlist'] = True
-    opts['source_address'] = '0.0.0.0'
-    opts['geo_bypass'] = True
-    opts['playlistend'] = count
-    opts['extractor_args'] = {
-        'youtube': {'skip': ['dash', 'hls']},
-        'youtubetab': {'approximate_date': ['']},
-    }
-
     results: list[dict] = []
-    cancel = _new_cancel_event()
+    cancel = new_cancel_event()
     try:
-        with _make_ydl(opts, config) as ydl:
+        with _make_ydl(_flat_opts(count), config) as ydl:
             info = ydl.extract_info(url, download=False)
             if info is None:
                 return results
             for entry in (info.get('entries') or []):
-                if cancel.is_set():
-                    break
-                if len(results) >= count:
+                if cancel.is_set() or len(results) >= count:
                     break
                 if entry is None:
                     continue
-                etype = entry.get("_type", "")
-                if etype not in ("playlist", "url") and not entry.get("id"):
+                if entry.get("_type", "") not in ("playlist", "url") and not entry.get("id"):
                     continue
                 _normalise_entry(entry)
                 pid = entry.get("id", "")
@@ -686,12 +354,12 @@ def fetch_channel_playlists(
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("fetch_channel_playlists error: %s", exc)
     finally:
-        _release_cancel_event(cancel)
+        release_cancel_event(cancel)
     return results
 
 
 def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
-    """Fetch subscribed channels (with 60s timeout)."""
+    """The user's subscribed channels, cache-first. Needs cookies."""
     url = "https://www.youtube.com/feed/channels"
     cache_key = "subs:channels"
     cached = cache.get_feed(cache_key)
@@ -702,21 +370,12 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
                 e["_is_channel"] = True
             return entries
 
-    opts = _base_opts(config)
-    opts['extract_flat'] = 'in_playlist'
-    opts['lazy_playlist'] = True
-    opts['source_address'] = '0.0.0.0'
-    opts['geo_bypass'] = True
-    opts['playlistend'] = 200
-    opts['extractor_args'] = {
-        'youtube': {'skip': ['dash', 'hls']},
-        'youtubetab': {'approximate_date': ['']},
-    }
+    opts = _flat_opts(200)
     opts['socket_timeout'] = 60
 
     results: list[dict] = []
     seen: list[str] = []
-    cancel = _new_cancel_event()
+    cancel = new_cancel_event()
     try:
         with _make_ydl(opts, config) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -732,13 +391,12 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
                     continue
                 name = data.get("title") or data.get("channel") or data.get("uploader") or cid
                 ch_url = data.get("url") or data.get("channel_url") or ""
-                subs = data.get("channel_follower_count")
-                vcnt = data.get("playlist_count")
                 entry = {
                     "id": cid, "title": name, "channel": name,
                     "channel_url": ch_url, "channel_id": cid,
                     "uploader": name, "uploader_url": ch_url,
-                    "subscriber_count": subs, "video_count": vcnt,
+                    "subscriber_count": data.get("channel_follower_count"),
+                    "video_count": data.get("playlist_count"),
                     "thumbnail": data.get("thumbnail") or "",
                     "description": data.get("description") or "",
                     "_is_channel": True,
@@ -749,251 +407,24 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("fetch_subscribed_channels error: %s", exc)
     finally:
-        _release_cancel_event(cancel)
+        release_cancel_event(cancel)
 
     if seen:
         cache.put_feed(cache_key, seen)
     return results
 
 
-# ── Stream URL pre-resolution ─────────────────────────────────────────────────
-
-def resolve_stream_url(
-    video_id: str,
-    config,
-    format_spec: str = "ba/b",
-    cancel_event: threading.Event | None = None,
-) -> list[str] | None:
-    """Resolve a YouTube video ID to direct playable stream URL(s).
-
-    Returns a list of URLs (may be 1 for audio-only, or 2 for video+audio)
-    or None on failure. Pass cancel_event to allow early abort.
-
-    Cookies are intentionally NOT used here — stream resolution is a public
-    operation, and authenticated requests can trigger YouTube's degraded
-    "tv player" response (HLS-only, no direct streams).
-    """
-    cancel = cancel_event or _new_cancel_event()
-    opts = _playback_opts(config)
-    opts['format'] = format_spec
-
-    logger.debug("resolve_stream_url: video_id=%s format=%s", video_id, format_spec)
-    try:
-        if cancel.is_set():
-            return None
-        # No cookies: stream URL resolution is a public operation and cookies
-        # can cause YouTube to return a degraded "tv player" response with
-        # only HLS manifests (no direct DASH/HTTPS streams).
-        ydl = yt_dlp.YoutubeDL(opts)
-        with ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_id}",
-                download=False,
-            )
-            if cancel.is_set():
-                return None
-            if not info:
-                return None
-            if info.get('requested_formats'):
-                return [f['url'] for f in info['requested_formats']]
-            if info.get('url'):
-                return [info['url']]
-    except yt_dlp.utils.DownloadError as exc:
-        logger.debug("resolve_stream_url failed: %s", exc)
-    except Exception as exc:
-        logger.debug("resolve_stream_url exception: %s", exc)
-    finally:
-        if cancel_event is None:
-            _release_cancel_event(cancel)
-    return None
-
-
-# ── Extractor warmup ──────────────────────────────────────────────────────────
-
 _warmup_done = threading.Event()
 
 
 def warmup() -> None:
-    """Pre-initialize yt-dlp extractor registry in a background thread.
-
-    The first YoutubeDL() instantiation loads ~1800 extractors. Doing this
-    eagerly in a background thread means the home feed fetch doesn't pay the
-    ~200-400ms init cost on cold start.
-    """
+    """Load yt-dlp's extractor registry (~200-400 ms) off the main thread so the first fetch skips it."""
     if _warmup_done.is_set():
         return
     try:
-        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}) as _ydl:
+        with yt_dlp.YoutubeDL({'quiet': True, 'no_warnings': True}):
             pass
     except Exception:
         pass
     finally:
         _warmup_done.set()
-
-# ── Stream URL pre-resolution cache ───────────────────────────────────────────
-
-import time as _time
-
-_stream_cache: dict[str, tuple[float, list[str]]] = {}
-_stream_cache_lock = threading.Lock()
-_STREAM_URL_TTL = 3600 * 5  # 5 hours (YouTube CDN URLs expire in ~6h)
-
-_prefetch_events: dict[str, threading.Event] = {}
-_prefetch_events_lock = threading.Lock()
-
-
-def get_cached_stream_url(video_id: str, format_spec: str) -> list[str] | None:
-    """Return pre-resolved stream URLs if cached and fresh, else None."""
-    key = f"{video_id}:{format_spec}"
-    with _stream_cache_lock:
-        entry = _stream_cache.get(key)
-        if entry is None:
-            return None
-        ts, urls = entry
-        if _time.time() - ts > _STREAM_URL_TTL:
-            del _stream_cache[key]
-            return None
-        return urls
-
-
-def put_cached_stream_url(video_id: str, format_spec: str, urls: list[str]) -> None:
-    """Cache resolved stream URLs and start CDN readiness probe."""
-    key = f"{video_id}:{format_spec}"
-    with _stream_cache_lock:
-        _stream_cache[key] = (_time.time(), urls)
-        if len(_stream_cache) > 40:
-            oldest_key = min(_stream_cache, key=lambda k: _stream_cache[k][0])
-            del _stream_cache[oldest_key]
-    _start_cdn_probe(video_id, format_spec, urls)
-
-
-def invalidate_cached_stream_url(video_id: str, format_spec: str) -> None:
-    """Remove a cached stream URL (e.g. after playback failure on retry)."""
-    key = f"{video_id}:{format_spec}"
-    with _stream_cache_lock:
-        _stream_cache.pop(key, None)
-
-
-def wait_for_prefetch(video_id: str, format_spec: str, timeout: float = 2.0) -> list[str] | None:
-    """Wait for a background prefetch to complete, then return cached URLs.
-
-    Returns immediately if the URL is already cached. If a prefetch is in
-    progress, waits up to `timeout` seconds for it to finish. Returns None
-    if the prefetch hasn't started or doesn't complete in time.
-    """
-    key = f"{video_id}:{format_spec}"
-    cached = get_cached_stream_url(video_id, format_spec)
-    if cached:
-        return cached
-    with _prefetch_events_lock:
-        ev = _prefetch_events.get(key)
-    if ev is None:
-        return None
-    ev.wait(timeout=timeout)
-    return get_cached_stream_url(video_id, format_spec)
-
-
-# ── CDN readiness probing ─────────────────────────────────────────────────────
-# YouTube CDN edge servers need a few seconds after URL resolution before the
-# session token propagates. Instead of a fixed sleep, we probe the URL in the
-# background and signal readiness via an Event.
-
-_STREAM_URL_WARMUP_MAX = 1.5  # hard timeout (seconds) for CDN probe wait
-_cdn_ready_events: dict[str, threading.Event] = {}
-_cdn_ready_lock = threading.Lock()
-
-
-def _probe_cdn_ready(url: str, key: str) -> None:
-    """Background probe: hit the CDN with a minimal Range request until it responds."""
-    import urllib.request
-    import urllib.error
-
-    req = urllib.request.Request(url, method="GET")
-    req.add_header("Range", "bytes=0-0")
-
-    for _ in range(3):
-        try:
-            resp = urllib.request.urlopen(req, timeout=2)
-            resp.read()
-            resp.close()
-            break
-        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
-            _time.sleep(0.5)
-    # Signal readiness regardless (timeout = fallback)
-    with _cdn_ready_lock:
-        ev = _cdn_ready_events.get(key)
-    if ev:
-        ev.set()
-
-
-def _start_cdn_probe(video_id: str, format_spec: str, urls: list[str]) -> None:
-    """Kick off the background CDN probe for the first URL in the list."""
-    key = f"{video_id}:{format_spec}"
-    ev = threading.Event()
-    with _cdn_ready_lock:
-        _cdn_ready_events[key] = ev
-        if len(_cdn_ready_events) > 25:
-            oldest = next(iter(_cdn_ready_events))
-            del _cdn_ready_events[oldest]
-    t = threading.Thread(target=_probe_cdn_ready, args=(urls[0], key), daemon=True)
-    t.start()
-
-
-def wait_for_stream_url_ready(video_id: str, format_spec: str) -> None:
-    """Block until the CDN probe confirms the stream URL is accessible.
-
-    If the probe already succeeded (user waited a few seconds after focus),
-    this returns instantly. Otherwise blocks until the probe signals or the
-    hard timeout (_STREAM_URL_WARMUP_MAX) expires.
-    """
-    key = f"{video_id}:{format_spec}"
-    with _cdn_ready_lock:
-        ev = _cdn_ready_events.get(key)
-    if ev is None:
-        # No probe was started (e.g. URL resolved inline, not via prefetch).
-        # Start one now and wait briefly — the CDN is likely already warm from
-        # the yt-dlp extraction handshake that just completed.
-        with _stream_cache_lock:
-            entry = _stream_cache.get(key)
-            if entry is None:
-                return
-            resolve_ts = entry[0]
-            urls = entry[1]
-        elapsed = _time.time() - resolve_ts
-        if elapsed >= _STREAM_URL_WARMUP_MAX:
-            return
-        _start_cdn_probe(video_id, format_spec, urls)
-        with _cdn_ready_lock:
-            ev = _cdn_ready_events.get(key)
-        if ev is None:
-            return
-    ev.wait(timeout=_STREAM_URL_WARMUP_MAX)
-
-
-def prefetch_stream_url(video_id: str, config, format_spec: str = "ba/b") -> None:
-    """Pre-resolve and cache a stream URL in the background.
-
-    Called by the focus-dwell worker after InnerTube metadata is fetched.
-    If the URL is already cached and fresh, this is a no-op.
-
-    Signals a threading.Event on completion so callers using
-    wait_for_prefetch() wake immediately instead of polling.
-    """
-    key = f"{video_id}:{format_spec}"
-    if get_cached_stream_url(video_id, format_spec) is not None:
-        return
-
-    ev = threading.Event()
-    with _prefetch_events_lock:
-        _prefetch_events[key] = ev
-        if len(_prefetch_events) > 25:
-            oldest = next(iter(_prefetch_events))
-            del _prefetch_events[oldest]
-    try:
-        urls = resolve_stream_url(video_id, config, format_spec=format_spec)
-        if urls:
-            put_cached_stream_url(video_id, format_spec, urls)
-            logger.debug("prefetch_stream_url: cached %d URL(s) for %s", len(urls), video_id)
-    finally:
-        ev.set()
-

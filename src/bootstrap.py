@@ -1,20 +1,11 @@
-"""Dependency bootstrap — download and install binary dependencies from GitHub.
-
-Only uses Python stdlib (urllib, zipfile, tarfile, json) so it can run
-immediately after creating the venv, without any pip packages.
-
-Install location: ~/.local/termtube-deps/bin/ (Unix) or %LOCALAPPDATA%\\termtube-deps\\bin\\ (Windows)
-
-All 3 tools (deno, ffmpeg, mpv) are required for full functionality:
-  - deno: JavaScript runtime required by yt-dlp for YouTube challenges
-  - ffmpeg: audio/video muxing and format conversion (required for downloads)
-  - mpv: media playback via IPC
-"""
+"""Installs the bundled tools (deno, ffmpeg, mpv) from GitHub releases. Stdlib only, so it runs before pip."""
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
+import platform
 import shutil
 import stat
 import sys
@@ -32,11 +23,8 @@ except ImportError:
     ssl = None  # type: ignore[assignment]
 
 
-# ── Platform Detection ────────────────────────────────────────────────────────
-
 def _detect_platform() -> tuple[str, str]:
     """Return (os_name, arch) normalized for download URL construction."""
-    import platform as _platform
     os_name = sys.platform
     if os_name == "darwin":
         os_name = "macos"
@@ -45,8 +33,7 @@ def _detect_platform() -> tuple[str, str]:
     elif os_name == "win32":
         os_name = "windows"
 
-    # platform.machine() returns the CPU architecture without spawning a subprocess.
-    machine = _platform.machine().lower()
+    machine = platform.machine().lower()
     if sys.platform == "win32":
         proc_arch = os.environ.get("PROCESSOR_ARCHITECTURE", "").lower()
         if proc_arch == "amd64":
@@ -64,8 +51,6 @@ def _detect_platform() -> tuple[str, str]:
 
 OS_NAME, ARCH = _detect_platform()
 
-
-# ── Paths ─────────────────────────────────────────────────────────────────────
 
 def get_deps_dir() -> Path:
     """Root directory for TermTube-managed dependencies."""
@@ -101,27 +86,20 @@ def _write_versions(data: dict) -> None:
     vf.write_text(json.dumps(data, indent=2))
 
 
-# ── Download helpers ──────────────────────────────────────────────────────────
-
 _MAX_RETRIES = 3
 _RETRY_DELAY = 2  # seconds
 
 
 def _classify_download_error(exc: Exception) -> tuple[str, str]:
-    """Classify a download exception into (brief_reason, category).
-
-    Categories: 'ssl', 'timeout', 'connection', 'other'
-    """
+    """Return (brief_reason, category); category is 'ssl', 'timeout', 'connection' or 'other'."""
     exc_str = str(exc)
 
-    # Unwrap URLError to get at the underlying reason
     if isinstance(exc, urllib.error.URLError) and hasattr(exc, 'reason'):
         reason = exc.reason
         if isinstance(reason, Exception):
             exc_str = str(reason)
             exc = reason
 
-    # SSL / certificate errors
     if ssl is not None:
         if isinstance(exc, ssl.SSLCertVerificationError):
             return "SSL certificate verification failed", "ssl"
@@ -130,13 +108,11 @@ def _classify_download_error(exc: Exception) -> tuple[str, str]:
     if "CERTIFICATE_VERIFY_FAILED" in exc_str.upper() or "SSL" in exc_str.upper():
         return f"SSL/TLS error: {exc_str}", "ssl"
 
-    # Timeout
     if isinstance(exc, (TimeoutError, OSError)) and "timed out" in exc_str.lower():
         return "Connection timed out", "timeout"
     if isinstance(exc, urllib.error.URLError) and "timed out" in exc_str.lower():
         return "Connection timed out", "timeout"
 
-    # Connection refused / reset
     if "refused" in exc_str.lower():
         return "Connection refused", "connection"
     if "reset" in exc_str.lower():
@@ -148,42 +124,35 @@ def _classify_download_error(exc: Exception) -> tuple[str, str]:
 
 
 def _print_download_guidance(dep_name: str, brief_error: str, category: str) -> None:
-    """Print user-friendly guidance to stderr when a download fails."""
-    # Determine Homebrew package name (same as dep name for all our tools)
-    brew_name = dep_name
-
-    print(file=sys.stderr, flush=True)
-    print(f"  ⚠ Failed to download {dep_name}: {brief_error}", file=sys.stderr, flush=True)
-    print(file=sys.stderr, flush=True)
-    print("  Possible fixes:", file=sys.stderr, flush=True)
-
+    lines = ["", f"  ⚠ Failed to download {dep_name}: {brief_error}", "", "  Possible fixes:"]
     if category == "ssl":
-        print("    • You may be behind a corporate proxy/firewall that intercepts HTTPS", file=sys.stderr, flush=True)
-        print("    • Disconnect from VPN or corporate network and retry", file=sys.stderr, flush=True)
+        lines += [
+            "    • You may be behind a corporate proxy/firewall that intercepts HTTPS",
+            "    • Disconnect from VPN or corporate network and retry",
+        ]
     elif category == "timeout":
-        print("    • Check your internet connection", file=sys.stderr, flush=True)
-        print("    • Disconnect from VPN/proxy and retry", file=sys.stderr, flush=True)
+        lines += ["    • Check your internet connection", "    • Disconnect from VPN/proxy and retry"]
     elif category == "connection":
-        print("    • Check your internet connection and firewall settings", file=sys.stderr, flush=True)
-        print("    • Disconnect from VPN/proxy and retry", file=sys.stderr, flush=True)
+        lines += [
+            "    • Check your internet connection and firewall settings",
+            "    • Disconnect from VPN/proxy and retry",
+        ]
     else:
-        print("    • Check your internet connection", file=sys.stderr, flush=True)
+        lines.append("    • Check your internet connection")
 
     if OS_NAME == "macos":
-        print(f"    • Install manually via Homebrew: brew install {brew_name}", file=sys.stderr, flush=True)
+        lines.append(f"    • Install manually via Homebrew: brew install {dep_name}")
     elif OS_NAME == "linux":
-        print(f"    • Install manually via your package manager (e.g. apt install {brew_name})", file=sys.stderr, flush=True)
+        lines.append(f"    • Install manually via your package manager (e.g. apt install {dep_name})")
 
-    print("    • Run: termtube --update  (to retry later)", file=sys.stderr, flush=True)
-    print(file=sys.stderr, flush=True)
+    lines += ["    • Run: termtube --update  (to retry later)", ""]
+    print("\n".join(lines), file=sys.stderr, flush=True)
 
 
 def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRIES) -> bool:
-    """Download a URL to a local file with retry logic. Returns True on success.
+    """Download url to dest with retries. True on success.
 
-    Downloads to a .tmp sibling file first, then atomically replaces the
-    destination on success. This prevents corruption of existing binaries
-    if the download is interrupted.
+    Writes a .tmp sibling and os.replace()s it, so an interrupted download never clobbers an existing binary.
     """
     label = desc or url.split("/")[-1]
     tmp_dest = dest.with_suffix(dest.suffix + ".tmp")
@@ -212,7 +181,6 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
                 else:
                     print(f"    Downloaded {label} ({downloaded // 1024 // 1024}MB)", flush=True)
 
-            # Validate download completeness before accepting the file
             if total > 0 and downloaded < total:
                 print(f"    [!] Incomplete download: got {downloaded} of {total} bytes", flush=True)
                 tmp_dest.unlink(missing_ok=True)
@@ -235,13 +203,13 @@ def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRI
 
 
 def _make_executable(path: Path) -> None:
-    """chmod +x on Unix, no-op on Windows."""
+    """chmod +x; no-op on Windows."""
     if OS_NAME != "windows":
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
 def _github_latest_tag(owner: str, repo: str) -> str | None:
-    """Fetch the latest release tag from GitHub API."""
+    """Latest release tag from the GitHub API, or None (unauthenticated, so may be rate-limited)."""
     url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
@@ -258,30 +226,19 @@ def _github_latest_tag(owner: str, repo: str) -> str | None:
         return None
 
 
-# ── Tool Installers ───────────────────────────────────────────────────────────
-
 def _install_deno(bin_dir: Path) -> str | None:
-    """Install Deno from GitHub releases. Returns version string or None."""
+    """Install Deno from GitHub releases. Returns the tag or None."""
     tag = _github_latest_tag("denoland", "deno")
     if not tag:
         print("    [!] Could not determine latest Deno version", flush=True)
         return None
 
-    if OS_NAME == "macos":
-        if ARCH == "aarch64":
-            asset = "deno-aarch64-apple-darwin.zip"
-        else:
-            asset = "deno-x86_64-apple-darwin.zip"
-    elif OS_NAME == "linux":
-        if ARCH == "aarch64":
-            asset = "deno-aarch64-unknown-linux-gnu.zip"
-        else:
-            asset = "deno-x86_64-unknown-linux-gnu.zip"
-    else:
-        if ARCH == "aarch64":
-            asset = "deno-aarch64-pc-windows-msvc.zip"
-        else:
-            asset = "deno-x86_64-pc-windows-msvc.zip"
+    triple = {
+        "macos": "apple-darwin",
+        "linux": "unknown-linux-gnu",
+        "windows": "pc-windows-msvc",
+    }.get(OS_NAME, "pc-windows-msvc")
+    asset = f"deno-{'aarch64' if ARCH == 'aarch64' else 'x86_64'}-{triple}.zip"
 
     url = f"https://github.com/denoland/deno/releases/download/{tag}/{asset}"
 
@@ -307,27 +264,17 @@ def _install_deno(bin_dir: Path) -> str | None:
 
 
 def _install_ffmpeg(bin_dir: Path) -> str | None:
-    """Install ffmpeg + ffprobe static builds. Returns version or None.
-
-    Sources:
-      - Linux/Windows: BtbN/FFmpeg-Builds (GitHub, always available)
-      - macOS: evermeet.cx static builds (with retry)
-    """
+    """Install ffmpeg + ffprobe static builds (BtbN on Linux/Windows). Returns a version label or None."""
     if OS_NAME == "macos":
         return _install_ffmpeg_macos(bin_dir)
 
     base_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
 
+    arm = ARCH == "aarch64"
     if OS_NAME == "linux":
-        if ARCH == "aarch64":
-            asset = "ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
-        else:
-            asset = "ffmpeg-master-latest-linux64-gpl.tar.xz"
+        asset = f"ffmpeg-master-latest-{'linuxarm64' if arm else 'linux64'}-gpl.tar.xz"
     else:
-        if ARCH == "aarch64":
-            asset = "ffmpeg-master-latest-winarm64-gpl.zip"
-        else:
-            asset = "ffmpeg-master-latest-win64-gpl.zip"
+        asset = f"ffmpeg-master-latest-{'winarm64' if arm else 'win64'}-gpl.zip"
 
     url = f"{base_url}/{asset}"
 
@@ -370,16 +317,10 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
 
 
 def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
-    """Install ffmpeg on macOS from eugeneware/ffmpeg-static GitHub releases.
-
-    Uses .gz compressed binaries from GitHub (reliable, always available).
-    Falls back to evermeet.cx if GitHub source fails.
-    """
-    import gzip
-
+    """Install ffmpeg on macOS from eugeneware/ffmpeg-static .gz binaries; falls back to evermeet.cx."""
     tag = _github_latest_tag("eugeneware", "ffmpeg-static")
     if not tag:
-        tag = "b6.1.1"  # known working fallback
+        tag = "b6.1.1"
 
     arch_suffix = "darwin-arm64" if ARCH == "aarch64" else "darwin-x64"
 
@@ -390,7 +331,6 @@ def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
         with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
             gz_path = Path(tmp) / asset
             if not _download(url, gz_path, desc=f"{tool} (macOS {arch_suffix})"):
-                # Fall back to evermeet.cx
                 return _install_ffmpeg_macos_evermeet(bin_dir)
 
             dest = bin_dir / tool
@@ -408,14 +348,14 @@ def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
 
 
 def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
-    """Fallback: install ffmpeg on macOS from evermeet.cx."""
+    """Fallback ffmpeg source for macOS."""
     for tool in ("ffmpeg", "ffprobe"):
         url = f"https://evermeet.cx/ffmpeg/get/{tool}/zip"
         with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
             zip_path = Path(tmp) / f"{tool}.zip"
             if not _download(url, zip_path, desc=f"{tool} (evermeet.cx)"):
-                print(f"    [!] All ffmpeg sources failed.", flush=True)
-                print(f"    Install manually: brew install ffmpeg", flush=True)
+                print("    [!] All ffmpeg sources failed.", flush=True)
+                print("    Install manually: brew install ffmpeg", flush=True)
                 return None
             with zipfile.ZipFile(zip_path) as zf:
                 zf.extractall(tmp)
@@ -430,14 +370,8 @@ def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
 
 
 def _install_mpv(bin_dir: Path) -> str | None:
-    """Install mpv from official releases. Returns version or None.
-
-    macOS: downloads .app bundle from mpv-player/mpv, extracts binary + lib/.
-    Windows: downloads zip with mpv.exe from mpv-player/mpv MSVC builds.
-    Linux: no static binary available; user must install via system package manager.
-    """
-    # Last-known-good version used as fallback when the GitHub API is rate-limited.
-    _MPV_FALLBACK = "v0.39.0"
+    """Install mpv (macOS .app bundle, Windows zip). Linux has no static build: accepts a system mpv."""
+    _MPV_FALLBACK = "v0.39.0"  # used when the GitHub API is rate-limited
 
     if OS_NAME == "linux":
         if shutil.which("mpv"):
@@ -455,18 +389,14 @@ def _install_mpv(bin_dir: Path) -> str | None:
         tag = _MPV_FALLBACK
 
     if OS_NAME == "macos":
-        import platform as _plat
-        mac_ver = _plat.mac_ver()[0]
+        mac_ver = platform.mac_ver()[0]
         mac_major = int(mac_ver.split('.')[0]) if mac_ver else 15
         if ARCH == "aarch64":
             asset = f"mpv-{tag}-macos-{mac_major}-arm.zip"
         else:
             asset = f"mpv-{tag}-macos-{mac_major}-intel.zip"
     else:
-        if ARCH == "aarch64":
-            asset = f"mpv-{tag}-aarch64-pc-windows-msvc.zip"
-        else:
-            asset = f"mpv-{tag}-x86_64-pc-windows-msvc.zip"
+        asset = f"mpv-{tag}-{'aarch64' if ARCH == 'aarch64' else 'x86_64'}-pc-windows-msvc.zip"
 
     url = f"https://github.com/mpv-player/mpv/releases/download/{tag}/{asset}"
 
@@ -478,9 +408,7 @@ def _install_mpv(bin_dir: Path) -> str | None:
             zf.extractall(tmp)
 
         if OS_NAME == "macos":
-            # macOS zip contains mpv.tar.gz holding an .app bundle.
-            # The binary at Contents/MacOS/mpv links to @executable_path/lib/
-            # so we must keep both the binary and lib/ directory together.
+            # The binary links @executable_path/lib/, so bin/mpv and bin/lib must stay together.
             inner_tar = Path(tmp) / "mpv.tar.gz"
             if inner_tar.exists():
                 with tarfile.open(inner_tar, "r:gz") as tf:
@@ -496,7 +424,6 @@ def _install_mpv(bin_dir: Path) -> str | None:
             dest = bin_dir / "mpv"
             shutil.copy2(str(macos_dir / "mpv"), str(dest))
             _make_executable(dest)
-            # Copy lib/ alongside the binary for @executable_path/lib/ resolution
             src_lib = macos_dir / "lib"
             if src_lib.is_dir():
                 dest_lib = bin_dir / "lib"
@@ -504,7 +431,6 @@ def _install_mpv(bin_dir: Path) -> str | None:
                     shutil.rmtree(str(dest_lib))
                 shutil.copytree(str(src_lib), str(dest_lib))
         else:
-            # Windows
             exe_name = "mpv.exe"
             found = list(Path(tmp).rglob(exe_name))
             if not found:
@@ -517,8 +443,6 @@ def _install_mpv(bin_dir: Path) -> str | None:
 
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
-
 TOOLS = {
     "deno": _install_deno,
     "ffmpeg": _install_ffmpeg,
@@ -527,30 +451,22 @@ TOOLS = {
 
 
 def is_tool_installed(name: str) -> bool:
-    """Check if a tool is available in the TermTube-managed deps bin dir.
+    """True if the tool exists in the managed bin dir. System PATH copies never count."""
+    exe = f"{name}.exe" if OS_NAME == "windows" else name
+    return (get_deps_bin() / exe).exists()
 
-    Only checks our managed directory — system PATH versions are ignored to
-    ensure we always have full control over binary versions and updates.
-    """
-    bin_dir = get_deps_bin()
 
-    if name == "ffmpeg":
-        exe = "ffmpeg.exe" if OS_NAME == "windows" else "ffmpeg"
-    elif name == "deno":
-        exe = "deno.exe" if OS_NAME == "windows" else "deno"
-    elif name == "mpv":
-        exe = "mpv.exe" if OS_NAME == "windows" else "mpv"
-    else:
-        exe = f"{name}.exe" if OS_NAME == "windows" else name
-
-    return (bin_dir / exe).exists()
+def _install_and_record(name: str, bin_dir: Path) -> str | None:
+    version = TOOLS[name](bin_dir)
+    if version:
+        versions = _read_versions()
+        versions[name] = {"version": version, "platform": f"{OS_NAME}-{ARCH}"}
+        _write_versions(versions)
+    return version
 
 
 def install_tool(name: str, *, force: bool = False) -> bool:
-    """Install a single tool. Returns True on success.
-
-    If force=True, re-downloads even if already present.
-    """
+    """Install one tool; skipped if present unless force. True on success."""
     if name not in TOOLS:
         print(f"    [!] Unknown tool: {name}", flush=True)
         return False
@@ -561,20 +477,11 @@ def install_tool(name: str, *, force: bool = False) -> bool:
     if not force and is_tool_installed(name):
         return True
 
-    installer = TOOLS[name]
-    version = installer(bin_dir)
-
-    if version:
-        versions = _read_versions()
-        versions[name] = {"version": version, "platform": f"{OS_NAME}-{ARCH}"}
-        _write_versions(versions)
-        return True
-
-    return False
+    return _install_and_record(name, bin_dir) is not None
 
 
 def install_all(*, force: bool = False) -> bool:
-    """Install all dependencies. Returns True if all succeeded."""
+    """Install every tool in TOOLS. True if all succeeded."""
     print("\n  Installing TermTube dependencies...", flush=True)
     print(f"  Platform: {OS_NAME} ({ARCH})", flush=True)
     print(f"  Install path: {get_deps_bin()}\n", flush=True)
@@ -583,18 +490,14 @@ def install_all(*, force: bool = False) -> bool:
     bin_dir.mkdir(parents=True, exist_ok=True)
 
     all_ok = True
-    for name, installer in TOOLS.items():
+    for name in TOOLS:
         if not force and is_tool_installed(name):
             print(f"  [ok] {name} already installed", flush=True)
             continue
 
         print(f"  Installing {name}...", flush=True)
-        version = installer(bin_dir)
-
+        version = _install_and_record(name, bin_dir)
         if version:
-            versions = _read_versions()
-            versions[name] = {"version": version, "platform": f"{OS_NAME}-{ARCH}"}
-            _write_versions(versions)
             print(f"  [ok] {name} installed ({version})", flush=True)
         else:
             print(f"  [!!] {name} installation failed", flush=True)
@@ -611,14 +514,5 @@ def install_all(*, force: bool = False) -> bool:
     return all_ok
 
 
-def check_all() -> dict[str, bool]:
-    """Check which tools are installed in the deps bin or system PATH."""
-    return {name: is_tool_installed(name) for name in TOOLS}
-
-
-# ── CLI entry point ───────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
-    force = "--force" in sys.argv
-    success = install_all(force=force)
-    sys.exit(0 if success else 1)
+    sys.exit(0 if install_all(force="--force" in sys.argv) else 1)
