@@ -1,0 +1,118 @@
+scripts/verify.sh
+  s_3690eae3737fe4::t_21ff785fd7790f 2,9-12
+src/history.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 4
+ruff.toml
+  s_3690eae3737fe4::t_0936b6cc0cd2d5 1-6
+src/tui/screens/watch_modal.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 14-15
+  s_3690eae3737fe4::t_07bd49271a2583 18
+src/tests/unit/test_innertube_parsers.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5-6,80
+  s_3690eae3737fe4::t_d04e5f52e1da55 81
+src/ytdlp.py
+  s_3690eae3737fe4::t_07bd49271a2583 231
+src/tui/screens/download_picker_modal.py
+  s_3690eae3737fe4::t_07bd49271a2583 61-66
+src/library.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 4,7
+src/plat.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 209,216
+  s_3690eae3737fe4::t_851b5a37d23909 230
+  s_3690eae3737fe4::t_07bd49271a2583 301-302
+scripts/check-dead-code.py
+  s_3690eae3737fe4::t_07bd49271a2583 46
+src/tests/tui/test_audio_controller.py
+  s_3690eae3737fe4::t_851b5a37d23909 66
+docs/code/src/plat.py.md
+  s_3690eae3737fe4::t_233f6178599837 21
+docs/code/scripts/verify.sh.md
+  s_3690eae3737fe4::t_233f6178599837 3,5
+src/bootstrap.py
+  s_3690eae3737fe4::t_851b5a37d23909 292
+  s_3690eae3737fe4::t_07bd49271a2583 111
+src/tests/conftest.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5
+src/tests/unit/test_cache.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 155
+requirements-dev.txt
+  s_3690eae3737fe4::t_21ff785fd7790f 5
+src/tests/unit/test_path_correctness.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 33-34,162-163
+src/tests/unit/test_sponsorblock.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5,10,12-13
+src/tests/integration/test_mpv_ipc.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5,12-13,215
+  s_3690eae3737fe4::t_07bd49271a2583 201
+src/ui/thumbnail.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 11
+docs/decisions/runtime-and-env.md
+  s_3690eae3737fe4::t_233f6178599837 82-85
+src/config.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 4,6
+src/browsers.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 9
+src/playlist.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 4
+src/tests/unit/test_browsers.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5
+src/tests/unit/test_config.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 9
+src/tests/unit/test_download_progress.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 12,22,24
+src/tests/unit/test_updater.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 10
+src/tests/unit/test_platform.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5,9-12,15
+  s_3690eae3737fe4::t_07bd49271a2583 312,316
+src/tests/integration/test_ytdlp_download.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 3,9-10
+src/innertube.py
+  s_3690eae3737fe4::t_07bd49271a2583 485-486
+scripts/bench-sources.py
+  s_3690eae3737fe4::t_851b5a37d23909 5-6,24-25,115-117
+src/logger.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 8,10
+  s_3690eae3737fe4::t_07bd49271a2583 3-4
+src/tests/unit/test_cdn_warmup.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 5,149
+  s_3690eae3737fe4::t_ebef1808250bb2 150
+AGENTS.md
+  s_3690eae3737fe4::t_233f6178599837 116
+docs/status.md
+  s_3690eae3737fe4::t_233f6178599837 49-50
+src/tests/tui/conftest.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 3-4
+src/tests/unit/test_cookie_cache.py
+  s_3690eae3737fe4::t_07bd49271a2583 206,211-212
+  s_3690eae3737fe4::t_f6031eaa62d39a 275,287
+  s_3690eae3737fe4::t_851b5a37d23909 204-205
+src/main.py
+  s_3690eae3737fe4::t_07bd49271a2583 211,214,269
+  s_3690eae3737fe4::t_f6031eaa62d39a 123,163
+  s_3690eae3737fe4::t_21ff785fd7790f 204
+  s_3690eae3737fe4::t_851b5a37d23909 202-203,205,267
+  s_3690eae3737fe4::t_2db95fede1758b 201
+src/tui/widgets/thumbnail_widget.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 26
+src/player.py
+  s_3690eae3737fe4::t_f6031eaa62d39a 4,209,417
+  s_3690eae3737fe4::t_851b5a37d23909 426,512,570-571
+  s_3690eae3737fe4::t_07bd49271a2583 569,572
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "812bd076336d4eed0e94ddf8d927733b923430e3",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
