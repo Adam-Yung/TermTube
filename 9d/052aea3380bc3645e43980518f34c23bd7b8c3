@@ -1,0 +1,31 @@
+docs/code/scripts/diagnose-rss.py.md
+  s_3690eae3737fe4::t_1ccd7d0c910b1d 8
+docs/decisions/feeds-and-paging.md
+  s_3690eae3737fe4::t_1ccd7d0c910b1d 62-65
+docs/code/src/feeds.py.md
+  s_3690eae3737fe4::t_1ccd7d0c910b1d 14
+scripts/diagnose-rss.py
+  s_3690eae3737fe4::t_32c89c969e7b30 148-152
+docs/status.md
+  s_3690eae3737fe4::t_1ccd7d0c910b1d 40
+docs/code/scripts/verify.sh.md
+  s_3690eae3737fe4::t_d1d68661e58404 5
+scripts/verify.sh
+  s_3690eae3737fe4::t_d1d68661e58404 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9d052aea3380bc3645e43980518f34c23bd7b8c3",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
