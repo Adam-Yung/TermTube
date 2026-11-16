@@ -10,6 +10,7 @@ Browse, search, listen in the background and watch, without leaving the command 
 
 [![Pipeline](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml/badge.svg)](https://github.com/Adam-Yung/TermTube/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey)](#platform-notes)
 
 </div>

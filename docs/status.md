@@ -32,6 +32,5 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 
 - InnerTube fetch errors become empty results; callers then fall back to yt-dlp.
 - `thumbnail_format` has no effect beyond `auto`/`symbols` validation: the renderer is chosen by terminal detection.
-- The repository has no LICENSE file (see [todo.md](todo.md)).
 
 Next work: [todo.md](todo.md). Open plans: [plans/](plans/).
