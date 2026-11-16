@@ -9,7 +9,7 @@ class TestGetVideo:
         from src.cache import VIDEO_DIR
 
         entry = {"id": "vid1", "title": "Hello", "_cached_at": time.time()}
-        (VIDEO_DIR / "vid1.json").write_text(json.dumps(entry))
+        (VIDEO_DIR / "vid1.json").write_text(json.dumps(entry), encoding="utf-8")
 
         result = temp_cache.get_video("vid1")
         assert result is not None
@@ -20,7 +20,7 @@ class TestGetVideo:
 
         stale_time = time.time() - 86401  # older than metadata TTL
         entry = {"id": "vid1", "title": "Hello", "_cached_at": stale_time}
-        (VIDEO_DIR / "vid1.json").write_text(json.dumps(entry))
+        (VIDEO_DIR / "vid1.json").write_text(json.dumps(entry), encoding="utf-8")
 
         assert temp_cache.get_video("vid1") is None
 
@@ -45,7 +45,7 @@ class TestPutVideo:
         }
         temp_cache.put_video(entry)
 
-        stored = json.loads((VIDEO_DIR / "vid2.json").read_text())
+        stored = json.loads((VIDEO_DIR / "vid2.json").read_text(encoding="utf-8"))
         assert "formats" not in stored
         assert "requested_formats" not in stored
         assert "automatic_captions" not in stored
@@ -74,7 +74,7 @@ class TestGetVideoRaw:
 
         stale_time = time.time() - 999999
         entry = {"id": "vid3", "title": "Old", "_cached_at": stale_time}
-        (VIDEO_DIR / "vid3.json").write_text(json.dumps(entry))
+        (VIDEO_DIR / "vid3.json").write_text(json.dumps(entry), encoding="utf-8")
 
         result = temp_cache.get_video_raw("vid3")
         assert result is not None
@@ -84,7 +84,7 @@ class TestGetVideoRaw:
         from src.cache import PLAYLIST_VIDEO_DIR
 
         entry = {"id": "pvid", "title": "Playlist Entry", "_cached_at": 1.0}
-        (PLAYLIST_VIDEO_DIR / "pvid.json").write_text(json.dumps(entry))
+        (PLAYLIST_VIDEO_DIR / "pvid.json").write_text(json.dumps(entry), encoding="utf-8")
 
         result = temp_cache.get_video_raw("pvid")
         assert result is not None
@@ -104,7 +104,7 @@ class TestFeed:
         from src.cache import CACHE_DIR
 
         stale = {"_cached_at": time.time() - 7200, "ids": ["x"]}
-        (CACHE_DIR / "feed_home.json").write_text(json.dumps(stale))
+        (CACHE_DIR / "feed_home.json").write_text(json.dumps(stale), encoding="utf-8")
 
         assert temp_cache.get_feed("home") is None
 
@@ -118,7 +118,7 @@ class TestFeedFreshness:
         from src.cache import CACHE_DIR
 
         stale = {"_cached_at": time.time() - 99999, "ids": ["x"]}
-        (CACHE_DIR / "feed_search.json").write_text(json.dumps(stale))
+        (CACHE_DIR / "feed_search.json").write_text(json.dumps(stale), encoding="utf-8")
 
         assert temp_cache.is_feed_fresh("search") is False
 
@@ -129,7 +129,7 @@ class TestPruneVideoCacheFifo:
 
         for i in range(5):
             entry = {"id": f"v{i}", "_cached_at": 1000.0 + i}
-            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry))
+            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry), encoding="utf-8")
 
         temp_cache.prune_video_cache_fifo(max_count=3)
 
@@ -143,7 +143,7 @@ class TestPruneVideoCacheFifo:
 
         for i in range(2):
             entry = {"id": f"v{i}", "_cached_at": 1000.0 + i}
-            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry))
+            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry), encoding="utf-8")
 
         temp_cache.prune_video_cache_fifo(max_count=5)
         assert len(list(VIDEO_DIR.glob("*.json"))) == 2
@@ -160,8 +160,8 @@ class TestPruneOldVideos:
 
         old_path = VIDEO_DIR / "old.json"
         fresh_path = VIDEO_DIR / "fresh.json"
-        old_path.write_text(json.dumps({"id": "old", "_cached_at": old_time}))
-        fresh_path.write_text(json.dumps({"id": "fresh", "_cached_at": fresh_time}))
+        old_path.write_text(json.dumps({"id": "old", "_cached_at": old_time}), encoding="utf-8")
+        fresh_path.write_text(json.dumps({"id": "fresh", "_cached_at": fresh_time}), encoding="utf-8")
 
         # Set file mtime to match intended age (prune uses mtime, not JSON field)
         os.utime(old_path, (old_time, old_time))
@@ -178,7 +178,7 @@ class TestPruneOldVideos:
         now = time.time()
         for i in range(5):
             entry = {"id": f"v{i}", "_cached_at": now - i * 100}
-            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry))
+            (VIDEO_DIR / f"v{i}.json").write_text(json.dumps(entry), encoding="utf-8")
 
         temp_cache.prune_old_videos(max_age_days=30, max_count=2)
 

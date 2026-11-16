@@ -25,7 +25,7 @@ _deps_bin = get_deps_bin()
 if _deps_bin.is_dir():
     os.environ["PATH"] = str(_deps_bin) + os.pathsep + os.environ.get("PATH", "")
 
-_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text(encoding="utf-8").strip()
 
 
 def _supports_color() -> bool:
@@ -149,7 +149,7 @@ def _run_tests() -> None:
         lines.append(line)
     proc.wait()
 
-    with open(log_path, "w") as f:
+    with open(log_path, "w", encoding="utf-8") as f:
         f.write(f"TermTube Test Results — {datetime.datetime.now().isoformat()}\n")
         f.write(f"Command: {' '.join(cmd)}\n")
         f.write(f"Exit code: {proc.returncode}\n")

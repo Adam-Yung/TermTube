@@ -14,7 +14,7 @@ def linux(tmp_path, monkeypatch):
     monkeypatch.setattr(bootstrap, "OS_NAME", "linux")
     system = tmp_path / "usr" / "bin" / "mpv"
     system.parent.mkdir(parents=True)
-    system.write_text("#!/bin/sh\n")
+    system.write_text("#!/bin/sh\n", encoding="utf-8")
     system.chmod(0o755)
     bin_dir = tmp_path / "deps" / "bin"
     bin_dir.mkdir(parents=True)
@@ -54,9 +54,9 @@ def test_running_again_replaces_a_stale_link_and_never_links_to_itself(linux, mo
 
 def test_a_real_file_in_the_managed_dir_is_left_alone(linux):
     system, bin_dir = linux
-    (bin_dir / "mpv").write_text("user placed")
+    (bin_dir / "mpv").write_text("user placed", encoding="utf-8")
     assert bootstrap._install_mpv(bin_dir) == "system"
-    assert (bin_dir / "mpv").read_text() == "user placed" and not (bin_dir / "mpv").is_symlink()
+    assert (bin_dir / "mpv").read_text(encoding="utf-8") == "user placed" and not (bin_dir / "mpv").is_symlink()
 
 
 def test_without_any_mpv_it_says_so(tmp_path, monkeypatch, capsys):

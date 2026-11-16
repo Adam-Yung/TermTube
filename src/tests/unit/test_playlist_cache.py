@@ -37,11 +37,11 @@ class TestPinVideo:
     def test_pin_from_main_cache(self, temp_cache):
         cache, video_dir, _, playlist_video_dir, _ = temp_cache
         entry = {"id": "abc123", "title": "Test Video", "_cached_at": time.time()}
-        (video_dir / "abc123.json").write_text(json.dumps(entry))
+        (video_dir / "abc123.json").write_text(json.dumps(entry), encoding="utf-8")
 
         cache.pin_video("abc123")
 
-        pinned = json.loads((playlist_video_dir / "abc123.json").read_text())
+        pinned = json.loads((playlist_video_dir / "abc123.json").read_text(encoding="utf-8"))
         assert pinned["title"] == "Test Video"
 
     def test_pin_with_provided_entry(self, temp_cache):
@@ -50,7 +50,7 @@ class TestPinVideo:
 
         cache.pin_video("xyz789", entry)
 
-        pinned = json.loads((playlist_video_dir / "xyz789.json").read_text())
+        pinned = json.loads((playlist_video_dir / "xyz789.json").read_text(encoding="utf-8"))
         assert pinned["title"] == "Provided"
 
     def test_pin_no_op_when_not_in_cache(self, temp_cache):
@@ -87,7 +87,7 @@ class TestPinThumb:
 class TestUnpinVideo:
     def test_unpin_removes_both_files(self, temp_cache):
         cache, _, _, playlist_video_dir, playlist_thumb_dir = temp_cache
-        (playlist_video_dir / "abc123.json").write_text('{"id": "abc123"}')
+        (playlist_video_dir / "abc123.json").write_text('{"id": "abc123"}', encoding="utf-8")
         (playlist_thumb_dir / "abc123.jpg").write_bytes(b"fake")
 
         cache.unpin_video("abc123")
@@ -104,7 +104,7 @@ class TestGetVideoRawFallback:
     def test_falls_back_to_playlist_dir(self, temp_cache):
         cache, video_dir, _, playlist_video_dir, _ = temp_cache
         entry = {"id": "abc123", "title": "Pinned Only", "_cached_at": time.time()}
-        (playlist_video_dir / "abc123.json").write_text(json.dumps(entry))
+        (playlist_video_dir / "abc123.json").write_text(json.dumps(entry), encoding="utf-8")
 
         result = cache.get_video_raw("abc123")
         assert result is not None
@@ -114,8 +114,8 @@ class TestGetVideoRawFallback:
         cache, video_dir, _, playlist_video_dir, _ = temp_cache
         main_entry = {"id": "abc123", "title": "Main", "_cached_at": time.time()}
         pinned_entry = {"id": "abc123", "title": "Pinned", "_cached_at": time.time()}
-        (video_dir / "abc123.json").write_text(json.dumps(main_entry))
-        (playlist_video_dir / "abc123.json").write_text(json.dumps(pinned_entry))
+        (video_dir / "abc123.json").write_text(json.dumps(main_entry), encoding="utf-8")
+        (playlist_video_dir / "abc123.json").write_text(json.dumps(pinned_entry), encoding="utf-8")
 
         result = cache.get_video_raw("abc123")
         assert result["title"] == "Main"
@@ -131,8 +131,8 @@ class TestPinAllPlaylistVideos:
 
         entry1 = {"id": "vid1", "title": "Video 1", "_cached_at": time.time()}
         entry2 = {"id": "vid2", "title": "Video 2", "_cached_at": time.time()}
-        (video_dir / "vid1.json").write_text(json.dumps(entry1))
-        (video_dir / "vid2.json").write_text(json.dumps(entry2))
+        (video_dir / "vid1.json").write_text(json.dumps(entry1), encoding="utf-8")
+        (video_dir / "vid2.json").write_text(json.dumps(entry2), encoding="utf-8")
         (thumb_dir / "vid1.jpg").write_bytes(b"thumb1")
 
         monkeypatch.setattr("src.playlist.list_names", lambda: ["My List"])
@@ -149,8 +149,8 @@ class TestPinAllPlaylistVideos:
         cache, video_dir, _, playlist_video_dir, _ = temp_cache
 
         entry = {"id": "vid1", "title": "Already Pinned", "_cached_at": time.time()}
-        (playlist_video_dir / "vid1.json").write_text(json.dumps(entry))
-        (video_dir / "vid1.json").write_text(json.dumps({"id": "vid1", "title": "Main"}))
+        (playlist_video_dir / "vid1.json").write_text(json.dumps(entry), encoding="utf-8")
+        (video_dir / "vid1.json").write_text(json.dumps({"id": "vid1", "title": "Main"}), encoding="utf-8")
 
         monkeypatch.setattr("src.playlist.list_names", lambda: ["List"])
         monkeypatch.setattr("src.playlist.get_playlist", lambda n: ["vid1"])
@@ -158,5 +158,5 @@ class TestPinAllPlaylistVideos:
         cache.pin_all_playlist_videos()
 
         # Should not overwrite the already-pinned version
-        pinned = json.loads((playlist_video_dir / "vid1.json").read_text())
+        pinned = json.loads((playlist_video_dir / "vid1.json").read_text(encoding="utf-8"))
         assert pinned["title"] == "Already Pinned"

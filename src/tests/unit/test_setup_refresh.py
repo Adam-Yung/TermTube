@@ -21,20 +21,20 @@ def world(tmp_path):
     (repo / "src" / "tui").mkdir(parents=True)
     (repo / "assets").mkdir()
     shutil.copy(SETUP, repo / "scripts" / "setup.sh")
-    (repo / "src" / "new.py").write_text("new")
-    (repo / "src" / "tui" / "app.py").write_text("app")
+    (repo / "src" / "new.py").write_text("new", encoding="utf-8")
+    (repo / "src" / "tui" / "app.py").write_text("app", encoding="utf-8")
     (repo / "src" / "__pycache__").mkdir()
-    (repo / "src" / "__pycache__" / "junk.pyc").write_text("x")
-    (repo / "assets" / "icon.png").write_text("png")
-    (repo / "requirements.txt").write_text("textual\n")
-    (repo / "termtube").write_text("#!/bin/sh\n")
-    (repo / "termtube.cmd").write_text("rem\n")
-    (repo / "VERSION").write_text("1.2.3")
+    (repo / "src" / "__pycache__" / "junk.pyc").write_text("x", encoding="utf-8")
+    (repo / "assets" / "icon.png").write_text("png", encoding="utf-8")
+    (repo / "requirements.txt").write_text("textual\n", encoding="utf-8")
+    (repo / "termtube").write_text("#!/bin/sh\n", encoding="utf-8")
+    (repo / "termtube.cmd").write_text("rem\n", encoding="utf-8")
+    (repo / "VERSION").write_text("1.2.3", encoding="utf-8")
     app = home / ".local" / "share" / "TermTube"
     (app / ".venv").mkdir(parents=True)
-    (app / ".venv" / "marker").write_text("keep me")
+    (app / ".venv" / "marker").write_text("keep me", encoding="utf-8")
     (app / "src").mkdir()
-    (app / "src" / "old.py").write_text("stale")
+    (app / "src" / "old.py").write_text("stale", encoding="utf-8")
     return repo, home, app
 
 
@@ -49,17 +49,17 @@ def test_code_is_replaced_and_the_venv_is_kept(world):
     repo, home, app = world
     result = refresh(repo, home)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (app / ".venv" / "marker").read_text() == "keep me"
+    assert (app / ".venv" / "marker").read_text(encoding="utf-8") == "keep me"
     assert not (app / "src" / "old.py").exists()
-    assert (app / "src" / "new.py").read_text() == "new" and (app / "src" / "tui" / "app.py").exists()
+    assert (app / "src" / "new.py").read_text(encoding="utf-8") == "new" and (app / "src" / "tui" / "app.py").exists()
     assert (app / "assets" / "icon.png").exists() and (app / "scripts" / "setup.sh").exists()
     assert not (app / "src" / "__pycache__").exists()
-    assert (app / "termtube").stat().st_mode & 0o111 and (app / "VERSION").read_text() == "dev"
+    assert (app / "termtube").stat().st_mode & 0o111 and (app / "VERSION").read_text(encoding="utf-8") == "dev"
 
 
 def test_it_warns_when_requirements_changed_since_the_venv_was_built(world):
     repo, home, app = world
-    (app / ".venv" / ".requirements.sha256").write_text("0" * 64)
+    (app / ".venv" / ".requirements.sha256").write_text("0" * 64, encoding="utf-8")
     out = refresh(repo, home).stdout
     assert "requirements.txt changed" in out and "downloads packages" in out
 
@@ -67,7 +67,7 @@ def test_it_warns_when_requirements_changed_since_the_venv_was_built(world):
 def test_it_stays_quiet_when_requirements_match(world):
     repo, home, app = world
     digest = hashlib.sha256((repo / "requirements.txt").read_bytes()).hexdigest()
-    (app / ".venv" / ".requirements.sha256").write_text(digest)
+    (app / ".venv" / ".requirements.sha256").write_text(digest, encoding="utf-8")
     assert "requirements.txt changed" not in refresh(repo, home).stdout
 
 

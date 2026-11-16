@@ -10,7 +10,7 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 
 def load(name: str) -> dict:
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def test_search_parses_videos_and_skips_non_videos():

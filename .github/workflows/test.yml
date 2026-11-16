@@ -60,7 +60,7 @@ jobs:
       - name: The real app in a pseudo-terminal
         run: |
           "$HOME/.local/share/TermTube/.venv/bin/python" scripts/e2e-local.py \
-            --app-dir "$HOME/.local/share/TermTube" --launcher "$HOME/.local/share/TermTube/termtube"
+            --app-dir "$HOME/.local/share/TermTube" --launcher "$HOME/.local/share/TermTube/termtube" --debug-log
 
   real-app-windows:
     name: real app (windows-latest)
@@ -98,5 +98,5 @@ jobs:
         run: |
           $py = "$env:LOCALAPPDATA\Programs\TermTube\.venv\Scripts\python.exe"
           & $py -m pip install --quiet pywinpty
-          & $py scripts\e2e-local.py --app-dir "$env:LOCALAPPDATA\Programs\TermTube" --launcher "$env:LOCALAPPDATA\Programs\TermTube\termtube.cmd"
+          & $py scripts\e2e-local.py --app-dir "$env:LOCALAPPDATA\Programs\TermTube" --launcher "$env:LOCALAPPDATA\Programs\TermTube\termtube.cmd" --debug-log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

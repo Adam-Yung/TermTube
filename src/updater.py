@@ -59,7 +59,7 @@ def _github_latest_release(repo: str) -> tuple[str, str] | None:
 
 def _read_installed_version(install_dir: Path) -> str:
     try:
-        return (install_dir / "VERSION").read_text().strip()
+        return (install_dir / "VERSION").read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -148,7 +148,7 @@ def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
                 check=False,
             )
 
-        (install_dir / "VERSION").write_text(latest_tag)
+        (install_dir / "VERSION").write_text(latest_tag, encoding="utf-8")
         if verbose:
             _safe_print(f"  [ok] app: updated to {latest_tag}")
         return True

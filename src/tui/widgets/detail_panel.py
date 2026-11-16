@@ -6,6 +6,7 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
+from textual.css.query import NoMatches
 from textual.events import Resize, ScreenResume
 from textual.message import Message
 from textual.timer import Timer
@@ -133,20 +134,32 @@ class DetailPanel(Widget):
             return 38, 20
         return size.width or max(30, (self.size.width or 80) - 4), size.height or 25
 
+    def _thumbnail(self) -> ThumbnailWidget | None:
+        """The thumbnail widget, or None once this panel is torn down (its screen was popped or the app is quitting)."""
+        try:
+            return self.query_one("#thumbnail", ThumbnailWidget)
+        except NoMatches:
+            return None
+
     def set_thumbnail_video_id(self, vid: str) -> None:
-        self.query_one("#thumbnail", ThumbnailWidget).set_video_id(vid)
+        if thumb := self._thumbnail():
+            thumb.set_video_id(vid)
 
     def set_thumbnail_loading(self) -> None:
-        self.query_one("#thumbnail", ThumbnailWidget).set_loading()
+        if thumb := self._thumbnail():
+            thumb.set_loading()
 
     def set_thumbnail_placeholder(self) -> None:
-        self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
+        if thumb := self._thumbnail():
+            thumb.set_placeholder()
 
     def set_thumbnail_image(self, vid: str, path: Path) -> None:
-        self.query_one("#thumbnail", ThumbnailWidget).set_image_path(vid, path)
+        if thumb := self._thumbnail():
+            thumb.set_image_path(vid, path)
 
     def set_thumbnail_ansi(self, vid: str, ansi: str) -> None:
-        self.query_one("#thumbnail", ThumbnailWidget).set_ansi(vid, ansi)
+        if thumb := self._thumbnail():
+            thumb.set_ansi(vid, ansi)
 
     def on_screen_resume(self, _: ScreenResume) -> None:
         if self._last_entry:

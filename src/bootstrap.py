@@ -62,7 +62,7 @@ def _read_versions() -> dict:
     vf = _versions_file()
     if vf.exists():
         try:
-            return json.loads(vf.read_text())
+            return json.loads(vf.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
     return {}
@@ -71,7 +71,7 @@ def _read_versions() -> dict:
 def _write_versions(data: dict) -> None:
     vf = _versions_file()
     vf.parent.mkdir(parents=True, exist_ok=True)
-    vf.write_text(json.dumps(data, indent=2))
+    vf.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 _MAX_RETRIES = 3

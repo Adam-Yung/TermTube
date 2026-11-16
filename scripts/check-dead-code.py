@@ -28,7 +28,7 @@ def py_files(tests: bool) -> list[Path]:
 def referenced_names(files: list[Path]) -> set[str]:
     names: set[str] = set()
     for path in files:
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Name):
                 names.add(node.id)
             elif isinstance(node, ast.Attribute):
@@ -42,7 +42,7 @@ def referenced_names(files: list[Path]) -> set[str]:
 
 def definitions(files: list[Path]):
     for path in files:
-        for node in ast.walk(ast.parse(path.read_text())):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 yield path, node.name, node.lineno
 
@@ -50,7 +50,7 @@ def definitions(files: list[Path]):
 def unused_imports(path: Path) -> list[tuple[int, str]]:
     if path.name == "__init__.py":
         return []
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     imported: dict[str, int] = {}
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -65,7 +65,7 @@ def unused_imports(path: Path) -> list[tuple[int, str]]:
             used.add(node.id)
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             used.update(IDENT.findall(node.value))
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     return [
         (line, name)
         for name, line in imported.items()

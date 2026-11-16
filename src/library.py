@@ -32,7 +32,7 @@ def _dir_mtime(directory: Path) -> float:
 
 def _load_sidecar(info_path: Path, media_files: dict[str, Path]) -> LibraryEntry | None:
     try:
-        data = json.loads(info_path.read_text())
+        data = json.loads(info_path.read_text(encoding="utf-8"))
         media_stem = info_path.stem.removesuffix(".info")
         media = media_files.get(media_stem)
         if media:

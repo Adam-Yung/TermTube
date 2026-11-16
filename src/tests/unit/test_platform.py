@@ -86,15 +86,18 @@ class TestIPCPaths:
     def test_audio_and_video_paths_differ(self):
         assert get_audio_ipc_path() != get_video_ipc_path()
 
-    def test_unix_audio_path(self, monkeypatch):
+    @pytest.fixture
+    def as_unix(self, monkeypatch, tmp_path):
+        """Pretend to be Unix (also on Windows, which has no os.getuid) with a private socket directory."""
         monkeypatch.setattr("src.plat.IS_WINDOWS", False)
-        result = get_audio_ipc_path()
-        assert result.endswith(".sock")
+        monkeypatch.setattr("src.plat.os.getuid", lambda: 1000, raising=False)
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
 
-    def test_unix_video_path(self, monkeypatch):
-        monkeypatch.setattr("src.plat.IS_WINDOWS", False)
-        result = get_video_ipc_path()
-        assert result.endswith(".sock")
+    def test_unix_audio_path(self, as_unix):
+        assert get_audio_ipc_path().endswith(".sock")
+
+    def test_unix_video_path(self, as_unix):
+        assert get_video_ipc_path().endswith(".sock")
 
     def test_windows_audio_path(self, monkeypatch):
         monkeypatch.setattr("src.plat.IS_WINDOWS", True)
@@ -215,7 +218,7 @@ class TestCleanupIPC:
     def test_unix_removes_socket_file(self, tmp_path, monkeypatch):
         monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         sock_file = tmp_path / "test.sock"
-        sock_file.write_text("")
+        sock_file.write_text("", encoding="utf-8")
         cleanup_ipc(str(sock_file))
         assert not sock_file.exists()
 
@@ -226,7 +229,7 @@ class TestCleanupIPC:
     def test_windows_does_nothing(self, tmp_path, monkeypatch):
         monkeypatch.setattr("src.plat.IS_WINDOWS", True)
         sock_file = tmp_path / "test.sock"
-        sock_file.write_text("")
+        sock_file.write_text("", encoding="utf-8")
         cleanup_ipc(str(sock_file))
         assert sock_file.exists()
 

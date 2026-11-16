@@ -26,7 +26,7 @@ def _load() -> list[Entry]:
         _cache = []
         return _cache
     try:
-        _cache = json.loads(HISTORY_PATH.read_text())
+        _cache = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         _cache = []
     return _cache

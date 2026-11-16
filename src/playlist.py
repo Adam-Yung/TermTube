@@ -12,7 +12,7 @@ _PLAYLISTS_PATH = get_config_dir() / "playlists.json"
 def _load() -> dict[str, list[str]]:
     if _PLAYLISTS_PATH.exists():
         try:
-            return json.loads(_PLAYLISTS_PATH.read_text())
+            return json.loads(_PLAYLISTS_PATH.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             pass
     return {}

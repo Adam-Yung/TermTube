@@ -62,7 +62,7 @@ class TestReadCache:
 
         data = [{"start": 0.0, "end": 5.0, "category": "sponsor"}]
         cache_file = cache_dir / "old_video.json"
-        cache_file.write_text(json.dumps(data))
+        cache_file.write_text(json.dumps(data), encoding="utf-8")
 
         expired_time = time.time() - _CACHE_TTL - 100
         import os
@@ -81,7 +81,7 @@ class TestReadCache:
             {"start": 50.0, "end": 60.0, "category": "selfpromo"},
         ]
         cache_file = cache_dir / "fresh_video.json"
-        cache_file.write_text(json.dumps(data))
+        cache_file.write_text(json.dumps(data), encoding="utf-8")
 
         result = _read_cache("fresh_video")
         assert result is not None
@@ -95,7 +95,7 @@ class TestReadCache:
         monkeypatch.setattr("src.sponsorblock._CACHE_DIR", cache_dir)
 
         cache_file = cache_dir / "empty_video.json"
-        cache_file.write_text(json.dumps([]))
+        cache_file.write_text(json.dumps([]), encoding="utf-8")
 
         result = _read_cache("empty_video")
         assert result == []
@@ -106,7 +106,7 @@ class TestReadCache:
         monkeypatch.setattr("src.sponsorblock._CACHE_DIR", cache_dir)
 
         cache_file = cache_dir / "corrupt_video.json"
-        cache_file.write_text("not valid json{{{")
+        cache_file.write_text("not valid json{{{", encoding="utf-8")
 
         result = _read_cache("corrupt_video")
         assert result is None
@@ -130,7 +130,7 @@ class TestWriteCache:
         cache_file = cache_dir / "test_vid.json"
         assert cache_file.exists()
 
-        data = json.loads(cache_file.read_text())
+        data = json.loads(cache_file.read_text(encoding="utf-8"))
         assert len(data) == 2
         assert data[0] == {"start": 5.0, "end": 15.0, "category": "sponsor"}
         assert data[1] == {"start": 30.0, "end": 45.0, "category": "selfpromo"}
@@ -143,7 +143,7 @@ class TestWriteCache:
 
         cache_file = cache_dir / "no_segments.json"
         assert cache_file.exists()
-        data = json.loads(cache_file.read_text())
+        data = json.loads(cache_file.read_text(encoding="utf-8"))
         assert data == []
 
 
@@ -157,7 +157,7 @@ class TestFetchSegments:
         monkeypatch.setattr("src.sponsorblock._CACHE_DIR", cache_dir)
 
         data = [{"start": 1.0, "end": 2.0, "category": "sponsor"}]
-        (cache_dir / "cached_vid.json").write_text(json.dumps(data))
+        (cache_dir / "cached_vid.json").write_text(json.dumps(data), encoding="utf-8")
 
         result = fetch_segments("cached_vid")
         assert len(result) == 1
@@ -183,7 +183,7 @@ class TestFetchSegments:
         assert result == []
         cache_file = cache_dir / "no_segments_vid.json"
         assert cache_file.exists()
-        assert json.loads(cache_file.read_text()) == []
+        assert json.loads(cache_file.read_text(encoding="utf-8")) == []
 
     def test_handles_network_error_gracefully(self, tmp_path, monkeypatch):
         import urllib.error

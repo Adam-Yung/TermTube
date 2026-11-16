@@ -21,7 +21,7 @@ def repo(tmp_path):
     root = tmp_path / "repo"
     (root / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPT, root / "scripts" / "dev-setup.sh")
-    (root / "requirements-dev.txt").write_text("")
+    (root / "requirements-dev.txt").write_text("", encoding="utf-8")
     return root
 
 
@@ -72,7 +72,7 @@ def test_a_link_from_the_dev_venv_into_the_app_install_is_a_failure(repo, tmp_pa
 def test_a_pip_from_another_venv_is_a_failure(repo, tmp_path):
     make_venv(repo / ".venv")
     pip = repo / ".venv" / "bin" / "pip"
-    pip.write_text(f"#!{tmp_path}/other/bin/python\n")
+    pip.write_text(f"#!{tmp_path}/other/bin/python\n", encoding="utf-8")
     pip.chmod(0o755)
     result = check(repo, tmp_path)
     assert result.returncode == 1 and "a copied venv" in result.stdout

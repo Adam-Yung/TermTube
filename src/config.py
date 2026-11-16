@@ -128,14 +128,14 @@ class Config:
         try:
             existing: dict = {}
             if self.path.exists():
-                with open(self.path) as f:
+                with open(self.path, encoding="utf-8") as f:
                     existing = yaml.safe_load(f) or {}
             existing.update({k: v for k, v in self._data.items()
                              if k not in ("cache_ttl", "sponsorblock")})
             existing["cache_ttl"] = self._data["cache_ttl"]
             existing["sponsorblock"] = self._data["sponsorblock"]
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.path, "w") as f:
+            with open(self.path, "w", encoding="utf-8") as f:
                 yaml.dump(existing, f, default_flow_style=False, allow_unicode=True)
         except Exception as exc:
             logger.warning("Config.save() failed: %s (path=%s)", exc, self.path)

@@ -15,7 +15,7 @@ def keys(td) -> set[str]:
 
 
 def load(name: str) -> dict:
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def test_row_types_extend_the_shared_base():

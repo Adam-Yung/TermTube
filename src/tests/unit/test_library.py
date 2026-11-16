@@ -18,7 +18,8 @@ def fresh_cache():
 def add_video(directory, vid, upload_date="20260101"):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f"{vid}.mp4").write_bytes(b"x")
-    (directory / f"{vid}.info.json").write_text(json.dumps({"id": vid, "title": vid, "upload_date": upload_date}))
+    sidecar = {"id": vid, "title": vid, "upload_date": upload_date}
+    (directory / f"{vid}.info.json").write_text(json.dumps(sidecar), encoding="utf-8")
 
 
 def bump(path, seconds):

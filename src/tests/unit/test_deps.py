@@ -14,7 +14,7 @@ def test_is_tool_installed_looks_only_in_the_bundled_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(plat.Path, "home", staticmethod(lambda: tmp_path))
     bin_dir = tmp_path / ".local" / "termtube-deps" / "bin"
     bin_dir.mkdir(parents=True)
-    (bin_dir / "mpv").write_text("")
+    (bin_dir / "mpv").write_text("", encoding="utf-8")
     assert plat.is_tool_installed("mpv") and not plat.is_tool_installed("deno")
 
 

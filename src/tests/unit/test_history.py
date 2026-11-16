@@ -32,7 +32,7 @@ class TestAdd:
 class TestMaxEntriesCap:
     def test_respects_cap(self, temp_history):
         seed = [{"id": f"old{i}", "_watched_at": i} for i in range(500)]
-        temp_history.write_text(json.dumps(seed))
+        temp_history.write_text(json.dumps(seed), encoding="utf-8")
 
         history.add({"id": "newest", "title": "Newest"})
 
@@ -56,7 +56,7 @@ class TestPersistence:
         history.add({"id": "persist1", "title": "A"})
         history.add({"id": "persist2", "title": "B"})
 
-        raw = json.loads(temp_history.read_text())
+        raw = json.loads(temp_history.read_text(encoding="utf-8"))
         assert len(raw) == 2
         assert raw[0]["id"] == "persist2"
         assert raw[1]["id"] == "persist1"

@@ -6,7 +6,7 @@ and checks both the screen and mpv itself (over the app's IPC). Exit 0 only if e
 means: the app starts, renders, scans the library, starts and controls mpv (poll, pause, seek, stop), records history
 and quits cleanly on this platform.
 It is silent: mpv gets an isolated config with ao=null.
-Usage: scripts/e2e-local.py [--app-dir DIR] [--python EXE] [--launcher PATH] [--keep]
+Usage: scripts/e2e-local.py [--app-dir DIR] [--python EXE] [--launcher PATH] [--keep] [--debug-log]
   --app-dir   the checkout or the installed copy to run and import from (default: this checkout)
   --launcher  run this launcher (termtube / termtube.cmd) instead of ``python src/main.py``
 """
@@ -185,19 +185,19 @@ def prepare(tmp: Path, app_dir: Path) -> dict:
         directory.mkdir()
     run.mkdir(mode=0o700)
     write_tone(audio / "tone-e2e.wav")
-    (audio / "tone-e2e.info.json").write_text(json.dumps(
-        {"id": TONE_ID, "title": TONE_TITLE, "uploader": "TermTube CI", "duration": 30, "upload_date": "20260101"}))
+    sidecar = {"id": TONE_ID, "title": TONE_TITLE, "uploader": "TermTube CI", "duration": 30, "upload_date": "20260101"}
+    (audio / "tone-e2e.info.json").write_text(json.dumps(sidecar), encoding="utf-8")
 
     import yaml
 
     (tmp / "config.yaml").write_text(yaml.safe_dump({
         "browser": "none", "video_dir": str(video), "audio_dir": str(audio), "thumbnail_warning_dismissed": True,
         "sponsorblock": {"enabled": False, "auto_skip": False},
-    }))
+    }), encoding="utf-8")
     # mpv reads its config from the same isolated directory: silent, and no audio device needed (CI runners have none)
     mpv_conf = cfg / "mpv"
     mpv_conf.mkdir()
-    (mpv_conf / "mpv.conf").write_text("ao=null\n")
+    (mpv_conf / "mpv.conf").write_text("ao=null\n", encoding="utf-8")
     # COLUMNS and LINES override the pty's size (pytest sets 80x24 in its children): pin them to the size we made
     env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", TERMTUBE_CACHE_DIR=str(tmp / "cache"),
                COLUMNS=str(COLS), LINES=str(ROWS))
@@ -224,6 +224,17 @@ def prepare(tmp: Path, app_dir: Path) -> dict:
     return env
 
 
+def print_app_log(started_at: float) -> None:
+    """The newest --debug log the app wrote since this run began (its own account of why something failed)."""
+    logs = [p for p in (Path(tempfile.gettempdir()) / "TermTube").glob("*.log") if p.stat().st_mtime >= started_at - 5]
+    if not logs:
+        print("\n--- no app debug log found ---")
+        return
+    newest = max(logs, key=lambda p: p.stat().st_mtime)
+    print(f"\n--- app debug log ({newest.name}), last 80 lines ---")
+    print("\n".join(newest.read_text(encoding="utf-8", errors="replace").splitlines()[-80:]))
+
+
 def run(args, tmp: Path) -> int:
     app_dir = Path(args.app_dir).resolve()
     env = prepare(tmp, app_dir)
@@ -231,12 +242,14 @@ def run(args, tmp: Path) -> int:
 
     socket_path = __import__("src.plat", fromlist=["x"]).get_audio_ipc_path()
     config = str(tmp / "config.yaml")
+    extra = ["--debug"] if args.debug_log else []
+    started_at = time.time()
     if args.launcher:
-        argv = [args.launcher, "--config", config]
+        argv = [args.launcher, "--config", config, *extra]
         if args.launcher.lower().endswith(".cmd"):
             argv = ["cmd.exe", "/c", *argv]
     else:
-        argv = [args.python, str(app_dir / "src" / "main.py"), "--config", config]
+        argv = [args.python, str(app_dir / "src" / "main.py"), "--config", config, *extra]
     terminal = (WindowsTerminal if os.name == "nt" else PosixTerminal)(argv, env, str(app_dir))
     session = Session(terminal)
 
@@ -297,6 +310,8 @@ def run(args, tmp: Path) -> int:
         if failures:
             print("\n--- last screen output ---")
             print(ANSI.sub("", session.raw)[-1800:])
+            if args.debug_log:
+                print_app_log(started_at)
     print(f"\n{'OK: all steps passed' if not failures else 'FAILED: ' + ', '.join(failures)}")
     return 1 if failures else 0
 
@@ -307,7 +322,9 @@ def main() -> int:
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--launcher")
     parser.add_argument("--keep", action="store_true")
+    parser.add_argument("--debug-log", action="store_true", help="run the app with --debug; print its log on failure")
     args = parser.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # the app's screen holds box-drawing and emoji
     tmp = Path(tempfile.mkdtemp(prefix="tt-", dir="/tmp" if os.name == "posix" else None))
     print(f"python {sys.version.split()[0]} on {sys.platform}; app: {args.launcher or args.app_dir}; workdir {tmp}")
     try:

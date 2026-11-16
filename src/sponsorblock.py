@@ -14,7 +14,7 @@ from pathlib import Path
 from src import logger
 from src.plat import get_cache_dir
 
-_UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+_UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text(encoding="utf-8").strip()
 
 _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
 _CACHE_DIR = get_cache_dir() / "sb"
@@ -41,7 +41,7 @@ def _build_ssl_context(pref: str) -> ssl.SSLContext:
 def _read_ssl_pref() -> str | None:
     try:
         if _SSL_PREF_PATH.exists():
-            pref = _SSL_PREF_PATH.read_text().strip()
+            pref = _SSL_PREF_PATH.read_text(encoding="utf-8").strip()
             if pref in ("certifi", "system", "unverified"):
                 return pref
     except OSError:
@@ -52,7 +52,7 @@ def _read_ssl_pref() -> str | None:
 def _write_ssl_pref(pref: str) -> None:
     try:
         _SSL_PREF_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _SSL_PREF_PATH.write_text(pref)
+        _SSL_PREF_PATH.write_text(pref, encoding="utf-8")
     except OSError:
         pass
 
@@ -117,7 +117,7 @@ def _read_cache(video_id: str) -> list[Segment] | None:
         if time.time() - mtime > _CACHE_TTL:
             path.unlink(missing_ok=True)
             return None
-        raw = json.loads(path.read_text())
+        raw = json.loads(path.read_text(encoding="utf-8"))
         return [Segment(start=s["start"], end=s["end"], category=s["category"]) for s in raw]
     except (OSError, json.JSONDecodeError, KeyError, TypeError):
         return None
@@ -127,7 +127,7 @@ def _write_cache(video_id: str, segments: list[Segment]) -> None:
     try:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
         data = [{"start": s.start, "end": s.end, "category": s.category} for s in segments]
-        _cache_path(video_id).write_text(json.dumps(data))
+        _cache_path(video_id).write_text(json.dumps(data), encoding="utf-8")
     except OSError:
         pass
 

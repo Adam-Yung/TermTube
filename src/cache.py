@@ -78,7 +78,7 @@ class Cache:
         if not path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             age = time.time() - data.get("_cached_at", 0)
             ttl = self._ttl.get("metadata", 86400)
             if age > ttl:
@@ -124,7 +124,7 @@ class Cache:
         if not path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             self._ram_put(video_id, data)
             return data
         except (json.JSONDecodeError, OSError):
@@ -136,7 +136,7 @@ class Cache:
         if not path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             age = time.time() - data.get("_cached_at", 0)
             if age > self._ttl.get(key, 3600):
                 return None
@@ -163,7 +163,7 @@ class Cache:
             if not _SUPPRESSED_PATH.exists():
                 return
             try:
-                data = json.loads(_SUPPRESSED_PATH.read_text())
+                data = json.loads(_SUPPRESSED_PATH.read_text(encoding="utf-8"))
                 self._suppressed = OrderedDict.fromkeys(data.get("ids", []))
                 self._focus_counts = dict(data.get("focus_counts", {}))
             except (json.JSONDecodeError, OSError):
@@ -238,7 +238,7 @@ class Cache:
         if not path.exists():
             return []
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             entries = data.get("entries", [])
             if not isinstance(entries, list):
                 return []

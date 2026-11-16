@@ -34,7 +34,7 @@ class TestPreferredQuality:
 
     def test_custom_value(self, tmp_path):
         config_path = tmp_path / "config.yaml"
-        config_path.write_text(yaml.dump({"preferred_quality": "720p"}))
+        config_path.write_text(yaml.dump({"preferred_quality": "720p"}), encoding="utf-8")
 
         from src.config import Config
 
@@ -71,7 +71,7 @@ class TestSponsorblock:
                     "categories": ["sponsor", "intro", "outro"],
                 }
             })
-        )
+        , encoding="utf-8")
 
         from src.config import Config
 
@@ -84,7 +84,7 @@ class TestDirPaths:
     def test_video_dir(self, tmp_path):
         config_path = tmp_path / "config.yaml"
         target = tmp_path / "MyVideos"
-        config_path.write_text(yaml.dump({"video_dir": str(target)}))
+        config_path.write_text(yaml.dump({"video_dir": str(target)}), encoding="utf-8")
 
         from src.config import Config
 
@@ -94,7 +94,7 @@ class TestDirPaths:
     def test_audio_dir(self, tmp_path):
         config_path = tmp_path / "config.yaml"
         target = tmp_path / "MyAudio"
-        config_path.write_text(yaml.dump({"audio_dir": str(target)}))
+        config_path.write_text(yaml.dump({"audio_dir": str(target)}), encoding="utf-8")
 
         from src.config import Config
 
@@ -162,7 +162,7 @@ def test_removed_thumbnail_formats_read_back_as_auto(tmp_path):
     from src.config import Config
 
     path = tmp_path / "config.yaml"
-    path.write_text("thumbnail_format: sixel\n")
+    path.write_text("thumbnail_format: sixel\n", encoding="utf-8")
     assert Config(path=str(path)).thumbnail_format == "auto"
-    path.write_text("thumbnail_format: symbols\n")
+    path.write_text("thumbnail_format: symbols\n", encoding="utf-8")
     assert Config(path=str(path)).thumbnail_format == "symbols"
