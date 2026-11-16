@@ -30,6 +30,7 @@ A tmux session (150x46, `browser: none`, throwaway config) ran the real app agai
 
 ## Known problems
 
+- Key conflicts awaiting a decision: `docs/plans/2026-11-15-key-conflicts-PLAN.md` (K2 to K14). The channel page ignores `?`, `,`, `/` and `q`.
 - InnerTube fetch errors become empty results (callers fall back to yt-dlp).
 
 Optimization plan step 1 is done: rows with only a video id get a derived `i.ytimg.com` thumbnail URL (`best_thumb_url`).

@@ -24,7 +24,17 @@ class ItemActionsMixin:
     """
 
     def _hidden_menu_actions(self, entry: Entry) -> set[str]:
-        return set() if self.app.audio.can_enqueue(entry) else {"enqueue"}
+        hidden = set() if self.app.audio.can_enqueue(entry) else {"enqueue"}
+        if self.app.audio.is_playing:
+            hidden |= {"watch", "watch_quality"}
+        return hidden
+
+    def _video_blocked_by_audio(self) -> bool:
+        """True (with a hint) while background audio plays: video and audio together overlap."""
+        if not self.app.audio.is_playing:
+            return False
+        self.notify("Audio is playing. Stop it with x before watching video.", severity="warning", timeout=4)
+        return True
 
     def action_activate(self) -> None:
         entry = self._selected_entry()
@@ -69,12 +79,14 @@ class ItemActionsMixin:
 
     def action_watch_quality(self) -> None:
         entry = self._playable_entry()
-        if entry:
+        if entry and not self._video_blocked_by_audio():
             self._pick_quality(audio_only=False, then=lambda fmt: self._watch(entry, fmt))
 
     def _watch(self, entry: Entry, ytdl_format: str = "") -> None:
         from src.tui.screens.watch_modal import WatchModal
 
+        if self._video_blocked_by_audio():
+            return
         logger.info("watch %s", entry.get("id", "?"))
         self.app.push_screen(WatchModal(entry, ytdl_format=ytdl_format))
 
