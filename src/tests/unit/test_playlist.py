@@ -1,6 +1,5 @@
 """Tests for src/playlist.py — local playlist management."""
 
-import pytest
 
 from src import playlist
 

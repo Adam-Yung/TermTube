@@ -7,8 +7,8 @@ import shutil
 import time
 from pathlib import Path
 
-from src.cache import CACHE_DIR, THUMB_DIR
 from src import logger
+from src.cache import CACHE_DIR, THUMB_DIR
 from src.entries import Entry
 
 RENDERED_DIR = CACHE_DIR / "rendered"

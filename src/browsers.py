@@ -6,7 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
-from src.plat import IS_MACOS, IS_WINDOWS, IS_LINUX
+from src.plat import IS_LINUX, IS_MACOS, IS_WINDOWS
 
 YTDLP_SUPPORTED_BROWSERS: list[str] = [
     "brave", "chrome", "chromium", "edge", "firefox",

@@ -1,15 +1,13 @@
 """Integration tests for yt-dlp download functions with mocked YoutubeDL."""
 
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.downloads import (
-    download_video_with_progress,
-    download_audio_with_progress,
     PHASE_POSTPROCESS,
-    _make_progress_hook,
+    download_audio_with_progress,
+    download_video_with_progress,
 )
 
 

@@ -1,6 +1,7 @@
 """Local playlists: name -> list of video ids, stored in `playlists.json`."""
 
 from __future__ import annotations
+
 import json
 import os
 import tempfile

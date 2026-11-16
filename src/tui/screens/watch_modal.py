@@ -11,9 +11,11 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
-from src import history, player as player_mod
+from src import history
+from src import player as player_mod
 from src.entries import Entry
 from src.plat import (
+    ProcessRegistry,
     cleanup_ipc,
     get_video_ipc_path,
     install_hint,

@@ -18,4 +18,4 @@ All OS branching lives here: config/cache/log directories, mpv IPC endpoints, cl
 ## Known limits
 
 - `get_popen_kwargs` is an alias of `get_subprocess_flags`, kept because screens import both names.
-- `_INSTALL_HINTS["yt-dlp"]` still describes the retired standalone binary; yt-dlp is now a pip dependency. Only `mpv` hints are shown in practice.
+- `_INSTALL_HINTS["yt-dlp"]` is the same pip command on every OS (yt-dlp is a library in TermTube's venv). Only `mpv` hints are shown in practice.

@@ -113,7 +113,7 @@ No AI slop:
 
 - **Every feature gets automated tests before it is done.** Manual verification alone does not count.
 - Test behavior, not source text: no `inspect.getsource` assertions.
-- **Every commit is gated on `scripts/verify.sh`** (unit and TUI tests, doc mirrors, doc links, dead-code check, byte-compile), green, run
+- **Every commit is gated on `scripts/verify.sh`** (unit and TUI tests, doc mirrors, doc links, dead-code check, ruff, byte-compile), green, run
   immediately before the commit. If it fails, fix or revert; do not commit past it.
 - Tests never touch the network, the real browser profile, the keychain, or the real `~/.config` / `~/.cache`. Use the fixtures in
   `src/tests/conftest.py`.

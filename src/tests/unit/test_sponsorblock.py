@@ -2,20 +2,18 @@
 
 import json
 import time
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.sponsorblock import (
+    _CACHE_TTL,
     Segment,
+    _cached_ssl_context,
+    _get_ssl_context,
     _read_cache,
     _write_cache,
-    _cache_path,
-    _get_ssl_context,
-    _cached_ssl_context,
     fetch_segments,
-    _CACHE_TTL,
 )
 
 

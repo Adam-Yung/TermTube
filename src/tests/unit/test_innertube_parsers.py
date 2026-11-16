@@ -1,7 +1,8 @@
-import pytest
 import json
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from src import innertube
 
@@ -74,8 +75,9 @@ def test_channel_info_none_when_unresolvable():
 
 
 def test_ytdlp_search_uses_innertube_then_falls_back(tmp_path, monkeypatch):
-    import src.ytdlp as ytdlp
     from unittest.mock import MagicMock
+
+    import src.ytdlp as ytdlp
 
     cache = MagicMock()
     cache.get_feed.return_value = None

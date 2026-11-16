@@ -43,7 +43,7 @@ def referenced_names(files: list[Path]) -> set[str]:
 def definitions(files: list[Path]):
     for path in files:
         for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 yield path, node.name, node.lineno
 
 

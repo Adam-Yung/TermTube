@@ -108,7 +108,7 @@ def _classify_download_error(exc: Exception) -> tuple[str, str]:
     if "CERTIFICATE_VERIFY_FAILED" in exc_str.upper() or "SSL" in exc_str.upper():
         return f"SSL/TLS error: {exc_str}", "ssl"
 
-    if isinstance(exc, (TimeoutError, OSError)) and "timed out" in exc_str.lower():
+    if isinstance(exc, TimeoutError | OSError) and "timed out" in exc_str.lower():
         return "Connection timed out", "timeout"
     if isinstance(exc, urllib.error.URLError) and "timed out" in exc_str.lower():
         return "Connection timed out", "timeout"
@@ -289,7 +289,7 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
                     tf.extractall(tmp, filter="data" if hasattr(tarfile, "data_filter") else None)
             except tarfile.CompressionError:
                 print("    [!] xz decompression not available (missing lzma module).", flush=True)
-                print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev + rebuild Python)", flush=True)
+                print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev, then rebuild)", flush=True)
                 return None
         else:
             with zipfile.ZipFile(archive_path) as zf:

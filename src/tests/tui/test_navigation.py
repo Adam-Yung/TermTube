@@ -1,7 +1,5 @@
 """TUI interaction tests for MainScreen navigation."""
 
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 
 async def test_app_boots_without_crash(app):

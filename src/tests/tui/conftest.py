@@ -1,7 +1,8 @@
 """Fixtures for headless TUI tests."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.fixture

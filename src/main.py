@@ -120,7 +120,7 @@ def _run_tests() -> None:
     log_path = tmp_base / f"test_results_{timestamp}.log"
 
     print(f"\033[1m{'=' * 60}\033[0m")
-    print(f"\033[1m  TermTube Test Suite\033[0m")
+    print("\033[1m  TermTube Test Suite\033[0m")
     print(f"\033[1m{'=' * 60}\033[0m")
     print(f"  Log file: \033[36m{log_path}\033[0m")
     print()
@@ -160,7 +160,7 @@ def _run_tests() -> None:
     print()
     print(f"\033[1m{'=' * 60}\033[0m")
     if proc.returncode == 0:
-        print(f"  \033[32mAll tests passed.\033[0m")
+        print("  \033[32mAll tests passed.\033[0m")
     else:
         print(f"  \033[31mSome tests failed (exit code {proc.returncode}).\033[0m")
     print(f"  Results saved to: \033[36m{log_path}\033[0m")
@@ -198,16 +198,20 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--browser-help", action="store_true", help="Show browser authentication setup")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--debug", action="store_true", help="Enable logging to the in-app debug window (Ctrl+D) and a timestamped log file in the system temp directory. Nothing is written to stderr.")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Log to the in-app debug window (Ctrl+D) and a timestamped temp file. Nothing goes to stderr.",
+    )
     parser.add_argument(
         "--level",
         metavar="LEVEL",
         default="ALL",
         choices=["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Minimum log severity to keep when --debug is set. One of ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL (everything).",
+        help="Minimum severity kept when --debug is set: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL.",
     )
     parser.add_argument("--version", action="store_true", help="Show version")
-    parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv, and ffmpeg to latest versions, then exit")
+    parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv and ffmpeg, then exit")
     parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
     parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
     args = parser.parse_args()
@@ -260,9 +264,9 @@ def main() -> None:
         print("Cache cleared.")
         sys.exit(0)
 
-    # Must precede Textual: textual_image probes the terminal at import time, and that fails once Textual's I/O threads run.
+    # Must precede Textual: textual_image probes the terminal at import, which fails once Textual's I/O threads run.
     try:
-        import textual_image.widget  # side-effect import: terminal detection
+        import textual_image.widget  # noqa: F401  (side-effect import: terminal detection)
     except ImportError:
         pass
 

@@ -1,14 +1,12 @@
 """Tests for src/config.py — configuration management."""
 
-from pathlib import Path
 
-import pytest
 import yaml
 
 
 class TestDefaultConfig:
     def test_default_values(self, tmp_path):
-        from src.config import Config, DEFAULT_CONFIG
+        from src.config import Config
 
         config_path = tmp_path / "config.yaml"
         cfg = Config(path=str(config_path))

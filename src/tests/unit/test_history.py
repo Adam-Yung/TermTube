@@ -1,9 +1,6 @@
 """Tests for src/history.py — local watch history."""
 
 import json
-import time
-
-import pytest
 
 from src import history
 

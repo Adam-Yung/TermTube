@@ -1,7 +1,9 @@
 """User config (`~/.config/TermTube/config.yaml`) with defaults and validated accessors."""
 
 from __future__ import annotations
+
 from pathlib import Path
+
 import yaml
 
 from src import logger

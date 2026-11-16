@@ -2,9 +2,6 @@
 
 import json
 import time
-from pathlib import Path
-
-import pytest
 
 
 class TestGetVideo:
@@ -155,6 +152,7 @@ class TestPruneVideoCacheFifo:
 class TestPruneOldVideos:
     def test_removes_expired_entries(self, temp_cache):
         import os
+
         from src.cache import VIDEO_DIR
 
         old_time = time.time() - 4 * 86400  # 4 days old

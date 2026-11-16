@@ -1,6 +1,7 @@
 """Local watch history (videos played in this TUI), capped at 500 entries."""
 
 from __future__ import annotations
+
 import json
 import os
 import tempfile

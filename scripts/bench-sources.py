@@ -2,7 +2,8 @@
 """Time each rung of the source ladder (docs/plans/2026-11-15-optimization-PLAN.md) against public YouTube endpoints.
 
 Anonymous: no cookies, no browser profile. Makes about 60 small requests plus a few yt-dlp metadata
-resolves (no media is downloaded). Usage: scripts/bench-sources.py [runs] [--streams]  (--streams times only the yt-dlp resolve variants)
+resolves (no media is downloaded).
+Usage: scripts/bench-sources.py [runs] [--streams]  (--streams times only the yt-dlp resolve variants)
 """
 from __future__ import annotations
 
@@ -20,6 +21,8 @@ from src import innertube  # noqa: E402
 VIDEOS = ["dQw4w9WgXcQ", "kJQP7kiw5Fk", "9bZkp7q19f0"]
 CHANNEL = "UCuAXFkgsw1L7xaCfnd5JJOw"
 QUERY = "lofi hip hop"
+OEMBED = "https://www.youtube.com/oembed?format=json&url="
+RSS = "https://www.youtube.com/feeds/videos.xml"
 
 
 def timed(fn, runs: int):
@@ -109,9 +112,9 @@ def main() -> int:
     vid = VIDEOS[0]
     cases = [
         ("rung1 thumbnail GET (i.ytimg.com)", lambda: get(f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"), runs),
-        ("rung2 oEmbed", lambda: get("https://www.youtube.com/oembed?format=json&url=" + urllib.parse.quote(f"https://www.youtube.com/watch?v={vid}")), runs),
-        ("rung2 channel RSS", lambda: get(f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL}"), runs),
-        ("rung2 RSS uploads playlist (UULF)", lambda: get(f"https://www.youtube.com/feeds/videos.xml?playlist_id=UULF{CHANNEL[2:]}"), runs),
+        ("rung2 oEmbed", lambda: get(OEMBED + urllib.parse.quote(f"https://www.youtube.com/watch?v={vid}")), runs),
+        ("rung2 channel RSS", lambda: get(f"{RSS}?channel_id={CHANNEL}"), runs),
+        ("rung2 RSS uploads playlist (UULF)", lambda: get(f"{RSS}?playlist_id=UULF{CHANNEL[2:]}"), runs),
         ("rung3 InnerTube /player", lambda: innertube.fetch_video_details(vid), runs),
         ("rung3 InnerTube /search", search, runs),
         ("rung3 InnerTube /browse channel videos", channel_browse, runs),

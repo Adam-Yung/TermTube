@@ -1,13 +1,15 @@
 """Debug logging. Off by default: the logger sits above CRITICAL, so every call is a no-op.
 
-With --debug it writes a timestamped file in the temp dir and mirrors to the TUI sink. Never stderr (it corrupts Textual's rendering).
+With --debug it writes a timestamped file in the temp dir and mirrors to the TUI sink.
+Never stderr (it corrupts Textual's rendering).
 """
 
 from __future__ import annotations
+
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
 from src.plat import get_log_dir
 

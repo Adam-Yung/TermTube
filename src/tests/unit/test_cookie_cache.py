@@ -9,13 +9,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import inspect
 import threading
 from http.cookiejar import CookieJar
 from unittest.mock import MagicMock, patch
-
-import pytest
-
 
 # ── resolve_browser ──────────────────────────────────────────────────────────
 
@@ -205,12 +201,15 @@ class TestNarrowAndInvalidate:
     def test_only_youtube_and_google_cookies_stay(self):
         import src.cookies as mod
         jar = CookieJar()
-        for d in (".youtube.com", "www.youtube.com", ".google.com", "accounts.google.com", ".bank.com", "notyoutube.com"):
+        domains = (".youtube.com", "www.youtube.com", ".google.com", "accounts.google.com",
+                   ".bank.com", "notyoutube.com")
+        for d in domains:
             jar.set_cookie(_cookie(d))
         with patch.object(mod, "resolve_browser", return_value="chrome"), \
              patch("yt_dlp.cookies.extract_cookies_from_browser", return_value=jar):
             kept = mod.get_cookiejar(MagicMock())
-        assert sorted(c.domain for c in kept) == [".google.com", ".youtube.com", "accounts.google.com", "www.youtube.com"]
+        assert sorted(c.domain for c in kept) == [
+            ".google.com", ".youtube.com", "accounts.google.com", "www.youtube.com"]
 
     def test_invalidate_forces_a_new_extraction(self):
         import src.cookies as mod
@@ -273,6 +272,7 @@ class TestLazyAndRetry:
 
     def test_auth_failure_invalidates_and_retries_once(self):
         import yt_dlp
+
         import src.ytdlp as mod
         video = {"id": "AAAAAAAAAAA", "title": "t"}
         _FakeYDL.script = [yt_dlp.utils.DownloadError("Sign in to confirm you're not a bot"), {"entries": [video]}]
@@ -284,6 +284,7 @@ class TestLazyAndRetry:
 
     def test_subscription_list_retries_once_after_auth_failure(self):
         import yt_dlp
+
         import src.ytdlp as mod
         cache = MagicMock()
         cache.get_feed.return_value = None

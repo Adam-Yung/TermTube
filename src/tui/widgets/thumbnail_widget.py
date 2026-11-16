@@ -21,9 +21,9 @@ _FORCE_IMAGES = os.environ.get("MYYOUTUBE_IMAGES") == "1"
 _HAS_TEXTUAL_IMAGE = False
 if not _IN_TMUX or _FORCE_IMAGES:
     try:
-        from textual_image.widget import Image as _TIImage
         from textual_image.renderable import Image as _AutoRenderable
         from textual_image.renderable.unicode import Image as _UnicodeRenderable
+        from textual_image.widget import Image as _TIImage
         if _AutoRenderable is not _UnicodeRenderable:
             _HAS_TEXTUAL_IMAGE = True
         elif IS_WINDOWS and bool(os.environ.get("WT_SESSION")):

@@ -7,7 +7,6 @@ import pytest
 from textual.screen import Screen
 
 from src.tui.audio_controller import AudioController, _socket_for
-from src.tui.messages import AudioQueueChanged, AudioTrackChanged, PlayerStateUpdated
 
 ENTRY = {"id": "AAAAAAAAAAA", "title": "First"}
 OTHER = {"id": "BBBBBBBBBBB", "title": "Second"}
@@ -64,7 +63,7 @@ async def test_every_screen_receives_progress_while_screens_are_pushed(audio):
 
 async def test_play_stops_old_track_on_its_own_socket_before_the_session_moves(audio, mock_mpv_ipc):
     send, _ = mock_mpv_ipc
-    async with audio.run_test(size=(100, 30)) as pilot:
+    async with audio.run_test(size=(100, 30)):
         controller = audio.audio
         controller.play_audio(ENTRY)
         first_session = controller._session

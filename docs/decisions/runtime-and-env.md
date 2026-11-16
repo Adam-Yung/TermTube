@@ -79,3 +79,7 @@ Thread safety: `YoutubeDL` is not thread-safe. Each concurrent operation creates
 ## 2026-11-15 — Row `TypedDict`s, annotations only
 
 Rows stay plain dicts (they come from JSON, yt-dlp and the disk cache, and are mutated with `setdefault` all over). `src/entries.py` names their shapes for readers and editors and a fixture test keeps the parsers inside the declared keys. A runtime schema or dataclass was rejected: it would cost conversions at every boundary for no behaviour the UI needs.
+
+## 2026-11-15 — `ruff` gates commits; not installed by the agent
+
+`ruff.toml` (line length 120, rules `E,F,I,UP`) and a `ruff check .` step in `scripts/verify.sh`; `ruff>=0.8` in `requirements-dev.txt`. The owner approved installing it, but PyPI could not be reached from this network (connection reset), so its safety status could not be read and the hard rule in `AGENTS.md` (fail closed) applied: no `pip install` was run. The gate uses `.venv/bin/ruff`, else the `ruff` already on `PATH` (0.8.1, installed outside this repo). Linting found one real bug from the earlier refactor (an import removed from `watch_modal.py` that `_stop` still used), and the first run also sorted imports and removed unused ones across the tree.

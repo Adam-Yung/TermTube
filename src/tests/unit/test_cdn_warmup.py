@@ -2,7 +2,7 @@
 
 import threading
 import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -144,8 +144,9 @@ class TestProbeCdnReady:
         assert ev.is_set()
 
     def test_retries_on_failure_then_sets_event(self):
-        import src.streams as streams
         import urllib.error
+
+        import src.streams as streams
 
         key = "vid1:ba/b"
         ev = threading.Event()

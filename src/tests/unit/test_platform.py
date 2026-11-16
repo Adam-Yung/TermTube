@@ -1,27 +1,22 @@
 """Tests for src/platform.py -- Platform abstraction layer."""
 
-import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from src.plat import (
-    IS_WINDOWS,
-    IS_MACOS,
     IS_LINUX,
+    IS_MACOS,
+    IS_WINDOWS,
+    cleanup_ipc,
+    get_audio_ipc_path,
     get_cache_dir,
     get_config_dir,
-    get_audio_ipc_path,
+    get_subprocess_flags,
     get_video_ipc_path,
-    get_ipc_path,
     install_hint,
     terminate_process,
-    get_subprocess_flags,
-    cleanup_ipc,
 )
-
 
 # ── OS Constants ──────────────────────────────────────────────────────────────
 
@@ -314,8 +309,8 @@ class TestInstallHintDeno:
         hint = install_hint("deno")
         assert "deno.land" in hint or "deno" in hint
 
-    def test_ytdlp_linux_uses_nightly_url(self, monkeypatch):
+    def test_ytdlp_hint_is_a_pip_install(self, monkeypatch):
         monkeypatch.setattr("src.plat.IS_WINDOWS", False)
         monkeypatch.setattr("src.plat.IS_MACOS",   False)
         hint = install_hint("yt-dlp")
-        assert "nightly" in hint or "github.com" in hint
+        assert "pip install" in hint and "curl" not in hint

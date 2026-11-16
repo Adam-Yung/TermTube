@@ -13,7 +13,6 @@ import threading
 import time
 from pathlib import Path
 
-
 IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
@@ -207,14 +206,14 @@ def _ssl_context_unverified():
 class ProcessRegistry:
     """Singleton set of child processes (mpv etc.) so every exit path can kill them."""
 
-    _instance: "ProcessRegistry | None" = None
+    _instance: ProcessRegistry | None = None
 
     def __init__(self) -> None:
         self._procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
         self._lock = threading.Lock()
 
     @classmethod
-    def get(cls) -> "ProcessRegistry":
+    def get(cls) -> ProcessRegistry:
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -228,7 +227,7 @@ class ProcessRegistry:
             self._procs.discard(proc)
 
     def kill_all(self, timeout: float = 2.0) -> int:
-        """terminate() all tracked processes, wait up to timeout in total, kill stragglers. Returns the count terminated."""
+        """terminate() all tracked processes, wait up to timeout in total, kill stragglers. Returns how many."""
         with self._lock:
             procs = list(self._procs)
             self._procs.clear()
@@ -299,11 +298,8 @@ def reap_orphans() -> None:
 
 
 _INSTALL_HINTS: dict[str, dict[str, str]] = {
-    "yt-dlp": {
-        "windows": "winget install yt-dlp.yt-dlp  (or: download from github.com/yt-dlp/yt-dlp-nightly-builds/releases)",
-        "macos":   "brew install yt-dlp  (or: curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp_macos -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp)",
-        "linux":   "curl -fsSL https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp -o ~/.local/bin/yt-dlp && chmod +x ~/.local/bin/yt-dlp",
-    },
+    "yt-dlp": {os_name: "python -m pip install -U yt-dlp  (inside TermTube's venv; it is a library, not a binary)"
+               for os_name in ("windows", "macos", "linux")},
     "deno": {
         "windows": "winget install DenoLand.Deno",
         "macos":   "brew install deno",

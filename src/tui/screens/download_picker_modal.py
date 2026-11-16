@@ -58,9 +58,12 @@ class DownloadPickerModal(ModalScreen):
     def _theme_color(self) -> str:
         try:
             classes = self.app.classes
-            if "theme-amber" in classes: return "#e8820c"
-            if "theme-ocean" in classes: return "#0ea5e9"
-            if "theme-midnight" in classes: return "#a855f7"
+            if "theme-amber" in classes:
+                return "#e8820c"
+            if "theme-ocean" in classes:
+                return "#0ea5e9"
+            if "theme-midnight" in classes:
+                return "#a855f7"
         except Exception:
             pass
         return "#ff6666"

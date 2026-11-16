@@ -154,7 +154,6 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
 
     @work(thread=True, exclusive=True, group="ch_content")
     def _load_content(self, kind: str, sort: str, session: int) -> None:
-        import src.ytdlp as ytdlp
 
         panel = self._list()
         call = self.app.call_from_thread

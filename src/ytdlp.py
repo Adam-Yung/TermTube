@@ -228,7 +228,7 @@ def fetch_search_batch(
     count: int = 50,
     on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
 ) -> list[VideoEntry]:
-    """Search results, cache-first. ``on_first_batch`` fires early with the first page; it does not fire for a cache hit."""
+    """Search results, cache-first. ``on_first_batch`` fires early with the first page, never for a cache hit."""
     skip_ids = skip_ids or set()
     cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
     cached = _cached_entries(cache, cache_key, skip_ids, count, _MIN_SEARCH_COUNT)

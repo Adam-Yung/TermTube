@@ -30,7 +30,8 @@ def _restore_modules():
     frozen dataclass equality to fail across test files.
     """
     yield
-    import importlib as _il, sys as _sys
+    import importlib as _il
+    import sys as _sys
     for _name in ("src.plat", "src.history", "src.playlist", "src.deps"):
         if _name in _sys.modules:
             try:
@@ -147,7 +148,6 @@ class TestSponsorblockCacheDir:
         monkeypatch.setattr("src.plat.IS_LINUX",   True)
         monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
         importlib.reload(sys.modules["src.plat"])
-        import src.sponsorblock
         importlib.reload(sys.modules["src.sponsorblock"])
         import src.sponsorblock as mod
         s = str(mod._CACHE_DIR)
@@ -159,7 +159,8 @@ class TestSponsorblockCacheDir:
         monkeypatch.setattr("src.plat.IS_LINUX",   False)
         monkeypatch.setenv("APPDATA",      _WIN_APPDATA)
         monkeypatch.setenv("LOCALAPPDATA", _WIN_LOCALAPPDATA)
-        import importlib, sys
+        import importlib
+        import sys
         importlib.reload(sys.modules["src.plat"])
         import src.plat as plat
         # sponsorblock._CACHE_DIR = get_cache_dir() / "sb", so its parent is get_cache_dir()

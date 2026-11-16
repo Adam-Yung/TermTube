@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 import threading
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -18,10 +18,10 @@ sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2]
 from src.downloads import (
     PHASE_NEW_STREAM,
     PHASE_POSTPROCESS,
-    _make_progress_hook,
     _make_postprocessor_hook,
-    download_video_with_progress,
+    _make_progress_hook,
     download_audio_with_progress,
+    download_video_with_progress,
 )
 
 

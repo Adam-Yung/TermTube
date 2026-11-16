@@ -1,17 +1,16 @@
 """Integration tests for mpv IPC command generation with mocked socket."""
 
 import json
-import socket
 import sys
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.player import (
-    send_ipc_command,
-    poll_audio_properties,
     _poll_audio_properties_batched,
     cookie_args_to_ytdl_raw,
+    poll_audio_properties,
+    send_ipc_command,
 )
 
 # socket.AF_UNIX does not exist on Windows — skip Unix-socket tests there.
@@ -199,7 +198,7 @@ class TestPollAudioProperties:
 
         assert mock_sock.sendall.call_count == 1
         payload = mock_sock.sendall.call_args[0][0].decode()
-        lines_sent = [l for l in payload.strip().split("\n") if l]
+        lines_sent = [ln for ln in payload.strip().split("\n") if ln]
         assert len(lines_sent) == 3
         for i, prop in enumerate(("time-pos", "duration", "pause")):
             sent = json.loads(lines_sent[i])
@@ -213,7 +212,7 @@ class TestPollAudioProperties:
         ) + "\n").encode()
 
         mock_sock = MagicMock()
-        mock_sock.recv.side_effect = [response_bytes, socket.timeout("timed out")]
+        mock_sock.recv.side_effect = [response_bytes, TimeoutError("timed out")]
 
         with patch("src.player.IS_WINDOWS", False), \
              patch("src.player.socket.socket", return_value=mock_sock):

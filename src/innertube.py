@@ -482,8 +482,8 @@ def _playlist_page(data: dict) -> tuple[list[PlaylistEntry], str]:
         items = [i for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])
                  for i in c.get("gridRenderer", {}).get("items", [])]
     entries = [e for e in map(_parse_playlist_item, items) if e]
-    token = next((i["continuationItemRenderer"].get("continuationEndpoint", {})
-                  .get("continuationCommand", {}).get("token", "") for i in items if "continuationItemRenderer" in i), "")
+    token = next((i["continuationItemRenderer"].get("continuationEndpoint", {}).get("continuationCommand", {})
+                  .get("token", "") for i in items if "continuationItemRenderer" in i), "")
     return entries, token
 
 

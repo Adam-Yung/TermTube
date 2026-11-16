@@ -1,6 +1,7 @@
 """mpv launch helpers and JSON IPC client (Unix socket, Windows named pipe)."""
 
 from __future__ import annotations
+
 import json
 import os
 import shutil
@@ -205,7 +206,7 @@ def _ipc_send_recv_socket(data: bytes, *, socket_path: str, timeout: float) -> b
                         buf += chunk
                         if b"\n" in buf:
                             break
-                except socket.timeout:
+                except TimeoutError:
                     pass
                 return buf
             except (OSError, BrokenPipeError, ConnectionResetError):
@@ -413,7 +414,7 @@ def _poll_audio_properties_batched(
                         if not chunk:
                             raise OSError("connection closed")
                         buf = _collect_replies(buf + chunk, results)
-                except socket.timeout:
+                except TimeoutError:
                     pass
                 return _extract_poll_results(results)
             except (OSError, BrokenPipeError, ConnectionResetError):
@@ -422,7 +423,7 @@ def _poll_audio_properties_batched(
 
 
 def cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
-    """Convert yt-dlp flags to mpv `--ytdl-raw-options`: ['--cookies-from-browser', 'chrome'] -> 'cookies-from-browser=chrome'."""
+    """yt-dlp flags to mpv `--ytdl-raw-options`: ['--cookies-from-browser', 'x'] -> 'cookies-from-browser=x'."""
     opts: list[str] = []
     i = 0
     while i < len(cookie_args):
@@ -508,7 +509,7 @@ MPV_MAX_ATTEMPTS = 3
 
 @dataclass(frozen=True)
 class MpvOutcome:
-    """How ``run_mpv_with_retries`` ended: ``ok`` (exit 0 or 4), ``killed`` (3), ``stale``, ``failed`` or ``launch_error``."""
+    """How the loop ended: ``ok`` (exit 0 or 4), ``killed`` (3), ``stale``, ``failed`` or ``launch_error``."""
 
     status: str
     returncode: int | None = None
@@ -565,7 +566,10 @@ def run_mpv_with_retries(
         if proc.returncode == _EXIT_SIGNAL:
             return MpvOutcome("killed", proc.returncode, stderr)
         if attempt == max_attempts:
-            logger.warning("mpv failed after %d attempts (rc=%s): %s", max_attempts, proc.returncode, stderr or "(no stderr output)")
+            logger.warning(
+                "mpv failed after %d attempts (rc=%s): %s",
+                max_attempts, proc.returncode, stderr or "(no stderr output)",
+            )
             return MpvOutcome("failed", proc.returncode, stderr)
         logger.debug("mpv retry %d/%d (rc=%s)", attempt, max_attempts, proc.returncode)
         if on_retry:
