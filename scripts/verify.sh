@@ -4,7 +4,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 py=".venv/bin/python"
-[[ -x $py ]] || py="python3"
+[[ -x $py ]] || py=".venv/Scripts/python.exe"
+[[ -x $py ]] || py="$(command -v python3 || command -v python)"
 if [[ $py == ".venv/bin/python" ]] && [[ "$("$py" -c 'import os, sys; print(os.path.realpath(sys.prefix))')" != "$(pwd -P)/.venv" ]]; then
     echo ".venv/bin/python does not belong to this repo's .venv: run scripts/dev-setup.sh --check" >&2
     exit 1

@@ -25,9 +25,9 @@ branch (`plat.py`, `player.py`, `bootstrap.py`, `main.py`), `termtube.cmd`, `set
 
 ## Open (not fixed)
 
-1. **CI runs only `ubuntu-latest`, Python 3.12.** Nothing exercises Windows or macOS automatically. A `windows-latest` and `macos-latest` matrix would catch most of the above. `verify.sh` is bash; the Windows runner has Git Bash (`shell: bash`), and the script falls back to `python3`, which the Windows runner may lack: needs a try. Not changed because it cannot be tested here.
+1. **CI ran only `ubuntu-latest`, Python 3.12** (since addressed: the workflow now has macOS and Windows jobs and a real-installer job, `docs/guides/ci.md`; results pending their first run). Nothing exercises Windows or macOS automatically. A `windows-latest` and `macos-latest` matrix would catch most of the above. `verify.sh` is bash; the Windows runner has Git Bash (`shell: bash`), and the script falls back to `python3`, which the Windows runner may lack: needs a try. Not changed because it cannot be tested here.
 2. **Dev tooling is bash only:** `verify.sh`, `dev-setup.sh`, `check-doc-mirrors.sh`, `setup.sh --refresh`. A Windows contributor needs Git Bash or WSL; `verify.sh` looks for `.venv/bin/python`, while a Windows venv has `.venv\Scripts\python.exe`.
 3. **PowerShell scripts were not parsed.** `setup.ps1`, `uninstall.ps1` and the launcher logic need one run on Windows (`.\scripts\setup.ps1 -NoPrompt`, then `termtube`). Under `Set-StrictMode -Version Latest` an undefined variable in an untested branch only fails at run time.
-4. **The named-pipe path is untested end to end** with the new audio controller (pause, seek, poll, replace track, stop). Unit tests mock `win32file`.
+4. **The named-pipe path was untested end to end** (unit tests mock `win32file`). `scripts/smoke-ipc.py` now drives a real mpv through it (poll, pause, resume, seek, quit); it passes on macOS and runs on Windows in the `windows-install` CI job. The audio controller's track replacement over the pipe is still covered only by its mocked tests.
 5. `playlist.py` writes (`add_video`) can still raise `OSError` into a UI action; the same lock-contention risk as W3, lower frequency.
 6. `docs/guides/environments.md` describes the Unix layout only. The Windows layout is `%LOCALAPPDATA%\Programs\TermTube` (app and venv) and `%LOCALAPPDATA%\termtube-deps\bin`.

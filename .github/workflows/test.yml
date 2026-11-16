@@ -14,3 +14,50 @@ jobs:
       - run: scripts/verify.sh
         env:
           TERM: xterm-256color
+
+  # The same gate on the other two platforms. Windows runs it under Git Bash.
+  platforms:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-dev.txt
+      - run: scripts/verify.sh
+        shell: bash
+        env:
+          TERM: xterm-256color
+
+  # The real Windows installer and launcher, then real mpv over the named pipe. Downloads deno, ffmpeg and mpv from
+  # GitHub releases through src/bootstrap.py, as a user's install does.
+  windows-install:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: setup.ps1 (Windows PowerShell 5.1, as termtube.cmd calls it)
+        shell: powershell
+        run: .\scripts\setup.ps1 -NoPrompt
+      - name: Installed layout
+        shell: powershell
+        run: |
+          Get-ChildItem "$env:LOCALAPPDATA\Programs\TermTube" | Select-Object Name
+          Get-ChildItem "$env:LOCALAPPDATA\termtube-deps\bin" | Select-Object Name
+      - name: Launcher reports a version
+        shell: cmd
+        run: '"%LOCALAPPDATA%\Programs\TermTube\termtube.cmd" --version'
+      - name: Real mpv over the named pipe
+        shell: powershell
+        run: |
+          & "$env:LOCALAPPDATA\Programs\TermTube\.venv\Scripts\python.exe" scripts\smoke-ipc.py --require-mpv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
