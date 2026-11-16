@@ -65,7 +65,7 @@ retries them. Behind a corporate TLS proxy, expect certificate errors; the scrip
 ## First launch
 
 ```bash
-termtube --version                 # prints e.g. "TermTube v0.4.3" (or "TermTube dev" for a checkout install)
+termtube --version                 # prints e.g. "TermTube v0.6.0" (or "TermTube dev" when installed from a checkout that is not exactly on a release tag)
 termtube                           # starts the UI
 termtube --debug                   # same, with a log file and the Ctrl+D log panel
 termtube --browser-help            # how the browser-cookie setting works
