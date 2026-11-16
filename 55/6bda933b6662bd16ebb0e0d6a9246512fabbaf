@@ -1,0 +1,35 @@
+docs/code/scripts/bench-sources.py.md
+  s_9625f19ee19aff::t_eb0f7d23b040bf 1-12
+docs/guides/benchmarks.md
+  s_9625f19ee19aff::t_eb0f7d23b040bf 1-28
+src/tests/fixtures/innertube_resolve.json
+  s_9625f19ee19aff::t_1ac00ae92274b7 1
+src/tests/unit/test_thumbnail_url.py
+  s_9625f19ee19aff::t_5668c6d1ba1038 1-20
+src/tests/fixtures/innertube_channel.json
+  s_9625f19ee19aff::t_1ac00ae92274b7 1-46
+src/tests/unit/test_innertube_parsers.py
+  s_9625f19ee19aff::t_4491c4b57a0ddd 2-73
+  s_9625f19ee19aff::t_d73c805fd8e3f0 1,74-91
+  s_9625f19ee19aff::t_7e3cfdc9b8267f 92-104
+scripts/bench-sources.py
+  s_9625f19ee19aff::t_1fac85229729f7 1-82
+src/tests/fixtures/innertube_search.json
+  s_9625f19ee19aff::t_1ac00ae92274b7 1-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "556bda933b6662bd16ebb0e0d6a9246512fabbaf",
+  "prompts": {},
+  "sessions": {
+    "s_9625f19ee19aff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd64896e-a4f9-4faf-9b3c-5a42b193147c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
