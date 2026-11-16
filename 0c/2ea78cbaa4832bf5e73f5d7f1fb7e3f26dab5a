@@ -1,0 +1,238 @@
+docs/todo.md
+  s_9625f19ee19aff::t_9ada385d434941 1-4,7-11
+  s_9625f19ee19aff::t_eb0f7d23b040bf 6
+  s_9625f19ee19aff::t_d73c805fd8e3f0 5
+docs/decisions/thumbnails.md
+  s_9625f19ee19aff::t_afa28d12362175 1-19
+docs/code/scripts/setup.ps1.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-24
+docs/code/src/sponsorblock.py.md
+  s_9625f19ee19aff::t_3b44c018e41369 3,12,14,16
+  s_9625f19ee19aff::t_c6afc721029ab0 1-2,4-11,13,15
+docs/code/src/tui/screens/nav_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/tui/screens/mixins/detail_focus.py.md
+  s_9625f19ee19aff::t_c90b5b01b143ce 1-24,26-39
+  s_9625f19ee19aff::t_454d14a01a3880 25
+scripts/check-doc-links.py
+  s_9625f19ee19aff::t_dabfd274422bea 1-47
+docs/code/src/tui/widgets/video_list.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-16
+docs/code/src/tui/messages.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-6
+  s_9625f19ee19aff::t_72917255b9201b 7
+docs/decisions/cookies-and-auth.md
+  s_9625f19ee19aff::t_afa28d12362175 1-128
+scripts/verify.sh
+  s_9625f19ee19aff::t_dabfd274422bea 1-13
+docs/code/src/cookies.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-16
+docs/code/src/tui/screens/playlist_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-6
+docs/code/src/tui/screens/download_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-7
+docs/code/scripts/uninstall.ps1.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-13
+docs/code/src/downloads.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-15
+docs/code/src/tui/widgets/channel_info_panel.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-7
+docs/decisions/logging.md
+  s_9625f19ee19aff::t_afa28d12362175 1-21
+docs/code/src/ui/thumbnail.py.md
+  s_9625f19ee19aff::t_d4488dd185315d 28-34
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-4,6-27
+  s_9625f19ee19aff::t_72917255b9201b 5
+docs/decisions/config.md
+  s_9625f19ee19aff::t_afa28d12362175 1-17
+docs/code/src/innertube.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-16
+  s_9625f19ee19aff::t_d73c805fd8e3f0 17-32
+docs/code/src/player.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-6,8-20,23-25,27-78
+  s_9625f19ee19aff::t_72917255b9201b 7,21-22,26
+docs/code/scripts/check-doc-links.py.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-8
+docs/decisions/playback.md
+  s_9625f19ee19aff::t_4eb34244472c9a 1-70
+docs/code/src/tui/screens/ytdlp_update_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/playlist.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-14
+docs/code/src/history.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-14
+docs/plans/website.md
+  s_9625f19ee19aff::t_3271dc64c3ac08 1-311
+docs/code/src/tui/screens/empty_feed_modal.py.md
+  s_9625f19ee19aff::t_84ec0339c96892 3
+  s_9625f19ee19aff::t_4409a22907a84e 1-2
+docs/README.md
+  s_9625f19ee19aff::t_9ada385d434941 1-30
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_9625f19ee19aff::t_c90b5b01b143ce 1-14
+docs/code/src/main.py.md
+  s_9625f19ee19aff::t_64754187b6cb31 23
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-22,24
+docs/code/src/tui/screens/image_warning_modal.py.md
+  s_9625f19ee19aff::t_84ec0339c96892 3
+  s_9625f19ee19aff::t_4409a22907a84e 1-2
+docs/code/src/tui/widgets/page_indicator.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-5
+docs/decisions/README.md
+  s_9625f19ee19aff::t_afa28d12362175 1-15
+docs/code/src/tui/keymap.py.md
+  s_9625f19ee19aff::t_72917255b9201b 5,18
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-4,6-17
+docs/glossary.md
+  s_9625f19ee19aff::t_9ada385d434941 1-15
+docs/code/src/tui/app.py.md
+  s_9625f19ee19aff::t_72917255b9201b 4,17-18
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-3,5-16,19-25
+docs/code/src/tui/screens/watch_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-27
+.gitignore
+  s_9625f19ee19aff::t_a8159201fe3a25 47-48
+README.md
+  s_9625f19ee19aff::t_1f69ec61cb34c2 159-162,166-172,174,178-181,183-185,187,191-192,194,196-197,199,304-307,310-312,314
+docs/code/src/ytdlp.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-38
+  s_9625f19ee19aff::t_d73c805fd8e3f0 39-41
+docs/code/src/tui/screens/sort_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/library.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-24
+docs/code/src/tui/screens/main_screen.py.md
+  s_9625f19ee19aff::t_731fb91f457bd6 1-13,15-28
+  s_9625f19ee19aff::t_1b9ea97ebdd7d1 14
+docs/code/src/tui/screens/channel_screen.py.md
+  s_9625f19ee19aff::t_731fb91f457bd6 1-33
+docs/code/src/tui/screens/mixins/audio_player.py.md
+  s_9625f19ee19aff::t_454d14a01a3880 1-41
+scripts/check-dead-code.py
+  s_9625f19ee19aff::t_dabfd274422bea 68-73
+  s_9625f19ee19aff::t_eb6992edb53445 1-19,21-67,74-105
+  s_9625f19ee19aff::t_dc149b842f118f 20
+docs/decisions/runtime-and-env.md
+  s_9625f19ee19aff::t_4eb34244472c9a 1-73
+docs/code/src/tui/widgets/thumbnail_widget.py.md
+  s_9625f19ee19aff::t_c90b5b01b143ce 12
+  s_9625f19ee19aff::t_e238f49b209f4f 1-11,13-17
+docs/code/src/tui/screens/settings_modal.py.md
+  s_9625f19ee19aff::t_84ec0339c96892 3
+  s_9625f19ee19aff::t_4409a22907a84e 1-2,4-7
+docs/features/architecture.md
+  s_9625f19ee19aff::t_1b9ea97ebdd7d1 1-121
+docs/code/src/updater.py.md
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-25
+docs/code/termtube.cmd.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-8
+docs/code/src/tui/screens/search_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+CLAUDE.md
+  s_9625f19ee19aff::t_d12354f2330c94 7-8
+  s_9625f19ee19aff::t_709292e40ebad3 1,3-5,10-11
+docs/code/scripts/verify.sh.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-7
+docs/code/src/tui/screens/help_screen.py.md
+  s_9625f19ee19aff::t_7081a88be8bd75 1-9
+docs/code/src/tui/widgets/app_header.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-5
+docs/code/src/plat.py.md
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-21
+docs/code/src/logger.py.md
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-21
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_9625f19ee19aff::t_b13e6790e1787d 41-47
+  s_9625f19ee19aff::t_454d14a01a3880 1-40
+docs/decisions/feeds-and-paging.md
+  s_9625f19ee19aff::t_afa28d12362175 1-49
+docs/decisions/concurrency.md
+  s_9625f19ee19aff::t_4eb34244472c9a 1-51
+docs/code/src/bootstrap.py.md
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-29
+docs/code/scripts/check-doc-mirrors.sh.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-7
+docs/code/src/deps.py.md
+  s_9625f19ee19aff::t_2626d02cc95cb5 1-12
+  s_9625f19ee19aff::t_64754187b6cb31 13
+docs/code/src/tui/screens/video_action_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/scripts/uninstall.sh.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-15
+docs/code/src/tui/screens/mixins/list_nav.py.md
+  s_9625f19ee19aff::t_454d14a01a3880 13
+  s_9625f19ee19aff::t_c90b5b01b143ce 1-12
+docs/code/src/tui/screens/quality_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/tui/screens/mixins/debug_log.py.md
+  s_9625f19ee19aff::t_c90b5b01b143ce 1-4,6-9
+  s_9625f19ee19aff::t_454d14a01a3880 5
+docs/code/termtube.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-15
+AGENTS.md
+  s_9625f19ee19aff::t_1a767668e48d10 1-8,13-139
+  s_9625f19ee19aff::t_d12354f2330c94 9-12
+docs/guides/startup-debugging.md
+  s_9625f19ee19aff::t_3271dc64c3ac08 1-243
+docs/code/src/tui/widgets/detail_panel.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-15
+docs/code/src/tui/screens/channel_tab_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/cache.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-24
+docs/status.md
+  s_9625f19ee19aff::t_d73c805fd8e3f0 43
+  s_9625f19ee19aff::t_a8159201fe3a25 1-39,44
+  s_9625f19ee19aff::t_d4488dd185315d 40-41
+  s_9625f19ee19aff::t_b13e6790e1787d 42
+docs/code/src/tui/widgets/action_bar.py.md
+  s_9625f19ee19aff::t_e238f49b209f4f 1-16
+docs/code/scripts/check-dead-code.py.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-14
+docs/code/src/tui/screens/download_picker_modal.py.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-3
+docs/code/src/streams.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-17
+docs/plans/2026-11-15-optimization-PLAN.md
+  s_9625f19ee19aff::t_eb0f7d23b040bf 88,91-92
+  s_9625f19ee19aff::t_62ea95552929e7 1-87,89-90,93-105
+docs/code/scripts/setup.sh.md
+  s_9625f19ee19aff::t_64754187b6cb31 1-21
+docs/code/src/tui/fmt.py.md
+  s_9625f19ee19aff::t_e766c49e89e2f3 9
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-8
+scripts/check-doc-mirrors.sh
+  s_9625f19ee19aff::t_dabfd274422bea 1-18
+.github/workflows/test.yml
+  s_9625f19ee19aff::t_a6de3abebdf670 1,5,13-14
+docs/code/src/tui/theme.tcss.md
+  s_9625f19ee19aff::t_4409a22907a84e 1-10
+docs/code/src/config.py.md
+  s_9625f19ee19aff::t_72917255b9201b 3,14
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-2,4-13,15-28
+docs/code/src/browsers.py.md
+  s_9625f19ee19aff::t_c6afc721029ab0 1-17
+docs/code/src/tui/thumb_loader.py.md
+  s_9625f19ee19aff::t_db91cfe87a7dd8 1-4,6-19
+  s_9625f19ee19aff::t_72917255b9201b 5
+.cursor/rules/coding-etiquette.mdc
+  s_9625f19ee19aff::t_c6b587d7a44b9c 1-10
+docs/features/keybindings.md
+  s_9625f19ee19aff::t_789938ac6026ff 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0c2ea78cbaa4832bf5e73f5d7f1fb7e3f26dab5a",
+  "prompts": {},
+  "sessions": {
+    "s_9625f19ee19aff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd64896e-a4f9-4faf-9b3c-5a42b193147c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
