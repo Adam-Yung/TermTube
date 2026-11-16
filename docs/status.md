@@ -29,15 +29,24 @@ A tmux session (150x46, `browser: none`, throwaway config) ran the real app agai
 
 Thumbnails, `b`, `y`, `p`, `d` download, the restyled notifications, and the rest of the owner's testing: all good.
 
-## Linux and Windows
+## Pipeline: Linux, macOS, Windows (2026-11-16)
 
-- **Linux (2026-11-16):** the full suite (382 tests) passes on a separate Linux machine (Python 3.12, textual 8.2.5, bash 5.2) with a temporary copy of the tree and a throwaway `HOME`; the shell scripts parse under its bash. Not run there: a real session with mpv (the machine has no mpv, tmux or deno). `yt-dlp` was supplied from the owner's venv through `PYTHONPATH` because the machine's venvs lack it. Running it found a test-fixture bug (6-character fake video ids made the home feed empty, which only showed on a slower machine); fixed.
-- **Windows (2026-11-16):** dry audit only, nothing executed. Three code bugs fixed, four open points: `docs/history/2026-11-16-windows-audit.md`. A real run on Windows is still needed.
+`.github/workflows/test.yml` runs three layers on all three platforms: the gate (lint, unit and headless TUI tests, doc checks), the real installer
+plus launcher plus a real mpv over IPC, and the **installed app driven in a real terminal** (`scripts/e2e-local.py`: start, Home from cache,
+Library, play, pause, seek, stop, history, quit with exit 0). It is hermetic (no YouTube). All six jobs were green on branch `ci/platform-pipeline`
+(run 5), and 4 of 4 full runs of that commit were green; the log is in `docs/guides/ci.md`. What a green run proves and what it cannot: `docs/guides/ci.md`.
+Bugs it found while being brought up (Linux startup, Windows playback and file encoding, installer rate limits, worker teardown races):
+the table in that guide. `canary.yml` (live YouTube, weekly, not a gate) exists but cannot be dispatched until it is on the default branch.
+
+The branch is **not merged**: `main` is 17 commits behind it locally and unpushed.
+
+Linux was also tested by hand on a separate machine (suite only, no mpv). Windows was audited statically first
+(`docs/history/2026-11-16-windows-audit.md`).
 
 ## Not verified
 
-- Real terminals other than tmux (iTerm2, Kitty, WezTerm), Linux and Windows. See `todo.md` item 1.
-- The Windows paths (`termtube.cmd`, `setup.ps1`, named pipes) were edited conservatively and not run.
+- The look of the UI on Windows Terminal, and thumbnails on Windows and Linux terminals (CI has no image protocol).
+- A real user's Windows machine (antivirus, proxies, other terminals).
 
 ## Known problems
 

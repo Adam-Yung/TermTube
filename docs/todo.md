@@ -2,8 +2,10 @@ Handoff plan (T1 to T8 done): `plans/2026-11-15-handoff-PLAN.md`. Present realit
 
 # Todo
 
-Everything that was planned is built and verified on macOS (real terminal) and Linux (test suite). What is left needs a Windows machine or a decision.
+The planned work is built. The pipeline (`docs/guides/ci.md`) is green on Linux, macOS and Windows on branch `ci/platform-pipeline`.
 
-1. **Windows through CI:** push a branch, watch the three jobs (`docs/guides/ci.md`), fix what fails. The jobs are written and the smoke script passes on macOS; the Windows jobs have not run yet.
-2. **Windows by hand** (a few minutes, after CI is green): `termtube` on Windows Terminal for keys, colours and thumbnails, which CI cannot see.
-3. **Linux real session** (optional): install mpv, tmux and the bundled tools on the Linux machine and repeat the tmux pass. Needs package downloads there.
+1. **Merge the branch.** Decide how: fast-forward `main` to it, or a pull request. Until then `main` on GitHub still has the old one-job workflow, and the 17 local commits are unpushed.
+2. **Run `canary.yml` once** after the merge (`gh workflow run canary.yml`); it cannot be dispatched from a branch.
+3. **Consider branch protection** on `main` requiring the six pipeline jobs, so a red platform blocks a merge.
+4. **Windows by hand** (a few minutes): `termtube` on Windows Terminal for keys, colours and thumbnails, which CI cannot see.
+5. Minor: the workflow's actions run on a deprecated Node 20 runtime (GitHub warns); bump `actions/checkout` and `actions/setup-python` when newer majors exist.

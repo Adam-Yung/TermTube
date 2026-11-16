@@ -35,9 +35,36 @@ gh run watch <run-id>                 # follow one live
 - `real app`, `smoke-ipc.py`: a step is printed as PASS or FAIL; mpv's stderr follows a failure. See `docs/code/scripts/smoke-ipc.py.md`.
 - `real app`, `e2e-local.py`: each failed step is named and the last screen output is printed. See `docs/code/scripts/e2e-local.py.md` for what each step means. Run it locally with `scripts/e2e-local.py` (silent, isolated, about 10 s).
 
-## Why these assertions can be trusted
+## Why a green run can be trusted
 
-Each end-to-end assertion was checked by breaking the app on purpose and watching it fail: seek disabled, pause disabled, history not recorded,
-stop not killing mpv, an import error at startup. One assertion that passed with seek disabled (the tone advanced on its own) was tightened.
-The pipeline's first design also found a real bug before running: on Linux the dependency check rejected a distro mpv, so the app could not start
-(`docs/decisions/runtime-and-env.md`, 2026-11-16).
+1. **Each end-to-end assertion was shown to fail when the behaviour breaks.** The app was broken on purpose five ways (seek disabled, pause
+   disabled, history not recorded, stop not killing mpv, an import error at startup) and each was caught at the right step. One assertion that
+   passed with seek disabled (the tone advanced on its own) was tightened.
+2. **It runs the product, not a model of it.** Layer 3 uses the installed copy, its launcher, a real terminal (pty or ConPTY), real mpv and the
+   app's own IPC. Nothing in that path is mocked.
+3. **It found real bugs before any user did.** While being brought up on GitHub (Linux, macOS, Windows runners) it exposed:
+
+| Found by | Bug | Platform |
+|---|---|---|
+| Designing layer 3 | The bundled-only dependency check rejected a distro mpv, so the app could not start (installer now links it) | Linux |
+| `gate` | `thumbnail` and prefetch workers raised when their screen or app was gone (`WorkerFailed`, fatal in Textual) | all |
+| `gate` | 73 `read_text()`/`open()` calls used the locale codec: non-ASCII titles broke data files outside `termtube.cmd` | Windows |
+| `real app` | The installer's release lookup used the rate-limited GitHub API, then a fallback tag with no macOS asset | macOS (and shared networks) |
+| `real app` | A Library file played with ytdl options and `--no-terminal` hid mpv's error: exit code 2, nothing on screen | Windows |
+| `real app` | The audio launch thread swallowed its own exceptions: the bar stayed on "Buffering..." with nothing logged | all |
+| e2e harness | `COLUMNS`/`LINES` inherited from a parent overrode the pty size (the app drew 80x24 with no action bar) | all |
+
+4. **Flakiness was measured, not assumed.** After the first all-green run the same commit was re-run three times; see the log below.
+
+## Run log
+
+- 2026-11-16, branch `ci/platform-pipeline`, commit `a736451`: run 5 green on all six jobs (gate and real app on Linux, macOS and Windows), then three more full re-runs of the same commit, all green: 4 of 4 runs, 24 of 24 job executions.
+- Before that, runs 1 to 4 were red for the reasons in the table above; every red run led to a product fix, none to a loosened assertion.
+
+## Limits to keep in mind
+
+- Windows and macOS runners are fresh virtual machines. A real user's machine has antivirus, other audio devices, a proxy, a different terminal.
+- `real app` downloads deno, ffmpeg and mpv from GitHub releases. If an upstream asset disappears the job goes red, correctly: users would hit the
+  same.
+- `canary.yml` can only be dispatched once it is on the default branch (GitHub registers `workflow_dispatch` and schedules from there). Its script,
+  `scripts/canary-live.py`, was run locally against live YouTube.
