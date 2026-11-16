@@ -13,6 +13,7 @@ from src import logger
 from src.cache import Cache
 from src.config import Config
 from src.tui.audio_controller import AudioController
+from src.tui.fmt import escape_markup
 
 _HOUSEKEEPING_DELAY_S = 60.0
 
@@ -31,6 +32,13 @@ class TermTubeApp(App):
         self._housekeeping_done = threading.Event()
         self.audio = AudioController(self)
         atexit.register(self._atexit_cleanup)
+
+    def notify(self, message, *, title="", severity="information", timeout=None, markup=True) -> None:
+        """Textual's ``notify`` with text escaped: our notices are plain, and titles contain ``[brackets]``."""
+        super().notify(
+            escape_markup(message) if markup else message,
+            title=title, severity=severity, timeout=timeout, markup=markup,
+        )
 
     def on_mount(self) -> None:
         from src.plat import reap_orphans

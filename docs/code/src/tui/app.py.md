@@ -22,3 +22,7 @@ path gets there first. Housekeeping pins playlist videos before pruning; failure
 ## Limits
 
 - Tests must patch the exit path and set `browser: none`, or the warmup thread reads the real browser profile.
+
+## Notifications
+
+`notify` is overridden to escape its message (`fmt.escape_markup`): every notice in the app is plain text and many carry video titles with `[brackets]`, which Textual would otherwise parse as markup. Pass `markup=False` to skip the escape. Look: `docs/decisions/ui.md`.

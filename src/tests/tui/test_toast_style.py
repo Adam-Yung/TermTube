@@ -39,3 +39,12 @@ async def test_toasts_sit_below_the_tab_bar_not_over_the_action_bar(app):
         rack_bottom = max(t.region.bottom for t in toasts.values())
         assert rack_top >= 3 and rack_bottom < app.size.height - 8
         assert all(t.region.right <= app.size.width for t in toasts.values())
+
+
+async def test_notice_text_with_brackets_is_shown_literally(app):
+    async with app.run_test(size=(100, 30), notifications=True) as pilot:
+        app.notify("Added to queue: Lofi [beats to relax] mix", timeout=30)
+        app.screen.notify("From a screen: [x] done", timeout=30)
+        await pilot.pause(0.5)
+        shown = {t.render().plain for t in app.screen.query(Toast)}
+    assert shown == {"Added to queue: Lofi [beats to relax] mix", "From a screen: [x] done"}
