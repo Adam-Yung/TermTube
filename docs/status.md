@@ -33,12 +33,12 @@
 - `_extend_feed` and `_stream_view` share one exclusive worker group; paging to the end during the initial home fetch cancels the rest of it.
 - `deps.check_dependencies` accepts system `mpv`/`deno`/`ffmpeg`, against the bundled-binaries rule.
 - `uninstall.sh` uses `pkill -f termtube` and a stale socket path; `setup.ps1` help lists flags that do not exist; `--update` always exits 0.
-- `innertube.fetch_channel_videos` ignores `sort`; fetch errors become empty results.
+- InnerTube fetch errors become empty results (callers fall back to yt-dlp).
 - `sort_modal` and `channel_tab_modal` carry hardcoded colours and ignore themes.
 - `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.
 
 Optimization plan step 1 is done: rows with only a video id get a derived `i.ytimg.com` thumbnail URL (`best_thumb_url`).
 
-Step 2 is partly done: search and channel info use InnerTube with a yt-dlp fallback (live check 2026-11-15: 50 results in 2.7 s, channel info in 0.7–1.0 s). Search shows the first page after about one request and fills in the rest in the background. Channel playlists still use yt-dlp.
+Step 2 is done: search and channel info use InnerTube with a yt-dlp fallback (live check 2026-11-15: 50 results in 2.7 s, channel info in 0.7–1.0 s). Search shows the first page after about one request and fills in the rest in the background. Channel playlists use InnerTube too, with a yt-dlp fallback (live check 2026-11-15: 80 playlists in 1.0 s).
 
 Next work: `todo.md`. The optimization plan: `plans/2026-11-15-optimization-PLAN.md`.

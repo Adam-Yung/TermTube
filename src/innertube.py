@@ -99,16 +99,8 @@ def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
 _CHANNEL_VIDEOS_PARAMS = "EgZ2aWRlb3PyBgQKAjoA"
 
 
-def fetch_channel_videos(
-    channel_id: str,
-    *,
-    sort: str = "date",
-    timeout: int = 12,
-) -> list[dict]:
-    """Channel video entries from the /browse API (~600 ms for 30). Empty on failure.
-
-    ``sort`` is accepted for API parity but only newest-first is supported; "views" falls back to date.
-    """
+def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[dict]:
+    """Newest-first channel video entries from the /browse API (~600 ms for 30). Empty on failure."""
     payload = {
         "browseId": channel_id,
         "params": _CHANNEL_VIDEOS_PARAMS,
@@ -261,6 +253,11 @@ def _parse_int(value) -> int | None:
         return None
 
 
+# Base64 protobuf tab selector for the Playlists tab.
+_CHANNEL_PLAYLISTS_PARAMS = "EglwbGF5bGlzdHPyBgQKAkIA"
+_MAX_PLAYLIST_PAGES = 4
+_VIDEO_COUNT = re.compile(r"^[\d,]+ videos?$")
+
 _SEARCH_URL = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false"
 _RESOLVE_URL = "https://www.youtube.com/youtubei/v1/navigation/resolve_url?prettyPrint=false"
 _MAX_SEARCH_PAGES = 4
@@ -402,3 +399,61 @@ def fetch_channel_info(channel_url: str) -> dict | None:
         "thumbnail": avatars[-1].get("url", "") if avatars else "",
         "uploader_url": (meta.get("vanityChannelUrl") or "").replace("http://", "https://"),
     }
+
+
+def _parse_playlist_item(item: dict) -> dict | None:
+    """One ``lockupViewModel`` grid item as a playlist entry, or None for any other content type."""
+    lvm = item.get("lockupViewModel") or {}
+    playlist_id = lvm.get("contentId", "")
+    if lvm.get("contentType") != "LOCKUP_CONTENT_TYPE_PLAYLIST" or not playlist_id:
+        return None
+    title = lvm.get("metadata", {}).get("lockupMetadataViewModel", {}).get("title", {}).get("content", "")
+    thumb = lvm.get("contentImage", {}).get("collectionThumbnailViewModel", {}).get("primaryThumbnail", {})
+    thumb = thumb.get("thumbnailViewModel", {})
+    sources = thumb.get("image", {}).get("sources") or []
+    count_text = _find_text(thumb.get("overlays", []), _VIDEO_COUNT)
+    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+    return {
+        "id": playlist_id,
+        "title": title or playlist_id,
+        "url": url,
+        "webpage_url": url,
+        "thumbnail": sources[-1].get("url", "") if sources else "",
+        "playlist_count": _parse_view_count(count_text),
+        "_type": "playlist",
+        "_is_playlist": True,
+        "_playlist_name": title or playlist_id,
+    }
+
+
+def _playlist_page(data: dict) -> tuple[list[dict], str]:
+    """Playlist entries and the next continuation token from a Playlists-tab or continuation response."""
+    actions = data.get("onResponseReceivedActions")
+    if actions:
+        items = actions[0].get("appendContinuationItemsAction", {}).get("continuationItems", [])
+    else:
+        tabs = data.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+        selected = next((t["tabRenderer"] for t in tabs if t.get("tabRenderer", {}).get("selected")), {})
+        sections = selected.get("content", {}).get("sectionListRenderer", {}).get("contents", [])
+        items = [i for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])
+                 for i in c.get("gridRenderer", {}).get("items", [])]
+    entries = [e for e in map(_parse_playlist_item, items) if e]
+    token = next((i["continuationItemRenderer"].get("continuationEndpoint", {})
+                  .get("continuationCommand", {}).get("token", "") for i in items if "continuationItemRenderer" in i), "")
+    return entries, token
+
+
+def fetch_channel_playlists(channel_id: str, *, count: int = 80, timeout: int = 12) -> list[dict]:
+    """Playlists of a channel from /browse, following continuations up to ``count``. Anonymous. Empty on failure."""
+    payload: dict = {"browseId": channel_id, "params": _CHANNEL_PLAYLISTS_PARAMS, "context": _WEB_CONTEXT}
+    entries: list[dict] = []
+    for _ in range(_MAX_PLAYLIST_PAGES):
+        data = _post_json(_BROWSE_URL, payload, timeout=timeout)
+        if not data:
+            break
+        page, token = _playlist_page(data)
+        entries.extend(page)
+        if len(entries) >= count or not token:
+            break
+        payload = {"continuation": token, "context": _WEB_CONTEXT}
+    return entries[:count]

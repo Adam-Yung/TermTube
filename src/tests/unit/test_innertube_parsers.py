@@ -102,3 +102,46 @@ def test_search_reports_first_page_before_fetching_more():
     with patch.object(innertube, "_post_json", side_effect=fake):
         innertube.search_videos("x", count=50, on_first_batch=lambda e: order.append(f"first:{len(e)}"))
     assert order == ["post", "first:3", "post"]
+
+
+def test_channel_playlists_parse_fixture_and_follow_continuation():
+    first, more = load("innertube_playlists.json"), load("innertube_playlists_more.json")
+    calls = []
+
+    def fake(url, payload, **_):
+        calls.append(payload)
+        return first if "browseId" in payload else more
+
+    with patch.object(innertube, "_post_json", side_effect=fake):
+        entries = innertube.fetch_channel_playlists("UC_x5XG1OV2P6uZZ5FSM9Ttw")
+    assert len(entries) == 5 and "continuation" in calls[1] and "browseId" not in calls[1]
+    pl = entries[0]
+    assert pl["id"].startswith("PL") and pl["title"] == "Building with Gemini"
+    assert pl["url"] == f"https://www.youtube.com/playlist?list={pl['id']}" == pl["webpage_url"]
+    assert pl["playlist_count"] == 11 and pl["thumbnail"].startswith("https://")
+    assert pl["_is_playlist"] and pl["_playlist_name"] == pl["title"]
+
+
+def test_channel_playlists_respect_count_and_survive_failure():
+    first = load("innertube_playlists.json")
+    with patch.object(innertube, "_post_json", return_value=first) as post:
+        assert len(innertube.fetch_channel_playlists("UCx", count=2)) == 2
+    assert post.call_count == 1
+    with patch.object(innertube, "_post_json", return_value=None):
+        assert innertube.fetch_channel_playlists("UCx") == []
+
+
+def test_channel_screen_playlists_fall_back_to_ytdlp(monkeypatch):
+    from types import SimpleNamespace
+
+    import src.ytdlp as ytdlp
+    from src.tui.screens.channel_screen import ChannelScreen
+
+    host = SimpleNamespace(_channel_id=lambda: "UCx", _channel_url="u", app=SimpleNamespace(config=None, cache=None))
+    monkeypatch.setattr(innertube, "fetch_channel_playlists", lambda cid: [{"id": "PLa"}])
+    monkeypatch.setattr(ytdlp, "fetch_channel_playlists", lambda *a, **k: pytest.fail("yt-dlp must not run"))
+    assert ChannelScreen._fetch_playlists(host) == [{"id": "PLa"}]
+
+    monkeypatch.setattr(innertube, "fetch_channel_playlists", lambda cid: [])
+    monkeypatch.setattr(ytdlp, "fetch_channel_playlists", lambda *a, **k: [{"id": "PLb"}])
+    assert ChannelScreen._fetch_playlists(host) == [{"id": "PLb"}]

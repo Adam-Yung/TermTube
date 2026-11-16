@@ -1,6 +1,6 @@
 # src/innertube.py
 
-Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's Videos tab (~600 ms for about 30 entries). Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos, falling back to `ytdlp.fetch_channel_videos` when empty).
+Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's Videos tab (~600 ms for about 30 entries) and Playlists tab. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
 
 ## Invariants
 
@@ -12,7 +12,7 @@ Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too
 ## Limits
 
 - Parsing follows YouTube's current `lockupViewModel` layout; a layout change yields an empty list rather than an error.
-- `_CHANNEL_VIDEOS_PARAMS` is a base64 protobuf tab selector for newest-first. A popular-sort variant was not reliable, so `fetch_channel_videos(sort="views")` returns newest-first; the channel screen only calls it with `date`. The `sort` parameter is kept for signature parity.
+- `_CHANNEL_VIDEOS_PARAMS` is a base64 protobuf tab selector for newest-first. A popular-sort variant was not reliable, so `fetch_channel_videos` has no sort argument; the channel screen sends other sorts to yt-dlp.
 - View counts parse from localized English text ("1.2M views"); other languages parse to None. The request pins `hl: en`.
 
 ## Search and channel info (optimization plan step 2)
@@ -30,3 +30,13 @@ The avatar is the largest size in `avatar.thumbnails` (900 px).
 
 Both return empty/None on any failure; `ytdlp.fetch_search_batch` and `ytdlp.fetch_channel_info` then fall back to yt-dlp. Parser tests use
 trimmed recordings in `src/tests/fixtures/innertube_*.json` (recorded 2026-11-15); refresh them when a parser breaks.
+
+## Channel playlists
+
+`fetch_channel_playlists` posts `/browse` with `_CHANNEL_PLAYLISTS_PARAMS` (the Playlists tab) and follows the grid's trailing
+`continuationItemRenderer` token (`{"continuation": token}`, items under `onResponseReceivedActions[0].appendContinuationItemsAction`) up to
+`count` (80) or `_MAX_PLAYLIST_PAGES`. Live check 2026-11-15: 80 playlists in 1.0 s over 3 requests. Only `lockupViewModel` items with
+`contentType` `LOCKUP_CONTENT_TYPE_PLAYLIST` are kept. Entries carry the keys the list row and `MainScreen._activate_entry` use
+(`_is_playlist`, `_playlist_name`, `title`, `thumbnail`) plus `id`, `url`, `webpage_url` and `playlist_count` (from the "N videos" overlay
+badge). The thumbnail is the first video's, from `collectionThumbnailViewModel`. Fixtures: `innertube_playlists.json` (first page, trimmed to
+3 items and the continuation token) and `innertube_playlists_more.json` (continuation page), recorded 2026-11-15 from Google Developers.

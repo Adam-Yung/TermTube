@@ -47,3 +47,7 @@ Decisions from the audit:
 The home feed uses one yt-dlp call for 80 entries. The `on_first_batch` callback fires after 15 entries arrive and displays them at once, while the remaining 65 stream in from the same network session. This removes the duplicate handshake and auth overhead of the prior two-phase approach (two separate `extract_info` calls).
 
 The feed URL changed from `/feed/recommended` to `https://www.youtube.com/`, which matches the user's proven benchmark. Together with IPv4 forcing, `geo_bypass`, `approximate_date` and no-fsync cache writes, cold start to content takes about 2.5–3 s.
+
+## 2026-11-15 — Channel playlists through InnerTube; `sort` dropped from `innertube.fetch_channel_videos`
+
+The Playlists tab is read from `/browse` with continuation paging (up to 80 entries, 1.0 s live) and falls back to yt-dlp when the response is empty or the channel id is unknown. The InnerTube entry carries the same keys the list row and `_activate_entry` use. `fetch_channel_videos` lost its `sort` argument: it was ignored, and a popular-sort selector was not reliable. The channel screen sends non-date sorts to yt-dlp.

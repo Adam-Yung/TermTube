@@ -9,7 +9,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
-from src import logger
+from src import innertube, logger
 from src.tui import keymap
 from src.tui.messages import PlayerStateUpdated
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
@@ -179,7 +179,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, Screen):
         call = self.app.call_from_thread
         try:
             if kind == "playlists":
-                entries = ytdlp.fetch_channel_playlists(self._channel_url, self.app.config, self.app.cache)
+                entries = self._fetch_playlists()
             else:
                 entries = self._fetch_videos(sort)
             if session != self._content_session:
@@ -195,15 +195,25 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, Screen):
             if session == self._content_session:
                 call(panel.set_error_message, str(exc))
 
+    def _fetch_playlists(self) -> list[dict]:
+        """InnerTube browse (fast); yt-dlp when the id is unknown or the response is empty."""
+        import src.ytdlp as ytdlp
+
+        channel_id = self._channel_id()
+        if channel_id:
+            entries = innertube.fetch_channel_playlists(channel_id)
+            if entries:
+                return entries
+            logger.debug("InnerTube channel playlists empty; falling back to yt-dlp")
+        return ytdlp.fetch_channel_playlists(self._channel_url, self.app.config, self.app.cache)
+
     def _fetch_videos(self, sort: str) -> list[dict]:
         """InnerTube browse for newest-first (fast); yt-dlp for other sorts or when it fails."""
         import src.ytdlp as ytdlp
 
         channel_id = self._channel_id()
         if channel_id and sort == "date":
-            from src.innertube import fetch_channel_videos
-
-            entries = fetch_channel_videos(channel_id, sort=sort)
+            entries = innertube.fetch_channel_videos(channel_id)
             if entries:
                 for entry in entries:
                     entry.setdefault("channel", self._channel_name)
