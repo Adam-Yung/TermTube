@@ -1,11 +1,11 @@
 # Status
 
-**Last updated:** 2026-11-15. Restructure and housekeeping pass, uncommitted on `main`.
+**Last updated:** 2026-11-15. The restructure and the handoff plan (`plans/2026-11-15-handoff-PLAN.md`, T1 to T8) are committed on `main`. Open: the owner's real-terminal checks (T9), and `pip install` of `ruff` into the venv.
 
 ## What changed in this pass
 
 - **Structure.** `main_screen.py` (2,146 lines) is a thin screen over mixins in `src/tui/screens/mixins/` (list navigation, detail focus,
-  item actions, feed loader, audio player, debug log). `ChannelScreen` uses the same mixins instead of its own copies. `ytdlp.py` is split
+  item actions, feed loader, audio bar, debug log). `ChannelScreen` uses the same mixins instead of its own copies. `ytdlp.py` is split
   into `ytdlp` (opts, feeds, search, channels), `cookies`, `downloads` and `streams`. Thumbnail loading is one function
   (`src/tui/thumb_loader.py`).
 - **Keymap revamped** (`docs/features/keybindings.md`): `hjkl` traversal, `v`/`a` for video/audio, `x` stop, `[ ]` seek; no key changes
