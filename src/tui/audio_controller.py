@@ -206,6 +206,15 @@ class AudioController:
             self._stop()
 
     def _launch_worker(self, entry: Entry, session: int, ytdl_format: str) -> None:
+        """Thread body. An exception here would otherwise vanish and leave the bar on "Buffering…" forever."""
+        logger.debug("audio launch worker started (session %d)", session)
+        try:
+            self._launch(entry, session, ytdl_format)
+        except Exception as exc:
+            logger.exception("audio launch worker crashed")
+            self._launch_failed(session, f"Audio failed to start: {exc}")
+
+    def _launch(self, entry: Entry, session: int, ytdl_format: str) -> None:
         if self._stale(session):
             self._clear_pending(session)
             return

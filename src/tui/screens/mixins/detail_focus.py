@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textual import work
+from textual._context import NoActiveAppError
 from textual.css.query import NoMatches
 from textual.timer import Timer
 
@@ -124,8 +125,8 @@ class DetailFocusMixin:
     def _prefetch_stream_worker(self, vid: str) -> None:
         import src.ytdlp as ytdlp
 
-        config = self.app.config
-        try:
+        try:  # everything inside: a worker that outlives its app (quit, screen popped) must end quietly
+            config = self.app.config
             ytdlp.prefetch_stream_url(vid, config)
             if config.get("prefetch_video", False):
                 ytdlp.prefetch_stream_url(vid, config, format_spec="bv+ba/b")
@@ -136,10 +137,10 @@ class DetailFocusMixin:
     def _thumb_worker(self, vid: str, entry: Entry, session: int) -> None:
         try:
             detail = self._detail()
-        except NoMatches:  # the screen was popped or the app is quitting before this worker got going
+            cols, rows = detail.thumbnail_cell_size()
+            load_thumbnail(
+                self.app, detail, vid, entry=entry, cols=cols, rows=rows,
+                is_current=lambda: session == self._thumb_session,
+            )
+        except (NoMatches, NoActiveAppError):  # the screen was popped or the app is quitting
             return
-        cols, rows = detail.thumbnail_cell_size()
-        load_thumbnail(
-            self.app, detail, vid, entry=entry, cols=cols, rows=rows,
-            is_current=lambda: session == self._thumb_session,
-        )

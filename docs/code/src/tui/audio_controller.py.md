@@ -13,6 +13,8 @@ Background audio: a headless mpv controlled over an IPC socket, with a queue, Sp
 
 ## Threads and messages
 
+`_launch_worker` is a thin wrapper that logs (with traceback) and reports any exception from the launch body (`_launch`) through `_launch_failed`; a raw thread would swallow it and the bar would stay on "Buffering…".
+
 Threads are plain daemon threads (the controller is not a DOM node, so no `@work`): `audio-launch` (one per start) and `audio-poll` (one per 0.5 s timer tick, skipped while the previous poll is still waiting on mpv, which is what `exclusive` used to do). The timer is `app.set_interval`.
 
 State changes reach screens as messages broadcast to every screen on `app.screen_stack` (`_broadcast` builds a fresh message per screen), not only the active one. A covered screen therefore stays current and a modal on top cannot swallow an update. `PlayerStateUpdated` (progress, and `playing=False` on stop, finish or failure), `AudioTrackChanged`, `AudioQueueChanged`, `AudioSegmentsLoaded`: `src/tui/messages.py`. A replaced track posts `AudioTrackChanged` only; no stop message is sent between the two tracks.

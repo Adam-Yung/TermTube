@@ -307,8 +307,10 @@ def run(args, tmp: Path) -> int:
         step("q: the app exits with code 0", code == 0, f"exit code {code}")
         step("no mpv left behind", poll()[0] is None)
     finally:
+        still_running = terminal.exit_code(0) is None
         terminal.kill()
         if failures:
+            print(f"\n(the app was {'still running' if still_running else 'no longer running'} at the end)")
             print("\n--- last screen output ---")
             print(ANSI.sub("", session.raw)[-1800:])
             if args.debug_log:
