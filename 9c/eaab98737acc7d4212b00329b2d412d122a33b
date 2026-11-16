@@ -1,0 +1,27 @@
+scripts/setup.sh
+  s_3690eae3737fe4::t_bbe5ba26838ffd 42-43,64,68,150,167-208,415-418
+  s_3690eae3737fe4::t_9fb9f15fc5a04b 419
+src/tests/unit/test_setup_refresh.py
+  s_3690eae3737fe4::t_a841d9c6d07ddb 1-80
+docs/code/scripts/setup.sh.md
+  s_3690eae3737fe4::t_b28df61dda3a46 7-8,21
+docs/guides/environments.md
+  s_3690eae3737fe4::t_b28df61dda3a46 13
+  s_3690eae3737fe4::t_5fa3f191984d19 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9ceaab98737acc7d4212b00329b2d412d122a33b",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
