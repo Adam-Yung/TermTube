@@ -22,7 +22,6 @@ VIDEOS = ["dQw4w9WgXcQ", "kJQP7kiw5Fk", "9bZkp7q19f0"]
 CHANNEL = "UCuAXFkgsw1L7xaCfnd5JJOw"
 QUERY = "lofi hip hop"
 OEMBED = "https://www.youtube.com/oembed?format=json&url="
-RSS = "https://www.youtube.com/feeds/videos.xml"
 
 
 def timed(fn, runs: int):
@@ -113,8 +112,6 @@ def main() -> int:
     cases = [
         ("rung1 thumbnail GET (i.ytimg.com)", lambda: get(f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"), runs),
         ("rung2 oEmbed", lambda: get(OEMBED + urllib.parse.quote(f"https://www.youtube.com/watch?v={vid}")), runs),
-        ("rung2 channel RSS", lambda: get(f"{RSS}?channel_id={CHANNEL}"), runs),
-        ("rung2 RSS uploads playlist (UULF)", lambda: get(f"{RSS}?playlist_id=UULF{CHANNEL[2:]}"), runs),
         ("rung3 InnerTube /player", lambda: innertube.fetch_video_details(vid), runs),
         ("rung3 InnerTube /search", search, runs),
         ("rung3 InnerTube /browse channel videos", channel_browse, runs),

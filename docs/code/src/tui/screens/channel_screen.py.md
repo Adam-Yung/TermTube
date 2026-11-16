@@ -31,7 +31,7 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 ## Content loading
 
 - Tab switch, sort and reload call `_start_content_load`. `_start_content_once` (50 ms after mount) and the first `TabActivated` race to start the first load; `_content_started` makes whichever comes second a no-op.
-- Videos sorted by date use `feeds.channel_latest` (RSS, then InnerTube browse; fast) when a `UC...` channel id is known (from the URL, or from the loaded info); otherwise, or if InnerTube returns nothing, yt-dlp (`ytdlp.fetch_channel_videos`) supplies them. Entries from InnerTube get the channel name filled in. Other sorts always use yt-dlp.
+- Videos sorted by date use the InnerTube browse (fast) when a `UC...` channel id is known (from the URL, or from the loaded info); otherwise, or if InnerTube returns nothing, yt-dlp (`ytdlp.fetch_channel_videos`) supplies them. Entries from InnerTube get the channel name filled in. Other sorts always use yt-dlp.
 - Playlists use `innertube.fetch_channel_playlists` under the same rule (id known, else or on empty, `ytdlp.fetch_channel_playlists`).
 - Avatar ids are `ch_<channel_id>` (`_avatar_id`), distinct from video ids, so `ThumbnailWidget`'s stale-id guard also covers channel switches.
 - All results are one unpaged `add_entries(1, ...)` split into pages of 20.

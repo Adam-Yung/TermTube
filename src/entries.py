@@ -24,7 +24,7 @@ class _Row(TypedDict, total=False):
 
 
 class VideoEntry(_Row, total=False):
-    """A video from InnerTube, RSS, yt-dlp, the history or the cache."""
+    """A video from InnerTube, yt-dlp, the history or the cache."""
 
     channel_id: str
     channel_url: str

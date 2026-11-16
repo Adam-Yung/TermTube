@@ -223,3 +223,24 @@ def test_post_sends_no_cookie_header(transport):
     transport.script[:] = [(200, b"{}")]
     innertube._post_json(innertube._BROWSE_URL, {})
     assert not any(k.lower() in ("cookie", "authorization") for k in transport.instances[0].requests[0][2])
+
+
+def test_channel_screen_videos_use_innertube_then_ytdlp(monkeypatch):
+    from types import SimpleNamespace
+
+    import src.ytdlp as ytdlp
+    from src.tui.screens.channel_screen import ChannelScreen
+
+    host = SimpleNamespace(
+        _channel_id=lambda: "UCx", _channel_url="u", _channel_name="Chan", app=SimpleNamespace(config=None, cache=None)
+    )
+    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: [{"id": "AAAAAAAAAAA"}])
+    monkeypatch.setattr(ytdlp, "fetch_channel_videos", lambda *a, **k: pytest.fail("yt-dlp must not run"))
+    rows = ChannelScreen._fetch_videos(host, "date")
+    assert rows == [{"id": "AAAAAAAAAAA", "channel": "Chan", "uploader": "Chan"}]
+
+    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: [])
+    monkeypatch.setattr(ytdlp, "fetch_channel_videos", lambda *a, **k: [{"id": "fallbackvid"}])
+    assert ChannelScreen._fetch_videos(host, "date") == [{"id": "fallbackvid"}]
+    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: pytest.fail("other sorts use yt-dlp"))
+    assert ChannelScreen._fetch_videos(host, "views") == [{"id": "fallbackvid"}]

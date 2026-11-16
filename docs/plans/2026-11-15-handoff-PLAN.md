@@ -37,6 +37,7 @@ shape `fetch_channel_playlists` returns today (read it first; keep keys the UI u
 fixture, fallback test passes.
 
 ### T2. Subscription feed and channel first page: RSS with InnerTube fallback (2.5 h)
+**Outcome (2026-11-16): built, then removed.** RSS returned 404 on two networks and in public reports; the channel page uses InnerTube directly. Text below is the original brief.
 The benchmark (`docs/guides/benchmarks.md`) saw HTTP 404 on `feeds/videos.xml` for every channel tried. Build
 `src/feeds.py`: `channel_latest(channel_id)` tries RSS, falls back to `innertube.fetch_channel_videos`. A module-level "RSS is dead" flag
 (set after N consecutive 404s, reset after 30 min) means a dead RSS costs one request, not one per channel. Subscription feed = for each

@@ -90,8 +90,7 @@ no cookie and no browser-profile read. Consequences:
 0. **Benchmark** (done 2026-11-15): `scripts/bench-sources.py`; results in `docs/guides/benchmarks.md`. Re-run before adopting each rung.
 1. Rung 1 thumbnails from the id (smallest change, kills stub-row bugs). Tests: URL derivation, fallback order.
 2. InnerTube search and channel info/playlists, yt-dlp as fallback. Tests: parser fixtures from recorded JSON; no network in the suite.
-3. Subscription feed and channel first page: try RSS, fall back to InnerTube `/browse` per channel. RSS returned 404 for every channel in the
-   2026-11-15 benchmark, so it needs a per-session dead flag. Tests: Atom fixtures, 404 fallback, merge order.
+3. ~~Subscription feed and channel first page via RSS~~ RSS returned 404 on every network tried and was removed 2026-11-16; the channel first page is InnerTube `/browse` with a yt-dlp fallback. The Subscriptions tab lists channels, so no merged feed exists.
 4. Lazy cookies and narrowed jar; re-extract on auth failure.
 5. ~~Authenticated InnerTube home feed~~ dropped by the owner.
 6. Speed-ups for the yt-dlp rung (warm instance, direct format, client pinning).

@@ -4,9 +4,9 @@
 
 ## Invariants
 
-- Every key is optional (`total=False`): each source fills a different subset (RSS has no duration, search has no `upload_date`, yt-dlp has most of both).
+- Every key is optional (`total=False`): each source fills a different subset (search has no `upload_date`, channel browse has no exact date, yt-dlp has most of both).
 - The shared base `_Row` carries the keys any row kind may be asked for (`id`, `title`, `thumbnail`, the `_is_playlist` / `_is_channel` flags), so `entry.get("_is_channel")` is valid on the union.
-- `src/tests/unit/test_entries.py` parses the InnerTube, Atom and playlist fixtures and asserts every emitted key is declared here. Add a key to the type in the same change that adds it to a parser.
+- `src/tests/unit/test_entries.py` parses the InnerTube search, channel and playlist fixtures and asserts every emitted key is declared here. Add a key to the type in the same change that adds it to a parser.
 
 ## Limits
 

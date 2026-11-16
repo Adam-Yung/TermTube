@@ -17,7 +17,6 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Thumbnails | `src/tui/thumb_loader.py`, `src/ui/thumbnail.py` | worker-side thumbnail loading; fetch, validate, half-block render |
 | yt-dlp | `src/ytdlp.py` (opts, feeds, search, channels), `src/cookies.py`, `src/downloads.py`, `src/streams.py` | all extraction; `streams.py` resolves and caches playback URLs |
 | InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
-| Feeds | `src/feeds.py` | channel latest uploads: RSS, then InnerTube |
 | Player | `src/player.py` | mpv command lines, IPC, polling |
 | Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
 | Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/config.py` | disk and RAM state |
