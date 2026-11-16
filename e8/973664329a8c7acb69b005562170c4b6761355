@@ -1,0 +1,32 @@
+src/tests/tui/test_picker_modals.py
+  s_3690eae3737fe4::t_e05b4a35014330 13-14,16,18-30
+  s_3690eae3737fe4::t_8a21516983dc7e 1-12,15,17
+src/tui/screens/sort_modal.py
+  s_3690eae3737fe4::t_b012773d2e8d8a 9-10,32,38-39
+src/tui/theme.tcss
+  s_3690eae3737fe4::t_86e2caec82439e 314,553,561,580,644,647,670,673,696,699
+src/tui/screens/channel_tab_modal.py
+  s_3690eae3737fe4::t_b012773d2e8d8a 9-10,32,38-39
+docs/code/src/tui/screens/channel_tab_modal.py.md
+  s_3690eae3737fe4::t_4a9b12ff820fbe 3
+docs/code/src/tui/screens/sort_modal.py.md
+  s_3690eae3737fe4::t_101f293c903c09 3
+docs/code/src/tui/theme.tcss.md
+  s_3690eae3737fe4::t_f921e3367c6141 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e8973664329a8c7acb69b005562170c4b6761355",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
