@@ -25,6 +25,10 @@ The installed copy (`~/.local/share/TermTube`) was refreshed from commit `9ceaab
 
 A tmux session (150x46, `browser: none`, throwaway config) ran the real app against YouTube and mpv: home feed, search (50 results, 3 pages), `j` `k`, `l` `g` `G` paging, audio start, seek (`]` `}` `5`), pause, queue (`e`, `>`), stop, channel page (videos, Playlists tab, audio kept playing across it, Esc back), Enter menu, help, settings, tab picker, history entry, `A` quality picker, Ctrl+D, video (`v`, mpv window, `q` stops it), quit with exit code 0 and no stray mpv. It found and fixed: titles with `[brackets]` breaking markup, mangled `[ ]` and `PAUSED` hints. Not covered: `d` download, `b` browser, `y` copy, `p` playlist, Windows and Linux, a Kitty/iTerm2 terminal (tmux has no image protocol, so thumbnails showed the fallback notice), and the unauthenticated home feed only (no cookies read).
 
+## Verified by the owner (2026-11-16, real terminal, installed app)
+
+Thumbnails, `b`, `y`, `p`, the restyled notifications, and the rest of the owner's testing: all good. Still unchecked: `d` download, Linux, Windows.
+
 ## Not verified
 
 - Real terminals other than tmux (iTerm2, Kitty, WezTerm), Linux and Windows. See `todo.md` item 1.
