@@ -1,0 +1,46 @@
+src/tests/tui/test_audio_local_file.py
+  s_3690eae3737fe4::t_cd8ebe57475616 1-30
+src/tests/tui/test_thumbnail_teardown.py
+  s_3690eae3737fe4::t_7596bbffb9f390 24-25
+  s_3690eae3737fe4::t_8b41b995435b3b 26-39
+src/tests/unit/test_run_mpv.py
+  s_3690eae3737fe4::t_cd8ebe57475616 89
+src/player.py
+  s_3690eae3737fe4::t_03eded0f89b01e 487,542
+docs/code/src/tui/screens/watch_modal.py.md
+  s_3690eae3737fe4::t_220b9930b68f92 9
+src/tui/screens/mixins/detail_focus.py
+  s_3690eae3737fe4::t_5a0123bc06efec 4,137-140
+docs/code/src/player.py.md
+  s_3690eae3737fe4::t_220b9930b68f92 85
+scripts/smoke-ipc.py
+  s_3690eae3737fe4::t_7596bbffb9f390 76-79
+docs/decisions/playback.md
+  s_3690eae3737fe4::t_220b9930b68f92 83-86
+src/tests/unit/test_text_encoding.py
+  s_3690eae3737fe4::t_7596bbffb9f390 62-64
+src/tui/screens/watch_modal.py
+  s_3690eae3737fe4::t_03eded0f89b01e 103
+src/tests/unit/test_mpv_commands.py
+  s_3690eae3737fe4::t_cd8ebe57475616 1-34
+src/tui/audio_controller.py
+  s_3690eae3737fe4::t_220b9930b68f92 227-228
+docs/code/src/tui/audio_controller.py.md
+  s_3690eae3737fe4::t_220b9930b68f92 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "986ea4f4987045169d2c9734b6c96ec84d6881e5",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
