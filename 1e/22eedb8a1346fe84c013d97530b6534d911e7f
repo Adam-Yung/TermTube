@@ -1,0 +1,45 @@
+src/tests/unit/test_platform.py
+  s_3690eae3737fe4::t_f90201d83d36f0 347-356
+src/player.py
+  s_3690eae3737fe4::t_ab59b3f7f5ea6f 545-546
+src/tests/unit/test_run_mpv.py
+  s_3690eae3737fe4::t_f90201d83d36f0 88
+docs/code/src/history.py.md
+  s_3690eae3737fe4::t_3d9775403fa853 10-11
+src/tests/unit/test_run_mpv_real.py
+  s_3690eae3737fe4::t_f90201d83d36f0 1-27
+src/history.py
+  s_3690eae3737fe4::t_c0372ed2f549c0 9,50-53
+src/plat.py
+  s_3690eae3737fe4::t_ab59b3f7f5ea6f 304-306
+docs/code/src/plat.py.md
+  s_3690eae3737fe4::t_3d9775403fa853 18
+docs/history/2026-11-16-windows-audit.md
+  s_3690eae3737fe4::t_3d9775403fa853 1-33
+src/tests/tui/conftest.py
+  s_3690eae3737fe4::t_427abd128f65e7 24,26
+docs/todo.md
+  s_3690eae3737fe4::t_3d9775403fa853 1,5,7-9
+src/tests/unit/test_history.py
+  s_3690eae3737fe4::t_c0372ed2f549c0 63-73
+docs/status.md
+  s_3690eae3737fe4::t_3d9775403fa853 30-35
+docs/code/src/player.py.md
+  s_3690eae3737fe4::t_3d9775403fa853 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1e22eedb8a1346fe84c013d97530b6534d911e7f",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
