@@ -9,8 +9,8 @@
 | Bundled tools | `~/.local/termtube-deps/bin/` (deno, ffmpeg, mpv) | the same directory: one set, shared on purpose |
 
 They are separate directories with separate `site-packages`; nothing is symlinked between them. The only shared things are the bundled tools and
-your config and cache (`~/.config/TermTube`, `~/.cache/termtube`). The installed copy does not follow the checkout: re-run `scripts/setup.sh` to
-refresh it. Their package versions drift apart (textual 8.2.5 in the checkout and 8.2.8 in the app on 2026-11-15).
+your config and cache (`~/.config/TermTube`, `~/.cache/termtube`). The installed copy does not follow the checkout: refresh it with
+`bash scripts/setup.sh --refresh` (replaces only the code, keeps the venv, no network; it warns if `requirements.txt` changed). A full `setup.sh` run deletes and rebuilds the whole install including its venv. Their package versions drift apart (textual 8.2.5 in the checkout and 8.2.8 in the app on 2026-11-15, before the checkout's venv was rebuilt).
 
 ## The mistake to avoid
 

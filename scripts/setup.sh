@@ -39,6 +39,8 @@ show_help() {
   Usage: bash scripts/setup.sh [OPTIONS]
 
   Options:
+    --refresh     Replace only the installed code (src, scripts, assets, launcher) from this
+                  checkout. Keeps the venv, makes no network calls, installs no packages.
     --no-deps     Skip dependency bootstrap (only set up Python venv).
     --no-prompt   Non-interactive mode (accept all defaults).
     --help, -h    Show this help message and exit.
@@ -59,9 +61,11 @@ EOF
 
 SKIP_DEPS=false
 INTERACTIVE=true
+REFRESH=false
 
 for arg in "$@"; do
     case "$arg" in
+        --refresh)   REFRESH=true ;;
         --no-deps)   SKIP_DEPS=true ;;
         --no-prompt) INTERACTIVE=false ;;
         --help|-h)   show_help ;;
@@ -143,13 +147,7 @@ setup_venv() {
     # Hash-based cache: skip pip install when requirements.txt is unchanged
     local hash_file="$venv_dir/.requirements.sha256"
     local current_hash=""
-    if [[ -f "$requirements" ]]; then
-        if command -v sha256sum &>/dev/null; then
-            current_hash=$(sha256sum "$requirements" | awk '{print $1}')
-        elif command -v shasum &>/dev/null; then
-            current_hash=$(shasum -a 256 "$requirements" | awk '{print $1}')
-        fi
-    fi
+    [[ -f "$requirements" ]] && current_hash="$(file_hash "$requirements")"
     local cached_hash=""
     [[ -f "$hash_file" ]] && cached_hash=$(<"$hash_file")
 
@@ -164,6 +162,48 @@ setup_venv() {
     "$venv_dir/bin/pip" install --quiet -r "$requirements"
     [[ -n "$current_hash" ]] && printf '%s' "$current_hash" > "$hash_file"
     success "Python environment ready."
+}
+
+file_hash() {
+    if command -v sha256sum &>/dev/null; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum &>/dev/null; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
+
+refresh_files() {
+    header "Refreshing the installed copy"
+    if [[ ! -d "${APP_DIR}/.venv" ]]; then
+        error "No installed app at ${APP_DIR}. Run bash scripts/setup.sh (without --refresh) first."
+        exit 1
+    fi
+    if [[ "${ORIG_DIR}" == "${APP_DIR}" ]]; then
+        info "Already running from the install directory."
+        return 0
+    fi
+    local d f
+    for d in src scripts assets; do
+        [[ -d "${ORIG_DIR}/$d" ]] || continue
+        rm -rf "${APP_DIR:?}/$d"
+        cp -a "${ORIG_DIR}/$d" "${APP_DIR}/"
+    done
+    find "${APP_DIR}/src" "${APP_DIR}/scripts" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
+    for f in requirements.txt termtube termtube.cmd; do
+        [[ -f "${ORIG_DIR}/$f" ]] && cp -a "${ORIG_DIR}/$f" "${APP_DIR}/"
+    done
+    chmod +x "${APP_DIR}/termtube" 2>/dev/null || true
+    chmod +x "${APP_DIR}"/scripts/*.sh 2>/dev/null || true
+    write_version
+    success "Code replaced in ${APP_DIR}; the venv was not touched."
+
+    local wanted cached=""
+    wanted="$(file_hash "${APP_DIR}/requirements.txt")"
+    [[ -f "${APP_DIR}/.venv/.requirements.sha256" ]] && cached="$(<"${APP_DIR}/.venv/.requirements.sha256")"
+    if [[ -n "$wanted" && "$wanted" != "$cached" ]]; then
+        warn "requirements.txt changed since the venv was built: its packages may be out of date."
+        echo "  Run bash scripts/setup.sh to rebuild the venv (this downloads packages)."
+    fi
 }
 
 install_files() {
@@ -371,6 +411,11 @@ main() {
     echo -e "${BOLD}│$(_center "$title" $inner)│${RESET}"
     echo -e "${BOLD}│$(_center "$subtitle" $inner)│${RESET}"
     echo -e "${BOLD}└$(printf '─%.0s' $(seq 1 $inner))┘${RESET}"
+
+    if [[ "$REFRESH" == true ]]; then
+        refresh_files
+        return 0
+    fi
 
     # Check prerequisites
     header "Prerequisites"
