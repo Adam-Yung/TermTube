@@ -74,11 +74,9 @@ class MainScreen(
         Binding("f6", "goto_tab('playlists')", show=False),
         Binding("f7", "goto_tab('help')", show=False),
         Binding("ctrl+d", "toggle_log", "Debug", show=False),
-        Binding("/", "search", "Search"),
+        keymap.SEARCH,
         Binding("r", "refresh", "Refresh"),
-        Binding("comma", "settings", "Settings"),
-        Binding("q", "quit_app", "Quit"),
-        Binding("?", "help", "Help"),
+        *keymap.GLOBAL,
     ]
 
     def __init__(self) -> None:

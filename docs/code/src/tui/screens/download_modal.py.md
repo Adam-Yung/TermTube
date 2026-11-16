@@ -5,3 +5,7 @@ Progress dialog for one yt-dlp download (`downloads.download_video_with_progress
 - Progress arrives as `(line, pct)`; the sentinel values `downloads.PHASE_NEW_STREAM` and `PHASE_POSTPROCESS` switch the title and bar (second stream, merge/convert).
 - Esc sets `_cancelled` and the cancel event passed to the download (`_cancel_event`, created in `on_mount`, released when the worker ends), then dismisses. The progress hook raises on the event, so yt-dlp stops at its next progress callback; the worker ignores later progress and does not dismiss again.
 - On success the library cache is invalidated so the next Library open lists the new file. On failure the dialog stays open with the last error line until Esc.
+
+## Audio keys
+
+`Space` and `x` pause and stop background audio while the download runs (a download is long and every other key is blocked by the modal). The hint line shows them only when audio is playing. Esc still cancels the download only.

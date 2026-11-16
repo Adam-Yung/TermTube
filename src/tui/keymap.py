@@ -40,6 +40,13 @@ ITEM_ACTIONS = [
     Binding("b", "browser", show=False),
 ]
 
+SEARCH = Binding("/", "search", "Search")
+GLOBAL = [
+    Binding("comma", "settings", "Settings"),
+    Binding("q", "quit_app", "Quit"),
+    Binding("?", "help", "Help"),
+]
+
 FOCUS_RECLAIM_KEYS = frozenset(
     {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}
 )

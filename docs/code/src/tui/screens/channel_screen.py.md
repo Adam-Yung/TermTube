@@ -24,6 +24,10 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 
 `_info_avatar_session` is separate from the counters `DetailFocusMixin` bumps on every cursor move. The info-column avatar does not depend on the highlighted row; if it shared the cursor-bumped counter, moving the cursor while it loads would drop the avatar and leave "Loading…" forever. `_content_session` is bumped on tab, sort and reload so a slow earlier load cannot overwrite a newer list.
 
+## Global keys
+
+`/`, `,`, `?` and `q` are bound (`keymap.SEARCH`, `keymap.GLOBAL`). Help and settings open over this page. Search and quit belong to the main screen (search results land in its list; quit saves its feed stash and stops audio), so `_on_main_screen(method)` pops this screen and calls the method on the screen beneath.
+
 ## Content loading
 
 - Tab switch, sort and reload call `_start_content_load`. `_start_content_once` (50 ms after mount) and the first `TabActivated` race to start the first load; `_content_started` makes whichever comes second a no-op.

@@ -1,6 +1,6 @@
 # Key conflicts
 
-Status 2026-11-16: the owner approved the added notices on condition that toasts match the TUI (done: `docs/decisions/ui.md`). **Done:** K1, K2, K4, K5, K7, K8, K9, K10, K13. K9 refuses only when a video and its audio both exist. **Next:** K3, K6, K11, K12. K14 stays as is.
+Status 2026-11-16: the owner approved the added notices on condition that toasts match the TUI (done: `docs/decisions/ui.md`). **Done:** K1, K2, K4, K5, K7, K8, K9, K10, K13, K9 refuses only when a video and its audio both exist. K3 (channel page answers `/ , ? q`), K6 (menu relabels enqueue when idle), K11 (`Space` and `x` in the download modal) and K12 (help says the queue is not saved). K14 stays as is. All items are now decided.
 
 Found by reading `src/tui/keymap.py` and the action methods, and by driving the real app in tmux (marked **seen**). K1 is done. For each
 other item the proposal is mine; say keep, change or skip. Rule of thumb used: a key either does its job or says why it did nothing.

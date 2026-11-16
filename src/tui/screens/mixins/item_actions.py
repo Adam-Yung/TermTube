@@ -40,10 +40,19 @@ class ItemActionsMixin:
     """
 
     def _hidden_menu_actions(self, entry: Entry) -> set[str]:
-        hidden = set() if self.app.audio.can_enqueue(entry) else {"enqueue"}
-        if self.app.audio.is_playing:
+        audio = self.app.audio
+        hidden: set[str] = set()
+        if audio.is_playing:
             hidden |= {"watch", "watch_quality"}
+            if not audio.can_enqueue(entry):  # it is the current track or already queued
+                hidden.add("enqueue")
         return hidden
+
+    def _menu_labels(self) -> dict[str, str]:
+        """Label overrides for the Enter menu: with nothing playing, ``e`` starts playback instead of queueing."""
+        if self.app.audio.is_playing:
+            return {}
+        return {"enqueue": "Play audio, queue more after  [dim](e)[/dim]"}
 
     def _hint(self, message: str, severity: str = "warning") -> None:
         """Short notice for a key that cannot act now. The same message is shown at most once per 2 s (held keys)."""
@@ -89,7 +98,7 @@ class ItemActionsMixin:
                 dispatch[key]()
 
         self.app.push_screen(
-            VideoActionModal(entry, hide=self._hidden_menu_actions(entry)), on_action
+            VideoActionModal(entry, hide=self._hidden_menu_actions(entry), labels=self._menu_labels()), on_action
         )
 
     def _playable_entry(self) -> Entry | None:

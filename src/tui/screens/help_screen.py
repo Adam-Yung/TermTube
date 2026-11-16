@@ -50,11 +50,12 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         (",", "Settings"),
         ("?", "This screen"),
         ("Ctrl+D", "Debug log panel"),
-        ("q", "Quit"),
+        ("q", "Quit (the audio queue is not saved)"),
     ]),
     ("CHANNEL PAGE", [
         ("s", "Sort (date / views)"),
         ("r", "Reload"),
+        ("/ , ? q", "Search, settings, help, quit (as on the main page)"),
         ("Esc", "Back to the previous page"),
     ]),
 ]

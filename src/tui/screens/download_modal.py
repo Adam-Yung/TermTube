@@ -19,6 +19,8 @@ class DownloadModal(ModalScreen[bool]):
 
     BINDINGS = [
         Binding("escape", "cancel_download", "Cancel", show=True),
+        Binding("space", "audio_pause", show=False),
+        Binding("x", "audio_stop", show=False),
     ]
 
     def __init__(self, video_id: str, entry: Entry, audio_only: bool = False, fmt: str = "") -> None:
@@ -45,8 +47,9 @@ class DownloadModal(ModalScreen[bool]):
                 markup=True,
             )
             yield ProgressBar(total=100, show_eta=False, id="download-bar")
+            audio = "  [dim]Space[/dim] pause audio  [dim]x[/dim] stop audio" if self.app.audio.is_playing else ""
             yield Static(
-                "[dim]Esc[/dim] to cancel",
+                f"[dim]Esc[/dim] to cancel{audio}",
                 id="download-hint",
                 markup=True,
             )
@@ -189,6 +192,12 @@ class DownloadModal(ModalScreen[bool]):
                 bar.update(total=100, progress=0)
             except Exception:
                 pass
+
+    def action_audio_pause(self) -> None:
+        self.app.audio.toggle_audio_pause()
+
+    def action_audio_stop(self) -> None:
+        self.app.audio.stop_audio()
 
     def action_cancel_download(self) -> None:
         self._cancelled = True

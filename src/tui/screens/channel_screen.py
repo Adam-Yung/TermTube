@@ -49,6 +49,8 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         Binding("escape,backspace", "go_back", "Back"),
         Binding("s", "sort", "Sort"),
         Binding("r", "reload", "Reload"),
+        keymap.SEARCH,
+        *keymap.GLOBAL,
         Binding("grave_accent", "tab_picker", show=False),
     ]
 
@@ -260,3 +262,24 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
+
+    def _on_main_screen(self, method: str) -> None:
+        """Pop this page and run ``method`` on the main screen beneath it (search results and quit live there)."""
+        self.app.pop_screen()
+        getattr(self.app.screen, method)()
+
+    def action_search(self) -> None:
+        self._on_main_screen("_open_search_dialog")
+
+    def action_quit_app(self) -> None:
+        self._on_main_screen("action_quit_app")
+
+    def action_help(self) -> None:
+        from src.tui.screens.help_screen import HelpScreen
+
+        self.app.push_screen(HelpScreen())
+
+    def action_settings(self) -> None:
+        from src.tui.screens.settings_modal import SettingsModal
+
+        self.app.push_screen(SettingsModal())

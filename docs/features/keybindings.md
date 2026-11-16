@@ -39,6 +39,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
 | `F1`–`F7` `` ` `` | jump to a tab / tab picker | |
 | `s` `r` `Esc` | channel page only: sort / reload / back | |
+| `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |
 
 ## What changed from the first keymap (2026-11-15)
 

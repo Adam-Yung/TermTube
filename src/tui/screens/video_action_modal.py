@@ -46,10 +46,13 @@ class VideoActionModal(ModalScreen[str | None]):
         Binding("k",      "cursor_up",   show=False),
     ]
 
-    def __init__(self, entry: Entry, *, hide: set[str] = frozenset()) -> None:
+    def __init__(
+        self, entry: Entry, *, hide: set[str] = frozenset(), labels: dict[str, str] | None = None
+    ) -> None:
         super().__init__()
         self._entry = entry
         self._hide = hide
+        self._labels = labels or {}
 
     def compose(self) -> ComposeResult:
         title = (self._entry.get("title") or "Video")[:50]
@@ -78,7 +81,7 @@ class VideoActionModal(ModalScreen[str | None]):
         for key, icon, label in _ACTIONS:
             if key in self._hide:
                 continue
-            lv.append(_ActionItem(key, icon, label))
+            lv.append(_ActionItem(key, icon, self._labels.get(key, label)))
         lv.focus()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
