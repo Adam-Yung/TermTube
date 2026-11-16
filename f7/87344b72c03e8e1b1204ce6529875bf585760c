@@ -1,0 +1,28 @@
+docs/todo.md
+  s_3690eae3737fe4::t_686e00bab40f5b 5,7-11
+docs/history/2026-11-16-windows-audit.md
+  s_3690eae3737fe4::t_00ce659c4fc2d6 28,30-31
+docs/guides/ci.md
+  s_3690eae3737fe4::t_00ce659c4fc2d6 38,40-69
+  s_3690eae3737fe4::t_372b790d095bb9 70
+docs/decisions/runtime-and-env.md
+  s_3690eae3737fe4::t_00ce659c4fc2d6 94-97
+docs/status.md
+  s_3690eae3737fe4::t_686e00bab40f5b 32,34-44,48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f787344b72c03e8e1b1204ce6529875bf585760c",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
