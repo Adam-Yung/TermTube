@@ -22,17 +22,9 @@ from src.plat import (
     terminate_process,
 )
 from src.sponsorblock import Segment, fetch_segments_async
+from src.tui.fmt import fmt_clock
 
 _DEFAULT_FORMAT = "bv+ba/b"
-
-
-def _fmt_secs(s: float) -> str:
-    s = int(s)
-    m, sec = divmod(s, 60)
-    h, m = divmod(m, 60)
-    if h:
-        return f"{h}:{m:02d}:{sec:02d}"
-    return f"{m}:{sec:02d}"
 
 
 class WatchModal(ModalScreen[bool]):
@@ -275,7 +267,7 @@ class WatchModal(ModalScreen[bool]):
                     )
                     pause_indicator = "  ⏸ paused" if paused else ""
                     self.query_one("#np-time", Static).update(
-                        f"{_fmt_secs(pos_f)}  /  {_fmt_secs(dur_f)}{pause_indicator}"
+                        f"{fmt_clock(pos_f)}  /  {fmt_clock(dur_f)}{pause_indicator}"
                     )
                 except Exception:
                     pass

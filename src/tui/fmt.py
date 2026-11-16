@@ -5,14 +5,16 @@ from __future__ import annotations
 import datetime
 
 
-def fmt_duration(secs: int | float | None) -> str:
-    """Format seconds as H:MM:SS or M:SS."""
-    if not secs:
-        return ""
-    secs = int(secs)
-    h, rem = divmod(secs, 3600)
+def fmt_clock(secs: int | float) -> str:
+    """Format seconds as H:MM:SS or M:SS; zero is ``0:00``."""
+    h, rem = divmod(int(secs), 3600)
     m, s = divmod(rem, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def fmt_duration(secs: int | float | None) -> str:
+    """``fmt_clock`` for a video length; empty when the length is unknown or zero."""
+    return fmt_clock(secs) if secs else ""
 
 
 def fmt_views(n: int | None) -> str:

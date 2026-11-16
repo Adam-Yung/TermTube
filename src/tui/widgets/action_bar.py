@@ -12,17 +12,9 @@ from textual.widgets import Static
 
 from src.entries import Entry
 from src.sponsorblock import Segment
+from src.tui.fmt import fmt_clock
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
-
-
-def _fmt_secs(s: float) -> str:
-    s = int(s)
-    m, sec = divmod(s, 60)
-    h, m2 = divmod(m, 60)
-    if h:
-        return f"{h}:{m2:02d}:{sec:02d}"
-    return f"{m}:{sec:02d}"
 
 
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
@@ -330,8 +322,8 @@ class ActionBar(Widget):
         )
 
         if self._dur > 0:
-            elapsed = _fmt_secs(self._pos)
-            total = _fmt_secs(self._dur)
+            elapsed = fmt_clock(self._pos)
+            total = fmt_clock(self._dur)
             pct = int(min(self._pos / self._dur, 1.0) * 100)
             time_str = f"{elapsed}  /  {total}  ({pct}%)"
         else:
