@@ -1,0 +1,41 @@
+scripts/smoke-ipc.py
+  s_3690eae3737fe4::t_c354f9bf60c568 7-8,46-49,64-66,72-73,93-94,96-97
+  s_3690eae3737fe4::t_19d43ab84fb7ee 1-4,9-45,50-60,62-63,67-71,74-92,95,98-123
+  s_3690eae3737fe4::t_57b85f287c8380 61
+  s_3690eae3737fe4::t_d0b4c5230f8522 5-6
+docs/code/scripts/smoke-ipc.py.md
+  s_3690eae3737fe4::t_57b85f287c8380 1-10
+docs/guides/ci.md
+  s_3690eae3737fe4::t_7dc637b13a3b79 1-27
+docs/todo.md
+  s_3690eae3737fe4::t_7dc637b13a3b79 7-8
+src/tests/integration/test_smoke_ipc.py
+  s_3690eae3737fe4::t_57b85f287c8380 2-21
+  s_3690eae3737fe4::t_c354f9bf60c568 1
+docs/README.md
+  s_3690eae3737fe4::t_7dc637b13a3b79 23
+.github/workflows/test.yml
+  s_3690eae3737fe4::t_daaa4e14ae39f3 17-63
+docs/code/scripts/verify.sh.md
+  s_3690eae3737fe4::t_7dc637b13a3b79 7
+scripts/verify.sh
+  s_3690eae3737fe4::t_daaa4e14ae39f3 7-8
+docs/history/2026-11-16-windows-audit.md
+  s_3690eae3737fe4::t_7dc637b13a3b79 28,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "299722ba562e2242febd86712caaf3bde1269785",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
