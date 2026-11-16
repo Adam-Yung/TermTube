@@ -42,7 +42,6 @@ class TermTubeApp(App):
             self.add_class(f"theme-{theme}")
 
         threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
-        threading.Thread(target=self._warmup_cookies, daemon=True, name="cookie-warmup").start()
         self.set_timer(_HOUSEKEEPING_DELAY_S, self._launch_housekeeping)
 
         from src.tui.screens.main_screen import MainScreen
@@ -59,13 +58,6 @@ class TermTubeApp(App):
         try:
             from src.ytdlp import warmup
             warmup()
-        except Exception:
-            pass
-
-    def _warmup_cookies(self) -> None:
-        try:
-            from src.cookies import get_cookiejar
-            get_cookiejar(self.config)
         except Exception:
             pass
 

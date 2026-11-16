@@ -7,8 +7,7 @@ owns startup warmup and shutdown cleanup. Everything else lives in screens and m
 
 1. `plat.reap_orphans()` removes stale mpv sockets and kills mpv processes left by a crashed run.
 2. Theme: any theme except `crimson` becomes a `theme-<name>` CSS class on the app. `crimson` is the base CSS.
-3. Two daemon threads warm yt-dlp's extractor registry and the browser cookiejar. The cookie read costs 5 to 15 s, and doing it here keeps
-   the first play fast.
+3. A daemon thread warms yt-dlp's extractor registry. Cookies are not read here; the first home-feed or subscription fetch extracts them (5 to 15 s on a cold profile).
 4. Housekeeping is deferred 60 s with `set_timer` so cache pruning does not compete with the first feed render for disk.
 
 ## Shutdown

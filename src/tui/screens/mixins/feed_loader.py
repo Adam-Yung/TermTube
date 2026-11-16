@@ -139,6 +139,7 @@ class FeedLoaderMixin:
                 feed_key=feed_key,
                 on_first_batch=on_first_batch,
                 first_batch_size=FIRST_BATCH_COUNT,
+                auth=True,
             )
         )
         if not fetched and not stash:
@@ -329,7 +330,7 @@ class FeedLoaderMixin:
         if tab in FEED_TABS:
             entries = ytdlp.fetch_page_batch(
                 ytdlp.FEED_URLS[tab], config, cache,
-                skip_ids=skip, count=BATCH_FETCH_COUNT, feed_key=None,
+                skip_ids=skip, count=BATCH_FETCH_COUNT, feed_key=None, auth=True,
             )
             if tab == "home":
                 entries = [e for e in entries if not cache.is_suppressed(e.get("id", ""))]

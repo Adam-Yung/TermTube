@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import threading
-import time
 
 from src import logger
 
-_MAX_AGE_S = 600
+_KEPT_DOMAINS = ("youtube.com", "google.com")
+_AUTH_FAILURE_MARKERS = ("sign in", "login required", "http error 401", "http error 403")
 
 _jar = None
-_jar_extracted_at = 0.0
 _lock = threading.Lock()
 
 
@@ -25,21 +24,38 @@ def resolve_browser(config) -> str | None:
     return browser
 
 
-def _fresh() -> bool:
-    return _jar is not None and time.time() - _jar_extracted_at < _MAX_AGE_S
+def _keep(domain: str) -> bool:
+    domain = domain.lstrip(".").lower()
+    return any(domain == d or domain.endswith("." + d) for d in _KEPT_DOMAINS)
+
+
+def _narrow(jar) -> None:
+    """Drop every cookie that is not for YouTube or Google; the rest of the browser's cookies never stay in memory."""
+    for cookie in [c for c in jar if not _keep(c.domain)]:
+        jar.clear(cookie.domain, cookie.path, cookie.name)
+
+
+def is_auth_failure(exc: BaseException) -> bool:
+    """True when a yt-dlp error reads like an expired or missing sign-in, so a fresh jar might help."""
+    text = str(exc).lower()
+    return any(marker in text for marker in _AUTH_FAILURE_MARKERS)
+
+
+def invalidate() -> None:
+    """Forget the jar; the next ``get_cookiejar`` call re-reads the browser."""
+    global _jar
+    with _lock:
+        _jar = None
 
 
 def get_cookiejar(config):
-    """Browser cookies, extracted once and reused for ``_MAX_AGE_S`` seconds.
+    """The narrowed browser cookie jar, extracted on first use and kept until ``invalidate``.
 
-    Extraction takes 5-15 s on a cold browser profile. The timeout lets a
-    mid-session account switch in the browser take effect.
+    Extraction takes 5-15 s on a cold browser profile, so callers run in worker threads.
     """
-    global _jar, _jar_extracted_at
-    if _fresh():
-        return _jar
+    global _jar
     with _lock:
-        if _fresh():
+        if _jar is not None:
             return _jar
         browser = resolve_browser(config)
         if not browser:
@@ -47,8 +63,9 @@ def get_cookiejar(config):
         try:
             from yt_dlp.cookies import extract_cookies_from_browser
 
-            _jar = extract_cookies_from_browser(browser)
-            _jar_extracted_at = time.time()
+            jar = extract_cookies_from_browser(browser)
+            _narrow(jar)
+            _jar = jar
             logger.debug("extracted cookies from %s", browser)
         except Exception as exc:
             logger.debug("cookie extraction failed: %s", exc)

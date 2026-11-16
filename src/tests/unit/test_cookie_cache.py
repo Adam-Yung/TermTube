@@ -169,7 +169,7 @@ class TestMakeYdl:
 
         with patch.object(mod, "get_cookiejar", return_value=fake_jar), \
              patch("yt_dlp.YoutubeDL", FakeYDL):
-            result = mod._make_ydl({}, config)
+            result = mod._make_ydl({}, config, auth=True)
         assert result.cookiejar is fake_jar
 
     def test_does_not_set_cookiejar_when_jar_is_none(self):
@@ -183,5 +183,114 @@ class TestMakeYdl:
 
         with patch.object(mod, "get_cookiejar", return_value=None), \
              patch("yt_dlp.YoutubeDL", FakeYDL):
-            result = mod._make_ydl({}, config)
+            result = mod._make_ydl({}, config, auth=True)
         assert result.cookiejar is None
+
+
+# ── narrowing, invalidation, lazy use ─────────────────────────────────
+
+def _cookie(domain, name="n"):
+    from http.cookiejar import Cookie
+    return Cookie(0, name, "v", None, False, domain, True, domain.startswith("."), "/", True,
+                  False, None, True, None, None, {})
+
+
+class TestNarrowAndInvalidate:
+    def setup_method(self):
+        import src.cookies as mod
+        mod._jar = None
+
+    teardown_method = setup_method
+
+    def test_only_youtube_and_google_cookies_stay(self):
+        import src.cookies as mod
+        jar = CookieJar()
+        for d in (".youtube.com", "www.youtube.com", ".google.com", "accounts.google.com", ".bank.com", "notyoutube.com"):
+            jar.set_cookie(_cookie(d))
+        with patch.object(mod, "resolve_browser", return_value="chrome"), \
+             patch("yt_dlp.cookies.extract_cookies_from_browser", return_value=jar):
+            kept = mod.get_cookiejar(MagicMock())
+        assert sorted(c.domain for c in kept) == [".google.com", ".youtube.com", "accounts.google.com", "www.youtube.com"]
+
+    def test_invalidate_forces_a_new_extraction(self):
+        import src.cookies as mod
+        with patch.object(mod, "resolve_browser", return_value="chrome"), \
+             patch("yt_dlp.cookies.extract_cookies_from_browser", side_effect=lambda b: CookieJar()) as extract:
+            first = mod.get_cookiejar(MagicMock())
+            assert mod.get_cookiejar(MagicMock()) is first
+            mod.invalidate()
+            assert mod.get_cookiejar(MagicMock()) is not first
+        assert extract.call_count == 2
+
+    def test_auth_failure_detection(self):
+        import src.cookies as mod
+        assert mod.is_auth_failure(Exception("Sign in to confirm you're not a bot"))
+        assert mod.is_auth_failure(Exception("HTTP Error 403: Forbidden"))
+        assert not mod.is_auth_failure(Exception("Video unavailable"))
+
+
+class _FakeYDL:
+    """Stands in for yt_dlp.YoutubeDL; ``script`` items are raised if exceptions, else returned as the info dict."""
+    script: list = []
+
+    def __init__(self, opts):
+        self.cookiejar = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def extract_info(self, url, download=False):
+        item = self.script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class TestLazyAndRetry:
+    def test_search_and_channel_fetches_never_read_the_browser(self, tmp_path):
+        import src.ytdlp as mod
+        _FakeYDL.script = [{"entries": []}] * 6
+        cache = MagicMock()
+        cache.get_feed.return_value = None
+        cache.is_feed_fresh.return_value = False
+        with patch.object(mod, "get_cookiejar", side_effect=AssertionError("browser read")), \
+             patch("yt_dlp.YoutubeDL", _FakeYDL), patch.object(mod.innertube, "search_videos", return_value=[]), \
+             patch.object(mod.time, "sleep"):
+            mod.fetch_search_batch("q", None, cache)
+            mod.fetch_channel_playlists("https://www.youtube.com/@x", None, cache)
+            mod.fetch_channel_videos("https://www.youtube.com/@x", None, cache)
+
+    def test_feed_fetch_reads_the_browser_when_authenticated(self):
+        import src.ytdlp as mod
+        _FakeYDL.script = [{"entries": []}] * 2
+        with patch.object(mod, "get_cookiejar", return_value=None) as get, \
+             patch("yt_dlp.YoutubeDL", _FakeYDL), patch.object(mod.time, "sleep"):
+            mod.fetch_page_batch("u", None, MagicMock(), auth=True)
+        assert get.called
+
+    def test_auth_failure_invalidates_and_retries_once(self):
+        import yt_dlp
+        import src.ytdlp as mod
+        video = {"id": "AAAAAAAAAAA", "title": "t"}
+        _FakeYDL.script = [yt_dlp.utils.DownloadError("Sign in to confirm you're not a bot"), {"entries": [video]}]
+        with patch.object(mod, "get_cookiejar", return_value=None), patch("yt_dlp.YoutubeDL", _FakeYDL), \
+             patch.object(mod, "invalidate") as invalidate, patch.object(mod.time, "sleep"):
+            entries = mod.fetch_page_batch("u", None, MagicMock(), auth=True)
+        assert [e["id"] for e in entries] == ["AAAAAAAAAAA"]
+        invalidate.assert_called_once()
+
+    def test_subscription_list_retries_once_after_auth_failure(self):
+        import yt_dlp
+        import src.ytdlp as mod
+        cache = MagicMock()
+        cache.get_feed.return_value = None
+        channel = {"id": "UCx", "title": "Chan"}
+        _FakeYDL.script = [yt_dlp.utils.DownloadError("HTTP Error 403: Forbidden"), {"entries": [channel]}]
+        with patch.object(mod, "get_cookiejar", return_value=None), patch("yt_dlp.YoutubeDL", _FakeYDL), \
+             patch.object(mod, "invalidate") as invalidate:
+            entries = mod.fetch_subscribed_channels(None, cache)
+        assert [e["id"] for e in entries] == ["UCx"]
+        invalidate.assert_called_once()

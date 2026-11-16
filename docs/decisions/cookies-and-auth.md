@@ -133,3 +133,7 @@ The owner will not send browser account cookies to InnerTube, so the authenticat
 rung 4 of the source ladder in `docs/plans/2026-11-15-optimization-PLAN.md`) is dropped. The home feed and the subscription list keep using
 yt-dlp with the browser cookie jar. Every other call stays anonymous. No code may build an `Authorization: SAPISIDHASH` header or put a
 `Cookie` header on a request to `youtubei/v1`.
+
+## 2026-11-15 — Lazy, narrowed cookies
+
+The startup cookie warmup thread is gone; the jar is extracted on the first authenticated fetch (home feed, subscription list). The 10-minute expiry is gone; the jar lives until an auth failure (`sign in`, `login required`, HTTP 401/403 in a yt-dlp error) invalidates it, followed by one retry. Extraction keeps only `youtube.com` and `google.com` cookies, in memory only. Channel videos, channel playlists and search fallbacks no longer carry cookies: they are public data, and a session that only searches, plays and browses channels must not read the browser profile. This supersedes the earlier table row that gave channel fetches cookies. Stream resolution and downloads still use none (age-gated plays therefore have no cookie path; unchanged). Cost: the first home load now waits for extraction (5 to 15 s on a cold profile) instead of overlapping it with startup.

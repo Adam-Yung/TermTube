@@ -8,14 +8,14 @@ Cookies are a property of the call, not of the process.
 
 | Call | Cookies | Why |
 |---|---|---|
-| `fetch_page_batch` (home, subscriptions, channel videos), `fetch_search_batch`, `fetch_channel_playlists`, `fetch_subscribed_channels` | yes, via `_make_ydl` | Account-bound: home and subscriptions are empty or generic without them. |
-| `fetch_channel_info` | no | Public data. |
+| `fetch_page_batch(auth=True)` (home feed), `fetch_subscribed_channels` | yes, via `_make_ydl(auth=True)` | Account-bound: empty or generic without them. |
+| `fetch_page_batch` (default, channel videos), `fetch_search_batch`, `fetch_channel_playlists`, `fetch_channel_info` | no | Public data; keeps a search-and-browse session from reading the browser profile. |
 | `resolve_stream_url` (`src/streams.py`), `download_*` (`src/downloads.py`) | no | Authenticated requests made YouTube return the degraded "tv downgraded player" response: 5 formats (storyboards plus one 360p HLS) instead of 37+ direct HTTPS formats. |
 | `warmup` | no | Only loads extractors. |
 
 Rules that follow:
 
-- Only `_make_ydl` attaches a jar (`ydl.cookiejar = get_cookiejar(config)`). Never add `cookiesfrombrowser` to an options dict: yt-dlp would re-read the browser database on every `YoutubeDL`, 200-500 ms each.
+- Only `_make_ydl(auth=True)` attaches a jar (`ydl.cookiejar = get_cookiejar(config)`). Never add `cookiesfrombrowser` to an options dict: yt-dlp would re-read the browser database on every `YoutubeDL`, 200-500 ms each.
 - A new fetcher that needs the account goes through `_make_ydl`; anything that feeds a URL to mpv or the downloader must not.
 - `browser: none` in config makes `get_cookiejar` return None, so every call runs unauthenticated.
 

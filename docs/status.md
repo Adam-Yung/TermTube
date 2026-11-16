@@ -43,4 +43,6 @@ Step 2 is done: search and channel info use InnerTube with a yt-dlp fallback (li
 
 Step 3 is partly done: the channel page's first page uses `feeds.channel_latest` (RSS with a dead-flag, then InnerTube). Not live-checked: the RSS request was denied in the session, and the benchmark saw 404 on this network. The Subscriptions tab lists channels, so no merged feed exists.
 
+Cookies are extracted on first authenticated use (home feed, subscription list), narrowed to YouTube and Google, and invalidated on an auth failure; nothing else reads the browser profile.
+
 Next work: `todo.md`. The optimization plan: `plans/2026-11-15-optimization-PLAN.md`.

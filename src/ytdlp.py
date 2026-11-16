@@ -14,13 +14,13 @@ import yt_dlp
 from src import innertube, logger
 from src.bootstrap import get_deps_bin
 from src.cache import Cache
-from src.cookies import get_cookiejar
+from src.cookies import get_cookiejar, invalidate, is_auth_failure
 
 
-def _make_ydl(opts: dict, config) -> yt_dlp.YoutubeDL:
-    """YoutubeDL carrying the browser's cookies, for account-bound fetches only (see the mirror doc)."""
+def _make_ydl(opts: dict, config, *, auth: bool = False) -> yt_dlp.YoutubeDL:
+    """YoutubeDL; with ``auth`` it carries the browser's cookies (account-bound fetches only, see the mirror doc)."""
     ydl = yt_dlp.YoutubeDL(opts)
-    jar = get_cookiejar(config)
+    jar = get_cookiejar(config) if auth else None
     if jar:
         ydl.cookiejar = jar
     return ydl
@@ -136,6 +136,7 @@ def _extract_videos(
     skip_ids: set[str],
     on_first_batch: Callable[[list[dict]], None] | None = None,
     first_batch_size: int = 15,
+    auth: bool = False,
 ) -> tuple[list[dict], list[str]]:
     """Extract playable video entries from ``url``, caching each. Retries once on an empty result.
 
@@ -151,7 +152,7 @@ def _extract_videos(
             results = []
             all_ids = []
             try:
-                with _make_ydl(opts, config) as ydl:
+                with _make_ydl(opts, config, auth=auth) as ydl:
                     info = ydl.extract_info(url, download=False)
                     if info is None:
                         break
@@ -172,6 +173,8 @@ def _extract_videos(
                             on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("extract %s error: %s", url, exc)
+                if auth and is_auth_failure(exc):
+                    invalidate()
 
             if results or attempt >= _MAX_RETRIES:
                 break
@@ -192,10 +195,12 @@ def fetch_page_batch(
     feed_key: str | None = None,
     on_first_batch: Callable[[list[dict]], None] | None = None,
     first_batch_size: int = 15,
+    auth: bool = False,
 ) -> list[dict]:
     """Up to ``count`` video entries from ``url`` minus ``skip_ids``; cache-first when ``feed_key`` is set.
 
     Blocking; run in a worker thread. ``on_first_batch`` gets the first ``first_batch_size`` entries early.
+    ``auth`` sends the browser's cookies (home feed only).
     """
     skip_ids = skip_ids or set()
     if feed_key:
@@ -206,7 +211,7 @@ def fetch_page_batch(
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
     results, all_ids = _extract_videos(
         url, config, cache, count=count, skip_ids=skip_ids,
-        on_first_batch=on_first_batch, first_batch_size=first_batch_size,
+        on_first_batch=on_first_batch, first_batch_size=first_batch_size, auth=auth,
     )
     if feed_key and len(all_ids) >= _MIN_FEED_COUNT:
         cache.put_feed(feed_key, all_ids)
@@ -360,7 +365,6 @@ def fetch_channel_playlists(
 
 def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     """The user's subscribed channels, cache-first. Needs cookies."""
-    url = "https://www.youtube.com/feed/channels"
     cache_key = "subs:channels"
     cached = cache.get_feed(cache_key)
     if cached:
@@ -374,14 +378,29 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
     opts['socket_timeout'] = 60
 
     results: list[dict] = []
-    seen: list[str] = []
+    for attempt in range(2):
+        try:
+            results = _list_subscribed_channels(opts, config, cache)
+            break
+        except yt_dlp.utils.DownloadError as exc:
+            logger.debug("fetch_subscribed_channels error: %s", exc)
+            if attempt or not is_auth_failure(exc):
+                break
+            invalidate()
+
+    if results:
+        cache.put_feed(cache_key, [e["id"] for e in results])
+    return results
+
+
+def _list_subscribed_channels(opts: dict, config, cache: Cache) -> list[dict]:
+    """One authenticated pass over the subscriptions channel list; raises ``DownloadError``."""
+    results: list[dict] = []
     cancel = new_cancel_event()
     try:
-        with _make_ydl(opts, config) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if info is None:
-                return results
-            for data in (info.get('entries') or []):
+        with _make_ydl(opts, config, auth=True) as ydl:
+            info = ydl.extract_info("https://www.youtube.com/feed/channels", download=False)
+            for data in ((info or {}).get('entries') or []):
                 if cancel.is_set():
                     break
                 if data is None:
@@ -403,14 +422,8 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[dict]:
                 }
                 cache.put_video(entry)
                 results.append(entry)
-                seen.append(cid)
-    except yt_dlp.utils.DownloadError as exc:
-        logger.debug("fetch_subscribed_channels error: %s", exc)
     finally:
         release_cancel_event(cancel)
-
-    if seen:
-        cache.put_feed(cache_key, seen)
     return results
 
 

@@ -86,7 +86,7 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 
 | Tab | Source | Notes |
 |---|---|---|
-| Home | stash, then disk cache or `ytdlp.fetch_page_batch` (cookies) | paged, extendable; played videos suppressed (`docs/code/src/tui/screens/mixins/feed_loader.py.md`) |
+| Home | stash, then disk cache or `ytdlp.fetch_page_batch` (`auth=True`, cookies) | paged, extendable; played videos suppressed (`docs/code/src/tui/screens/mixins/feed_loader.py.md`) |
 | Subscriptions | `ytdlp.fetch_subscribed_channels` | rows are channels; avatar and channel info workers per row; detail panel in channel mode |
 | Search | `ytdlp.fetch_search_batch` | 50 results, extendable |
 | History | `history.iter_entries` | local |
