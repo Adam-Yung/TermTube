@@ -1,0 +1,24 @@
+src/tui/app.py
+  s_3690eae3737fe4::t_af1626c23505f8 16,36-41
+  s_3690eae3737fe4::t_0af42a8cf740ed 42
+src/tests/tui/test_toast_style.py
+  s_3690eae3737fe4::t_af1626c23505f8 42-50
+docs/code/src/tui/app.py.md
+  s_3690eae3737fe4::t_6a788d737ceee1 25-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "6e3179900923d08a9a8091ab4cb9bb044e332a14",
+  "prompts": {},
+  "sessions": {
+    "s_3690eae3737fe4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4be27f10-48c9-455d-baea-b928193ed462",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
