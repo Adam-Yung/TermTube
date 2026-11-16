@@ -19,16 +19,18 @@
   after page eviction. The suppressed-first-batch slice in the home loader skipped rows. The test suite killed pytest (`os._exit` from the quit
   test) and read the real browser cookies.
 
+## Verified in a pty (2026-11-15)
+
+A tmux session (150x46, `browser: none`, throwaway config) ran the real app against YouTube and mpv: home feed, search (50 results, 3 pages), `j` `k`, `l` `g` `G` paging, audio start, seek (`]` `}` `5`), pause, queue (`e`, `>`), stop, channel page (videos, Playlists tab, audio kept playing across it, Esc back), Enter menu, help, settings, tab picker, history entry, `A` quality picker, Ctrl+D, video (`v`, mpv window, `q` stops it), quit with exit code 0 and no stray mpv. It found and fixed: titles with `[brackets]` breaking markup, mangled `[ ]` and `PAUSED` hints. Not covered: `d` download, `b` browser, `y` copy, `p` playlist, Windows and Linux, a Kitty/iTerm2 terminal (tmux has no image protocol, so thumbnails showed the fallback notice), and the unauthenticated home feed only (no cookies read).
+
 ## Not verified
 
-- Nothing was run against a real terminal, mpv or YouTube. Playback (audio and video), the new keys and the channel page are covered
-  by import checks and headless TUI tests only. See `todo.md` item 7.
+- Real terminals other than tmux (iTerm2, Kitty, WezTerm), Linux and Windows. See `todo.md` item 1.
 - The Windows paths (`termtube.cmd`, `setup.ps1`, named pipes) were edited conservatively and not run.
 
 ## Known problems
 
 - InnerTube fetch errors become empty results (callers fall back to yt-dlp).
-- `auto/cookies.txt` (untracked, gitignored) holds browser cookies at the repo root; nothing reads it. Delete it if you do not need it.
 
 Optimization plan step 1 is done: rows with only a video id get a derived `i.ytimg.com` thumbnail URL (`best_thumb_url`).
 

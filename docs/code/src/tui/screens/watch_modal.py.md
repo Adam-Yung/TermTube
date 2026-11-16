@@ -18,6 +18,10 @@
 - The IPC socket and temp input.conf are cleaned up on every exit path (`_cleanup_ipc`).
 - Dismissing from the worker thread goes through `call_from_thread`; the screen may already be gone, so failures are swallowed.
 
+## Markup
+
+The title and channel are escaped with `fmt.escape_markup`; the key hint writes the `[ ]` seek keys as `\\[ ]`.
+
 ## Keys
 
 h/l/left/right and `[` `]` seek 5 s, H/L and `{` `}` seek 10 s, 0-9 seek to 0-90 %, space pauses, q/Esc stops. Defined in `BINDINGS` here, not in `keymap.py`; the on-screen hint (`#np-hint`) and `docs/features/keybindings.md` must change with them.

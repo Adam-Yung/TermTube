@@ -37,7 +37,23 @@ async def test_now_playing_bar_shows_brackets_and_hints(app):
         bar.update_progress(5.0, 100.0, True)
         await pilot.pause(0.2)
         title = str(bar.query_one("#np-title-line").content)
+        time_line = str(bar.query_one("#np-time-line").content)
         keys = str(bar.query_one("#np-keys").content)
     assert "[/bold" not in plain(title)
-    assert "Lofi [beats] mix" in plain(title) and "Girl [live]" in plain(title) and "[PAUSED]" in plain(title)
+    assert "Lofi [beats] mix" in plain(title) and "Girl [live]" in plain(title)
+    assert "[PAUSED]" in plain(time_line)
     assert "[/] ±5s" in plain(keys)
+
+
+async def test_watch_modal_hint_shows_plain_brackets(app):
+    from src.tui.screens.watch_modal import WatchModal
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        modal = WatchModal({"id": "AAAAAAAAAAA", "title": "T [x]"}, ytdl_format="")
+        modal._launch_video = lambda: None
+        app.push_screen(modal)
+        await pilot.pause(0.2)
+        hint = plain(str(modal.query_one("#np-hint").content))
+        title = plain(str(modal.query_one("#np-title").content))
+        app.pop_screen()
+    assert "[ ] ±5s" in hint and "\\" not in hint and title == "T [x]"

@@ -310,10 +310,9 @@ class ActionBar(Widget):
         self._refresh_player()
 
     def _refresh_player(self) -> None:
-        paused_tag = "  [dim bold]\\[PAUSED][/dim bold]" if self._paused else ""
         chan = f"  [dim]· {escape_markup(self._channel)}[/dim]" if self._channel else ""
         self.query_one("#np-title-line", Static).update(
-            f"[bold white]🎵  {escape_markup(self._title)}[/bold white]{chan}{paused_tag}"
+            f"[bold white]🎵  {escape_markup(self._title)}[/bold white]{chan}"
         )
 
         inner_w = max(8, (self.size.width or 60) - 4)
@@ -329,4 +328,5 @@ class ActionBar(Widget):
         else:
             wait_s = int(time.monotonic() - self._buffering_since)
             time_str = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
-        self.query_one("#np-time-line", Static).update(f"[dim]{time_str}[/dim]")
+        paused_tag = "  [bold]\\[PAUSED][/bold]" if self._paused else ""
+        self.query_one("#np-time-line", Static).update(f"[dim]{time_str}[/dim]{paused_tag}")

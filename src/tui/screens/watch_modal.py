@@ -68,7 +68,7 @@ class WatchModal(ModalScreen[bool]):
             yield Static("Loading…", id="np-time")
             yield Static(
                 "[dim]space[/dim] pause  "
-                "[dim]h/l[/dim] or [dim]\\[ \\][/dim] ±5s  "
+                "[dim]h/l[/dim] or [dim]\\[ ][/dim] ±5s  "
                 "[dim]H/L[/dim] or [dim]{ }[/dim] ±10s  "
                 "[dim]0–9[/dim] seek%  "
                 "[dim]q[/dim] stop",
