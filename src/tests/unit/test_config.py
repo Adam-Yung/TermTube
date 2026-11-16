@@ -156,3 +156,13 @@ def test_set_changes_memory_and_save_persists(tmp_path):
     assert Config(path=str(path)).theme == "crimson"
     config.save()
     assert Config(path=str(path)).theme == "ocean"
+
+
+def test_removed_thumbnail_formats_read_back_as_auto(tmp_path):
+    from src.config import Config
+
+    path = tmp_path / "config.yaml"
+    path.write_text("thumbnail_format: sixel\n")
+    assert Config(path=str(path)).thumbnail_format == "auto"
+    path.write_text("thumbnail_format: symbols\n")
+    assert Config(path=str(path)).thumbnail_format == "symbols"

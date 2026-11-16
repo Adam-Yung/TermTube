@@ -11,7 +11,7 @@ from src.plat import get_config_dir
 
 _DEFAULT_CONFIG_PATH = get_config_dir() / "config.yaml"
 _THEMES = ("crimson", "amber", "ocean", "midnight")
-_THUMBNAIL_FORMATS = ("auto", "symbols", "sixel", "ascii")
+_THUMBNAIL_FORMATS = ("auto", "symbols")
 _DEFAULT_SB_CATEGORIES = ["sponsor", "selfpromo"]
 
 DEFAULT_CONFIG: dict = {

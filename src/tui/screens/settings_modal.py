@@ -28,7 +28,6 @@ _QUALITY_OPTS = [
 _THUMB_OPTS = [
     ("auto",    "auto    — best available (default)"),
     ("symbols", "symbols — Unicode block art"),
-    ("ascii",   "ascii   — ASCII only (most compatible)"),
 ]
 
 
