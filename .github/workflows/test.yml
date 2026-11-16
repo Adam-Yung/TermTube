@@ -1,5 +1,12 @@
 name: Pipeline
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: Run the end-to-end check this many times per platform (a stability measurement)
+        default: '1'
 
 concurrency:
   group: pipeline-${{ github.ref }}
@@ -61,8 +68,11 @@ jobs:
         run: '"$HOME/.local/share/TermTube/.venv/bin/python" scripts/smoke-ipc.py --require-mpv'
       - name: The real app in a pseudo-terminal
         run: |
-          "$HOME/.local/share/TermTube/.venv/bin/python" scripts/e2e-local.py \
-            --app-dir "$HOME/.local/share/TermTube" --launcher "$HOME/.local/share/TermTube/termtube" --debug-log
+          for run in $(seq 1 "${{ inputs.repeat || 1 }}"); do
+            echo "=== end-to-end run $run"
+            "$HOME/.local/share/TermTube/.venv/bin/python" scripts/e2e-local.py \
+              --app-dir "$HOME/.local/share/TermTube" --launcher "$HOME/.local/share/TermTube/termtube" --debug-log
+          done
 
   real-app-windows:
     name: real app (windows-latest)
@@ -102,5 +112,8 @@ jobs:
         run: |
           $py = "$env:LOCALAPPDATA\Programs\TermTube\.venv\Scripts\python.exe"
           & $py -m pip install --quiet pywinpty
-          & $py scripts\e2e-local.py --app-dir "$env:LOCALAPPDATA\Programs\TermTube" --launcher "$env:LOCALAPPDATA\Programs\TermTube\termtube.cmd" --debug-log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($run in 1..[int]'${{ inputs.repeat || 1 }}') {
+            Write-Host "=== end-to-end run $run"
+            & $py scripts\e2e-local.py --app-dir "$env:LOCALAPPDATA\Programs\TermTube" --launcher "$env:LOCALAPPDATA\Programs\TermTube\termtube.cmd" --debug-log
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }

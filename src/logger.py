@@ -104,8 +104,11 @@ def log_file() -> Path | None:
     return _log_file
 
 
-def register_tui_sink(callback: Callable[[str, str], None]) -> None:
-    """Register a callback invoked for every log record (when --debug)."""
+def register_tui_sink(callback: Callable[[str, str], None] | None) -> None:
+    """Register a callback invoked for every log record (when --debug); None unregisters it.
+
+    It runs under the logging handler lock, from any thread: it must not block.
+    """
     global _tui_sink
     _tui_sink = callback
 

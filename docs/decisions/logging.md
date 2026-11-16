@@ -19,3 +19,7 @@ Textual owns stdout and stderr while the app runs. A stray write corrupts the re
 A logging handler is the natural seam for "send every log record somewhere additional". It works for any module that imports `logger` (cache, ytdlp, player, widgets), and those modules need no knowledge of Textual. The handler invokes a callback registered with `register_tui_sink`. The callback marshals to the UI thread (`app.call_from_thread`).
 
 The `_termtube_skip_tui` record attribute, set by `logger.file_only`, lets `MainScreen._log` write rich markup directly to the RichLog and still persist a plain version to the file, without duplicating the line in the TUI.
+
+## 2026-11-16 — The TUI log sink never blocks
+
+`logging` calls a handler's `emit` while holding the handler lock. The Ctrl+D panel's sink called `app.call_from_thread`, which waits for the UI thread. With `--debug`, a worker thread logging while the UI thread was also logging (around "Audio start") deadlocked the app: the worker held the lock and waited for the UI, the UI waited for the lock. It surfaced as an intermittent hang in the Windows end-to-end CI job, which runs with `--debug`, and was reproduced locally with a test. The sink now queues records and a UI timer drains them. Rejected: a lock-free `call_soon_threadsafe` on a private loop attribute (relies on Textual internals), and dropping the panel mirror (the panel is what `--debug` is for).

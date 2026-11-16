@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import re
 
 from textual.widgets import RichLog
@@ -13,6 +14,8 @@ _LEVEL_STYLES = {
     "ERROR": "red",
     "CRITICAL": "red bold",
 }
+_DRAIN_INTERVAL_S = 0.2
+_DRAIN_MAX_PER_TICK = 200
 _MARKUP = re.compile(r"\[/?[^\]]*\]")
 
 
@@ -25,11 +28,13 @@ class DebugLogMixin:
 
     def _init_debug_log(self) -> None:
         self._log_visible = False
+        self._log_queue: queue.SimpleQueue[tuple[str, str]] = queue.SimpleQueue()
 
     def _mount_debug_log(self) -> None:
         self.query_one("#debug-log").display = False
         if logger.is_debug():
             logger.register_tui_sink(self._on_log_record)
+            self.set_interval(_DRAIN_INTERVAL_S, self._drain_log_queue)
             logger.info("debug log wired to TUI sink")
             self._log(f"[green]Debug logging active[/green] — file: [dim]{logger.log_file()}[/dim]")
 
@@ -47,11 +52,20 @@ class DebugLogMixin:
         self.notify("Debug log visible — Ctrl+D to hide", timeout=2)
 
     def _on_log_record(self, level: str, msg: str) -> None:
-        """Logger sink; called from any thread."""
-        try:
-            self.app.call_from_thread(self._write_log_record, level, msg)
-        except Exception:
-            pass
+        """Logger sink, called from any thread while the logging handler lock is held: it must never block.
+
+        ``call_from_thread`` blocks until the UI thread runs the callback; if the UI thread is itself waiting for
+        that handler lock (it logs too), both wait forever. The queue is drained on a UI timer instead.
+        """
+        self._log_queue.put((level, msg))
+
+    def _drain_log_queue(self) -> None:
+        for _ in range(_DRAIN_MAX_PER_TICK):
+            try:
+                level, msg = self._log_queue.get_nowait()
+            except queue.Empty:
+                return
+            self._write_log_record(level, msg)
 
     def _write_log_record(self, level: str, msg: str) -> None:
         color = _LEVEL_STYLES.get(level, "white")

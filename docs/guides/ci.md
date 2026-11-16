@@ -52,13 +52,15 @@ gh run watch <run-id>                 # follow one live
 | `real app` | The installer's release lookup used the rate-limited GitHub API, then a fallback tag with no macOS asset | macOS (and shared networks) |
 | `real app` | A Library file played with ytdl options and `--no-terminal` hid mpv's error: exit code 2, nothing on screen | Windows |
 | `real app` | The audio launch thread swallowed its own exceptions: the bar stayed on "Buffering..." with nothing logged | all |
+| `real app` (intermittent, 2 of 7 runs) | With `--debug`, the log panel's sink blocked while holding the logging lock and deadlocked against the UI thread: the app froze right after "Audio start". Reproduced with a test that hangs without the fix | all (it hit Windows) |
 | e2e harness | `COLUMNS`/`LINES` inherited from a parent overrode the pty size (the app drew 80x24 with no action bar) | all |
 
-4. **Flakiness was measured, not assumed.** After the first all-green run the same commit was re-run three times; see the log below.
+4. **Flakiness is measured, not assumed.** Four green runs of one commit did not prove stability: the next run, on `main`, hit an intermittent deadlock. Treat a pipeline as stable only after many runs; the log below is the evidence.
 
 ## Run log
 
 - 2026-11-16, branch `ci/platform-pipeline`, commit `a736451`: run 5 green on all six jobs (gate and real app on Linux, macOS and Windows), then three more full re-runs of the same commit, all green: 4 of 4 runs, 24 of 24 job executions.
+- 2026-11-16, `main` at `f787344`: the first push to `main` failed `real app (windows-latest)` once, with the same freeze as run 4. That exposed the debug-log deadlock above; the earlier "4 of 4" had been luck. Fixed and re-verified below.
 - Before that, runs 1 to 4 were red for the reasons in the table above; every red run led to a product fix, none to a loosened assertion.
 
 ## Limits to keep in mind
