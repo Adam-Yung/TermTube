@@ -89,7 +89,9 @@ class PlaylistModal(ModalScreen[None]):
         name = event.value.strip()
         if not name:
             return
-        playlist.create(name)
+        if not playlist.create(name):
+            self.app.notify(f'Playlist "{name}" already exists', severity="warning")
+            return
         playlist.add_video(name, self._video_id)
         self._pin_video()
         event.input.value = ""
@@ -100,7 +102,7 @@ class PlaylistModal(ModalScreen[None]):
     def _pin_video(self) -> None:
         """Protect the video's cached data from eviction while it is in a playlist."""
         if hasattr(self.app, "cache"):
-            self.app.cache.pin_video(self._video_id)
+            self.app.cache.pin_video(self._video_id, self._entry)
             self.app.cache.pin_thumb(self._video_id)
 
     def action_new_playlist(self) -> None:

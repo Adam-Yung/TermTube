@@ -33,11 +33,14 @@ def get_playlist(name: str) -> list[str]:
     return list(_load().get(name, []))
 
 
-def create(name: str, video_ids: list[str] | None = None) -> None:
-    """Create a playlist (or reset existing) with the given video IDs."""
+def create(name: str, video_ids: list[str] | None = None) -> bool:
+    """Create a playlist with the given video IDs. Returns False, changing nothing, if the name exists."""
     data = _load()
+    if name in data:
+        return False
     data[name] = list(video_ids or [])
     _save(data)
+    return True
 
 
 def add_video(name: str, video_id: str) -> bool:

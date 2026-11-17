@@ -102,3 +102,10 @@ class TestMultiplePlaylistsCoexist:
         assert playlist.get_playlist("P1") == ["a", "b", "c"]
         assert playlist.get_playlist("P2") == ["d"]
         assert playlist.list_names() == ["P1", "P2"]
+
+
+class TestCreateExisting:
+    def test_existing_playlist_is_kept(self, temp_playlists):
+        assert playlist.create("Keep", ["vid1", "vid2"]) is True
+        assert playlist.create("Keep") is False
+        assert playlist.get_playlist("Keep") == ["vid1", "vid2"]

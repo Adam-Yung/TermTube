@@ -334,6 +334,7 @@ class Cache:
             entry = self.get_video_raw(video_id)
         if entry is None:
             return
+        entry = {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
         dest = PLAYLIST_VIDEO_DIR / f"{video_id}.json"
         with _write_lock:
             _atomic_write(dest, json.dumps(entry, ensure_ascii=False))

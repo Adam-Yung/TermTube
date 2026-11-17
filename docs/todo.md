@@ -17,7 +17,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 
 ## Phase 1. Bugs and privacy quick set
 - [x] P1.1 Home extension window (B1.1) and test (5fe9c57)
-- [ ] P1.2 Local lists use real paging (A6)
+- [x] P1.2 Local lists use real paging (A6) (2b9f1d1)
 - [ ] P1.3 Playlist `create()` no longer overwrites; stopgap for bare-id rows (B5.1)
 - [ ] P1.4 SponsorBlock hash-prefix endpoint (A1.2)
 - [ ] P1.5 Thumbnail unverified-TLS fallback opt-in, byte cap (A1.1)
