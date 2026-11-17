@@ -1,0 +1,27 @@
+src/ytdlp.py
+  s_6c28d43e292a51::t_5127089c4825d7 144,147,248
+src/tests/unit/test_ytdlp_window.py
+  s_6c28d43e292a51::t_47c11a59778987 1-55
+docs/code/src/ytdlp.py.md
+  s_6c28d43e292a51::t_f6ec633ac1fb7e 28
+docs/todo.md
+  s_6c28d43e292a51::t_46e5d3b920c33c 15-16
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_5a50744a3eaddf 85-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5fe9c57b12bcc87c0bbfb0a2478a0f4e142fb002",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
