@@ -28,6 +28,7 @@ DEFAULT_CONFIG: dict = {
         "metadata": 86400,
     },
     "thumbnail_format": "auto",
+    "insecure_thumbnails": False,
     "theme": "crimson",
     "thumbnail_warning_dismissed": False,
     "sponsorblock": {
@@ -102,6 +103,11 @@ class Config:
     def thumbnail_format(self) -> str:
         fmt = self._data.get("thumbnail_format", "auto")
         return fmt if fmt in _THUMBNAIL_FORMATS else "auto"
+
+    @property
+    def insecure_thumbnails(self) -> bool:
+        """True only for a literal ``true``; a quoted or malformed value stays off."""
+        return self._data.get("insecure_thumbnails") is True
 
     @property
     def theme(self) -> str:

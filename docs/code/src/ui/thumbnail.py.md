@@ -14,8 +14,8 @@ terminals where `textual-image` is unavailable. Callers: `src/tui/thumb_loader.p
 ## Files and caches
 
 - JPEGs: `THUMB_DIR/<video_id>.jpg`, shared with `Cache`. `ensure_thumb_jpeg` resolves in order: disk, a thumbnail yt-dlp wrote next to a
-  downloaded file (library entries; copied into the cache), then network via `plat.download_thumbnail`. A failed download deletes the
-  partial file so it is not mistaken for a hit.
+  downloaded file (library entries; copied into the cache), then network via `plat.download_thumbnail`. A failed download, or bytes that PIL cannot decode (`validate_thumb`), delete the
+  file so it is not mistaken for a hit. `insecure` is plumbed from `config.insecure_thumbnails` through `thumb_loader`.
 - Rendered art: `CACHE_DIR/rendered/<id>_<cols>x<rows>_pil.ansi`, so a re-render at the same panel size is a file read. Pruned by
   `prune_old_rendered` (age, then count) from housekeeping.
 - `validate_thumb` fully decodes the image. An HTML error page saved as `.jpg` otherwise reaches `textual-image` and renders as garbage.

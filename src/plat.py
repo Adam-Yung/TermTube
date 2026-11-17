@@ -199,23 +199,29 @@ def cleanup_ipc(ipc_path: str) -> None:
 
 
 
-def download_thumbnail(url: str, dest: str, timeout: int = 8) -> bool:
-    """Fetch a thumbnail to dest. True on success.
+_THUMB_MAX_BYTES = 2 * 1024 * 1024
 
-    Retries without certificate verification after an SSL failure (MITM proxies on corporate
-    networks). Acceptable only because thumbnails are public CDN images; never reuse for anything else.
+
+def download_thumbnail(url: str, dest: str, timeout: int = 8, *, insecure: bool = False) -> bool:
+    """Fetch a thumbnail (http or https, at most 2 MB) to dest. True on success.
+
+    A certificate failure is final unless ``insecure`` (config ``insecure_thumbnails``) allows one retry
+    without verification, for MITM proxies on corporate networks. Never reuse that retry for anything but
+    public CDN images.
     """
     import ssl
     import urllib.error
     import urllib.request
 
+    if not url.lower().startswith(("https://", "http://")):
+        return False
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
 
-    for ctx in (_ssl_context_verified(), _ssl_context_unverified()):
+    for ctx in (_ssl_context_verified(), _ssl_context_unverified()) if insecure else (_ssl_context_verified(),):
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                data = resp.read()
-            if len(data) < 100:
+                data = resp.read(_THUMB_MAX_BYTES + 1)
+            if not 100 <= len(data) <= _THUMB_MAX_BYTES:
                 return False
             Path(dest).write_bytes(data)
             return True

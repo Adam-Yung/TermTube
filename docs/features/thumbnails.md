@@ -18,7 +18,7 @@ Pausing on a row starts a worker that resolves the image, in order: a copy alrea
 download from `i.ytimg.com` (the URL is derived from the video id when a row has none). The JPEG is validated, cached on disk, and rendered or
 handed to the widget. Moving the cursor again discards a stale result; a screen closed meanwhile is ignored. Channel avatars load the same way.
 
-Some networks (TLS-inspecting proxies) fail certificate checks for `i.ytimg.com`; the downloader retries without verification for these public images
-only, and for nothing else.
+Some networks (TLS-inspecting proxies) fail certificate checks for `i.ytimg.com`. By default the thumbnail then stays a placeholder. Setting
+`insecure_thumbnails: true` allows one retry without verification, for these public images only. Downloads are limited to 2 MB, http(s) URLs, and files PIL can decode.
 
 Code: `src/ui/thumbnail.py`, `src/tui/thumb_loader.py`, `src/tui/widgets/thumbnail_widget.py`; decisions in `docs/decisions/thumbnails.md`.

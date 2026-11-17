@@ -49,7 +49,7 @@ def load_thumbnail(
     result for a row the cursor has already left is dropped.
     """
     if pixel_images_enabled(app.config):
-        path = thumbnail.ensure_thumb_jpeg(vid, entry, url=url)
+        path = thumbnail.ensure_thumb_jpeg(vid, entry, url=url, insecure=app.config.insecure_thumbnails)
         if not is_current():
             return
         if path and thumbnail.validate_thumb(path):
@@ -62,7 +62,8 @@ def load_thumbnail(
     ansi = _cached_ansi(key)
     if ansi is None:
         ansi = thumbnail.render_pil_halfblock(
-            vid, entry or {"id": vid, "thumbnail": url}, cols=cols, rows=rows
+            vid, entry or {"id": vid, "thumbnail": url}, cols=cols, rows=rows,
+            insecure=app.config.insecure_thumbnails,
         )
         if ansi:
             _store_ansi(key, ansi)

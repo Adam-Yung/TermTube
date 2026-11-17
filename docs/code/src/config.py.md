@@ -9,6 +9,7 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
 - Defaults live in `DEFAULT_CONFIG`. On load, a file value replaces the default key by key. `cache_ttl` and `sponsorblock` merge one level
   deep so a partial override keeps the other defaults.
 - A missing file is created on first construction.
+- `insecure_thumbnails` is true only for a literal YAML `true`.
 - Typed properties validate: unknown `theme` falls back to `crimson`, unknown `thumbnail_format` to `auto`, a non-list
   `sponsorblock.categories` to the default list. Raw access (`config["x"]`, `config.get`) does not validate.
 - `cookies_file` from old configs is dropped on load. Auth now uses a browser only (see `docs/decisions/cookies-and-auth.md`).

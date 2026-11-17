@@ -23,6 +23,7 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `preferred_quality` | `best` | default video download quality: `best`, `1080`, `720`, `480`, `360` |
 | `theme` | `crimson` | `crimson`, `amber`, `ocean` or `midnight` (anything else falls back to `crimson`) |
 | `thumbnail_format` | `auto` | `auto`: real image where the terminal supports it; `symbols`: always half-block art. Anything else reads as `auto` |
+| `insecure_thumbnails` | `false` | `true` lets a thumbnail download retry without certificate verification after a TLS error (TLS-inspecting proxies). Only a literal `true` counts |
 | `thumbnail_warning_dismissed` | `false` | set by the "no image support" dialog's "Never show again" |
 | `sponsorblock.enabled` | `true` | fetch skip segments for playback |
 | `sponsorblock.auto_skip` | `true` | seek past a segment automatically |
@@ -37,7 +38,7 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 
 ## Rules
 
-- Typed accessors validate (`theme`, `thumbnail_format`, `sponsorblock.categories`); raw `config["x"]` / `config.get` do not.
+- Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`); raw `config["x"]` / `config.get` do not.
 - Code changes a setting with `config.set(key, value)` and persists it with `config.save()`; nothing outside `src/config.py` touches `_data`.
 - Tests construct `Config(path=<tmp file>)`; the default path is the real user config.
 - `termtube --clear-cache` removes cached feeds and metadata; it never touches config, history or playlists.

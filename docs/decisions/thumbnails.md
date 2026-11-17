@@ -21,3 +21,7 @@ DetailPanel became a passive view. The screen calls `update_basic`, `set_thumbna
 ## 2026-11-16 — `thumbnail_format: symbols` forces half-block art
 
 The setting had a picker and no effect. `pixel_images_enabled(config)` (`thumbnail_widget.py`) is now the one test: the terminal can show pixel images **and** the setting is not `symbols`. The widget and `thumb_loader.load_thumbnail` both ask it, so a capable terminal can be pinned to half-block art (for example when its graphics protocol renders badly). The widget still composes the pixel widget on capable terminals so the choice applies live, from the next thumbnail on; `set_ansi` hides the pixel widget. `auto` keeps detection as before.
+
+## 2026-11-17 — Unverified TLS for thumbnails is opt-in
+
+The downloader used to retry every certificate failure without verification. That silently accepted any intercepting party for every machine. The retry now needs `insecure_thumbnails: true` (default off); without it the row keeps the placeholder. The same change caps a download at 2 MB, accepts only http(s) URLs (a `file://` thumbnail URL in an entry would otherwise copy a local file into the cache) and decodes the file with PIL before it enters the cache, so a captive-portal HTML page no longer sits there as a "thumbnail".

@@ -52,8 +52,8 @@ def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
     return None
 
 
-def download(video_id: str, url: str) -> Path | None:
-    """Download thumbnail to cache. Returns local path or None on failure."""
+def download(video_id: str, url: str, *, insecure: bool = False) -> Path | None:
+    """Download a thumbnail to the cache. Returns its path, or None if the download failed or is not an image."""
     if not url:
         return None
     dest = _thumb_path(video_id)
@@ -66,9 +66,11 @@ def download(video_id: str, url: str) -> Path | None:
         return None
     try:
         from src.plat import download_thumbnail
-        if download_thumbnail(url, str(dest)):
-            logger.debug("Downloaded thumbnail for %s", video_id)
-            return dest
+        if download_thumbnail(url, str(dest), insecure=insecure):
+            if validate_thumb(dest):
+                logger.debug("Downloaded thumbnail for %s", video_id)
+                return dest
+            logger.debug("Thumbnail for %s is not a decodable image; dropped", video_id)
         dest.unlink(missing_ok=True)
         return None
     except Exception as exc:
@@ -77,7 +79,9 @@ def download(video_id: str, url: str) -> Path | None:
         return None
 
 
-def ensure_thumb_jpeg(video_id: str, entry: Entry | None = None, *, url: str | None = None) -> Path | None:
+def ensure_thumb_jpeg(
+    video_id: str, entry: Entry | None = None, *, url: str | None = None, insecure: bool = False
+) -> Path | None:
     """Return a thumbnail path: disk cache, then library sidecar, then download.
 
     Pass `url` for channel avatars, `entry` for video thumbnails.
@@ -91,7 +95,7 @@ def ensure_thumb_jpeg(video_id: str, entry: Entry | None = None, *, url: str | N
             return found
     dl_url = url or (best_thumb_url(entry) if entry else "")
     if dl_url:
-        result = download(video_id, dl_url)
+        result = download(video_id, dl_url, insecure=insecure)
         if result and result.exists():
             return result
     return None
@@ -116,6 +120,7 @@ def render_pil_halfblock(
     *,
     cols: int = 38,
     rows: int = 20,
+    insecure: bool = False,
 ) -> str:
     """Render 24-bit half-block ANSI art (two pixel rows per cell); "" if no image is available.
 
@@ -136,7 +141,7 @@ def render_pil_halfblock(
         if not url:
             logger.debug("render_pil_halfblock: no URL for %s", video_id)
             return ""
-        local = download(video_id, url)
+        local = download(video_id, url, insecure=insecure)
     if not local or not local.exists():
         return ""
 
