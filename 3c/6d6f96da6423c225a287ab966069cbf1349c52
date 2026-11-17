@@ -1,0 +1,28 @@
+src/sponsorblock.py
+  s_6c28d43e292a51::t_b378d0c2d1d84a 36,43,68-69,71,87,94-95
+src/tests/unit/test_sponsorblock.py
+  s_6c28d43e292a51::t_3efde97f8c82f2 332
+  s_6c28d43e292a51::t_0ae510a1aeae06 331,338
+  s_6c28d43e292a51::t_b378d0c2d1d84a 320,322-330,333-337,339
+  s_6c28d43e292a51::t_ead257d5d01741 15
+docs/decisions/playback.md
+  s_6c28d43e292a51::t_8498bf0f6c0e10 91-94
+docs/code/src/sponsorblock.py.md
+  s_6c28d43e292a51::t_0ae510a1aeae06 15,17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3c6d6f96da6423c225a287ab966069cbf1349c52",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": null
+    }
+  }
+}
