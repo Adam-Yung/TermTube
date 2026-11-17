@@ -1,0 +1,44 @@
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_62e28d4eecec24 20,47-48
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_e84df81e91e7da 89-92
+docs/todo.md
+  s_6c28d43e292a51::t_e84df81e91e7da 19
+src/tests/tui/test_feed_extend.py
+  s_6c28d43e292a51::t_3523bbc153b37c 61-73
+  s_6c28d43e292a51::t_62e28d4eecec24 74-86
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_b9cbc11f962aab 84,86,261
+  s_6c28d43e292a51::t_3523bbc153b37c 109
+  s_6c28d43e292a51::t_62e28d4eecec24 282,295
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_b9cbc11f962aab 206-207,217,356,359
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_62e28d4eecec24 8
+docs/guides/approved-sources.json
+  s_ffcd2d3cdbaf09::t_bc9837ca77fa32 1-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2b9f1d1f6c714deedf2c142bab0b1d78cb6be264",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_ffcd2d3cdbaf09": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac728869-3f34-4bba-9afe-809e0fb0bf2d",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
