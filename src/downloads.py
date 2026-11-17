@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Callable
+from pathlib import Path, PureWindowsPath
 
 import yt_dlp
+from yt_dlp.postprocessor import PostProcessor
 
 from src import logger
 from src.ytdlp import base_opts, new_cancel_event, release_cancel_event
@@ -58,6 +61,31 @@ def _make_postprocessor_hook(on_progress: Callable[[str, float], None] | None):
     return hook
 
 
+def _outtmpl(directory: Path, template: str) -> str:
+    """``directory`` joined with a config filename template; RuntimeError if the template could leave it."""
+    parts = re.split(r"[\\/]", template)
+    if not template or template[0] in "\\/" or PureWindowsPath(template).drive or ".." in parts:
+        raise RuntimeError(f"Unsafe download template {template!r}: use a relative path without '..'")
+    return str(directory / template)
+
+
+class _StayInside(PostProcessor):
+    """Refuses a video whose computed filename leaves ``root``, before anything is written.
+
+    A template can be fine and a field still escape: a title of ``..`` as a whole path component does.
+    """
+
+    def __init__(self, downloader, root: Path) -> None:
+        super().__init__(downloader)
+        self._root = root.resolve()
+
+    def run(self, info):
+        target = Path(self._downloader.prepare_filename(info)).resolve()
+        if not target.is_relative_to(self._root):
+            raise yt_dlp.utils.DownloadError(f"Refusing to write outside {self._root}")
+        return [], info
+
+
 def _quality_to_format(quality: str) -> str:
     """Convert a config quality value (e.g. 'best', '1080') to a format string."""
     if quality == "best":
@@ -68,6 +96,7 @@ def _quality_to_format(quality: str) -> str:
 def _run_download(
     video_id: str,
     opts: dict,
+    root: Path,
     on_progress: Callable[[str, float], None] | None,
     label: str,
     cancel: threading.Event | None,
@@ -85,6 +114,7 @@ def _run_download(
     opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.add_post_processor(_StayInside(ydl, root), when='video')
             return ydl.download([f"https://www.youtube.com/watch?v={video_id}"]) == 0
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("%s error: %s", label, exc)
@@ -110,8 +140,8 @@ def download_video_with_progress(
     opts = base_opts(skip_manifests=False)
     opts['format'] = fmt
     opts['merge_output_format'] = 'mp4'
-    opts['outtmpl'] = str(config.video_dir / config.video_format)
-    return _run_download(video_id, opts, on_progress, "download_video", cancel)
+    opts['outtmpl'] = _outtmpl(config.video_dir, config.video_format)
+    return _run_download(video_id, opts, config.video_dir, on_progress, "download_video", cancel)
 
 
 def download_audio_with_progress(
@@ -127,10 +157,10 @@ def download_audio_with_progress(
 
     opts = base_opts(skip_manifests=False)
     opts['format'] = 'bestaudio/best'
-    opts['outtmpl'] = str(config.audio_dir / config.audio_format)
+    opts['outtmpl'] = _outtmpl(config.audio_dir, config.audio_format)
     opts['postprocessors'] = [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'mp3',
         'preferredquality': '0',
     }]
-    return _run_download(video_id, opts, on_progress, "download_audio", cancel)
+    return _run_download(video_id, opts, config.audio_dir, on_progress, "download_audio", cancel)

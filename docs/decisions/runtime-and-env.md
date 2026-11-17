@@ -99,3 +99,7 @@ The owner wanted a green GitHub run to mean "TermTube works on this platform". M
 ## 2026-11-17 — Temp and IPC directories are verified, not just created
 
 `os.makedirs(mode=0o700, exist_ok=True)` accepted any existing directory, including one another local user had created first at the predictable `/tmp/termtube-<uid>` or `<tmp>/TermTube`, or a symlink into somewhere else. `plat.private_dir` now creates 0700 and refuses a symlink, a non-directory or a foreign owner (fail closed); a loose mode on a directory we own is tightened. Used for the mpv socket directory and the debug log directory. The unlikely collision on a shared `/tmp` now stops the app at start rather than binding a socket in someone else's directory.
+
+## 2026-11-17 — Download templates are confined to the download directory
+
+`video_format` and `audio_format` were joined to the download directory without a check, so `../../x/%(title)s` or an absolute template wrote anywhere the user could. `downloads._outtmpl` now rejects those templates up front. A static check is not enough: yt-dlp keeps a field value of `..` as a path component (`prepare_filename` on a title of `..` gave `<dir>/../...mp4`), so `_StayInside`, a postprocessor at stage `video`, also resolves the computed filename and refuses one outside the directory before anything is written.

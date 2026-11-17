@@ -18,8 +18,8 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `browser` | `auto` | cookie source for Home and Subscriptions: `auto`, `none`, or a browser name. See [accounts-and-cookies.md](accounts-and-cookies.md) |
 | `video_dir` | `~/Documents/TermTube/Video` | where video downloads go; also scanned by the Library tab |
 | `audio_dir` | `~/Documents/TermTube/Audio` | where audio downloads go; also scanned by the Library tab |
-| `video_format` | `%(title)s_%(uploader)s.%(ext)s` | yt-dlp output template for videos |
-| `audio_format` | `%(title)s_%(uploader)s.%(ext)s` | yt-dlp output template for audio |
+| `video_format` | `%(title)s_%(uploader)s.%(ext)s` | yt-dlp output template for videos, relative to `video_dir`. Subfolders are fine; an absolute path or a `..` part is refused with an error in the download dialog |
+| `audio_format` | `%(title)s_%(uploader)s.%(ext)s` | yt-dlp output template for audio, relative to `audio_dir`, same rules |
 | `preferred_quality` | `best` | default video download quality: `best`, `1080`, `720`, `480`, `360` |
 | `theme` | `crimson` | `crimson`, `amber`, `ocean` or `midnight` (anything else falls back to `crimson`) |
 | `thumbnail_format` | `auto` | `auto`: real image where the terminal supports it; `symbols`: always half-block art. Anything else reads as `auto` |

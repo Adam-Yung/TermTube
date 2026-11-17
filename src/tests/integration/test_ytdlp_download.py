@@ -239,3 +239,19 @@ class TestDownloadAudioWithProgress:
              patch("src.downloads.base_opts", return_value={}):
             result = download_audio_with_progress("xyz789ghj12", fake_config)
         assert result is False
+
+
+class TestUnsafeTemplates:
+    def test_video_template_with_dotdot_never_starts_yt_dlp(self, fake_config):
+        fake_config.video_format = "../%(title)s.%(ext)s"
+        with patch("src.downloads.yt_dlp.YoutubeDL") as ydl, patch("src.downloads.base_opts", return_value={}):
+            with pytest.raises(RuntimeError, match="Unsafe download template"):
+                download_video_with_progress("abc123def45", fake_config)
+        ydl.assert_not_called()
+
+    def test_audio_template_that_is_absolute_never_starts_yt_dlp(self, fake_config):
+        fake_config.audio_format = "/tmp/%(title)s.%(ext)s"
+        with patch("src.downloads.yt_dlp.YoutubeDL") as ydl, patch("src.downloads.base_opts", return_value={}):
+            with pytest.raises(RuntimeError, match="Unsafe download template"):
+                download_audio_with_progress("abc123def45", fake_config)
+        ydl.assert_not_called()
