@@ -14,7 +14,7 @@ TermTube asks the cheapest source that can answer, and falls back one step when 
 | **Video details** (description, views, likes) | InnerTube `/player`, metadata only, when you pause on a row | no | none (the row keeps its basic fields) | per video, 24 h |
 | **Stream URLs** (audio, video) | yt-dlp (needs Deno to solve YouTube's JavaScript challenge) | **no, on purpose** | retry, re-resolve | in memory, about 5 h, prefetched on focus |
 | **Downloads** | yt-dlp, then ffmpeg | no | none | files on disk |
-| **Skip segments** | the SponsorBlock API (`sponsor.ajay.app`), 3 s timeout | no | none (no skipping) | 24 h |
+| **Skip segments** | the SponsorBlock API (`sponsor.ajay.app`), 3 s timeout, sends only the first 4 hex chars of the video id's SHA-256 | no | none (no skipping) | 24 h |
 | **Thumbnails** | `i.ytimg.com`, derived from the video id when a row has none | no | placeholder | JPEGs on disk |
 | **Library, History, Playlists** | your disk | no | | |
 

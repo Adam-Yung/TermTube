@@ -25,6 +25,20 @@ def _assert_segment(seg, *, start: float, end: float, category: str):
     assert seg.category == category
 
 
+def _bucket(video_id: str, segments: list[dict]) -> list[dict]:
+    """A hash-prefix response (recorded shape): the played video plus another video from the same bucket."""
+    other = {"videoID": "otherVideo1", "hash": "ab" * 32, "segments": [{"segment": [1.0, 2.0], "category": "sponsor"}]}
+    return [other, {"videoID": video_id, "hash": "cd" * 32, "segments": segments}]
+
+
+def _response(payload):
+    resp = MagicMock()
+    resp.read.return_value = json.dumps(payload).encode()
+    resp.__enter__ = lambda s: s
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
 # ── Segment dataclass ─────────────────────────────────────────────────────────
 
 
@@ -203,11 +217,11 @@ class TestFetchSegments:
         monkeypatch.setattr("src.sponsorblock._CACHE_DIR", cache_dir)
         monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
 
-        api_response = [
+        api_response = _bucket("parse_test_vid", [
             {"segment": [0.0, 30.5], "category": "sponsor", "UUID": "aaa"},
             {"segment": [120.0, 150.0], "category": "selfpromo", "UUID": "bbb"},
             {"segment": [200.0, 210.0], "category": "sponsor", "UUID": "ccc"},
-        ]
+        ])
         response_bytes = json.dumps(api_response).encode()
 
         mock_resp = MagicMock()
@@ -228,12 +242,12 @@ class TestFetchSegments:
         monkeypatch.setattr("src.sponsorblock._CACHE_DIR", cache_dir)
         monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
 
-        api_response = [
+        api_response = _bucket("malformed_vid", [
             {"segment": [0.0, 10.0], "category": "sponsor"},
             {"segment": "invalid", "category": "sponsor"},
             {"segment": [20.0], "category": "sponsor"},
             {"category": "sponsor"},
-        ]
+        ])
         response_bytes = json.dumps(api_response).encode()
 
         mock_resp = MagicMock()
@@ -246,6 +260,48 @@ class TestFetchSegments:
 
         assert len(result) == 1
         _assert_segment(result[0], start=0.0, end=10.0, category="sponsor")
+
+
+class TestHashPrefix:
+    def test_request_sends_the_prefix_not_the_video_id(self, tmp_path, monkeypatch):
+        import hashlib
+
+        monkeypatch.setattr("src.sponsorblock._CACHE_DIR", tmp_path / "sb")
+        monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
+        payload = _bucket("secretVid11", [{"segment": [5.0, 9.0], "category": "sponsor"}])
+
+        with patch("urllib.request.urlopen", return_value=_response(payload)) as opened:
+            fetch_segments("secretVid11")
+
+        url = opened.call_args.args[0].full_url
+        prefix = hashlib.sha256(b"secretVid11").hexdigest()[:4]
+        assert url.startswith(f"https://sponsor.ajay.app/api/skipSegments/{prefix}?")
+        assert "secretVid11" not in url
+
+    def test_other_videos_in_the_bucket_are_ignored(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.sponsorblock._CACHE_DIR", tmp_path / "sb")
+        monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
+        payload = _bucket("wantedVid11", [{"segment": [5.0, 9.0], "category": "sponsor"}])
+
+        with patch("urllib.request.urlopen", return_value=_response(payload)):
+            result = fetch_segments("wantedVid11")
+
+        assert len(result) == 1
+        _assert_segment(result[0], start=5.0, end=9.0, category="sponsor")
+
+    def test_bucket_without_the_video_gives_no_segments(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.sponsorblock._CACHE_DIR", tmp_path / "sb")
+        monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
+
+        with patch("urllib.request.urlopen", return_value=_response(_bucket("else1234567", []))):
+            assert fetch_segments("absentVid11") == []
+
+    def test_non_list_response_is_empty(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("src.sponsorblock._CACHE_DIR", tmp_path / "sb")
+        monkeypatch.setattr("src.sponsorblock._ssl_context", MagicMock())
+
+        with patch("urllib.request.urlopen", return_value=_response({"error": "x"})):
+            assert fetch_segments("anyVid12345") == []
 
 
 # ── _get_ssl_context / _cached_ssl_context ────────────────────────────────────

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import ssl
 import threading
 import time
+import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -20,6 +22,7 @@ _API_BASE = "https://sponsor.ajay.app/api/skipSegments"
 _CACHE_DIR = get_cache_dir() / "sb"
 _CACHE_TTL = 86400
 _REQUEST_TIMEOUT = 3.0
+_HASH_PREFIX_LEN = 4
 _SSL_PREF_PATH = get_cache_dir() / "ssl_pref"
 
 
@@ -148,6 +151,30 @@ def _request(url: str) -> bytes:
         return _do_fetch(url, _cached_ssl_context())
 
 
+def _hash_prefix(video_id: str) -> str:
+    """First four hex chars of sha256(video id): the server learns a bucket, not which video is played."""
+    return hashlib.sha256(video_id.encode()).hexdigest()[:_HASH_PREFIX_LEN]
+
+
+def _parse_segments(data: object, video_id: str) -> list[Segment]:
+    """Segments of ``video_id`` from a hash-prefix response, which lists every video in the bucket."""
+    segments: list[Segment] = []
+    if not isinstance(data, list):
+        return segments
+    for video in data:
+        if not isinstance(video, dict) or video.get("videoID") != video_id:
+            continue
+        for item in video.get("segments") or []:
+            seg = item.get("segment") if isinstance(item, dict) else None
+            if isinstance(seg, list) and len(seg) == 2:
+                category = item.get("category", "sponsor")
+                try:
+                    segments.append(Segment(start=float(seg[0]), end=float(seg[1]), category=category))
+                except (TypeError, ValueError):
+                    continue
+    return segments
+
+
 def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[Segment]:
     """Segments for a video, sorted by start; empty on any failure. Safe in a worker thread.
 
@@ -161,7 +188,8 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
         return cached
 
     cats_param = json.dumps(categories or ["sponsor", "selfpromo"], separators=(",", ":"))
-    url = f"{_API_BASE}?videoID={video_id}&categories={cats_param}"
+    query = urllib.parse.urlencode({"categories": cats_param})
+    url = f"{_API_BASE}/{_hash_prefix(video_id)}?{query}"
     logger.debug("SponsorBlock fetch: %s", url)
 
     try:
@@ -177,16 +205,7 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
         _write_cache(video_id, [])
         return []
 
-    segments: list[Segment] = []
-    for item in data:
-        seg = item.get("segment")
-        cat = item.get("category", "sponsor")
-        if isinstance(seg, list) and len(seg) == 2:
-            try:
-                segments.append(Segment(start=float(seg[0]), end=float(seg[1]), category=cat))
-            except (TypeError, ValueError):
-                continue
-
+    segments = _parse_segments(data, video_id)
     segments.sort(key=lambda s: s.start)
     _write_cache(video_id, segments)
     return segments

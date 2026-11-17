@@ -84,3 +84,7 @@ State and mpv control left `AudioPlayerMixin` (on `MainScreen`) for `AudioContro
 ## 2026-11-16 — Local files play directly; mpv errors are no longer swallowed
 
 The first Windows run of the real-app pipeline played nothing from the Library: mpv exited with code 2 three times and the app reported "no stderr output". The command carried `--ytdl-format=ba/b` for a plain `.wav`, and `--no-terminal` had silenced mpv's own error. Two changes. A local file is now handed to mpv as a direct file (`--no-ytdl -- path`, the same form stream URLs already use), for audio and video; ytdl options are only for page URLs. The audio command uses `--no-input-terminal` instead of `--no-terminal` and mpv gets `stdin=DEVNULL`, so mpv still cannot read the TUI's keys but its errors reach the captured stderr and the failure notice. Which of the two caused the Windows exit code was not isolated; the next pipeline run shows whether playback now works or reports the real error.
+
+## 2026-11-17 — SponsorBlock uses the hash-prefix endpoint
+
+`fetch_segments` calls `/api/skipSegments/<first 4 hex chars of sha256(videoID)>` and filters the response for the exact `videoID` locally. The old `?videoID=` query told a third party every video played, which is a watch history; the prefix reveals a bucket of roughly 65 000 possible ids. Cost: a larger response (every video in the bucket that has segments), still well inside the 3 s timeout. The `ssl_pref` fallback to an unverified context in the same module is a separate privacy and integrity issue, not changed here.
