@@ -1,0 +1,32 @@
+src/sponsorblock.py
+  s_6c28d43e292a51::t_55f27802f229e3 170,172
+  s_6c28d43e292a51::t_034bd07ecc09bf 5,10,25,154-169,171,173-177,191-192,208
+docs/todo.md
+  s_6c28d43e292a51::t_6d43a179652056 21
+docs/code/src/sponsorblock.py.md
+  s_6c28d43e292a51::t_b461df0ad9e168 10
+docs/decisions/playback.md
+  s_6c28d43e292a51::t_b461df0ad9e168 87-90
+docs/features/sources.md
+  s_6c28d43e292a51::t_b461df0ad9e168 17
+src/tests/unit/test_sponsorblock.py
+  s_6c28d43e292a51::t_034bd07ecc09bf 220,224,245,250
+  s_6c28d43e292a51::t_9b1c17beceba50 28-41,265-304
+  s_6c28d43e292a51::t_c548c44ba566f1 305-306
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e09299d8473dc38e4e3d57f79d9f0d9bc8ca53a5",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
