@@ -22,7 +22,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P1.4 SponsorBlock hash-prefix endpoint (A1.2) (e09299d)
 - [x] P1.5 Thumbnail unverified-TLS fallback opt-in, byte cap (A1.1) (4816456)
 - [x] P1.6 Temp/IPC dir 0700 and ownership check (A1.7) (de0061f)
-- [ ] P1.7 Download template guard (A1.3)
+- [x] P1.7 Download template guard (A1.3) (54e5d35)
 
 ## Phase 2. Shared foundation, History  (milestone 1: pipeline)
 - [ ] P2.1 `src/store.py` JsonStore (C4), reused by history, playlists, search history, channel bookmarks

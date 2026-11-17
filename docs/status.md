@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-16. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6.
+**Last updated:** 2026-11-17. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6.
 The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists
@@ -10,7 +10,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home and the subscription list
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, 414 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, 461 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 
@@ -31,5 +31,8 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 ## Known limits
 
 - InnerTube fetch errors become empty results; callers then fall back to yt-dlp.
+- `sponsorblock.py` still falls back to an unverified TLS context when certifi and the system store both fail to build (separate from the thumbnail setting, which is now opt-in).
+- A sign-in failure on Home or Subscriptions shows the empty-feed dialog, not a "sign in again" message.
+- History stores the row as played; a row played from the Library carries the whole sidecar (large file).
 
 Next work: [todo.md](todo.md). Open plans: [plans/](plans/).
