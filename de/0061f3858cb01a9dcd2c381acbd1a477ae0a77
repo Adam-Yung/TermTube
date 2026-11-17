@@ -1,0 +1,36 @@
+docs/todo.md
+  s_6c28d43e292a51::t_76bea9a5b4f019 23
+docs/code/src/plat.py.md
+  s_6c28d43e292a51::t_92848339c36635 11
+src/logger.py
+  s_6c28d43e292a51::t_95542052f380d8 15,83
+docs/code/src/logger.py.md
+  s_6c28d43e292a51::t_92848339c36635 21
+docs/decisions/runtime-and-env.md
+  s_6c28d43e292a51::t_92848339c36635 98-101
+src/plat.py
+  s_6c28d43e292a51::t_62aa04678332d4 92
+  s_6c28d43e292a51::t_95542052f380d8 9,89,91,93-107,121
+  s_6c28d43e292a51::t_c6b9a30e75954e 90
+src/tests/unit/test_private_dir.py
+  s_6c28d43e292a51::t_92848339c36635 1-45,47-72
+  s_6c28d43e292a51::t_23f28bc78bf70e 46
+src/tests/unit/test_platform.py
+  s_6c28d43e292a51::t_95542052f380d8 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "de0061f3858cb01a9dcd2c381acbd1a477ae0a77",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
