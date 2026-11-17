@@ -1,0 +1,31 @@
+docs/features/configuration.md
+  s_6c28d43e292a51::t_7d88bb6cff7413 21-22
+docs/todo.md
+  s_6c28d43e292a51::t_1c914cc8a6bde8 24
+src/downloads.py
+  s_6c28d43e292a51::t_42307619e6616a 3,6,9,64-88,99,117,143-144,160,166
+src/tests/integration/test_ytdlp_download.py
+  s_6c28d43e292a51::t_8ae18fa6ede431 242-257
+src/tests/unit/test_download_template_guard.py
+  s_6c28d43e292a51::t_8ae18fa6ede431 1-52
+docs/code/src/downloads.py.md
+  s_6c28d43e292a51::t_7d88bb6cff7413 15-16
+docs/decisions/runtime-and-env.md
+  s_6c28d43e292a51::t_7d88bb6cff7413 102-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "54e5d35767a59850b2d7646e899b2b89ef65473b",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
