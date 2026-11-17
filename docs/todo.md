@@ -23,10 +23,12 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P1.5 Thumbnail unverified-TLS fallback opt-in, byte cap (A1.1) (4816456)
 - [x] P1.6 Temp/IPC dir 0700 and ownership check (A1.7) (de0061f)
 - [x] P1.7 Download template guard (A1.3) (54e5d35)
+- [x] P1.8 SponsorBlock has no unverified-TLS fallback (3c6d6f9)
+- [x] P1.9 Untrusted IPC dir: one plain line, exit 1 (84b3577)
 
 ## Phase 2. Shared foundation, History  (milestone 1: pipeline)
-- [ ] P2.1 `src/store.py` JsonStore (C4), reused by history, playlists, search history, channel bookmarks
-- [ ] P2.2 Slim history v2 + migration, write off the UI thread, `history: off`, `--clear-history` (C2, A4.2, A1.5)
+- [x] P2.1 `src/store.py` JsonStore (C4); history and playlists use it, search history and channel bookmarks will (4aaf971)
+- [x] P2.2 Slim history v2 + migration, write off the UI thread, `history: off`, `--clear-history` (C2, A4.2, A1.5) (7963f50)
 - [ ] P2.3 List tools in the shared list engine: filter `f`, mark `m`/`M`, context `D`, undo `u` (B7); own fuzzy scorer
 - [ ] P2.4 History: delete, filter, day groups, settings for cap (B4.1-3, B4.6)
 - [ ] P2.5 Keymap, help, action bar, `keybindings.md` for all new keys
