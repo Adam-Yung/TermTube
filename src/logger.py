@@ -12,7 +12,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from src.plat import get_log_dir
+from src.plat import get_log_dir, private_dir
 
 DEFAULT_LEVEL = "ALL"  # alias for DEBUG
 
@@ -80,7 +80,7 @@ def setup(debug: bool = False, level: str = DEFAULT_LEVEL) -> None:
     fmt_tui = logging.Formatter("%(message)s")
 
     try:
-        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        private_dir(_LOG_DIR)
         fh = logging.FileHandler(_log_file, mode="w", encoding="utf-8")
         fh.setLevel(log_level)
         fh.setFormatter(fmt_file)

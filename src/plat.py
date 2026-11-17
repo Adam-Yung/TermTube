@@ -6,6 +6,7 @@ import glob
 import os
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -85,6 +86,25 @@ def get_log_dir() -> Path:
 
 
 
+def private_dir(path: str | Path) -> Path:
+    """Create ``path`` with mode 0700 if absent and return it; raise PermissionError if it cannot be trusted.
+
+    A symlink, a non-directory or a foreign owner is refused (/tmp names are predictable); a loose mode is fixed.
+    """
+    path = Path(path)
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if IS_WINDOWS:
+        return path
+    info = path.lstat()
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise PermissionError(f"{path} is not a plain directory")
+    if info.st_uid != os.getuid():
+        raise PermissionError(f"{path} is owned by another user")
+    if info.st_mode & 0o077:
+        path.chmod(0o700)
+    return path
+
+
 def _unix_ipc_dir() -> str:
     """Per-user directory for IPC sockets."""
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
@@ -98,8 +118,7 @@ def _ipc_path(name: str) -> str:
     if IS_WINDOWS:
         return rf"\\.\pipe\{name}"
     ipc_dir = _unix_ipc_dir()
-    os.makedirs(ipc_dir, mode=0o700, exist_ok=True)
-    return os.path.join(ipc_dir, f"{name}.sock")
+    return os.path.join(private_dir(ipc_dir), f"{name}.sock")
 
 
 def get_ipc_path() -> str:

@@ -90,7 +90,7 @@ class TestIPCPaths:
     def as_unix(self, monkeypatch, tmp_path):
         """Pretend to be Unix (also on Windows, which has no os.getuid) with a private socket directory."""
         monkeypatch.setattr("src.plat.IS_WINDOWS", False)
-        monkeypatch.setattr("src.plat.os.getuid", lambda: 1000, raising=False)
+        monkeypatch.setattr("src.plat.os.getuid", lambda: tmp_path.stat().st_uid, raising=False)
         monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
 
     def test_unix_audio_path(self, as_unix):

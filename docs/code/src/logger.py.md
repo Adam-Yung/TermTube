@@ -18,5 +18,6 @@ Process-wide logger named `termtube`. Decisions: [docs/decisions/logging.md](../
 
 ## Limits
 
+- The log directory goes through `plat.private_dir` (0700, owner and symlink checked); if it is refused the file is not written, like any other `OSError`.
 - A failure to open the log file (`OSError`) is swallowed: the TUI sink still works, the file is silently missing.
 - `setup` is safe to call again (tests): it removes existing handlers first.

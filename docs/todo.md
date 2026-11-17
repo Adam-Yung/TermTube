@@ -20,7 +20,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P1.2 Local lists use real paging (A6) (2b9f1d1)
 - [x] P1.3 Playlist `create()` no longer overwrites; stopgap for bare-id rows (B5.1) (2686aa0)
 - [x] P1.4 SponsorBlock hash-prefix endpoint (A1.2) (e09299d)
-- [ ] P1.5 Thumbnail unverified-TLS fallback opt-in, byte cap (A1.1)
+- [x] P1.5 Thumbnail unverified-TLS fallback opt-in, byte cap (A1.1) (4816456)
 - [ ] P1.6 Temp/IPC dir 0700 and ownership check (A1.7)
 - [ ] P1.7 Download template guard (A1.3)
 
