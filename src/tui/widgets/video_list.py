@@ -82,7 +82,7 @@ class VideoListItem(ListItem):
         duration = fmt_duration(entry.get("duration"))
         views = fmt_views(entry.get("view_count"))
         age = fmt_age(entry.get("upload_date")) or entry.get("published_text", "")
-        watched = _fmt_watched(entry.get("_watched_at"))
+        watched = _fmt_watched(entry.get("watched_at"))
 
         local_type = entry.get("_local_type", "")
         has_audio = entry.get("_has_audio", False)

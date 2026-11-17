@@ -37,6 +37,8 @@ DEFAULT_CONFIG: dict = {
         "categories": list(_DEFAULT_SB_CATEGORIES),
     },
     "prefetch_video": False,
+    "history": True,
+    "history_max": 500,
 }
 
 
@@ -113,6 +115,18 @@ class Config:
     def theme(self) -> str:
         t = self._data.get("theme", "crimson")
         return t if t in _THEMES else "crimson"
+
+    @property
+    def history_enabled(self) -> bool:
+        """False only for a literal ``false``: a typo must not silently stop recording."""
+        return self._data.get("history") is not False
+
+    @property
+    def history_max(self) -> int:
+        value = self._data.get("history_max")
+        if isinstance(value, bool) or not isinstance(value, int):
+            return 500
+        return min(5000, max(50, value))
 
     @property
     def sponsorblock_enabled(self) -> bool:

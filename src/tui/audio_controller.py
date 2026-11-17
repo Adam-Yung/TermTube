@@ -405,7 +405,7 @@ class AudioController:
             return
         if self._entry and self._history_session != session:
             self._history_session = session
-            history.add(self._entry)
+            history.add(self._entry, self._app.config)
         self._progress = (pos, dur, paused)
         self._broadcast(lambda: PlayerStateUpdated(pos, dur, paused, playing=True))
 

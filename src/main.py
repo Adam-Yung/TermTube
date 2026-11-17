@@ -79,6 +79,7 @@ def _print_help() -> None:
     _opt("--config",        "FILE",  "Path to config YAML")
     _opt("--browser-help",  "",      "Show browser authentication setup")
     _opt("--clear-cache",   "",      "Clear all cached feeds and metadata")
+    _opt("--clear-history", "",      "Erase the local watch history")
     _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
     _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
     _opt("--update",        "",      "Update yt-dlp, Deno, mpv, ffmpeg to latest, then exit")
@@ -197,6 +198,7 @@ def main() -> None:
     parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
     parser.add_argument("--browser-help", action="store_true", help="Show browser authentication setup")
     parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
+    parser.add_argument("--clear-history", action="store_true", help="Erase the local watch history")
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -236,6 +238,12 @@ def main() -> None:
     if args.browser_help:
         from src.deps import print_cookies_help
         print_cookies_help()
+        sys.exit(0)
+
+    if args.clear_history:
+        from src import history
+        history.clear()
+        print("Watch history cleared.")
         sys.exit(0)
 
     if args.update:

@@ -1,15 +1,16 @@
 # src/history.py
 
-Local watch history: videos played through this TUI, not the Google account's history. Stored as one JSON list in
-`<config dir>/history.json`, newest first, deduplicated by video id, capped at `_MAX_ENTRIES` (500).
+Local watch history: videos played through this TUI, not the Google account's history. Stored through [store.py](store.py.md) in
+`<config dir>/history.json` (version 2), newest first, deduplicated by video id, capped by `config.history_max` (default 500).
 
 ## Invariants
 
-- The list is cached in `_cache` after the first read. Every `add()` replaces the cache and rewrites the file, so reads never touch disk
-  again. Edits made to the file while the app runs are not seen.
-- `_lock` guards both the cache and the write. `add()` runs on the UI thread (audio progress publish) and on the video modal's worker thread; readers are on the UI thread.
-- A failed write (`OSError`: disk full, or on Windows a file held open by antivirus) is logged and dropped; the entry stays in memory for the session. `add()` must never raise on the UI thread.
-- Writes are atomic through `plat.atomic_write` (unique temp file in the same directory, then `os.replace`). A crash mid-write leaves the old file.
-- A corrupt or unreadable file loads as empty history, and the next `add()` overwrites it.
-- Entries are the video's metadata dict plus `_watched_at` (epoch seconds).
-- `all_entries()` returns a shallow copy: the list is safe to hold, the dicts are shared.
+- Records are slim: `id, title, uploader, channel_id, duration, thumbnail` (a URL), `view_count, upload_date` (list rows show views and
+  age), plus `watched_at, plays, seconds, resume_s, source`. `_slim` drops everything else, so playing a Library row never stores its
+  sidecar, description or formats. `seconds` and `resume_s` are kept across replays; nothing writes them yet (Phase 8).
+- `add(entry, config)` is called on the UI thread (audio progress) and from the video modal's worker. It updates the in-memory list
+  synchronously under the store lock and defers the disk write (debounced, flushed at exit); a failed write is logged and the entry stays in memory.
+- `history: false` records nothing and keeps what exists. `remove(id)` is deferred like `add`; `clear()` writes at once.
+- The v1 file (a bare list of full entries with `_watched_at`) migrates on first load: slimmed, `plays` 1, then saved as v2.
+- `all_entries()` returns a shallow copy: safe to hold, the dicts are shared.
+- Entry ids fall back to `webpage_url_basename`; an entry with neither is ignored.

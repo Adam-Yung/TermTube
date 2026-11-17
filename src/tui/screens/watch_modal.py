@@ -140,7 +140,7 @@ class WatchModal(ModalScreen[bool]):
         def on_spawn(proc: subprocess.Popen, attempt: int) -> None:
             self._proc = proc
             if attempt == 1:
-                history.add(self._entry)
+                history.add(self._entry, getattr(self.app, "config", None))
 
         outcome = player_mod.run_mpv_with_retries(
             build_cmd, headless=False, is_stale=lambda: self._stopped, on_spawn=on_spawn

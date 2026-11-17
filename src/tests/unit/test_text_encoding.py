@@ -52,7 +52,8 @@ def test_history_round_trips_non_ascii_under_a_non_utf8_locale(tmp_path):
         assert locale.getpreferredencoding(False).lower() in ("ascii", "ansi_x3.4-1968", "us-ascii")
         from src import history
         history.add({{"id": "AAAAAAAAAAA", "title": "Žižek ā 音楽"}})
-        history._cache = None
+        history._store.flush()
+        history._store._data = None
         assert history.all_entries()[0]["title"] == "Žižek ā 音楽"
         print("ROUND-TRIP-OK")
         """

@@ -126,10 +126,9 @@ def temp_playlists(tmp_path, monkeypatch):
 
 @pytest.fixture
 def temp_history(tmp_path, monkeypatch):
-    """Redirect history storage to temp directory and clear in-memory cache."""
+    """Redirect history storage to temp directory."""
     hist_path = tmp_path / "history.json"
     monkeypatch.setattr("src.history.HISTORY_PATH", hist_path)
-    monkeypatch.setattr("src.history._cache", None)
     return hist_path
 
 

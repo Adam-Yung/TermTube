@@ -157,7 +157,7 @@ what a green run proves: [ci.md](ci.md).
 | `RUFF` | which ruff `verify.sh` uses |
 | `MYYOUTUBE_IMAGES=1` | force pixel thumbnails on inside tmux |
 
-Files: `config.yaml`, `history.json` (500 entries), `playlists.json` in the config folder; per-video JSON, feed id lists, thumbnails and SponsorBlock
+Files: `config.yaml`, `history.json` (slim records, 500 by default, `history_max`), `playlists.json` in the config folder; per-video JSON, feed id lists, thumbnails and SponsorBlock
 data in the cache folder; a log per `--debug` run in the temp folder.
 
 ## Troubleshooting

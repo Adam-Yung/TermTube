@@ -7,10 +7,11 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 
 - A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Playlists, Help; vim-style keys ([features/keybindings.md](features/keybindings.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
+- Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`.
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home and the subscription list
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, 461 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, 486 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 

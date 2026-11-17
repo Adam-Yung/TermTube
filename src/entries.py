@@ -20,7 +20,7 @@ class _Row(TypedDict, total=False):
     _is_playlist: bool
     _is_channel: bool
     _playlist_name: str
-    _watched_at: float
+    watched_at: float
 
 
 class VideoEntry(_Row, total=False):

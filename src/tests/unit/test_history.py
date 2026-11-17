@@ -1,73 +1,127 @@
-"""Tests for src/history.py — local watch history."""
+"""Tests for src/history.py: local watch history."""
 
 import json
 
-from src import history
+import pytest
+
+from src import history, store
+from src.config import Config
+
+
+@pytest.fixture
+def cfg(tmp_path):
+    return Config(path=str(tmp_path / "config.yaml"))
+
+
+def _disk(path):
+    store.flush_all()
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class TestAdd:
-    def test_stores_entry(self, temp_history):
-        history.add({"id": "vid1", "title": "First Video"})
-        entries = history.all_entries()
-        assert len(entries) == 1
-        assert entries[0]["id"] == "vid1"
-        assert entries[0]["title"] == "First Video"
-        assert "_watched_at" in entries[0]
+    def test_stores_a_slim_record(self, temp_history):
+        history.add({
+            "id": "vid1", "title": "First", "uploader": "U", "channel_id": "UC1", "duration": 60,
+            "thumbnail": "http://t/1.jpg", "description": "long " * 500, "formats": [{"url": "x"}],
+            "_local_path": "/x/y.mp4", "_sidecar": {"a": 1},
+        })
+        (rec,) = history.all_entries()
+        assert set(rec) == {
+            "id", "title", "uploader", "channel_id", "duration", "thumbnail", "view_count", "upload_date",
+            "watched_at", "plays", "seconds", "resume_s", "source",
+        }
+        assert rec["plays"] == 1 and rec["resume_s"] is None and rec["source"] == "local"
 
-    def test_deduplicates_moves_to_front(self, temp_history):
-        history.add({"id": "vid1", "title": "First"})
-        history.add({"id": "vid2", "title": "Second"})
-        history.add({"id": "vid1", "title": "First Again"})
+    def test_channel_stands_in_for_uploader(self, temp_history):
+        history.add({"id": "v", "channel": "Chan"})
+        assert history.all_entries()[0]["uploader"] == "Chan"
 
-        entries = history.all_entries()
-        assert len(entries) == 2
-        assert entries[0]["id"] == "vid1"
-        assert entries[1]["id"] == "vid2"
-
-    def test_ignores_entry_without_id(self, temp_history):
+    def test_no_id_is_ignored(self, temp_history):
         history.add({"title": "No ID"})
         assert history.all_entries() == []
 
-
-class TestMaxEntriesCap:
-    def test_respects_cap(self, temp_history):
-        seed = [{"id": f"old{i}", "_watched_at": i} for i in range(500)]
-        temp_history.write_text(json.dumps(seed), encoding="utf-8")
-
-        history.add({"id": "newest", "title": "Newest"})
-
+    def test_dedupes_by_id_counts_plays_and_keeps_resume(self, temp_history):
+        history.add({"id": "vid1", "title": "First"})
+        history.add({"id": "vid2", "title": "Second"})
+        history._store.update(lambda d: d[0].update(seconds=30, resume_s=12.5) or True)
+        history.add({"id": "vid2", "title": "Second Again"})
         entries = history.all_entries()
-        assert len(entries) == 500
-        assert entries[0]["id"] == "newest"
+        assert [e["id"] for e in entries] == ["vid2", "vid1"]
+        assert entries[0]["title"] == "Second Again"
+        assert entries[0]["plays"] == 2
+        assert entries[0]["seconds"] == 30 and entries[0]["resume_s"] == 12.5
+
+    def test_newest_first(self, temp_history):
+        for i in ("old", "mid", "new"):
+            history.add({"id": i})
+        assert [e["id"] for e in history.all_entries()] == ["new", "mid", "old"]
 
 
-class TestGetAll:
-    def test_returns_reverse_chronological(self, temp_history):
-        history.add({"id": "old", "title": "Old"})
-        history.add({"id": "mid", "title": "Mid"})
-        history.add({"id": "new", "title": "New"})
+class TestSettings:
+    def test_disabled_records_nothing(self, temp_history, cfg):
+        cfg.set("history", False)
+        history.add({"id": "v"}, cfg)
+        assert history.all_entries() == []
 
+    def test_cap_follows_history_max_clamped(self, temp_history, cfg):
+        cfg.set("history_max", 1)
+        assert cfg.history_max == 50
+        for i in range(60):
+            history.add({"id": f"v{i}"}, cfg)
         entries = history.all_entries()
-        assert [e["id"] for e in entries] == ["new", "mid", "old"]
+        assert len(entries) == 50 and entries[0]["id"] == "v59"
+
+    def test_config_accessors_validate(self, cfg):
+        assert cfg.history_enabled is True and cfg.history_max == 500
+        cfg.set("history_max", 99999)
+        assert cfg.history_max == 5000
+        cfg.set("history_max", "lots")
+        assert cfg.history_max == 500
+        cfg.set("history", "no")
+        assert cfg.history_enabled is True
+
+
+class TestRemoveAndClear:
+    def test_remove(self, temp_history):
+        history.add({"id": "a"})
+        history.add({"id": "b"})
+        assert history.remove("a") is True
+        assert history.remove("zzz") is False
+        assert [e["id"] for e in history.all_entries()] == ["b"]
+
+    def test_clear_writes_at_once(self, temp_history):
+        history.add({"id": "a"})
+        history.clear()
+        assert history.all_entries() == []
+        assert json.loads(temp_history.read_text(encoding="utf-8"))["data"] == []
 
 
 class TestPersistence:
-    def test_survives_reload(self, temp_history):
-        history.add({"id": "persist1", "title": "A"})
-        history.add({"id": "persist2", "title": "B"})
+    def test_flushed_and_reloaded(self, temp_history):
+        history.add({"id": "p1", "title": "A"})
+        history.add({"id": "p2", "title": "B"})
+        raw = _disk(temp_history)
+        assert raw["version"] == 2
+        assert [e["id"] for e in raw["data"]] == ["p2", "p1"]
 
-        raw = json.loads(temp_history.read_text(encoding="utf-8"))
-        assert len(raw) == 2
-        assert raw[0]["id"] == "persist2"
-        assert raw[1]["id"] == "persist1"
+    def test_in_memory_list_is_updated_before_the_write(self, temp_history):
+        history.add({"id": "p1"})
+        assert [e["id"] for e in history.all_entries()] == ["p1"]
 
+    def test_migrates_the_v1_file_to_slim_records(self, temp_history):
+        old = [{"id": "a", "title": "T", "uploader": "U", "description": "x" * 1000, "formats": [1],
+                "_watched_at": 111.0, "view_count": 5}, {"title": "no id"}]
+        temp_history.write_text(json.dumps(old), encoding="utf-8")
+        (rec,) = history.all_entries()
+        assert rec["watched_at"] == 111.0 and rec["plays"] == 1 and rec["view_count"] == 5
+        assert "description" not in rec and "formats" not in rec and "_watched_at" not in rec
+        assert _disk(temp_history)["version"] == 2
 
-def test_a_failed_write_does_not_raise_and_keeps_the_entry_in_memory(temp_history, monkeypatch):
-    from src import history
+    def test_a_failed_write_does_not_raise_and_keeps_the_entry(self, temp_history, monkeypatch):
+        def locked(*args):
+            raise PermissionError("file is held open by another process")
 
-    def locked(entries):
-        raise PermissionError("file is held open by another process")
-
-    monkeypatch.setattr(history, "_save", locked)
-    history.add({"id": "AAAAAAAAAAA", "title": "t"})
-    assert [e["id"] for e in history.all_entries()] == ["AAAAAAAAAAA"]
+        monkeypatch.setattr(store, "atomic_write", locked)
+        history.add({"id": "AAAAAAAAAAA", "title": "t"})
+        store.flush_all()
+        assert [e["id"] for e in history.all_entries()] == ["AAAAAAAAAAA"]

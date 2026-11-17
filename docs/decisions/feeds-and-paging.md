@@ -90,3 +90,7 @@ Offline checks only (code reading, installed yt-dlp 2026.10.26, synthetic data).
 ## 2026-11-17 — Local lists page like feeds, but never evict
 
 History, Library and the playlist views load through `add_entries` in `PAGE_SIZE` pages instead of one page of up to 500 rows (`_show_one_page` is gone). They pass `evict=False`: the panel's 30-page memory cap exists for feeds that can be refetched, and a Library of more than 600 items would otherwise lose its far pages for good.
+
+## 2026-11-17 — History v2: slim records, deferred writes
+
+History records keep only what a row and the detail panel show (plus `view_count` and `upload_date`, which the row markup reads, beyond the audit's minimal list) and the counters `plays`, `seconds`, `resume_s`, `source`. `_watched_at` became `watched_at`. `add` updates memory at once and writes after a 0.5 s debounce and at exit, so the UI thread never waits on the disk; a hard kill can lose the last half second. `history: false` stops recording but keeps the file; `--clear-history` erases it.

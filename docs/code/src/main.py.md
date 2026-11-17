@@ -7,7 +7,7 @@ Entry point (`termtube` and `python src/main.py`). Order of operations matters a
 1. Put the project root on `sys.path` and prepend the managed deps bin to `PATH` (so `shutil.which` and yt-dlp find our deno, ffmpeg and mpv first). Done at import time with `plat.get_deps_bin()` (light; `src.bootstrap` imports urllib, tarfile and zipfile and stays out of cold start).
 2. Parse args. `-h` and `--test` exit before any setup. `add_help=False` because the help screen is custom.
 3. `logger.setup` (nothing is written without `--debug`; see [docs/decisions/logging.md](../../decisions/logging.md)).
-4. `--version`, `--browser-help`, `--update` exit here, before the dependency check, so a broken install can still update itself.
+4. `--version`, `--browser-help`, `--clear-history`, `--update` exit here, before the dependency check, so a broken install can still update itself.
 5. Dependency check, config, `--clear-cache`.
 6. `import textual_image.widget` before Textual starts. It probes the terminal for sixel/TGP support and cell size at import; the probe fails once Textual's I/O threads are running, and images then render wrong or not at all.
 7. Create the app, register cleanup, `app.run()`.

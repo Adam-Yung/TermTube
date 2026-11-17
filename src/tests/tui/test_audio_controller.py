@@ -32,7 +32,6 @@ class Recorder(Screen):
 @pytest.fixture
 def audio(app, mock_mpv_ipc, tmp_path, monkeypatch):
     monkeypatch.setattr("src.history.HISTORY_PATH", tmp_path / "history.json")
-    monkeypatch.setattr("src.history._cache", None)
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     monkeypatch.setattr("src.tui.audio_controller.cleanup_ipc", lambda path: None)
     return app
@@ -124,4 +123,5 @@ async def test_history_is_recorded_once_on_the_first_successful_poll(audio):
             for _ in range(3):
                 await asyncio.to_thread(controller.poll_once, controller._session)
             await pilot.pause(0.1)
-        add.assert_called_once_with(ENTRY)
+        assert add.call_count == 1
+        assert add.call_args.args[0] == ENTRY

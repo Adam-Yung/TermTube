@@ -32,15 +32,18 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `cache_ttl.subscriptions` | `3600` | reserved for a subscription video feed (the Subscriptions tab lists channels, cached with the 1 h default) |
 | `cache_ttl.search` | `1800` | seconds a cached search stays fresh |
 | `cache_ttl.metadata` | `86400` | seconds cached video metadata stays valid |
+| `history` | `true` | `false` records nothing in the local watch history (existing history stays until `--clear-history`); only a literal `false` turns it off |
+| `history_max` | `500` | most entries kept in the local history; clamped to 50..5000, a non-integer reads as 500 |
 | `prefetch_video` | `false` | also pre-resolve a video stream URL when focusing a row (audio is always prefetched); no UI |
 
 `cache_ttl` and `sponsorblock` merge one level deep: setting one sub-key keeps the other defaults.
 
 ## Rules
 
-- Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`); raw `config["x"]` / `config.get` do not.
+- Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`, `history`, `history_max`); raw `config["x"]` / `config.get` do not.
 - Code changes a setting with `config.set(key, value)` and persists it with `config.save()`; nothing outside `src/config.py` touches `_data`.
 - Tests construct `Config(path=<tmp file>)`; the default path is the real user config.
 - `termtube --clear-cache` removes cached feeds and metadata; it never touches config, history or playlists.
+- `termtube --clear-history` erases the local watch history file contents at once and exits; nothing else changes.
 
 Design record: `docs/decisions/config.md`; code: `docs/code/src/config.py.md`.

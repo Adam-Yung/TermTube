@@ -10,6 +10,7 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
   deep so a partial override keeps the other defaults.
 - A missing file is created on first construction.
 - `insecure_thumbnails` is true only for a literal YAML `true`.
+- `history_enabled` is false only for a literal `false`; `history_max` is an int clamped to 50..5000 (anything else reads as 500).
 - Typed properties validate: unknown `theme` falls back to `crimson`, unknown `thumbnail_format` to `auto`, a non-list
   `sponsorblock.categories` to the default list. Raw access (`config["x"]`, `config.get`) does not validate.
 - `cookies_file` from old configs is dropped on load. Auth now uses a browser only (see `docs/decisions/cookies-and-auth.md`).
