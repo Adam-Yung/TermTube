@@ -86,3 +86,7 @@ Offline checks only (code reading, installed yt-dlp 2026.10.26, synthetic data).
 ## 2026-11-17 — Extraction window includes the skipped ids
 
 `_extract_videos` sets `playlistend` and the `ytsearch<N>:` count to `count + len(skip_ids)`. yt-dlp's window counts rows from the top of the feed, and `skip_ids` are filtered after extraction, so the old window of `count` made every extension batch of Home (and the search fallback) return the rows already shown and so nothing new.
+
+## 2026-11-17 — Local lists page like feeds, but never evict
+
+History, Library and the playlist views load through `add_entries` in `PAGE_SIZE` pages instead of one page of up to 500 rows (`_show_one_page` is gone). They pass `evict=False`: the panel's 30-page memory cap exists for feeds that can be refetched, and a Library of more than 600 items would otherwise lose its far pages for good.

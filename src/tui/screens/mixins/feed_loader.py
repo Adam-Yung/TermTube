@@ -81,15 +81,9 @@ class FeedLoaderMixin:
         finally:
             self._worker_end()
 
-    def _show_one_page(self, panel: VideoListPanel, entries: list[Entry]) -> None:
+    def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
         call = self.app.call_from_thread
-        call(panel.add_page, 1, entries)
-        call(panel.load_page, 1)
-        call(panel.finish_loading)
-
-    def _show_pages(self, panel: VideoListPanel, entries: list[Entry]) -> None:
-        call = self.app.call_from_thread
-        call(panel.add_entries, 1, entries)
+        call(lambda: panel.add_entries(1, entries, evict=evict))
         call(panel.load_page, 1)
         call(panel.finish_loading)
 
@@ -112,7 +106,7 @@ class FeedLoaderMixin:
         stash = visible(cache.get_home_stash() or []) if feed_key == "home" else []
         stash_ids = {e["id"] for e in stash if e.get("id")}
         if stash:
-            self._show_one_page(panel, stash)
+            self._show_pages(panel, stash)
             logger.stage("stash shown")
             self._eager_prefetch(stash[0])
         first_page = 2 if stash else 1
@@ -264,7 +258,7 @@ class FeedLoaderMixin:
         if not entries:
             self.app.call_from_thread(panel.set_empty_message, "No items")
             return
-        self._show_one_page(panel, entries)
+        self._show_pages(panel, entries, evict=False)
 
     def _load_playlist_index(self, panel: VideoListPanel) -> None:
         from src import playlist
@@ -285,7 +279,7 @@ class FeedLoaderMixin:
                 "_is_playlist": True,
                 "_playlist_name": name,
             })
-        self._show_one_page(panel, entries)
+        self._show_pages(panel, entries, evict=False)
 
     def _load_playlist_videos(self, name: str, panel: VideoListPanel) -> None:
         from src import playlist
@@ -298,7 +292,7 @@ class FeedLoaderMixin:
         entries = [
             cache.get_video_raw(vid) or {"id": vid, "title": vid, "uploader": ""} for vid in ids
         ]
-        self._show_one_page(panel, entries)
+        self._show_pages(panel, entries, evict=False)
 
     def _on_last_page_reached(self) -> None:
         if self._current_tab in PAGED_TABS:

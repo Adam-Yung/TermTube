@@ -58,3 +58,29 @@ async def test_an_extension_in_the_current_view_is_applied(app):
         screen._extend_feed(show=False, session=screen._feed_session)
         await pilot.pause(0.3)
         assert panel.total_pages > before
+
+
+async def test_local_lists_are_split_into_pages(app, monkeypatch):
+    from src import history
+
+    monkeypatch.setattr(history, "all_entries", lambda: _entries(45, "hist"))
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        screen._load_view("history")
+        await pilot.pause(0.5)
+        panel = screen._list()
+        assert panel.total_pages == 3
+        assert panel.can_go_next()
+
+
+async def test_a_long_local_list_keeps_every_page(app, monkeypatch):
+    from src import history
+
+    monkeypatch.setattr(history, "all_entries", lambda: _entries(650, "long"))
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        screen._load_view("history")
+        await pilot.pause(0.5)
+        panel = screen._list()
+        assert panel.total_pages == 33
+        assert panel.load_page(2)

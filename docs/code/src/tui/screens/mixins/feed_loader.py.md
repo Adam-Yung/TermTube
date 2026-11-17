@@ -17,7 +17,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 | home | `_load_feed` | stash, disk cache, or `ytdlp.fetch_page_batch` |
 | subscriptions | `_load_subscriptions` | `ytdlp.fetch_subscribed_channels`; rows are channels (`_is_channel`) and the detail panel switches to channel mode |
 | search | `_load_search` | `ytdlp.fetch_search_batch` (50 results, 3 pages) |
-| history | `_load_simple_list` | `history.iter_entries`, one page |
+| history | `_load_simple_list` | `history.all_entries`, split into `PAGE_SIZE` pages |
 | library | `_load_simple_list` | `library.all_entries` (filesystem only) |
 | playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py`, cached entries from `cache.get_video_raw` |
 
@@ -44,3 +44,5 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 at once; the remaining pages are added after the continuation requests finish, numbered after the pages the first batch used. A cache hit
 never fires the callback, so `_load_search` falls back to `_show_pages` when nothing was shown early. A fully empty result with nothing
 shown early goes through `_show_pages` too, which leaves the list on its empty state.
+
+Local lists (history, library, playlist index and view) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.

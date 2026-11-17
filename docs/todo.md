@@ -16,7 +16,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P0.2 Startup stage timings in `--debug` (A4.6) and a timing note in `docs/guides/startup-debugging.md` (44a81cb)
 
 ## Phase 1. Bugs and privacy quick set
-- [ ] P1.1 Home extension window (B1.1) and test
+- [x] P1.1 Home extension window (B1.1) and test (5fe9c57)
 - [ ] P1.2 Local lists use real paging (A6)
 - [ ] P1.3 Playlist `create()` no longer overwrites; stopgap for bare-id rows (B5.1)
 - [ ] P1.4 SponsorBlock hash-prefix endpoint (A1.2)

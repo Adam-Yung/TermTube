@@ -1,0 +1,119 @@
+{
+ "crates_io": {
+  "_about": "Added by a person after checking each crate page. Exact versions; scripts/guard/safe_crates.py enforces.",
+  "crates": {
+   "tokio": {
+    "versions": [
+     "1.54.1"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-10-21",
+    "why": "backend: async runtime"
+   },
+   "axum": {
+    "versions": [
+     "0.8.9"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-04-14",
+    "why": "backend: HTTP routing"
+   },
+   "hyper-util": {
+    "versions": [
+     "0.1.21"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-09-24",
+    "why": "backend: server glue"
+   },
+   "tower": {
+    "versions": [
+     "0.5.3"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-01-12",
+    "why": "backend: middleware, in-process tests"
+   },
+   "rustls": {
+    "versions": [
+     "0.23.46"
+    ],
+    "license": "Apache-2.0 OR ISC OR MIT",
+    "checked": "2026-11-16",
+    "published": "2026-10-14",
+    "why": "backend: TLS 1.3 (ring provider)"
+   },
+   "tokio-rustls": {
+    "versions": [
+     "0.26.6"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "checked": "2026-11-16",
+    "published": "2026-09-28",
+    "why": "backend: TLS on tokio sockets"
+   },
+   "rcgen": {
+    "versions": [
+     "0.14.10"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "checked": "2026-11-16",
+    "published": "2026-08-28",
+    "why": "backend: dev CA and leaf certs"
+   },
+   "rusqlite": {
+    "versions": [
+     "0.41.1"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-10-28",
+    "why": "backend: store (bundled SQLite)"
+   },
+   "ed25519-dalek": {
+    "versions": [
+     "3.0.0"
+    ],
+    "license": "BSD-3-Clause",
+    "checked": "2026-11-16",
+    "published": "2026-07-06",
+    "why": "backend: bundle and request signatures"
+   },
+   "argon2": {
+    "versions": [
+     "0.6.0"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "checked": "2026-11-16",
+    "published": "2026-08-27",
+    "why": "backend: admin password hashing"
+   },
+   "ureq": {
+    "versions": [
+     "3.5.1"
+    ],
+    "license": "MIT OR Apache-2.0",
+    "checked": "2026-11-16",
+    "published": "2026-11-02",
+    "why": "backend: test client (dev-dependency)"
+   },
+   "jsonschema": {
+    "versions": [
+     "0.60.2"
+    ],
+    "license": "MIT",
+    "checked": "2026-11-16",
+    "published": "2026-10-26",
+    "why": "backend: contract validation (dev-dependency)"
+   }
+  },
+  "refused": [
+   "rustls-pemfile"
+  ],
+  "accepted_advisories": {}
+ }
+}

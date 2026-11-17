@@ -203,8 +203,8 @@ class VideoListPanel(Widget):
     def is_loading(self) -> bool:
         return self._is_loading
 
-    def add_page(self, page_num: int, entries: list[Entry]) -> None:
-        """Store a page, dropping ids already held. Evicts far-away pages beyond the cap."""
+    def add_page(self, page_num: int, entries: list[Entry], *, evict: bool = True) -> None:
+        """Store a page, dropping ids already held. Evicts far-away pages beyond the cap unless ``evict`` is off."""
         deduped: list[Entry] = []
         for entry in entries:
             vid = entry.get("id", "")
@@ -214,7 +214,7 @@ class VideoListPanel(Widget):
                 self._seen_ids.add(vid)
             deduped.append(entry)
         self._pages[page_num] = deduped
-        if len(self._pages) > _MAX_PAGES_IN_MEMORY:
+        if evict and len(self._pages) > _MAX_PAGES_IN_MEMORY:
             keep_min = max(1, self._current_page - 2)
             keep_max = self._current_page + 2
             for pn in sorted(self._pages.keys()):
@@ -353,10 +353,10 @@ class VideoListPanel(Widget):
         except Exception:
             pass
 
-    def add_entries(self, start_page: int, entries: list[Entry]) -> None:
+    def add_entries(self, start_page: int, entries: list[Entry], *, evict: bool = True) -> None:
         """Add ``entries`` as consecutive PAGE_SIZE pages starting at ``start_page``."""
         for n, i in enumerate(range(0, len(entries), PAGE_SIZE)):
-            self.add_page(start_page + n, entries[i:i + PAGE_SIZE])
+            self.add_page(start_page + n, entries[i:i + PAGE_SIZE], evict=evict)
 
     @property
     def seen_ids(self) -> set[str]:
