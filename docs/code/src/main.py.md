@@ -10,7 +10,7 @@ Entry point (`termtube` and `python src/main.py`). Order of operations matters a
 4. `--version`, `--browser-help`, `--clear-history`, `--update` exit here, before the dependency check, so a broken install can still update itself.
 5. Dependency check, config, `--clear-cache`.
 6. `import textual_image.widget` before Textual starts. It probes the terminal for sixel/TGP support and cell size at import; the probe fails once Textual's I/O threads are running, and images then render wrong or not at all.
-7. Create the app, register cleanup, `app.run()`.
+7. Create the app, register cleanup, `app.run()`. Importing or constructing the app can raise `PermissionError`: `player.py` resolves the IPC socket path at import and `plat.private_dir` refuses a symlink, a non-directory or a foreign owner. `main` prints one plain line naming the directory and an `ls -ld` hint on stderr and exits 1; no traceback.
 
 ## Cleanup
 

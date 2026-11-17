@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import glob
 import os
 import shutil
@@ -97,9 +98,9 @@ def private_dir(path: str | Path) -> Path:
         return path
     info = path.lstat()
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-        raise PermissionError(f"{path} is not a plain directory")
+        raise PermissionError(errno.EPERM, "is not a plain directory", str(path))
     if info.st_uid != os.getuid():
-        raise PermissionError(f"{path} is owned by another user")
+        raise PermissionError(errno.EPERM, "is owned by another user", str(path))
     if info.st_mode & 0o077:
         path.chmod(0o700)
     return path

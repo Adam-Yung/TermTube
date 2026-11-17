@@ -39,6 +39,14 @@ def _c(code: str, text: str, *, color: bool) -> str:
     return f"\033[{code}m{text}\033[0m" if color else text
 
 
+def _untrusted_dir_message(exc: PermissionError) -> str:
+    where = exc.filename or "the temporary directory"
+    return (
+        f"TermTube cannot start: {where} {exc.strerror or 'cannot be trusted'}. "
+        f"Check it with `ls -ld {where}`, then remove it or fix its owner so it is a plain directory you own."
+    )
+
+
 def _print_help() -> None:
 
     color = _supports_color()
@@ -277,8 +285,12 @@ def main() -> None:
     except ImportError:
         pass
 
-    from src.tui.app import TermTubeApp
-    app = TermTubeApp(config)
+    try:
+        from src.tui.app import TermTubeApp
+        app = TermTubeApp(config)
+    except PermissionError as exc:  # player.py resolves the IPC directory at import and refuses an untrusted one
+        print(_untrusted_dir_message(exc), file=sys.stderr)
+        sys.exit(1)
 
     from src.plat import ProcessRegistry
 
