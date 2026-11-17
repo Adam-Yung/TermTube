@@ -2,73 +2,62 @@
 
 from __future__ import annotations
 
-import json
-
-from src.plat import atomic_write, get_config_dir
+from src.plat import get_config_dir
+from src.store import JsonStore
 
 _PLAYLISTS_PATH = get_config_dir() / "playlists.json"
 
-
-def _load() -> dict[str, list[str]]:
-    if _PLAYLISTS_PATH.exists():
-        try:
-            return json.loads(_PLAYLISTS_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {}
-
-
-def _save(data: dict[str, list[str]]) -> None:
-    _PLAYLISTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write(_PLAYLISTS_PATH, json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"))
+_store = JsonStore(lambda: _PLAYLISTS_PATH, version=1, default=dict)
 
 
 def list_names() -> list[str]:
     """Return all playlist names in creation order."""
-    return list(_load().keys())
+    return _store.read(list)
 
 
 def get_playlist(name: str) -> list[str]:
     """Return list of video IDs in the named playlist."""
-    return list(_load().get(name, []))
+    return _store.read(lambda data: list(data.get(name, [])))
 
 
 def create(name: str, video_ids: list[str] | None = None) -> bool:
     """Create a playlist with the given video IDs. Returns False, changing nothing, if the name exists."""
-    data = _load()
-    if name in data:
-        return False
-    data[name] = list(video_ids or [])
-    _save(data)
-    return True
+    def apply(data: dict) -> bool:
+        if name in data:
+            return False
+        data[name] = list(video_ids or [])
+        return True
+
+    return _store.update(apply)
 
 
 def add_video(name: str, video_id: str) -> bool:
     """Add video_id to playlist, creating it if needed. Returns False if already present."""
-    data = _load()
-    if name not in data:
-        data[name] = []
-    if video_id in data[name]:
-        return False
-    data[name].append(video_id)
-    _save(data)
-    return True
+    def apply(data: dict) -> bool:
+        ids = data.setdefault(name, [])
+        if video_id in ids:
+            return False
+        ids.append(video_id)
+        return True
+
+    return _store.update(apply)
 
 
 def remove_video(name: str, video_id: str) -> bool:
     """Remove video_id from playlist. Returns False if not found."""
-    data = _load()
-    if name not in data or video_id not in data[name]:
-        return False
-    data[name].remove(video_id)
-    _save(data)
-    return True
+    def apply(data: dict) -> bool:
+        if video_id not in data.get(name, []):
+            return False
+        data[name].remove(video_id)
+        return True
+
+    return _store.update(apply)
 
 
 def is_in_playlist(name: str, video_id: str) -> bool:
-    return video_id in _load().get(name, [])
+    return _store.read(lambda data: video_id in data.get(name, []))
 
 
 def video_playlists(video_id: str) -> list[str]:
     """Return names of all playlists containing video_id."""
-    return [name for name, ids in _load().items() if video_id in ids]
+    return _store.read(lambda data: [name for name, ids in data.items() if video_id in ids])

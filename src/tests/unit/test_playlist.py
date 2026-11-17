@@ -109,3 +109,16 @@ class TestCreateExisting:
         assert playlist.create("Keep", ["vid1", "vid2"]) is True
         assert playlist.create("Keep") is False
         assert playlist.get_playlist("Keep") == ["vid1", "vid2"]
+
+
+def test_concurrent_add_video_loses_no_update(temp_playlists):
+    import threading
+
+    def worker(n):
+        for i in range(20):
+            playlist.add_video("Busy", f"v{n}-{i}")
+
+    threads = [threading.Thread(target=worker, args=(n,)) for n in range(6)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert len(playlist.get_playlist("Busy")) == 120

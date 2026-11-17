@@ -15,3 +15,8 @@ On Windows the equivalent is a junction: see [setup.ps1 uses Remove-PathSafe](ru
 ## 2026-04-25 — fzf and gum deprecated
 
 Both tools need shell subprocess spawning and do not fit Textual's reactive widget model. All UI is native Textual widgets, which gives proper focus management, async data binding and consistent theming.
+
+## 2026-11-17 — One JsonStore for user JSON files
+
+`src/store.py` owns load, versioned envelope (`{"version", "data"}`), atomic 0600 write, corrupt-file `.bad` copies and locking. Playlists moved onto it
+unchanged in shape (v1); the file gains the envelope, so a build older than this one reads it as a playlist named `version`. Phase 5 migrates the data shape. Deferred (debounced) saves exist for history so the UI thread never waits on the disk; `atexit` flushes.
