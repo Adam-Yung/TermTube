@@ -1,0 +1,35 @@
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_827773dedcf1d8 6-9
+src/tests/tui/test_playlist_modal.py
+  s_6c28d43e292a51::t_31931220243a5b 1-37
+src/tui/screens/playlist_modal.py
+  s_6c28d43e292a51::t_07bc949a62b549 92-94,105
+docs/code/src/cache.py.md
+  s_6c28d43e292a51::t_827773dedcf1d8 10
+docs/todo.md
+  s_6c28d43e292a51::t_73125ebdb171ef 20
+docs/code/src/playlist.py.md
+  s_6c28d43e292a51::t_31931220243a5b 12
+src/tests/unit/test_playlist.py
+  s_6c28d43e292a51::t_31931220243a5b 105-111
+src/cache.py
+  s_6c28d43e292a51::t_31931220243a5b 337
+src/playlist.py
+  s_6c28d43e292a51::t_07bc949a62b549 36-37,39-40,43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2686aa0ef60a67bcda88c06db0a126160e826182",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
