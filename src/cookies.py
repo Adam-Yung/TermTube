@@ -66,6 +66,7 @@ def get_cookiejar(config):
             jar = extract_cookies_from_browser(browser)
             _narrow(jar)
             _jar = jar
+            logger.stage("cookie jar ready")
             logger.debug("extracted cookies from %s", browser)
         except Exception as exc:
             logger.debug("cookie extraction failed: %s", exc)

@@ -7,6 +7,7 @@ Never stderr (it corrupts Textual's rendering).
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,9 @@ _log = logging.getLogger("termtube")
 _log.propagate = False
 _debug_enabled = False
 _log_file: Path | None = None
+_t_import = time.monotonic()
+_t_last = _t_import
+_stages_seen: set[str] = set()
 
 # Set on records the screen already rendered into the debug window itself.
 _SKIP_TUI_ATTR = "_termtube_skip_tui"
@@ -54,6 +58,7 @@ def setup(debug: bool = False, level: str = DEFAULT_LEVEL) -> None:
     """Call once at startup. level only applies when debug is True."""
     global _debug_enabled, _log_file
     _debug_enabled = debug
+    _stages_seen.clear()
 
     for h in list(_log.handlers):
         _log.removeHandler(h)
@@ -111,6 +116,19 @@ def register_tui_sink(callback: Callable[[str, str], None] | None) -> None:
     """
     global _tui_sink
     _tui_sink = callback
+
+
+def stage(name: str) -> None:
+    """Log a startup milestone once, with the time since the previous one and since this module loaded."""
+    global _t_last
+    if not _debug_enabled or name in _stages_seen:
+        return
+    _stages_seen.add(name)
+    now = time.monotonic()
+    _log.debug(
+        "startup stage %s: +%.0f ms (%.0f ms since start)", name, (now - _t_last) * 1000, (now - _t_import) * 1000
+    )
+    _t_last = now
 
 
 def debug(msg: str, *args) -> None:

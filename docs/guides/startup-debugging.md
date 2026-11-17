@@ -249,3 +249,11 @@ With `--debug`, the audio player also starts mpv with `--msg-level=all=info --lo
 (`logger.log_file()`). Without it mpv only prints errors, and since mpv's terminal input is off (`--no-input-terminal`, `stdin` closed) a failure
 reads "exit code N" with an empty stderr when the cause is a warning-level condition such as a missing audio device. The real-app CI job
 (`scripts/e2e-local.py --debug-log`) prints both logs when a step fails.
+
+
+## App startup stages
+
+`termtube --debug` logs one line per startup milestone, each once: `startup stage <name>: +<ms since previous stage> (<ms since start> ms since start)`.
+Stages: `config loaded`, `first paint` (main screen mounted and refreshed), `stash shown` (Home stash rendered), `first rows` (first list page on screen),
+`cookie jar ready` (browser cookies extracted). Find them with `grep "startup stage" /tmp/TermTube/*.log`. The clock starts when `src.logger` is
+imported, so interpreter start and the `src.main` import chain are not counted; compare with `time termtube --version` for those.

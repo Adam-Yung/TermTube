@@ -13,6 +13,7 @@ Process-wide logger named `termtube`. Decisions: [docs/decisions/logging.md](../
 
 - `register_tui_sink(cb)`: `cb(levelname, message)` runs in whichever thread logged. The callback must marshal to the UI thread (`app.call_from_thread`). Registered by `tui/screens/mixins/debug_log.py`.
 - `file_only(...)` tags the record so `_TUIHandler` skips it. Used when a screen already drew a styled line in the debug window.
+- `stage(name)` logs a startup milestone once per name (`config loaded`, `first paint`, `first rows`, `stash shown`, `cookie jar ready`) with the delta since the previous stage and the time since `logger` was imported. Reading the log: [startup-debugging](../../guides/startup-debugging.md). It returns before any work when `--debug` is off.
 - `main.py` calls `setup` once, then prints `log_file()` on exit when `--debug` is set.
 
 ## Limits

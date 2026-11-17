@@ -262,6 +262,7 @@ class VideoListPanel(Widget):
 
         self._lv.focus()
         self._update_page_indicator()
+        logger.stage("first rows")
         return True
 
     def can_go_next(self) -> bool:

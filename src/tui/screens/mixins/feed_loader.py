@@ -113,6 +113,7 @@ class FeedLoaderMixin:
         stash_ids = {e["id"] for e in stash if e.get("id")}
         if stash:
             self._show_one_page(panel, stash)
+            logger.stage("stash shown")
             self._eager_prefetch(stash[0])
         first_page = 2 if stash else 1
 

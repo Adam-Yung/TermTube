@@ -109,6 +109,7 @@ class MainScreen(
         self._mount_debug_log()
         self.app.audio.log = self._log
         self._sync_player_bar()
+        self.call_after_refresh(logger.stage, "first paint")
         self.call_after_refresh(self._maybe_show_image_warning)
 
     def on_unmount(self) -> None:

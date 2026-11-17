@@ -252,6 +252,7 @@ def main() -> None:
 
     from src.config import Config
     config = Config(args.config)
+    logger.stage("config loaded")
     logger.debug("Config loaded from %s", getattr(config, "path", args.config or "default"))
 
     if args.clear_cache:
