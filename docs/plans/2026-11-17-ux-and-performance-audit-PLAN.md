@@ -401,13 +401,13 @@ Each step is one or two commits; each leaves `scripts/verify.sh` green.
 
 ## Appendix: verification list (things to confirm before building)
 
-1. `_extract_videos` second-call behaviour on Home (`playlistend` vs `skip_ids`), B1.1.
-2. `_load_simple_list` -> `add_page(1, all_entries)`: is `PAGE_SIZE` applied to local lists? A6.
-3. `playlist.create()` on an existing name from `PlaylistModal.on_input_submitted`. B5.1.
-4. Size and contents of a stored history entry (are `formats` or `description` stored?). A1.5, C2.
-5. Whether the installed yt-dlp exposes `:ythis` / `feed/history` and what a flat entry carries (timestamp? day section?). B4.
-6. Which branch the "sign in" error takes today (`_EXTRACTION_ERRORS` update prompt vs empty feed modal). A2.
-7. Temp/IPC directory creation mode and ownership check in `plat.py`. A1.7.
-8. `validate_thumb` coverage on the `download_thumbnail` path; PIL webp support. A1.1, B5.4.
-9. Unused keys: `f m M D J K u Q` against `keymap.py`, `help_screen.py`, `watch_modal.py`, every modal's `BINDINGS`. B7.
-10. Library scan time and sidecar size on a realistic library. A4.3.
+1. `_extract_videos` second-call behaviour on Home (`playlistend` vs `skip_ids`), B1.1. **Result: confirmed** (decisions/feeds-and-paging.md, 2026-11-17).
+2. `_load_simple_list` -> `add_page(1, all_entries)`: is `PAGE_SIZE` applied to local lists? A6. **Result: confirmed** (decisions/feeds-and-paging.md, 2026-11-17).
+3. `playlist.create()` on an existing name from `PlaylistModal.on_input_submitted`. B5.1. **Result: confirmed** (decisions/feeds-and-paging.md, 2026-11-17).
+4. Size and contents of a stored history entry (are `formats` or `description` stored?). A1.5, C2. **Result: flat rows 0.8 KB; Library rows carry full sidecar with `formats`** (decisions/feeds-and-paging.md, 2026-11-17).
+5. Whether the installed yt-dlp exposes `:ythis` / `feed/history` and what a flat entry carries (timestamp? day section?). B4. **Result: `:ythis` exists; entry fields still unverified (needs network, owner)** (decisions/feeds-and-paging.md, 2026-11-17).
+6. Which branch the "sign in" error takes today (`_EXTRACTION_ERRORS` update prompt vs empty feed modal). A2. **Result: swallowed into the empty-feed modal; update prompt only for escaped exceptions** (decisions/feeds-and-paging.md, 2026-11-17).
+7. Temp/IPC directory creation mode and ownership check in `plat.py`. A1.7. **Result: no ownership, symlink or mode check** (decisions/feeds-and-paging.md, 2026-11-17).
+8. `validate_thumb` coverage on the `download_thumbnail` path; PIL webp support. A1.1, B5.4. **Result: half-block path never validates or deletes bad files; webp supported** (decisions/feeds-and-paging.md, 2026-11-17).
+9. Unused keys: `f m M D J K u Q` against `keymap.py`, `help_screen.py`, `watch_modal.py`, every modal's `BINDINGS`. B7. **Result: all eight keys free** (decisions/feeds-and-paging.md, 2026-11-17).
+10. Library scan time and sidecar size on a realistic library. A4.3. **Result: 300 sidecars: 52 ms cold, 0.3 ms warm** (decisions/feeds-and-paging.md, 2026-11-17).
