@@ -33,19 +33,14 @@ def _build_ssl_context(pref: str) -> ssl.SSLContext:
     if pref == "certifi":
         import certifi
         return ssl.create_default_context(cafile=certifi.where())
-    if pref == "system":
-        return ssl.create_default_context()
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+    return ssl.create_default_context()
 
 
 def _read_ssl_pref() -> str | None:
     try:
         if _SSL_PREF_PATH.exists():
             pref = _SSL_PREF_PATH.read_text(encoding="utf-8").strip()
-            if pref in ("certifi", "system", "unverified"):
+            if pref in ("certifi", "system"):
                 return pref
     except OSError:
         pass
@@ -70,10 +65,10 @@ def _invalidate_ssl_pref() -> None:
         pass
 
 
-def _get_ssl_context() -> ssl.SSLContext:
-    """SSL context from the disk-cached preference, else the first of certifi, system, unverified that builds.
+def _get_ssl_context() -> ssl.SSLContext | None:
+    """Verifying SSL context from the disk-cached preference, else the first of certifi, system that builds.
 
-    Probing only creates contexts; it makes no network call.
+    Returns None when neither builds: there is no unverified fallback. Probing makes no network call.
     """
     pref = _read_ssl_pref()
     if pref:
@@ -89,14 +84,15 @@ def _get_ssl_context() -> ssl.SSLContext:
             continue
         _write_ssl_pref(candidate)
         return ctx
-    _write_ssl_pref("unverified")
-    return _build_ssl_context("unverified")
+    return None
 
 
 def _cached_ssl_context() -> ssl.SSLContext:
     global _ssl_context
     if _ssl_context is None:
         _ssl_context = _get_ssl_context()
+    if _ssl_context is None:
+        raise OSError("no verifying TLS context available")
     return _ssl_context
 
 

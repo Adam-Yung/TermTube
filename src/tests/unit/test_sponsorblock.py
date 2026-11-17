@@ -12,6 +12,7 @@ from src.sponsorblock import (
     _cached_ssl_context,
     _get_ssl_context,
     _read_cache,
+    _read_ssl_pref,
     _write_cache,
     fetch_segments,
 )
@@ -316,23 +317,26 @@ class TestSSLContext:
         import ssl
         assert isinstance(ctx, ssl.SSLContext)
 
-    def test_get_ssl_context_falls_back_on_probe_failure(self):
-        def _fail_unless_unverified(pref):
-            if pref in ("certifi", "system"):
-                raise Exception("probe failed")
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-            return ctx
-
-        import ssl
+    def test_no_context_builds_means_none_and_no_unverified_pref(self):
         with patch("src.sponsorblock._read_ssl_pref", return_value=None), \
-             patch("src.sponsorblock._build_ssl_context", side_effect=_fail_unless_unverified), \
-             patch("src.sponsorblock._write_ssl_pref"):
-            ctx = _get_ssl_context()
+             patch("src.sponsorblock._build_ssl_context", side_effect=Exception("probe failed")), \
+             patch("src.sponsorblock._write_ssl_pref") as write:
+            assert _get_ssl_context() is None
+        write.assert_not_called()
 
-        assert isinstance(ctx, ssl.SSLContext)
-        assert ctx.verify_mode == ssl.CERT_NONE
+    def test_an_old_unverified_pref_on_disk_is_ignored(self, tmp_path, monkeypatch):
+        pref = tmp_path / "ssl_pref"
+        pref.write_text("unverified", encoding="utf-8")
+        monkeypatch.setattr("src.sponsorblock._SSL_PREF_PATH", pref)
+        assert _read_ssl_pref() is None
+
+    def test_fetch_fails_closed_without_a_context(self, monkeypatch):
+        monkeypatch.setattr("src.sponsorblock._ssl_context", None)
+        monkeypatch.setattr("src.sponsorblock._get_ssl_context", lambda: None)
+        with patch("src.sponsorblock._do_fetch") as fetch, patch("src.sponsorblock._read_cache", return_value=None), \
+             patch("src.sponsorblock._write_cache"):
+            assert fetch_segments("AAAAAAAAAAA", ["sponsor"]) == []
+        fetch.assert_not_called()
 
     def test_cached_ssl_context_caches_result(self, monkeypatch):
         import ssl

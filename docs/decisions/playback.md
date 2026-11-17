@@ -88,3 +88,7 @@ The first Windows run of the real-app pipeline played nothing from the Library: 
 ## 2026-11-17 — SponsorBlock uses the hash-prefix endpoint
 
 `fetch_segments` calls `/api/skipSegments/<first 4 hex chars of sha256(videoID)>` and filters the response for the exact `videoID` locally. The old `?videoID=` query told a third party every video played, which is a watch history; the prefix reveals a bucket of roughly 65 000 possible ids. Cost: a larger response (every video in the bucket that has segments), still well inside the 3 s timeout. The `ssl_pref` fallback to an unverified context in the same module is a separate privacy and integrity issue, not changed here.
+
+## 2026-11-17 — SponsorBlock never falls back to unverified TLS
+
+When neither the certifi nor the system context builds, `sponsorblock` returns no skip segments (debug log) instead of disabling certificate checks. A saved `unverified` preference from an older build is ignored. Reason: a man-in-the-middle could otherwise inject skip ranges; losing skips is the cheaper failure.
