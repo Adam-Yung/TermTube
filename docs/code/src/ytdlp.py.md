@@ -25,7 +25,7 @@ Rules that follow:
 
 ## Fetch invariants
 
-- `_extract_videos` is the shared body of `fetch_page_batch` and `fetch_search_batch`. It retries once after 2 s on an empty result (YouTube returns an empty first response now and then) and skips entries that are not 11-character video ids or are playlists/channels.
+- `_extract_videos` is the shared body of `fetch_page_batch` and `fetch_search_batch`. It retries once after 2 s on an empty result (YouTube returns an empty first response now and then) and skips entries that are not 11-character video ids or are playlists/channels. The extractor window is `count + len(skip_ids)` (also the `ytsearch<N>:` fallback): `skip_ids` are dropped after extraction, so a window of `count` would return the same rows the caller already has and the second Home batch would be empty.
 - Every accepted entry goes to `cache.put_video`; the id list goes to `cache.put_feed` only when it reaches `_MIN_FEED_COUNT` (15) for feeds or `_MIN_SEARCH_COUNT` (5) for search. A short result is returned but not cached as a feed.
 - `_cached_entries` serves a cached feed only if at least the minimum survives `skip_ids` and missing entry files; otherwise the caller refetches.
 - `on_first_batch` fires once, on the first attempt only, in the worker thread. The caller must marshal to the UI.

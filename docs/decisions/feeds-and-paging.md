@@ -82,3 +82,7 @@ Offline checks only (code reading, installed yt-dlp 2026.10.26, synthetic data).
 8. **Thumbnails.** `download_thumbnail` only checks `len(data) >= 100` and reads without a cap. The pixel path validates with `validate_thumb` (full decode) after the download; the half-block path decodes inside a try block and never deletes a bad file, so it is retried on every view. PIL has webp support here (`features.check("webp")` is true). Fix in P1.5: validate inside `ui.thumbnail.download`.
 9. **Keys `f m M D J K u Q`.** None appears in `keymap.py`, any `BINDINGS` list or an `on_key` handler. All free.
 10. **Library scan.** 300 synthetic 41 KB sidecars: cold `all_entries` 52 ms, warm (mtime walk only) 0.3 ms. Cold cost is linear in sidecar bytes, so a real library of a few hundred 200 KB sidecars is in the low hundreds of milliseconds, on a worker thread. The index of P4.1 is worth it for size, not for urgency.
+
+## 2026-11-17 — Extraction window includes the skipped ids
+
+`_extract_videos` sets `playlistend` and the `ytsearch<N>:` count to `count + len(skip_ids)`. yt-dlp's window counts rows from the top of the feed, and `skip_ids` are filtered after extraction, so the old window of `count` made every extension batch of Home (and the search fallback) return the rows already shown and so nothing new.

@@ -141,9 +141,10 @@ def _extract_videos(
 ) -> tuple[list[VideoEntry], list[str]]:
     """Extract playable video entries from ``url``, caching each. Retries once on an empty result.
 
+    The extractor window is ``count + len(skip_ids)``: skipped ids still occupy rows of the feed.
     Returns ``(entries, ids)``. ``on_first_batch`` fires once, when ``first_batch_size`` entries exist.
     """
-    opts = _flat_opts(count)
+    opts = _flat_opts(count + len(skip_ids))
     results: list[VideoEntry] = []
     all_ids: list[str] = []
 
@@ -244,7 +245,7 @@ def fetch_search_batch(
     if not results:
         logger.debug("InnerTube search empty for %r; falling back to yt-dlp", query)
         results, all_ids = _extract_videos(
-            f"ytsearch{count}:{query}", config, cache, count=count, skip_ids=skip_ids,
+            f"ytsearch{count + len(skip_ids)}:{query}", config, cache, count=count, skip_ids=skip_ids,
             on_first_batch=on_first_batch,
         )
     if len(all_ids) >= _MIN_SEARCH_COUNT:

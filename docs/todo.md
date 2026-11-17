@@ -12,8 +12,8 @@ dependencies approved in principle, but none is planned (own fuzzy scorer, no `s
 Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dropped (reason).
 
 ## Phase 0. Measure and verify the unknowns
-- [ ] P0.1 Resolve the ten appendix items of the plan; record results in `docs/decisions/` and tick the plan's appendix
-- [ ] P0.2 Startup stage timings in `--debug` (A4.6) and a timing note in `docs/guides/startup-debugging.md`
+- [x] P0.1 Resolve the ten appendix items of the plan; record results in `docs/decisions/` and tick the plan's appendix (154466d)
+- [x] P0.2 Startup stage timings in `--debug` (A4.6) and a timing note in `docs/guides/startup-debugging.md` (44a81cb)
 
 ## Phase 1. Bugs and privacy quick set
 - [ ] P1.1 Home extension window (B1.1) and test
