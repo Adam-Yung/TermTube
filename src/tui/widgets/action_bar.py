@@ -12,9 +12,14 @@ from textual.widgets import Static
 
 from src.entries import Entry
 from src.sponsorblock import Segment
+from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_clock
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
+_COLUMNS = 5
+_GAP = 3  # cells between columns
+_GRID_INDENT = 2  # the left margin of #ab-actions
+_CHROME = 3  # border top and bottom, and the margin above the grid
 
 
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
@@ -56,7 +61,7 @@ class ActionBar(Widget):
     }
     ActionBar > Static { height: 1; }
 
-    #ab-actions { height: 3; margin-top: 1; margin-left: 2; }
+    #ab-actions { height: auto; margin-top: 1; margin-left: 2; }
 
     #np-title-line { margin-top: 1; color: #ffffff; }
     #np-bar-text   { margin-top: 1; }
@@ -83,6 +88,7 @@ class ActionBar(Widget):
         self._segment_cols_width: int = 0
         self._segment_cols_dur: float = 0.0
         self._prompt: str | None = None
+        self._actions_height = self._HEIGHT_ACTIONS
 
     def compose(self) -> ComposeResult:
         yield Static(id="ab-actions")
@@ -95,7 +101,7 @@ class ActionBar(Widget):
 
     def on_mount(self) -> None:
         self.border_title = "Actions"
-        self.query_one("#ab-actions", Static).update(self._get_actions_table())
+        self._render_actions()
         self.query_one("#ab-prompt").display = False
         self._update_np_keys()
         self._set_mode_actions()
@@ -112,45 +118,58 @@ class ActionBar(Widget):
     def _get_progress_color(self) -> str:
         return _PROGRESS_COLORS.get(self._theme(), "#6666ff")
 
-    def _get_actions_table(self) -> Table:
-        table = Table.grid(padding=(0, 4))
-        for _ in range(5):
-            table.add_column()
+    def _action_entries(self) -> list[tuple[str, str]]:
+        """Key and label pairs of the shortcut grid. Footer keys (search, refresh, settings, help, quit) stay out."""
+        screen = self.screen
+        entries = [("⏎", "Video actions")]
+        entries += [(keymap.key_of(a.action), a.bar) for a in keymap.ROW_ACTIONS if a.bar]
+        entries.append(("f", "Filter"))
+        if getattr(screen, "HAS_LIST_TOOLS", False):
+            entries += [("m", "Mark"), ("D", "Remove"), ("u", "Undo")]
+        if getattr(screen, "HAS_HISTORY_SOURCES", False):
+            entries.append(("Y", "Source"))
+        if getattr(screen, "HAS_SEARCH_FILTERS", False):
+            entries += [("s", "Sort"), ("t", "Type")]
+        if getattr(screen, "HAS_PLAYLIST_TOOLS", False):
+            entries += [("n", "New list"), ("R", "Rename"), ("J K", "Move")]
+            entries += [("P", "Play"), ("S", "Shuffle"), ("E", "Queue")]
+        return entries
 
+    def _column_count(self, entries: list[tuple[str, str]], width: int) -> int:
+        """The most columns (up to 5) whose widest cells, plus the gaps, fit in ``width``."""
+        cells = [len(f"{key} {label}") for key, label in entries]
+        for cols in range(_COLUMNS, 1, -1):
+            widths = [max(cells[c::cols], default=0) for c in range(cols)]
+            if sum(widths) + _GAP * (cols - 1) <= width:
+                return cols
+        return 1
+
+    def _render_actions(self) -> None:
+        """Lay the grid out for the current width and grow the panel to the rows it needs, so no entry is cut off."""
+        entries = self._action_entries()
+        width = max(self.content_size.width - _GRID_INDENT, 1)
+        cols = self._column_count(entries, width) if self.size.width else _COLUMNS
         color = self._get_theme_color()
+        table = Table.grid(padding=(0, _GAP))
+        for _ in range(cols):
+            table.add_column()
+        for start in range(0, len(entries), cols):
+            text = "#cccccc" if start == 0 else "#888888"
+            table.add_row(
+                *[
+                    f"[{text}][bold {color}]{key}[/bold {color}] [dim]{label}[/dim][/{text}]"
+                    for key, label in entries[start : start + cols]
+                ]
+            )
+        rows = -(-len(entries) // cols)
+        self._actions_height = max(self._HEIGHT_ACTIONS, rows + _CHROME)
+        actions = self.query_one("#ab-actions", Static)
+        actions.update(table)
+        if actions.display:
+            self.styles.height = self._actions_height
 
-        def r1(k: str, v: str) -> str:
-            return f"[#cccccc][bold {color}]{k}[/bold {color}] [dim]{v}[/dim][/#cccccc]"
-
-        def r2(k: str, v: str) -> str:
-            return f"[#888888][bold {color}]{k}[/bold {color}] [dim]{v}[/dim][/#888888]"
-
-        table.add_row(
-            r1("⏎", "Video actions"),
-            r1("v", "Video"),
-            r1("a", "Audio"),
-            r1("d", "Download"),
-            r1("c", "Channel"),
-        )
-        table.add_row(
-            r2("y", "Copy URL"),
-            r2("/", "Search"),
-            r2("p", "Playlist"),
-            r2("b", "Browser"),
-            r2("r", "Refresh"),
-        )
-        row3 = [r2("f", "Filter")]
-        if getattr(self.screen, "HAS_LIST_TOOLS", False):
-            row3 += [r2("m", "Mark"), r2("D", "Remove"), r2("u", "Undo")]
-        if getattr(self.screen, "HAS_HISTORY_SOURCES", False):
-            row3 += [r2("Y", "Source")]
-        if getattr(self.screen, "HAS_SEARCH_FILTERS", False):
-            row3 += [r2("s", "Sort"), r2("t", "Type")]
-        table.add_row(*row3)
-        if getattr(self.screen, "HAS_PLAYLIST_TOOLS", False):
-            table.add_row(r2("n", "New list"), r2("R", "Rename"), r2("J K", "Move"), r2("P S E", "Play/Shuffle/Queue"))
-
-        return table
+    def on_resize(self) -> None:
+        self._render_actions()
 
     def _build_segment_cols(self, width: int, dur: float) -> list[bool]:
         """Mark the columns that fall inside a SponsorBlock segment."""
@@ -226,7 +245,7 @@ class ActionBar(Widget):
 
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
-        self.query_one("#ab-actions", Static).update(self._get_actions_table())
+        self._render_actions()
         self._update_np_keys()
         if self._playing:
             self._refresh_player()
@@ -319,7 +338,7 @@ class ActionBar(Widget):
         self.query_one("#ab-prompt", Static).update(self._prompt or "")
 
     def _set_mode_actions(self) -> None:
-        self.styles.height = self._HEIGHT_ACTIONS
+        self.styles.height = self._actions_height
         self.border_title = "Actions"
         self.query_one("#ab-actions").display = True
         self.query_one("#np-title-line").display = False

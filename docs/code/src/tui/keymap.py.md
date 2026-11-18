@@ -7,6 +7,8 @@ player's keys are in `src/tui/screens/watch_modal.py`, not here.
 
 ## Rules
 
+- `ROW_ACTIONS` is the one list of actions on the highlighted row (icon, menu text, short panel label). The Enter menu and the Actions panel are built from it; `key_of(action)` reads the key from `PLAYBACK` and `ITEM_ACTIONS`, so the letters are written only in the bindings.
+
 - All bindings are `show=False`. The footer is the custom action bar (`src/tui/widgets/action_bar.py`).
 - `SEARCH` and `GLOBAL` (`,` settings, `q` quit, `?` help) are shared by `MainScreen` and `ChannelScreen`, so the channel page answers them too. `MainScreen` puts `r` Refresh between `SEARCH` and `GLOBAL` to keep its footer order.
 - Action names resolve to `action_<name>` on the screen: navigation to `ListNavMixin`, playback to `ItemActionsMixin` (which calls `app.audio`), item actions to the

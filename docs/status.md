@@ -1,10 +1,11 @@
 # Status
 
-**Last updated:** 2026-11-17. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6.
+**Last updated:** 2026-11-18. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6.
 The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists
 
+- Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` is not covered: it needs mpv). The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS` ([decisions/ui.md](decisions/ui.md)).
 - A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Help (`F1`..`F6`); vim-style keys ([features/keybindings.md](features/keybindings.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`.

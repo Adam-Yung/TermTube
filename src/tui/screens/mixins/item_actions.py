@@ -9,6 +9,7 @@ from src.plat import clipboard_copy
 from src.progress import is_live
 
 _HINT_REPEAT_S = 2.0
+_PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
 
 
 def watch_url(video_id: str) -> str:
@@ -41,19 +42,24 @@ class ItemActionsMixin:
     """
 
     def _hidden_menu_actions(self, entry: Entry) -> set[str]:
+        """The row actions the Enter menu leaves out: those that would only answer with a hint for this row."""
         audio = self.app.audio
         hidden: set[str] = set()
+        if entry.get("_missing_file"):
+            hidden |= _PLAYABLE_ACTIONS | {"download", "playlist"}
+        if is_live(entry) or entry.get("_has_audio"):
+            hidden.add("download")
         if audio.is_playing:
             hidden |= {"watch", "watch_quality"}
             if not audio.can_enqueue(entry):  # it is the current track or already queued
-                hidden.add("enqueue")
+                hidden.add("audio_enqueue")
         return hidden
 
     def _menu_labels(self) -> dict[str, str]:
         """Label overrides for the Enter menu: with nothing playing, ``e`` starts playback instead of queueing."""
         if self.app.audio.is_playing:
             return {}
-        return {"enqueue": "Play audio, queue more after  [dim](e)[/dim]"}
+        return {"audio_enqueue": "Play audio, queue more after"}
 
     def _hint(self, message: str, severity: str = "warning") -> None:
         """Short notice for a key that cannot act now. The same message is shown at most once per 2 s (held keys)."""
@@ -81,22 +87,9 @@ class ItemActionsMixin:
     def _open_action_menu(self, entry: Entry) -> None:
         from src.tui.screens.video_action_modal import VideoActionModal
 
-        dispatch = {
-            "watch": self.action_watch,
-            "watch_quality": self.action_watch_quality,
-            "audio": self.action_audio,
-            "audio_quality": self.action_audio_quality,
-            "enqueue": self.action_audio_enqueue,
-            "download": self.action_download,
-            "channel": self.action_channel,
-            "copy_url": self.action_copy_url,
-            "playlist": self.action_playlist,
-            "browser": self.action_browser,
-        }
-
-        def on_action(key: str | None) -> None:
-            if key in dispatch:
-                dispatch[key]()
+        def on_action(action: str | None) -> None:
+            if action:
+                getattr(self, f"action_{action}")()
 
         self.app.push_screen(
             VideoActionModal(entry, hide=self._hidden_menu_actions(entry), labels=self._menu_labels()), on_action

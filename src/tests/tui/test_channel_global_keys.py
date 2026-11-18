@@ -57,12 +57,12 @@ async def test_q_on_the_channel_page_quits_through_the_main_screen(app):
 async def test_menu_offers_queueing_when_idle_with_its_own_label_and_hides_it_for_the_playing_track(app):
     async with app.run_test(size=(110, 34)):
         screen = app.screen
-        assert "enqueue" not in screen._hidden_menu_actions(ENTRY)
-        assert "queue more" in screen._menu_labels()["enqueue"]
+        assert "audio_enqueue" not in screen._hidden_menu_actions(ENTRY)
+        assert "queue more" in screen._menu_labels()["audio_enqueue"]
         app.audio._play_pending = True
         app.audio._entry = ENTRY
-        assert "enqueue" in screen._hidden_menu_actions(ENTRY)
-        assert "enqueue" not in screen._hidden_menu_actions({"id": "BBBBBBBBBBB"})
+        assert "audio_enqueue" in screen._hidden_menu_actions(ENTRY)
+        assert "audio_enqueue" not in screen._hidden_menu_actions({"id": "BBBBBBBBBBB"})
         assert screen._menu_labels() == {}
 
 

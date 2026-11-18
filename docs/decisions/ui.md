@@ -54,3 +54,15 @@ after dated ones (`docs/code/src/history.py.md`).
 ## 2026-11-17 — `playlist.transfer` removed
 
 It had no UI and duplicated what the keys already do: `p` adds the selected video to other playlists and `D` removes it from the current one. A move is those two steps.
+
+## 2026-11-18 — Layout rules: dialogs, the Enter menu, the Actions panel
+
+The owner found modals off-center (the new-playlist prompt), a list-heavy dialog pushing its hint off the box, and shortcut entries cut off in the Actions panel and repeated from the footer. The rules, enforced by `src/tests/tui/test_layout_audit.py` (every modal at 80x24, 100x30, 120x40, 160x50 and 60x20):
+
+- **One centering rule.** `ModalScreen { align: center middle; }` in `theme.tcss`; no per-modal `align`. Every dialog box has `class="dialog"` (sizes to its content, at most 90% of the screen high and wide, `min-width: 36`, scrolls itself when the screen is smaller than its content). Only width, background and border colour differ per dialog, set by id.
+- **Lists scroll, not the frame.** A list in a dialog has `class="dialog-list"`: `height: auto; max-height: 50vh`. The title and hint stay in the box at any height; the list scrolls past half the screen. `1fr` or a fixed row cap cannot do this in an auto-height box (a fixed cap overflowed at 24 rows).
+- **Minimum size.** Dialogs are meant for 80x24 and up. At 60x20 they stay on screen and centered, and the box scrolls its own content; nothing is drawn outside it.
+- **The menu and the panel have one source.** `keymap.ROW_ACTIONS` lists the actions on the highlighted row; the Enter menu and the Actions panel both read it, and the key letter comes from the binding (`keymap.key_of`). The menu hides what would only answer with a hint for the row (missing file, live stream, already downloaded, the channel page's own channel).
+- **The Actions panel never repeats the footer.** `/` search, `r` refresh, `,` settings, `?` help and `q` quit are footer keys and are not in the panel (a test compares them). The panel picks its column count from its width and grows to the rows it needs.
+- `#thumbnail-area` is at most half the detail panel so the info and the panel fit on a 30-row terminal.
+

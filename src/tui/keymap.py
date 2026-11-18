@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from textual.binding import Binding
 
 LIST_NAV = [
@@ -40,6 +42,36 @@ ITEM_ACTIONS = [
     Binding("p", "playlist", show=False),
     Binding("b", "browser", show=False),
 ]
+
+
+
+class RowAction(NamedTuple):
+    """An action on the highlighted row: in the Enter menu when it applies, in the Actions panel when ``bar`` is set."""
+
+    action: str
+    icon: str
+    label: str
+    bar: str | None
+
+
+ROW_ACTIONS = [
+    RowAction("watch", "▶", "Watch video", "Video"),
+    RowAction("watch_quality", "▶·", "Watch — choose quality…", None),
+    RowAction("audio", "♪", "Play audio", "Audio"),
+    RowAction("audio_quality", "♪·", "Play audio — choose quality…", None),
+    RowAction("audio_enqueue", "♪+", "Add audio to queue", None),
+    RowAction("download", "↓", "Download…", "Download"),
+    RowAction("channel", "📺", "Browse channel", "Channel"),
+    RowAction("copy_url", "⎘", "Copy video URL", "Copy URL"),
+    RowAction("playlist", "+", "Add to playlist", "Playlist"),
+    RowAction("browser", "🌐", "Open in browser", "Browser"),
+]
+
+
+def key_of(action: str) -> str:
+    """The key bound to a row action, read from the bindings so the menu and the panel cannot drift from them."""
+    return next(b.key for b in (*PLAYBACK, *ITEM_ACTIONS) if b.action == action)
+
 
 FILTER = Binding("f", "filter", show=False)
 RAIL = Binding("tab", "rail_toggle", show=False)

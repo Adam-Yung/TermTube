@@ -8,19 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 from src.entries import Entry
 from src.tui.fmt import escape_markup
-
-_ACTIONS = [
-    ("watch",         "▶",  "Watch video  [dim](v)[/dim]"),
-    ("watch_quality", "▶·", "Watch — choose quality…  [dim](V)[/dim]"),
-    ("audio",         "♪",  "Play audio  [dim](a)[/dim]"),
-    ("audio_quality", "♪·", "Play audio — choose quality…  [dim](A)[/dim]"),
-    ("enqueue",       "♪+", "Add audio to queue  [dim](e)[/dim]"),
-    ("download",      "↓",  "Download…  [dim](d)[/dim]"),
-    ("channel",       "📺", "Browse channel  [dim](c)[/dim]"),
-    ("copy_url",      "⎘",  "Copy video URL  [dim](y)[/dim]"),
-    ("playlist",      "+",  "Add to playlist  [dim](p)[/dim]"),
-    ("browser",       "🌐", "Open in browser  [dim](b)[/dim]"),
-]
+from src.tui.keymap import ROW_ACTIONS, key_of
 
 
 class _ActionItem(ListItem):
@@ -38,7 +26,7 @@ class _ActionItem(ListItem):
 
 
 class VideoActionModal(ModalScreen[str | None]):
-    """Action picker for a selected video. Returns an action key string or None."""
+    """Action picker for a selected video: the ``ROW_ACTIONS`` not in ``hide``. Returns the action name or None."""
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
@@ -78,10 +66,10 @@ class VideoActionModal(ModalScreen[str | None]):
 
     def on_mount(self) -> None:
         lv = self.query_one("#vaction-list", ListView)
-        for key, icon, label in _ACTIONS:
-            if key in self._hide:
-                continue
-            lv.append(_ActionItem(key, icon, self._labels.get(key, label)))
+        for row in ROW_ACTIONS:
+            if row.action not in self._hide:
+                label = self._labels.get(row.action, row.label)
+                lv.append(_ActionItem(row.action, row.icon, f"{label}  [dim]({key_of(row.action)})[/dim]"))
         lv.focus()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:

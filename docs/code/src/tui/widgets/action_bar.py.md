@@ -9,11 +9,12 @@ The bottom-right box of the detail panel. It is either the shortcut grid (action
 - `set_actions_mode` clears segments, queue length and the wave timer. Call it on every stop path or the next track inherits the old SponsorBlock overlay.
 - `set_segments` overlays SponsorBlock ranges in green. The per-column map is cached by (width, duration) and rebuilt when either changes or segments are replaced.
 - Theme colours come from `app.config.theme` and fall back to crimson when the app has no config (isolated widget tests). `THEME_COLORS` is shared with `video_list.py`. Call `refresh_theme` after a theme change; Rich markup is baked into the Static widgets.
-- The key hints in `_update_np_keys` and the grid in `_get_actions_table` repeat `src/tui/keymap.py` by hand. Change them with the keymap (`docs/features/keybindings.md`).
+- The grid (`_action_entries`) takes the row actions and their keys from `keymap.ROW_ACTIONS` / `keymap.key_of`, the tools from the screen's `HAS_*` flags. It never lists a key the Footer already shows (`/` search, `r` refresh, `,` settings, `?` help, `q` quit): `tests/tui/test_row_actions.py` fails if it does. The key hints in `_update_np_keys` still repeat the keymap by hand (`docs/features/keybindings.md`).
+- `_render_actions` picks the column count that fits the panel width (up to 5) and raises the panel height to the rows needed, on every resize, so no entry is cut off.
 
 ## Limits
 
-Height switches between 7 and 11 rows on mode change, so the thumbnail area above resizes and triggers `DetailPanel.RerenderRequested`.
+Height is at least 7 in actions mode (more when the grid needs rows; the main screen lists every tool of every tab, 21 entries) and 11 in player mode, switching on mode change, so the thumbnail area above resizes and triggers `DetailPanel.RerenderRequested`.
 
 ## Prompt
 
