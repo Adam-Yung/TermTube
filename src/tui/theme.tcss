@@ -113,18 +113,6 @@ VideoListItem > Static {
     background: transparent;
 }
 
-#list-loading {
-    height: 1;
-    background: #0f0f0f;
-    color: #444444;
-    padding: 0 2;
-    display: block;
-}
-
-#list-loading.hidden {
-    display: none;
-}
-
 #list-breadcrumb {
     height: 1;
     text-wrap: nowrap;
@@ -239,9 +227,6 @@ FooterKey .footer-key--key {
 FooterKey .footer-key--description {
     color: #888888;
 }
-
-Scrollbar > .scrollbar--thumb { background: #ff4444; }
-Scrollbar > .scrollbar--thumb:hover { background: #ff6666; }
 
 #debug-log {
     height: 12;
@@ -700,8 +685,6 @@ App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00
 App.theme-amber #help-outer, App.theme-amber #nav-dialog, App.theme-amber #sort-dialog, App.theme-amber #ch-tab-dialog { border: solid #e8820c; }
 App.theme-amber #watch-dialog { background: #1a0d00; border: solid #e8820c; }
 App.theme-amber ProgressBar .bar--bar, App.theme-amber ProgressBar .bar--complete { color: #e8820c; }
-App.theme-amber Scrollbar > .scrollbar--thumb { background: #e8820c; }
-App.theme-amber Scrollbar > .scrollbar--thumb:hover { background: #ffb84d; }
 
 App.theme-ocean AppHeader { background: #001622; color: #0ea5e9; }
 App.theme-ocean #header-title, App.theme-ocean AppHeader #header-status { color: #0ea5e9; }
@@ -723,8 +706,6 @@ App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622
 App.theme-ocean #help-outer, App.theme-ocean #nav-dialog, App.theme-ocean #sort-dialog, App.theme-ocean #ch-tab-dialog { border: solid #0ea5e9; }
 App.theme-ocean #watch-dialog { background: #001622; border: solid #0ea5e9; }
 App.theme-ocean ProgressBar .bar--bar, App.theme-ocean ProgressBar .bar--complete { color: #0ea5e9; }
-App.theme-ocean Scrollbar > .scrollbar--thumb { background: #0ea5e9; }
-App.theme-ocean Scrollbar > .scrollbar--thumb:hover { background: #38bdf8; }
 
 App.theme-midnight AppHeader { background: #0d0018; color: #a855f7; }
 App.theme-midnight #header-title, App.theme-midnight AppHeader #header-status { color: #a855f7; }
@@ -746,8 +727,6 @@ App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0
 App.theme-midnight #help-outer, App.theme-midnight #nav-dialog, App.theme-midnight #sort-dialog, App.theme-midnight #ch-tab-dialog { border: solid #a855f7; }
 App.theme-midnight #watch-dialog { background: #0d0018; border: solid #a855f7; }
 App.theme-midnight ProgressBar .bar--bar, App.theme-midnight ProgressBar .bar--complete { color: #a855f7; }
-App.theme-midnight Scrollbar > .scrollbar--thumb { background: #a855f7; }
-App.theme-midnight Scrollbar > .scrollbar--thumb:hover { background: #c084fc; }
 
 /* Notifications: dialog colours, a thick accent bar like the list highlight, top right under the tab bar. */
 ToastRack {

@@ -88,3 +88,11 @@ The panel listed all 21 tools of every tab (7 rows at 100x30). The screen now an
 - **Panel keys that exist.** `s` on local History opens the sort picker, so the panel lists it there. `HAS_*` flags were dead after the panel moved to `panel_hints`.
 - **Key-consistency tests.** `test_help_matches_keymap.py`: every row action and panel tool key is in the help screen, the footer keys are, and F1..F6 match the tab count. `test_focus_after_modal.py`: Esc from each dialog returns focus to the list with the cursor kept.
 - **Judgment calls left to the owner** (nothing was changed): the channel page hides its info column under 100 columns; Home, Subscriptions and Search answer `D` with a hint instead of hiding the key; `Esc` on the Library list moves to the rail (it never leaves the tab), while `Esc` on History, Home and Subscriptions does nothing; `Z` and `F` are single capital letters that only work on one tab each, like `Y` and `I`.
+
+## 2026-11-18 — Wiring bug hunt: no hook defaults in mixins, tests read the MRO
+
+- **A mixin does not ship a default for a hook another class provides.** `_removals`, `_after_removal` and `_crumbs` had empty defaults that only worked because the host or `LibraryRailMixin` sat earlier in the MRO. They are gone; the mixin docstrings say who provides them. The two defaults that stay (`_worker_start`, `_worker_end` in `DetailFocusMixin`, and `ChannelScreen._on_page_shown`) are listed with the reason in `test_mixin_wiring.py`.
+- **Overrides are listed.** `test_mixin_wiring.py` holds, per screen, every name defined by more than one class in the MRO and the class that must win. A new duplicate fails until a person adds it with the winner.
+- **Textual runs every class's `on_<message>` handler**, so two mixins handling the same message do not shadow each other (until one calls `prevent_default`). The only duplicate is `on_key`, listed.
+- **`_pending_show` is reset by `_start_view`.** A waiting extension from the old view left it set; the new view's first background extension then jumped to its next page.
+- **`theme.tcss` rules for `#list-loading` and `Scrollbar`** matched nothing (no such widget id, no such Textual type) and were removed; `test_theme_wiring.py` fails on a selector that names nothing composed.

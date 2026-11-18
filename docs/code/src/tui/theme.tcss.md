@@ -9,7 +9,7 @@ The app stylesheet (`App.CSS_PATH`). Crimson is the base; amber, ocean and midni
 - `ThumbnailWidget`, `PageIndicator` and `ActionBar` carry their own `DEFAULT_CSS`; the help screen is styled here only. `#thumbnail-area` has no height cap here: `DetailPanel.fit` sets it (video info first, then the Actions panel, the thumbnail gets the rest and hides when under 6 rows).
 - Columns on the main screen: the rail is `24` cells, the list `9fr` (min 40), the detail panel `11fr` (min 30), so the three never add up to more than the screen. Screens carry `-narrow` under 100 columns (`src/tui/layout.py`, set through `App.HORIZONTAL_BREAKPOINTS`): shorter tab padding so all six tabs fit 80 columns, and on the channel page the info column is hidden. `#list-breadcrumb` is one line with an ellipsis.
 - Notifications: `ToastRack` and `Toast` (Textual's own widgets, no ids in Python) are styled at the end of the file; `Toast.-information` takes the theme accent per theme, `-warning` and `-error` are fixed. Decision: `docs/decisions/ui.md`. `run_test` hides toasts unless called with `notifications=True`.
-- Textual component classes (`.bar--bar`, `.footer-key--key`, `.scrollbar--thumb`) never appear in Python; they are not dead.
-- Every id and class here must appear in `src/**/*.py`; remove a rule with the widget that owned it.
+- Textual component classes (`.bar--bar`, `.footer-key--key`) never appear in Python; they are not dead.
+- Every id and class here must appear in `src/**/*.py`, and every type selector must name a real widget (`Scrollbar` is not one: Textual styles scrollbars through `scrollbar-color`); remove a rule with the widget that owned it. `src/tests/unit/test_theme_wiring.py` checks this.
 
 `QueueModal` (`Q`) uses `#queue-dialog`, `#queue-title`, `#queue-hint` and `#queue-list`; `#queue-title` is in the per-theme accent lists with the other dialog titles. `NameModal` and `YtdlpUpdateModal` take their ids from the playlist and image-warning groups.
