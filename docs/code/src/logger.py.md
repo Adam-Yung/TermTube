@@ -20,4 +20,5 @@ Process-wide logger named `termtube`. Decisions: [docs/decisions/logging.md](../
 
 - The log directory goes through `plat.private_dir` (0700, owner and symlink checked); if it is refused the file is not written, like any other `OSError`.
 - A failure to open the log file (`OSError`) is swallowed: the TUI sink still works, the file is silently missing.
+- `redact` and `_RedactFilter` (on both handlers) strip URL query strings (signed stream URLs), cookie/token/SAPISID/Authorization values and anything past 2000 characters from every message and traceback; yt-dlp errors embed URLs. Call sites need no care.
 - `setup` is safe to call again (tests): it removes existing handlers first.

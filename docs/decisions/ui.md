@@ -96,3 +96,6 @@ The panel listed all 21 tools of every tab (7 rows at 100x30). The screen now an
 - **Textual runs every class's `on_<message>` handler**, so two mixins handling the same message do not shadow each other (until one calls `prevent_default`). The only duplicate is `on_key`, listed.
 - **`_pending_show` is reset by `_start_view`.** A waiting extension from the old view left it set; the new view's first background extension then jumped to its next page.
 - **`theme.tcss` rules for `#list-loading` and `Scrollbar`** matched nothing (no such widget id, no such Textual type) and were removed; `test_theme_wiring.py` fails on a selector that names nothing composed.
+
+## 2026-11-18 — List messages escape their text; debug logs are redacted
+`VideoListPanel.set_error_message` / `set_empty_message` put text into markup. A raw exception text from yt-dlp (`[youtube] id: ...`, `[/x]`) raised `MarkupError` in the worker. They now escape (errors also cut at 400 characters). The `--debug` log passes every record through `logger.redact` so signed URLs and credentials never reach the file or the debug window.

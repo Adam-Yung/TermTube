@@ -93,6 +93,15 @@ Left for part B (screens, rail, bars):
 - [x] Guards: `test_mixin_wiring.py` (MRO overrides with winners, stubs, `self.x` contracts, bindings, message handlers), `test_hook_wiring.py` (spies through the running screens), `test_theme_wiring.py` (selectors and queried ids)
 - [ ] Judgment calls: `DownloadModal` swallows a failed `library.finish_download` with `except Exception: pass` (a download that never registers is invisible); `MainScreen.on_unmount` leaves `app.audio.log` pointing at the dead screen
 
+## Bug hunt 2: error paths (2026-11-18)
+- [x] Windows CI: channel breadcrumb and layout-audit tests waited on fixed pauses; now bounded state polling (586bc48). The `\\[` in the crumb failure is a single escape in a repr, not a double escape.
+- [x] `DownloadModal` swallowed a failed `finish_download`; now logs, drops the Library cache and notifies with the file name. `MainScreen.on_unmount` detaches the audio log (1248337)
+- [x] Synchronous `JsonStore.update` re-raised `OSError` into the UI (playlist create/add on a read-only or full disk crashed the app). Now notice once, data kept dirty, retried, never flushed to another path (7dddd68)
+- [x] A raw exception text with markup (`[youtube] id: ... [/x]`) crashed the list message; escaped and cut (video_list)
+- [x] `--debug` log redaction of URL queries, cookies, tokens, Authorization (`logger.redact`)
+- [x] Damaged-file matrix for all five stores (truncated, wrong type, future version, scalar)
+- [ ] Not covered (time budget): per-loader injection matrix for every SourceError, race scenarios of item 3, 5000-row paging budget, playlist name collision after strip. Single-writer assumption is documented in `docs/decisions/concurrency.md`; no cross-process lock exists.
+
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
 - [x] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code

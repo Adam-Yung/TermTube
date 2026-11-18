@@ -34,6 +34,9 @@ def _paginate(entries: list[Entry], size: int) -> dict[int, list[Entry]]:
     return {n + 1: entries[i:i + size] for n, i in enumerate(range(0, len(entries), size))}
 
 
+_MAX_MESSAGE = 400  # a raw exception text can be a whole page of HTML
+
+
 class _ItemClicked(Message):
     def __init__(self, entry: Entry) -> None:
         super().__init__()
@@ -482,10 +485,10 @@ class VideoListPanel(Widget):
         self._message.display = True
 
     def set_empty_message(self, msg: str) -> None:
-        self._show_message(f"[dim]{msg}[/dim]")
+        self._show_message(f"[dim]{escape_markup(msg)}[/dim]")
 
     def set_error_message(self, msg: str) -> None:
-        self._show_message(f"[#ff4444]{msg}[/#ff4444]")
+        self._show_message(f"[#ff4444]{escape_markup(msg[:_MAX_MESSAGE])}[/#ff4444]")
 
     def update_entry_by_id(self, vid_id: str, entry: Entry) -> None:
         """Replace an entry (held page and visible row) with its enriched version."""

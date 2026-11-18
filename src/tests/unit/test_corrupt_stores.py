@@ -1,6 +1,10 @@
 """A damaged user file starts empty, leaves a `.bad` copy and never crashes the caller."""
 
-from src import history, library, playlist, search_history
+import json
+
+import pytest
+
+from src import channel_bookmarks, history, library, playlist, search_history
 
 GARBAGE = "{not json"
 
@@ -37,3 +41,31 @@ def test_corrupt_playlists_start_empty(temp_playlists):
     temp_playlists.write_text(GARBAGE, encoding="utf-8")
     assert playlist.list_playlists() == []
     assert temp_playlists.with_name("playlists.json.bad").exists()
+
+
+STORES = [
+    (history, "HISTORY_PATH", "_store"),
+    (playlist, "_PLAYLISTS_PATH", "_store"),
+    (search_history, "SEARCH_HISTORY_PATH", "_store"),
+    (channel_bookmarks, "CHANNELS_PATH", "_store"),
+    (library, "INDEX_PATH", "_index"),
+]
+DAMAGE = {
+    "truncated": lambda: '{"version": 1, "data": [{"id": "a',
+    "wrong type": lambda: json.dumps({"version": 1, "data": "text"}),
+    "future version": lambda: json.dumps({"version": 999, "data": {}}),
+    "bare scalar": lambda: "42",
+}
+
+
+@pytest.mark.parametrize("damage", DAMAGE)
+@pytest.mark.parametrize("module, path_attr, store_attr", STORES, ids=lambda v: getattr(v, "__name__", str(v)))
+def test_every_store_survives_a_damaged_file(tmp_path, monkeypatch, module, path_attr, store_attr, damage):
+    path = tmp_path / "damaged.json"
+    path.write_text(DAMAGE[damage](), encoding="utf-8")
+    monkeypatch.setattr(module, path_attr, path)
+    store = getattr(module, store_attr)
+    default = store._default()
+    assert store.read(lambda data: data == default)
+    assert path.with_name("damaged.json.bad").exists() or path.with_name("damaged.json.v1").exists()
+    store._data, store._loaded_from = None, None

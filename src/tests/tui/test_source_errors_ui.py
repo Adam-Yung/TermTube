@@ -58,3 +58,17 @@ async def test_empty_but_ok_feed_still_opens_the_empty_modal(app, monkeypatch):
     async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause(0.5)
     assert modals == ["home"] and not shown
+
+
+async def test_an_unexpected_error_text_with_brackets_is_shown_as_text(app, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("[youtube] abc123: bad [/x] \\ thing")
+
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", boom)
+    async with app.run_test(size=(100, 30)) as pilot:
+        for _ in range(100):
+            await pilot.pause()
+            if app.screen._list()._message.display:
+                break
+        shown = app.screen._list()._message.render()
+    assert "[youtube] abc123: bad [/x]" in str(shown)

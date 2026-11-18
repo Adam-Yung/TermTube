@@ -7,6 +7,7 @@ Never stderr (it corrupts Textual's rendering).
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import datetime
@@ -37,6 +38,33 @@ _stages_seen: set[str] = set()
 _SKIP_TUI_ATTR = "_termtube_skip_tui"
 
 _tui_sink: Callable[[str, str], None] | None = None
+
+
+_URL_QUERY = re.compile(r"(https?://[^\s?#'\"<>]+)\?[^\s'\"<>]*")
+_SECRET = re.compile(
+    r"(?i)\b(cookie|set-cookie|sapisid\w*|__secure-\w+|access_token|token|signature|sig)\b(\s*[=:]\s*)[^\s,;'\"]+"
+)
+_AUTH_HEADER = re.compile(r"(?i)\b(authorization\s*[=:]\s*)[^\n]+")  # "Scheme value": two words
+_MAX_LINE = 2000
+
+
+def redact(text: str) -> str:
+    """Strip URL query strings (signed stream URLs), cookie/token values and runaway length from a log line."""
+    text = _URL_QUERY.sub(r"\1?<redacted>", text)
+    text = _AUTH_HEADER.sub(r"\1<redacted>", text)
+    text = _SECRET.sub(r"\1\2<redacted>", text)
+    return text if len(text) <= _MAX_LINE else text[:_MAX_LINE] + "…"
+
+
+class _RedactFilter(logging.Filter):
+    """Redacts the message and any traceback of a record before a handler writes it (yt-dlp errors embed URLs)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg, record.args = redact(record.getMessage()), None
+        if record.exc_info:
+            record.exc_text = redact("".join(logging.Formatter().formatException(record.exc_info)))
+            record.exc_info = None
+        return True
 
 
 class _TUIHandler(logging.Handler):
@@ -84,6 +112,7 @@ def setup(debug: bool = False, level: str = DEFAULT_LEVEL) -> None:
         fh = logging.FileHandler(_log_file, mode="w", encoding="utf-8")
         fh.setLevel(log_level)
         fh.setFormatter(fmt_file)
+        fh.addFilter(_RedactFilter())
         _log.addHandler(fh)
     except OSError:
         pass
@@ -91,6 +120,7 @@ def setup(debug: bool = False, level: str = DEFAULT_LEVEL) -> None:
     th = _TUIHandler()
     th.setLevel(log_level)
     th.setFormatter(fmt_tui)
+    th.addFilter(_RedactFilter())
     _log.addHandler(th)
 
     _log.debug(
