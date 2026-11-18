@@ -1,0 +1,40 @@
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_63cb4e2fbd2673 37-39,488,491
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_25df2f2fc94bb7 38
+docs/status.md
+  s_6c28d43e292a51::t_25df2f2fc94bb7 11
+src/tests/unit/test_corrupt_stores.py
+  s_6c28d43e292a51::t_af2458c9479831 3-7,44-69,71
+  s_6c28d43e292a51::t_8331c1db28f7a0 70
+src/logger.py
+  s_6c28d43e292a51::t_e2bcc940182fde 10,43-44,46,48-53,55-69,115,123
+  s_6c28d43e292a51::t_c218306e5f730f 45,47,54
+docs/todo.md
+  s_6c28d43e292a51::t_25df2f2fc94bb7 96-104
+src/tests/tui/test_source_errors_ui.py
+  s_6c28d43e292a51::t_0f390a1201ada1 61-74
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_25df2f2fc94bb7 99-101
+docs/code/src/logger.py.md
+  s_6c28d43e292a51::t_25df2f2fc94bb7 23
+src/tests/unit/test_log_redaction.py
+  s_6c28d43e292a51::t_e2bcc940182fde 1-25,28-44
+  s_6c28d43e292a51::t_b630e9192ffc58 26-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a6cd454dee8cea72e34e30bc1bdc1d529d290a58",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
