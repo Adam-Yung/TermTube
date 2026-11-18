@@ -240,6 +240,7 @@ async def test_the_channel_filter_blocks_extension(app, channel, monkeypatch):
         screen, panel = await open_channel(app, pilot, 2)
         screen._pager.start(2 * panel.page_size, "T1")
         panel._filter = "seed"
+        calls.clear()  # the screen's own startup load may still extend once, before the filter
         screen._on_past_last_page()
         screen._maybe_prefetch()
         assert calls == []
