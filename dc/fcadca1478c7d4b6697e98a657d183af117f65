@@ -1,0 +1,32 @@
+src/tests/unit/test_mixin_wiring.py
+  s_6c28d43e292a51::t_1f1be72a2d653b 211-214
+  s_6c28d43e292a51::t_2cecec850fba7d 1-104,106-160,166-169,172,176-178,181-210,215-226
+  s_6c28d43e292a51::t_63b636b617a3cf 161-165,170-171,173-175
+  s_6c28d43e292a51::t_10bb5db06a9b42 105,179-180
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_af2a09b8d43ced 46-47
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_6c28d43e292a51::t_d975fc9b5b4344 21
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_442a658b583d2b 41-42
+docs/features/architecture.md
+  s_6c28d43e292a51::t_d975fc9b5b4344 43
+docs/code/src/tui/screens/mixins/list_tools.py.md
+  s_6c28d43e292a51::t_d975fc9b5b4344 7-8,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "dcfcadca1478c7d4b6697e98a657d183af117f65",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
