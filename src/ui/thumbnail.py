@@ -75,19 +75,25 @@ def download(video_id: str, url: str, *, insecure: bool = False) -> Path | None:
     except OSError as exc:
         logger.debug("Thumbnail cache dir create failed for %s: %s", video_id, exc)
         return None
-    try:
-        from src.plat import download_thumbnail
-        if download_thumbnail(url, str(dest), insecure=insecure):
-            if validate_thumb(dest):
-                logger.debug("Downloaded thumbnail for %s", video_id)
-                return dest
-            logger.debug("Thumbnail for %s is not a decodable image; dropped", video_id)
+    from src.plat import download_thumbnail
+
+    # The extractor's URL can be a signed variant the CDN refuses; the plain id URL needs no signature.
+    urls = [url]
+    if _VIDEO_ID.fullmatch(video_id) and _YTIMG_URL.format(video_id) != url:
+        urls.append(_YTIMG_URL.format(video_id))
+    for candidate in urls:
+        try:
+            if download_thumbnail(candidate, str(dest), insecure=insecure):
+                if validate_thumb(dest):
+                    logger.debug("Downloaded thumbnail for %s", video_id)
+                    return dest
+                logger.debug("Thumbnail for %s is not a decodable image; dropped", video_id)
+            else:
+                logger.debug("Thumbnail download failed for %s: %s", video_id, candidate.split("?")[0])
+        except Exception as exc:
+            logger.debug("Thumbnail download error for %s: %s", video_id, exc)
         dest.unlink(missing_ok=True)
-        return None
-    except Exception as exc:
-        logger.debug("Thumbnail download error for %s: %s", video_id, exc)
-        dest.unlink(missing_ok=True)
-        return None
+    return None
 
 
 def ensure_thumb_jpeg(

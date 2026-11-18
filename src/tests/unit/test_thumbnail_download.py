@@ -94,3 +94,21 @@ def test_insecure_thumbnails_config_is_strict(tmp_path):
     assert Config(path=str(path)).insecure_thumbnails is True
     path.write_text("insecure_thumbnails: 'true'\n", encoding="utf-8")
     assert Config(path=str(path)).insecure_thumbnails is False
+
+
+def test_a_refused_extractor_url_falls_back_to_the_plain_id_url(tmp_path, monkeypatch):
+    monkeypatch.setattr(thumbnail, "THUMB_DIR", tmp_path)
+    tried = []
+
+    def fake(url, dest, timeout=8, *, insecure=False):
+        tried.append(url)
+        if "sqp=" in url:
+            return False
+        from PIL import Image
+        Image.new("RGB", (4, 4)).save(dest, "JPEG")
+        return True
+
+    monkeypatch.setattr(plat, "download_thumbnail", fake)
+    path = thumbnail.download("abc123def45", "https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x")
+    assert path is not None and path.exists()
+    assert tried == ["https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x", URL]
