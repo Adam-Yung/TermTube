@@ -1,0 +1,103 @@
+docs/code/src/config.py.md
+  s_6c28d43e292a51::t_f705aa0a5f89bf 25
+docs/code/src/history.py.md
+  s_6c28d43e292a51::t_386ce29e2383ec 10,21-22
+docs/code/src/player.py.md
+  s_6c28d43e292a51::t_06b6865ffd111e 90-91
+docs/code/src/progress.py.md
+  s_6c28d43e292a51::t_beaf27d5dc531f 1-17
+docs/code/src/tui/audio_controller.py.md
+  s_6c28d43e292a51::t_67f20fa833be44 53-58
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_705871d2815df1 42-45
+docs/code/src/tui/screens/queue_modal.py.md
+  s_6c28d43e292a51::t_92f71225b5f931 1-9
+docs/code/src/tui/screens/watch_modal.py.md
+  s_6c28d43e292a51::t_3bdfc277fbbb82 33-36
+docs/code/src/tui/theme.tcss.md
+  s_6c28d43e292a51::t_04309a84959c54 12-13
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_21717335269c47 31-32
+docs/decisions/playback.md
+  s_6c28d43e292a51::t_fbcddaa0ce6cdd 95-104
+docs/features/configuration.md
+  s_6c28d43e292a51::t_095ae9c10977c4 39,46
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_3874b433d28dde 53-54
+docs/features/playback.md
+  s_6c28d43e292a51::t_69ec19d04056cf 5,11-14,26-32,39
+docs/status.md
+  s_6c28d43e292a51::t_dc1d6f6ac171b3 11
+docs/todo.md
+  s_6c28d43e292a51::t_64f3aa633a0ef8 70
+src/config.py
+  s_6c28d43e292a51::t_4dcd209d362d5e 45,190-194
+src/history.py
+  s_6c28d43e292a51::t_7d67707463030a 58-59,74-110
+src/player.py
+  s_6c28d43e292a51::t_0c7d129cd7728d 465-469,481,504
+src/progress.py
+  s_6c28d43e292a51::t_b6e4f9ade369df 1-79
+src/tests/tui/test_list_tools.py
+  s_19485800bd94b9::t_8390b915eb8e6f 361-411
+src/tests/tui/test_queue.py
+  s_6c28d43e292a51::t_b2530c13917c78 1-254
+src/tests/unit/test_progress.py
+  s_6c28d43e292a51::t_59acebdbdfc947 1-168
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_58933dd3a98834 22,24,73,126,134,149,163-198,224-228,230,375-377,395,435,484,486-487
+src/tui/keymap.py
+  s_6c28d43e292a51::t_0f7666baa0dc1d 26
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_1aaacfe6ef3f76 28,70
+src/tui/screens/main_screen.py
+  s_19485800bd94b9::t_8383501973959c 51-55,128,135,332-346,354-356,528
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_132150b8276dca 118,120,122
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_f439038d800371 9,176-184,207
+src/tui/screens/queue_modal.py
+  s_6c28d43e292a51::t_ecd53a4e09ab09 1-151
+src/tui/screens/watch_modal.py
+  s_6c28d43e292a51::t_f6ddaebc016677 24,56,130-132,135,149,154-155,189,200,252-253
+src/tui/settings_fields.py
+  s_6c28d43e292a51::t_2ff4746628cca8 136-137
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_f72e7d3d156fc7 344-372,678,701,724
+src/tui/widgets/action_bar.py
+  s_6c28d43e292a51::t_e257ea250abc9e 23-24
+src/tui/widgets/video_list.py
+  s_753aceb5cff2f0::t_a41aafb9174161 18,196-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0ca0724723d596271879f2da1c21bfae1106720e",
+  "prompts": {},
+  "sessions": {
+    "s_19485800bd94b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "66024557-3c98-4548-90fc-ff25b4f88d6a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_753aceb5cff2f0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4a81db4419672831",
+        "model": "unknown"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
