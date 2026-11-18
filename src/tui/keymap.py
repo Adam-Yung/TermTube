@@ -69,8 +69,13 @@ ROW_ACTIONS = [
 
 
 def key_of(action: str) -> str:
-    """The key bound to a row action, read from the bindings so the menu and the panel cannot drift from them."""
-    return next(b.key for b in (*PLAYBACK, *ITEM_ACTIONS) if b.action == action)
+    """The key bound to an action, read from the bindings so the menu and the panel cannot drift from them.
+
+    A screen's own binding wins where two lists bind a key to different actions (``P`` plays a playlist or a channel).
+    """
+    bound = (*PLAYBACK, *ITEM_ACTIONS, FILTER, *LIST_TOOLS, *HISTORY_KEYS, *PLAYLIST_TOOLS, *SEARCH_FILTERS,
+             *HOME, *SUBSCRIPTIONS, *CHANNEL_PAGE)
+    return next(b.key for b in bound if b.action == action)
 
 
 FILTER = Binding("f", "filter", show=False)
@@ -126,3 +131,39 @@ SUBSCRIPTIONS = [Binding("F", "following", show=False)]
 FOCUS_RECLAIM_KEYS = frozenset(
     {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}
 )
+
+
+class PanelTool(NamedTuple):
+    """A tool the Actions panel lists when its screen says it applies: one or more bound actions shown as one entry."""
+
+    actions: tuple[str, ...]
+    label: str
+
+
+PANEL_TOOLS = [
+    PanelTool(("filter",), "Filter"),
+    PanelTool(("mark",), "Mark"),
+    PanelTool(("delete",), "Remove"),
+    PanelTool(("undo",), "Undo"),
+    PanelTool(("history_source",), "Source"),
+    PanelTool(("history_import",), "Import"),
+    PanelTool(("search_sort",), "Sort"),
+    PanelTool(("search_type",), "Type"),
+    PanelTool(("show_played",), "Played"),
+    PanelTool(("following",), "Following"),
+    PanelTool(("playlist_new",), "New list"),
+    PanelTool(("playlist_rename",), "Rename"),
+    PanelTool(("playlist_move_down", "playlist_move_up"), "Move"),
+    PanelTool(("playlist_play",), "Play"),
+    PanelTool(("playlist_shuffle",), "Shuffle"),
+    PanelTool(("playlist_enqueue",), "Queue"),
+    PanelTool(("play_all",), "Play all"),
+    PanelTool(("enqueue_all",), "Queue all"),
+    PanelTool(("save_list",), "Save list"),
+    PanelTool(("bookmark",), "Follow"),
+]
+
+
+def tool_hints(applicable: set[str]) -> list[tuple[str, str]]:
+    """Key and label pairs of the ``PANEL_TOOLS`` whose first action is in ``applicable``, in table order."""
+    return [(" ".join(key_of(a) for a in t.actions), t.label) for t in PANEL_TOOLS if t.actions[0] in applicable]

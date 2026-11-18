@@ -46,8 +46,6 @@ class ListToolsMixin:
     through ``_hint``. Needs ``_list()``, ``_selected_entry()``, ``_detail()``, ``_current_tab`` and ``_hint``.
     """
 
-    HAS_LIST_TOOLS = True
-
     def _removals(self) -> dict[str, Removal]:
         return {}
 
@@ -138,9 +136,13 @@ class ListToolsMixin:
             self._undo = (tab, removed, time.monotonic())
             self.notify(f"Removed {count} {noun}. Press u to undo.", timeout=4)
         self._after_removal()
+        self._refresh_actions()
+
+    def _can_undo(self) -> bool:
+        return self._undo is not None and time.monotonic() - self._undo[2] <= _UNDO_WINDOW_S
 
     def action_undo(self) -> None:
-        if self._undo is None or time.monotonic() - self._undo[2] > _UNDO_WINDOW_S:
+        if not self._can_undo():
             self._undo = None
             self._hint("Nothing to undo.", "information")
             return
@@ -151,6 +153,7 @@ class ListToolsMixin:
         if tab in (self._current_tab, "playlists"):
             self._list().replace_entries(removal.reload(), focus_id=records[0].get("id"))
         self._after_removal()
+        self._refresh_actions()
         count = len(records)
         noun = f"{removal.noun}{'' if count == 1 else 's'}"
         self.notify(f"Restored {count} {noun} to {removal.label or tab.title()}.", timeout=4)

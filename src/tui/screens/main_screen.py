@@ -83,8 +83,6 @@ class MainScreen(
     _LIST_ID = "#video-list-panel"
     _DETAIL_ID = "#detail-panel"
 
-    HAS_SEARCH_FILTERS = True
-
     BINDINGS = [
         *keymap.LIST_NAV,
         *keymap.PLAYBACK,
@@ -110,8 +108,6 @@ class MainScreen(
         *keymap.HOME,
         *keymap.GLOBAL,
     ]
-
-    HAS_HISTORY_SOURCES = True
 
     def __init__(self) -> None:
         super().__init__()
@@ -142,6 +138,47 @@ class MainScreen(
             "library:audio": library_delete.removal(self.app.config, "audio"),
             **self._playlist_removals(),
         }
+
+    def _tool_actions(self) -> set[str]:
+        """The tools that apply to this tab and focus: removal and marks where the tab can remove, its own keys."""
+        view, tab, on_rail = self._current_tab, tab_of(self._current_tab), self._rail_focused()
+        playlist_shown = (self._rail_playlist() if on_rail else self._playlist_id()) is not None
+        removable = playlist_shown if on_rail else view in self._removals()
+        tools = {"delete"} if removable else set()
+        if not on_rail:
+            tools.add("filter")
+            if removable or view == "history:yt":
+                tools.add("mark")
+        if view == "history:yt":
+            tools.add("history_import")
+        if self._can_undo():
+            tools.add("undo")
+        tools |= {"history": {"history_source"}, "home": {"show_played"}, "subscriptions": {"following"},
+                  "search": {"search_sort", "search_type"}}.get(tab if tab == "history" else view, set())
+        if tab == "library":
+            tools.add("playlist_new")
+        if playlist_shown:
+            tools |= {"playlist_rename", "playlist_play", "playlist_shuffle", "playlist_enqueue"}
+            if not on_rail:
+                tools.add("playlist_move_down")
+        return tools
+
+    def panel_hints(self) -> list[tuple[str, str]]:
+        if self._rail_focused():
+            return [("⏎", "Open"), *keymap.tool_hints(self._tool_actions())]
+        return super().panel_hints()
+
+    def on_list_view_highlighted(self) -> None:
+        self._refresh_actions()
+
+    def on_library_rail_moved(self) -> None:
+        self._refresh_actions()
+
+    def on_descendant_focus(self) -> None:
+        self._refresh_actions()
+
+    def on_descendant_blur(self) -> None:
+        self._refresh_actions()
 
     def _selected_entry(self) -> Entry | None:
         """The highlighted row; none while the rail has focus, so row actions never act on a row the user is not on."""

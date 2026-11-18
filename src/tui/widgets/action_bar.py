@@ -13,7 +13,6 @@ from textual.widgets import Static
 
 from src.entries import Entry
 from src.sponsorblock import Segment
-from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_clock
 from src.tui.layout import MIN_INFO_ROWS
 
@@ -125,21 +124,8 @@ class ActionBar(Widget):
         return _PROGRESS_COLORS.get(self._theme(), "#6666ff")
 
     def _action_entries(self) -> list[tuple[str, str]]:
-        """Key and label pairs of the shortcut grid. Footer keys (search, refresh, settings, help, quit) stay out."""
-        screen = self.screen
-        entries = [("⏎", "Video actions")]
-        entries += [(keymap.key_of(a.action), a.bar) for a in keymap.ROW_ACTIONS if a.bar]
-        entries.append(("f", "Filter"))
-        if getattr(screen, "HAS_LIST_TOOLS", False):
-            entries += [("m", "Mark"), ("D", "Remove"), ("u", "Undo")]
-        if getattr(screen, "HAS_HISTORY_SOURCES", False):
-            entries.append(("Y", "Source"))
-        if getattr(screen, "HAS_SEARCH_FILTERS", False):
-            entries += [("s", "Sort"), ("t", "Type")]
-        if getattr(screen, "HAS_PLAYLIST_TOOLS", False):
-            entries += [("n", "New list"), ("R", "Rename"), ("J K", "Move")]
-            entries += [("P", "Play"), ("S", "Shuffle"), ("E", "Queue")]
-        return entries
+        """Key and label pairs of the grid: what the screen says applies to the current tab and row."""
+        return self.screen.panel_hints()
 
     def _column_count(self, entries: list[tuple[str, str]], width: int) -> int:
         """The most columns (up to 5) whose widest cells, plus the gaps, fit in ``width``."""

@@ -30,7 +30,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `h` `l` `←` `→` | previous / next page | seek −5 s / +5 s |
 | `H` `L` | previous / next tab | seek −10 s / +10 s |
 | `g` `G` | first / last item of the list | |
-| `Enter` | action menu: the row actions below that apply to the row (the menu and the Actions panel are built from `keymap.ROW_ACTIONS`); the panel leaves out the footer keys `/` `r` `,` `?` `q` | |
+| `Enter` | action menu: the row actions below that apply to the row (the menu and the Actions panel are built from `keymap.ROW_ACTIONS`); the panel leaves out the footer keys `/` `r` `,` `?` `q` and lists only what applies to the current tab, focus and row (no download on a playlist row, no `D` on Home, rail tools while the rail has focus; entries that do not fit end in `…`) | |
 | `v` `V` | watch / choose quality (refused while audio plays) | |
 | `a` `A` | play audio / choose quality (replaces the current track) | |
 | `e` | add audio to the queue | |

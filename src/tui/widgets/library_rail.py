@@ -42,6 +42,9 @@ class LibraryRail(Widget, can_focus=True):
             super().__init__()
             self.view = view
 
+    class Moved(Message):
+        """The cursor is on another entry."""
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._items: list[RailItem] = []
@@ -82,6 +85,7 @@ class LibraryRail(Widget, can_focus=True):
         if self._items:
             self._cursor = max(0, min(to, len(self._items) - 1))
             self.refresh()
+            self.post_message(self.Moved())
 
     def action_cursor_down(self) -> None:
         self._move(self._cursor + 1)

@@ -66,8 +66,6 @@ class PlaylistToolsMixin:
     Needs `LibraryRailMixin` (`_rail_focused`, `_rail_playlist`, `_select_collection`, `_collection_entries`).
     """
 
-    HAS_PLAYLIST_TOOLS = True
-
     def _playlist_id(self) -> str | None:
         """The shown playlist's id, or None on any other view."""
         tab = self._current_tab

@@ -19,3 +19,5 @@ Video playback (`WatchModal`) suspends the app and runs mpv in the foreground (`
 
 `_playable_entry` refuses a Library row flagged `_missing_file` with a hint to press `D`.
 - `_open_channel` passes `_crumbs()` (the breadcrumb trail of the screen it was opened from; empty by default) to `ChannelScreen`. `MainScreen` returns its tab label, `ChannelScreen` its own trail plus its channel name. `ChannelScreen` hides "channel" only for rows of its own channel.
+
+`panel_hints()` feeds the Actions panel (`ActionBar._action_entries`): Enter and the row actions for the highlighted row (a playlist or channel row only gets copy URL and browser), then `keymap.tool_hints(_tool_actions())`. A screen overrides `_tool_actions` to say which tools apply (`MainScreen`: by tab, removal support, rail focus, undo; `ChannelScreen`: follow, and play/queue/save inside a playlist) and calls `_refresh_actions` when the row, the focus or the tab changes.

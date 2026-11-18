@@ -76,3 +76,7 @@ The owner found part of the Library list pushed off screen next to the new rail.
 - **Detail panel vertical budget.** Video info keeps 6 rows first (it showed 2 at 80x24). Then the Actions panel (at most 5 grid rows, ending in a `…` cell when entries do not fit). The thumbnail gets what is left, at most 25 rows and half the panel, and is hidden under 6 rows. At 80x24 with the one-line rail it is hidden.
 - **Breadcrumbs are one line** with an ellipsis (the Following and YouTube-history breadcrumbs wrapped to two lines and were cut).
 - **The one-line rail fits its width**: its `▸ i/n` position was 3 cells too wide and cut.
+
+## 2026-11-18 — The Actions panel shows what applies (UI audit, part B)
+
+The panel listed all 21 tools of every tab (7 rows at 100x30). The screen now answers `panel_hints()`: Enter plus the row actions that apply to the highlighted row (`ROW_ACTIONS` minus the Enter menu's hidden set; a playlist or channel row only gets copy URL and browser, and a channel row `⏎ Open channel`), then the tools that apply to the tab and focus (`keymap.PANEL_TOOLS`: `f` filter, `m` `D` where the tab can remove, `u` while an undo is open, `Y` and `I` on History, `Z` on Home, `F` on Subscriptions, `s` `t` on Search, `n` in Library, `R` `J K` `P` `S` `E` on a playlist; with the rail focused only the rail's tools; the channel page lists follow and, inside a playlist, play all, queue all and save). The `HAS_*` class flags are gone. The grid shows at most 5 rows and ends in `…` when entries do not fit; `?` lists every key.

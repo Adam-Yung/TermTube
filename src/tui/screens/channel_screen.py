@@ -113,6 +113,13 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         self.set_timer(0.05, self._start_content_once)
         self._sync_player_bar()
 
+    def _tool_actions(self) -> set[str]:
+        tools = {"filter", "bookmark"}
+        return tools | {"play_all", "enqueue_all", "save_list"} if self._playlist is not None else tools
+
+    def on_list_view_highlighted(self) -> None:
+        self._refresh_actions()
+
     def _info_panel(self) -> ChannelInfoPanel:
         return self.query_one("#ch-info-panel", ChannelInfoPanel)
 

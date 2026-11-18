@@ -7,6 +7,7 @@ from src import logger
 from src.entries import Entry
 from src.plat import clipboard_copy
 from src.progress import is_live
+from src.tui import keymap
 
 _HINT_REPEAT_S = 2.0
 _PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
@@ -54,6 +55,31 @@ class ItemActionsMixin:
             if not audio.can_enqueue(entry):  # it is the current track or already queued
                 hidden.add("audio_enqueue")
         return hidden
+
+    def _tool_actions(self) -> set[str]:
+        """The ``keymap.PANEL_TOOLS`` actions that apply on this screen now; a screen with more tools extends it."""
+        return {"filter"}
+
+    def panel_hints(self) -> list[tuple[str, str]]:
+        """Actions panel entries: Enter and the row actions that apply to the highlighted row, then the tools."""
+        entry = self._selected_entry()
+        hints: list[tuple[str, str]] = []
+        if entry:
+            if entry.get("_is_channel") or entry.get("_is_playlist"):
+                shown = {"copy_url", "browser"}
+                if entry.get("_is_channel"):
+                    hints.append(("⏎", "Open channel"))
+            else:
+                shown = {row.action for row in keymap.ROW_ACTIONS} - self._hidden_menu_actions(entry)
+                hints.append(("⏎", "Video actions"))
+            hints += [(keymap.key_of(r.action), r.bar) for r in keymap.ROW_ACTIONS if r.bar and r.action in shown]
+        return [*hints, *keymap.tool_hints(self._tool_actions())]
+
+    def _refresh_actions(self) -> None:
+        """Redraw the Actions panel after the tab, the row or the focus changed."""
+        bar = self._detail().action_bar
+        if bar.is_mounted:
+            bar.render_actions()
 
     def _menu_labels(self) -> dict[str, str]:
         """Label overrides for the Enter menu: with nothing playing, ``e`` starts playback instead of queueing."""
