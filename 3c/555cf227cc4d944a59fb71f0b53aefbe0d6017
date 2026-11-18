@@ -1,0 +1,131 @@
+src/tests/unit/test_channel_ref.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-45
+src/tests/unit/test_channel_bookmarks.py
+  s_6c28d43e292a51::t_85787cabf39c79 7-9,11,13,15
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-6,10,12,14,16-47
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 62
+src/tui/keymap.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 80-91
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 109,339-342,425-437
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 267-268
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 21
+src/tui/screens/mixins/channel_playlist.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-113
+src/tui/fmt.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 38-45
+src/tests/tui/test_channel_following.py
+  s_6c28d43e292a51::t_f7919d0552cf0f 18
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-14,20-45,47-48,50-113
+  s_6c28d43e292a51::t_f9aae4977530dd 19
+  s_6c28d43e292a51::t_85787cabf39c79 15-17,46,49
+docs/status.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 17
+src/tests/tui/test_channel_breadcrumb.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-89
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 126-127,311-319
+  s_6c28d43e292a51::t_fe6762f1e2698b 320
+docs/code/src/channel_ref.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-8
+src/tui/screens/channel_tab_modal.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 11-12,16-19,24-26,29,32,38,40,42,52-57
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 72,81-84
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_228dc63164ae54 109
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 110-134
+docs/todo.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 62-63
+src/channel_pager.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-55
+docs/code/src/tui/screens/mixins/channel_playlist.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-14
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 55-58
+src/tests/tui/test_channel_paging.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-162
+src/channel_bookmarks.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-57
+docs/code/src/innertube.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 3,19,37-47,50
+docs/features/architecture.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 107
+src/tests/unit/test_channel_pager.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-55
+src/tests/fixtures/innertube_channel_videos_more.json
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-8
+src/tests/tui/test_channel_playlist.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-127
+src/tests/unit/test_innertube_parsers.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 271-273,275-276,278,280-356
+docs/code/src/channel_bookmarks.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-7
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 12-15,17,19,21,29-41,52,68,74,76,84-87,95,111,120-127,130-147,175-178,203-204,206-207,213,216-252,266-271,276-279,281-283,285-355,359-360,362-392,397,408-409,419-420,423-424,437-452,458
+src/tui/screens/mixins/library_rail.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 25-26
+src/tui/widgets/channel_info_panel.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 12-36,44,50,55,86-87,90-106
+src/tests/fixtures/innertube_channel_shorts.json
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-16
+src/playlist.py
+  s_6c28d43e292a51::t_5a992e91d83b50 106-114
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 247,424,649-650,653-656
+  s_6c28d43e292a51::t_700d9e5b1ebfb1 657
+docs/code/src/tui/keymap.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 19,21
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 3,12,20-21,26,35-38,41-59
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 259-263
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 46-51
+src/tests/fixtures/innertube_channel_videos.json
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-23
+src/channel_ref.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-34
+docs/code/src/tui/screens/channel_tab_modal.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 3
+src/tests/conftest.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 143-149
+  s_6c28d43e292a51::t_461ad79aa114cd 142
+src/innertube.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 13,16,188-196,199-203,205-224,227,229-230,232-258,260-263,291,297,307-309,323,335-360,596-598,626-628,632-638,664-702,708,710-712
+docs/code/src/channel_pager.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-8
+docs/code/src/tui/fmt.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 15-16
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 20
+src/tests/tui/test_channel_info.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-81
+src/tests/fixtures/innertube_playlist_videos.json
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 1-20
+docs/code/src/tui/widgets/channel_info_panel.py.md
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 3-5
+src/tests/tui/test_key_hints.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 104-105
+src/tests/unit/test_keymap.py
+  s_6c28d43e292a51::t_2dd7be8da3ae9d 42-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3c555cf227cc4d944a59fb71f0b53aefbe0d6017",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
