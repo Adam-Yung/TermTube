@@ -35,6 +35,17 @@ _TABS = (
     ("playlists", "🎵 Playlists"),
     ("help", "📚 Help"),
 )
+_SEARCH_SORTS = [
+    ("relevance", "🎯  Relevance", "r"),
+    ("date", "📅  Newest first", "d"),
+    ("views", "👁  Most viewed", "v"),
+]
+_SEARCH_TYPES = [
+    ("all", "🔍  All results", "a"),
+    ("video", "🎬  Videos", "v"),
+    ("channel", "📺  Channels", "c"),
+    ("playlist", "🎵  Playlists", "p"),
+]
 _LOADABLE_TABS = ("home", "subscriptions", "history", "library", "playlists")
 _FORCE_EXIT_AFTER_S = 2.0
 _KILL_TIMEOUT_S = 1.5
@@ -63,6 +74,8 @@ class MainScreen(
     _LIST_ID = "#video-list-panel"
     _DETAIL_ID = "#detail-panel"
 
+    HAS_SEARCH_FILTERS = True
+
     BINDINGS = [
         *keymap.LIST_NAV,
         *keymap.PLAYBACK,
@@ -80,6 +93,7 @@ class MainScreen(
         Binding("f7", "goto_tab('help')", show=False),
         Binding("ctrl+d", "toggle_log", "Debug", show=False),
         keymap.SEARCH,
+        *keymap.SEARCH_FILTERS,
         Binding("r", "refresh", "Refresh"),
         *keymap.GLOBAL,
     ]
@@ -271,6 +285,26 @@ class MainScreen(
     def action_search(self) -> None:
         self._open_search_dialog()
 
+    def action_search_sort(self) -> None:
+        self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+
+    def action_search_type(self) -> None:
+        self._pick_search_filter("kind", "Result type", _SEARCH_TYPES, self._search.kind)
+
+    def _pick_search_filter(self, field: str, title: str, options: list[tuple[str, str, str]], current: str) -> None:
+        """Ask for a sort or type and reload the current search with it (Search tab only)."""
+        if self._current_tab != "search" or not self._search.query:
+            self._hint("Sort and type apply to search results. Press / to search.", "information")
+            return
+        from src.tui.screens.sort_modal import SortModal
+
+        def on_pick(value: str | None) -> None:
+            if value and value != current:
+                self._search.set_filter(field, value)
+                self._show_search_frame()
+
+        self.app.push_screen(SortModal(current, options=options, title=title), on_pick)
+
     def _open_search_dialog(self) -> None:
         from src.tui.screens.search_modal import SearchModal
 
@@ -330,7 +364,9 @@ class MainScreen(
         self.action_activate()
 
     def _activate_entry(self, entry: Entry) -> None:
-        if entry.get("_is_playlist"):
+        if entry.get("_is_playlist") and self._current_tab == "search":
+            self._hint("Press b to open the playlist in the browser.", "information")
+        elif entry.get("_is_playlist"):
             self._open_playlist(entry.get("_playlist_name", ""))
         elif entry.get("_is_channel"):
             self._open_channel(entry)

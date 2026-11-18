@@ -18,7 +18,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 |---|---|---|
 | home | `_load_feed` | stash, disk cache, or `ytdlp.fetch_page_batch` |
 | subscriptions | `_load_subscriptions` | `ytdlp.fetch_subscribed_channels`; rows are channels (`_is_channel`) and the detail panel switches to channel mode |
-| search | `_load_search` | `ytdlp.fetch_search_batch` (50 results, 3 pages) |
+| search | `_load_search` | `ytdlp.fetch_search_batch` (50 per batch, `sort`/`kind` from the search frame) |
 | history | `_load_simple_list` | `history.all_entries`, split into `PAGE_SIZE` pages |
 | library | `_load_simple_list` | `library.all_entries` (filesystem only) |
 | playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py`, cached entries from `cache.get_video_raw` |
@@ -57,3 +57,5 @@ Local lists (history, library, playlist index and view) go through `_show_pages(
 ## Search position restore
 
 After a search load with entries, `_finish_search_load` (via `_ui`) takes the saved page and row from the `SearchStack`, shows them if the page is held, and writes the back hint into the breadcrumb.
+
+Search extension (`_fetch_next_batch`) asks for `min(SEARCH_FETCH_COUNT, MAX_SEARCH_RESULTS - seen)` more and returns nothing once 200 are shown, so Search grows by 50 as the user pages, to 200. `_load_search` and the extension pass the current frame's sort and type.

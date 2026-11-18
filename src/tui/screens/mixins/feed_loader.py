@@ -267,6 +267,7 @@ class FeedLoaderMixin:
         entries = ytdlp.fetch_search_batch(
             self._search.query, self.app.config, self.app.cache,
             count=SEARCH_FETCH_COUNT, on_first_batch=on_first_batch,
+            sort=self._search.sort, kind=self._search.kind,
         )
         if not shown:
             self._show_pages(panel, entries)
@@ -372,8 +373,12 @@ class FeedLoaderMixin:
                 entries = [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
             return entries
         if tab == "search" and self._search.query:
+            count = min(SEARCH_FETCH_COUNT, ytdlp.MAX_SEARCH_RESULTS - len(skip))
+            if count <= 0:
+                return []
             return ytdlp.fetch_search_batch(
-                self._search.query, config, cache, skip_ids=skip, count=SEARCH_FETCH_COUNT
+                self._search.query, config, cache, skip_ids=skip, count=count,
+                sort=self._search.sort, kind=self._search.kind,
             )
         return []
 

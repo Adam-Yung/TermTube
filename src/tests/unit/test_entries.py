@@ -26,7 +26,7 @@ def test_row_types_extend_the_shared_base():
 
 def test_search_rows_fit_video_entry():
     with patch.object(innertube, "_post_json", return_value=load("innertube_search.json")):
-        rows = innertube.search_videos("x", count=3)
+        rows = innertube.search("x", count=3)
     assert rows and all(set(r) <= keys(VideoEntry) for r in rows)
 
 

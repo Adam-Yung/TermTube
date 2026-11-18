@@ -16,7 +16,7 @@ def load(name: str) -> dict:
 def test_search_parses_videos_and_skips_non_videos():
     page = load("innertube_search.json")
     with patch.object(innertube, "_post_json", return_value=page):
-        results = innertube.search_videos("lofi", count=3)
+        results = innertube.search("lofi", count=3)
     assert len(results) == 3
     first = results[0]
     assert len(first["id"]) == 11 and first["title"] and first["channel_id"].startswith("UC")
@@ -36,7 +36,7 @@ def test_search_follows_continuation_until_count():
                     {"videoRenderer": {"videoId": "AAAAAAAAAAA", "title": {"simpleText": "next"}}}]}}]}}]}
 
     with patch.object(innertube, "_post_json", side_effect=fake):
-        results = innertube.search_videos("lofi", count=4)
+        results = innertube.search("lofi", count=4)
     assert [r["id"] for r in results][-1] == "AAAAAAAAAAA"
     assert "continuation" in calls[1] and "query" not in calls[1]
 
@@ -44,11 +44,11 @@ def test_search_follows_continuation_until_count():
 def test_search_skips_given_ids_and_survives_failure():
     page = load("innertube_search.json")
     with patch.object(innertube, "_post_json", return_value=page):
-        everything = innertube.search_videos("x", count=10)
-        skipped = innertube.search_videos("x", count=10, skip_ids={everything[0]["id"]})
+        everything = innertube.search("x", count=10)
+        skipped = innertube.search("x", count=10, skip_ids={everything[0]["id"]})
     assert everything[0]["id"] not in [r["id"] for r in skipped]
     with patch.object(innertube, "_post_json", return_value=None):
-        assert innertube.search_videos("x") == []
+        assert innertube.search("x") == []
 
 
 def test_channel_info_from_channel_url_needs_no_resolve_call():
@@ -83,12 +83,12 @@ def test_ytdlp_search_uses_innertube_then_falls_back(tmp_path, monkeypatch):
     cache.get_feed.return_value = None
     cache.is_feed_fresh.return_value = False
     hit = [{"id": f"{i:011d}", "title": "t"} for i in range(3)]
-    monkeypatch.setattr(ytdlp.innertube, "search_videos", lambda *a, **k: hit)
+    monkeypatch.setattr(ytdlp.innertube, "search", lambda *a, **k: hit)
     monkeypatch.setattr(ytdlp, "_extract_videos", lambda *a, **k: pytest.fail("yt-dlp must not run"))
     assert ytdlp.fetch_search_batch("q", None, cache, count=3) == hit
 
     fallback = [{"id": "fallbackvid", "title": "f"}]
-    monkeypatch.setattr(ytdlp.innertube, "search_videos", lambda *a, **k: [])
+    monkeypatch.setattr(ytdlp.innertube, "search", lambda *a, **k: [])
     monkeypatch.setattr(ytdlp, "_extract_videos", lambda *a, **k: (fallback, ["fallbackvid"]))
     assert ytdlp.fetch_search_batch("q2", None, cache, count=3) == fallback
 
@@ -102,7 +102,7 @@ def test_search_reports_first_page_before_fetching_more():
         return page if "query" in payload else None
 
     with patch.object(innertube, "_post_json", side_effect=fake):
-        innertube.search_videos("x", count=50, on_first_batch=lambda e: order.append(f"first:{len(e)}"))
+        innertube.search("x", count=50, on_first_batch=lambda e: order.append(f"first:{len(e)}"))
     assert order == ["post", "first:3", "post"]
 
 

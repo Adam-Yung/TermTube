@@ -14,7 +14,7 @@ import yt_dlp
 from src import innertube, logger
 from src.cache import Cache
 from src.cookies import get_cookiejar, invalidate, is_auth_failure
-from src.entries import ChannelEntry, PlaylistEntry, VideoEntry
+from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
 from src.plat import get_deps_bin
 
 
@@ -80,6 +80,7 @@ _MAX_RETRIES = 1
 _RETRY_DELAY_S = 2.0
 _MIN_FEED_COUNT = 15
 _MIN_SEARCH_COUNT = 5
+MAX_SEARCH_RESULTS = 200
 
 FEED_URLS = {
     "home":          "https://www.youtube.com/",
@@ -220,6 +221,22 @@ def fetch_page_batch(
     return results
 
 
+def _search_cache_key(query: str, sort: str, kind: str) -> str:
+    return "search_" + hashlib.md5(f"{query.lower().strip()}|{sort}|{kind}".encode()).hexdigest()[:10]
+
+
+def _remember_search(cache: Cache, key: str, skip_ids: set[str], new_ids: list[str]) -> None:
+    """Store the id list of a search; an extension batch is appended to the ids already cached under ``key``."""
+    ids = new_ids
+    if skip_ids:
+        known = cache.get_feed(key)
+        if not known:  # the order of what is already shown is unknown: leave the next load to refetch
+            return
+        ids = known + [i for i in new_ids if i not in known]
+    if len(ids) >= _MIN_SEARCH_COUNT:
+        cache.put_feed(key, ids)
+
+
 def fetch_search_batch(
     query: str,
     config,
@@ -227,29 +244,35 @@ def fetch_search_batch(
     *,
     skip_ids: set[str] | None = None,
     count: int = 50,
-    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
-) -> list[VideoEntry]:
-    """Search results, cache-first. ``on_first_batch`` fires early with the first page, never for a cache hit."""
+    on_first_batch: Callable[[list[Entry]], None] | None = None,
+    sort: str = "relevance",
+    kind: str = "all",
+) -> list[Entry]:
+    """Search results, cache-first, for a sort order and result type (each has its own cache entry).
+
+    A cache hit returns every cached result not in ``skip_ids`` (up to ``MAX_SEARCH_RESULTS``), so a page
+    beyond the first batch can be restored; ``count`` only limits a live fetch. ``on_first_batch`` fires early
+    with the first page, never for a cache hit. yt-dlp is the fallback only for the plain search.
+    """
     skip_ids = skip_ids or set()
-    cache_key = "search_" + hashlib.md5(query.lower().strip().encode()).hexdigest()[:10]
-    cached = _cached_entries(cache, cache_key, skip_ids, count, _MIN_SEARCH_COUNT)
+    cache_key = _search_cache_key(query, sort, kind)
+    cached = _cached_entries(cache, cache_key, skip_ids, MAX_SEARCH_RESULTS, _MIN_SEARCH_COUNT)
     if cached is not None:
         return cached
 
-    results = innertube.search_videos(
-        query, count=count, skip_ids=skip_ids, on_first_batch=on_first_batch
+    results = innertube.search(
+        query, count=count, skip_ids=skip_ids, on_first_batch=on_first_batch, sort=sort, kind=kind
     )
     all_ids = [e["id"] for e in results]
     for entry in results:
         cache.put_video(entry)
-    if not results:
+    if not results and sort == "relevance" and kind == "all":
         logger.debug("InnerTube search empty for %r; falling back to yt-dlp", query)
         results, all_ids = _extract_videos(
             f"ytsearch{count + len(skip_ids)}:{query}", config, cache, count=count, skip_ids=skip_ids,
             on_first_batch=on_first_batch,
         )
-    if len(all_ids) >= _MIN_SEARCH_COUNT:
-        cache.put_feed(cache_key, all_ids)
+    _remember_search(cache, cache_key, skip_ids, all_ids)
     return results
 
 

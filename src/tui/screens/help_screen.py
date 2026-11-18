@@ -52,6 +52,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("APP", [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
+        ("s / t", "Search tab: sort (relevance / date / views) / type (all / video / channel / playlist)"),
         ("r", "Refresh the current feed (clears its cache)"),
         (",", "Settings"),
         ("?", "This screen"),

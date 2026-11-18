@@ -1,0 +1,275 @@
+{
+ "_note": "Recorded-shape fixture (hand-trimmed, no live call): a /search page with type=all rows. Refresh when parsers break.",
+ "contents": {
+  "twoColumnSearchResultsRenderer": {
+   "primaryContents": {
+    "sectionListRenderer": {
+     "contents": [
+      {
+       "itemSectionRenderer": {
+        "contents": [
+         {
+          "videoRenderer": {
+           "videoId": "rFZHOHl-L8A",
+           "thumbnail": {
+            "thumbnails": [
+             {
+              "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEjCOgCEMoBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLAXdDuAPGBkuNlX0NKlRvssGT3R5A",
+              "width": 360,
+              "height": 202
+             },
+             {
+              "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBGw0IjH-1wflyQP4uzLckDCG-AXg",
+              "width": 720,
+              "height": 404
+             }
+            ]
+           },
+           "title": {
+            "runs": [
+             {
+              "text": "lofi hip hop radio \ud83d\udcda beats to relax/study to"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "lofi hip hop radio \ud83d\udcda beats to relax/study to"
+             }
+            }
+           },
+           "longBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "viewCountText": {
+            "runs": [
+             {
+              "text": "10,100"
+             },
+             {
+              "text": " watching"
+             }
+            ]
+           },
+           "badges": [
+            {
+             "metadataBadgeRenderer": {
+              "icon": {
+               "iconType": "LIVE"
+              },
+              "style": "BADGE_STYLE_TYPE_LIVE_NOW",
+              "label": "LIVE",
+              "trackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD8="
+             }
+            },
+            {
+             "metadataBadgeRenderer": {
+              "icon": {
+               "iconType": "OUTLINE_BAG"
+              },
+              "style": "BADGE_STYLE_TYPE_SIMPLE",
+              "label": "24 products",
+              "trackingParams": "CJ8EEI7kFBgBIhMI8uWEgLKLmAMVokryAB2tljw_"
+             }
+            }
+           ],
+           "ownerText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "shortBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl",
+              "navigationEndpoint": {
+               "clickTrackingParams": "CJoEENwwGAAiEwjy5YSAsouYAxWiSvIAHa2WPD_KAQQq_DaQ",
+               "commandMetadata": {
+                "webCommandMetadata": {
+                 "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                 "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                 "rootVe": 3611,
+                 "apiUrl": "/youtubei/v1/browse"
+                }
+               },
+               "browseEndpoint": {
+                "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+               }
+              }
+             }
+            ]
+           },
+           "showActionMenu": false,
+           "shortViewCountText": {
+            "runs": [
+             {
+              "text": "10K"
+             },
+             {
+              "text": " watching"
+             }
+            ],
+            "accessibility": {
+             "accessibilityData": {
+              "label": "10 thousand watching"
+             }
+            }
+           }
+          }
+         },
+         {
+          "channelRenderer": {
+           "channelId": "UCchannel0000000000000001",
+           "title": {
+            "simpleText": "Lofi Girl"
+           },
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCchannel0000000000000001",
+             "canonicalBaseUrl": "/@LofiGirl"
+            }
+           },
+           "thumbnail": {
+            "thumbnails": [
+             {
+              "url": "//yt3.ggpht.com/a/small=s88",
+              "width": 88
+             },
+             {
+              "url": "//yt3.ggpht.com/a/big=s176",
+              "width": 176
+             }
+            ]
+           },
+           "videoCountText": {
+            "simpleText": "@LofiGirl"
+           },
+           "subscriberCountText": {
+            "simpleText": "13.4M subscribers"
+           },
+           "descriptionSnippet": {
+            "runs": [
+             {
+              "text": "Music to "
+             },
+             {
+              "text": "study to"
+             }
+            ]
+           }
+          }
+         },
+         {
+          "playlistRenderer": {
+           "playlistId": "PLplaylist00000000000000000000001",
+           "title": {
+            "simpleText": "Lofi mix"
+           },
+           "videoCount": "250",
+           "shortBylineText": {
+            "runs": [
+             {
+              "text": "Lofi Girl"
+             }
+            ]
+           },
+           "thumbnails": [
+            {
+             "thumbnails": [
+              {
+               "url": "https://i.ytimg.com/vi/x/small.jpg"
+              },
+              {
+               "url": "https://i.ytimg.com/vi/x/hq.jpg"
+              }
+             ]
+            }
+           ]
+          }
+         },
+         {
+          "shelfRenderer": {
+           "title": {
+            "simpleText": "People also watched"
+           }
+          }
+         },
+         {
+          "lockupViewModel": {
+           "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+           "contentId": "PLlockup0000000000000000000000001",
+           "metadata": {
+            "lockupMetadataViewModel": {
+             "title": {
+              "content": "Lockup list"
+             }
+            }
+           }
+          }
+         },
+         {
+          "playlistRenderer": {
+           "title": {
+            "simpleText": "broken, no id"
+           }
+          }
+         },
+         {
+          "lockupViewModel": {
+           "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST"
+          }
+         }
+        ]
+       }
+      },
+      {
+       "continuationItemRenderer": {
+        "continuationEndpoint": {
+         "continuationCommand": {
+          "token": "TOKEN"
+         }
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

@@ -7,7 +7,7 @@ TermTube asks the cheapest source that can answer, and falls back one step when 
 |---|---|---|---|---|
 | **Home feed** | yt-dlp, flat listing of `youtube.com` | cookies (browser) | none (an empty feed explains itself) | id list 1 h (`cache_ttl.home`) plus a one-page stash for instant start |
 | **Subscription list** | yt-dlp, `feed/channels` | cookies | none | about 1 h |
-| **Search** | InnerTube `/search`; first page after one request, up to 4 pages / 50 results | no | yt-dlp `ytsearchN:` | by query, 30 min |
+| **Search** | InnerTube `/search`; first page after one request, first 50 results, then 50 more each time you page, up to 200; `s` sort (relevance / date / views) and `t` type (all / video / channel / playlist) via the request `params` | no | yt-dlp `ytsearchN:` (plain search only) | by query, sort and type, 30 min |
 | **Channel videos** (newest first) | InnerTube `/browse`, about 30 with durations | no | yt-dlp; other sorts (most viewed) always use yt-dlp | no |
 | **Channel playlists** | InnerTube `/browse` playlists tab, following continuations up to 80 | no | yt-dlp | no |
 | **Channel info** (name, subscribers, avatar) | InnerTube `/navigation/resolve_url` + `/browse` | no | yt-dlp | metadata cache, 24 h |

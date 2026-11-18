@@ -256,7 +256,7 @@ class TestLazyAndRetry:
         cache.get_feed.return_value = None
         cache.is_feed_fresh.return_value = False
         with patch.object(mod, "get_cookiejar", side_effect=AssertionError("browser read")), \
-             patch("yt_dlp.YoutubeDL", _FakeYDL), patch.object(mod.innertube, "search_videos", return_value=[]), \
+             patch("yt_dlp.YoutubeDL", _FakeYDL), patch.object(mod.innertube, "search", return_value=[]), \
              patch.object(mod.time, "sleep"):
             mod.fetch_search_batch("q", None, cache)
             mod.fetch_channel_playlists("https://www.youtube.com/@x", None, cache)

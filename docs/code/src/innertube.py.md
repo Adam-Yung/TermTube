@@ -21,9 +21,8 @@ Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too
 
 ## Search and channel info (optimization plan step 2)
 
-`search_videos` posts `/search` and follows `continuationItemRenderer` tokens (`/search` with `{"continuation": token}`) up to
-`_MAX_SEARCH_PAGES`. One page is about 0.9 s, so 50 results cost about 2.7 s (benchmark, `docs/guides/benchmarks.md`). Only
-`videoRenderer` items are kept; playlists, shelves and channel cards (`lockupViewModel`, `gridShelfViewModel`) are dropped. Rows carry
+`search(query, sort=, kind=)` posts `/search` and follows `continuationItemRenderer` tokens (`/search` with `{"continuation": token}`) up to
+`_MAX_SEARCH_PAGES`. One page is about 0.9 s, so 50 results cost about 2.7 s (benchmark, `docs/guides/benchmarks.md`). `videoRenderer`, `channelRenderer`, `playlistRenderer` and playlist `lockupViewModel` rows become entries (`_is_channel` / `_is_playlist` rows as on Subscriptions and the channel Playlists tab); shelves and ads are dropped. `_MAX_SEARCH_PAGES` is 12 (about 200 results). `search_params(sort, kind)` builds the `params` blob (sent with the first request only): `CAI=` date, `CAM=` views, `EgIQAQ==` video, `EgIQAg==` channel, `EgIQAw==` playlist, and the two messages joined for a combination. Fixture `innertube_search_mixed.json` is a hand-trimmed recorded-shape page. Rows carry
 `published_text` ("4 years ago"), not `upload_date`: search gives no exact date, and the list row falls back to the text.
 
 `fetch_channel_info` takes a channel URL, resolves a `/@handle`, `/user/` or `/c/` URL to a `UC…` id with `/navigation/resolve_url`

@@ -50,6 +50,10 @@ LIST_TOOLS = [
 ]
 
 SEARCH = Binding("/", "search", "Search")
+SEARCH_FILTERS = [
+    Binding("s", "search_sort", show=False),
+    Binding("t", "search_type", show=False),
+]
 GLOBAL = [
     Binding("comma", "settings", "Settings"),
     Binding("q", "quit_app", "Quit"),

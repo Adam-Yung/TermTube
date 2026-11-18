@@ -39,3 +39,7 @@ Rules that follow:
 
 Search and channel info try InnerTube first (`src/innertube.py`, no cookies, no yt-dlp import cost on the hot path) and fall back to yt-dlp when
 it returns nothing. A yt-dlp fallback is logged at debug level. Channel info for a `/videos` or `/playlists` URL is normalised before the InnerTube call.
+
+## Search cache
+
+`fetch_search_batch(query, ..., sort, kind)` keys the cache on `query|sort|kind` (`_search_cache_key`), so each sort and type has its own list. A hit reads up to `MAX_SEARCH_RESULTS` (200) cached ids minus `skip_ids`; `count` only limits a live fetch. An extension fetch (non-empty `skip_ids`) appends its ids to the cached list (`_remember_search`), so restoring a page beyond the first batch (search stack pop) finds them; with no cached list to append to nothing is stored. yt-dlp `ytsearchN:` is the fallback only for relevance/all, since it cannot apply a filter. Extension re-reads the earlier result pages (InnerTube has no cursor kept between calls) and skips them, trading some requests for no state.

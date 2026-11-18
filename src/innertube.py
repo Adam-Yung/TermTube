@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import http.client
 import json
 import re
@@ -11,7 +12,7 @@ from collections.abc import Callable
 from typing import Any
 
 from src import logger
-from src.entries import PlaylistEntry, VideoEntry
+from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 _BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
@@ -319,7 +320,10 @@ _VIDEO_COUNT = re.compile(r"^[\d,]+ videos?$")
 
 _SEARCH_URL = "https://www.youtube.com/youtubei/v1/search?prettyPrint=false"
 _RESOLVE_URL = "https://www.youtube.com/youtubei/v1/navigation/resolve_url?prettyPrint=false"
-_MAX_SEARCH_PAGES = 4
+_MAX_SEARCH_PAGES = 12
+_SORT_CODES = {"date": 2, "views": 3}
+_TYPE_CODES = {"video": 1, "channel": 2, "playlist": 3}
+_SUBSCRIBERS_WORD = re.compile(r"subscribers?", re.IGNORECASE)
 
 
 def _text(node: dict | None) -> str:
@@ -356,13 +360,75 @@ def _parse_search_video(vr: dict) -> VideoEntry | None:
     }
 
 
-def _search_items(sections: list[dict]) -> tuple[list[VideoEntry], str]:
-    """Video entries and the next continuation token from a list of result sections."""
-    entries: list[VideoEntry] = []
+def search_params(sort: str = "relevance", kind: str = "all") -> str:
+    """The ``params`` blob of a /search request for a sort order and a result type; empty for the defaults.
+
+    A protobuf message, base64: field 1 is the sort code, field 2 holds the filter whose field 2 is the type.
+    The single-filter blobs (``CAI=``, ``EgIQAQ==`` ...) are the documented ones; the combined ones are those two
+    messages joined, not yet seen working live [verify live].
+    """
+    raw = bytes([0x08, _SORT_CODES[sort]]) if sort in _SORT_CODES else b""
+    if kind in _TYPE_CODES:
+        raw += bytes([0x12, 0x02, 0x10, _TYPE_CODES[kind]])
+    return base64.b64encode(raw).decode()
+
+
+def _https(url: str) -> str:
+    return "https:" + url if url.startswith("//") else url
+
+
+def _parse_search_channel(cr: dict) -> ChannelEntry | None:
+    channel_id = cr.get("channelId")
+    if not channel_id:
+        return None
+    name = _text(cr.get("title"))
+    thumbs = (cr.get("thumbnail") or {}).get("thumbnails") or []
+    handle = ((cr.get("navigationEndpoint") or {}).get("browseEndpoint") or {}).get("canonicalBaseUrl", "")
+    url = f"https://www.youtube.com{handle}" if handle.startswith("/") else f"https://www.youtube.com/channel/{channel_id}"
+    # The subscriber count sits in one of two fields depending on the page version; the other holds the @handle.
+    texts = [_text(cr.get("subscriberCountText")), _text(cr.get("videoCountText"))]
+    subs = next((t for t in texts if _SUBSCRIBERS_WORD.search(t)), "")
+    return {
+        "id": channel_id, "title": name, "channel": name, "channel_id": channel_id, "channel_url": url,
+        "uploader": name, "uploader_url": url, "subscriber_count": _parse_view_count(subs),
+        "thumbnail": _https(thumbs[-1].get("url", "")) if thumbs else "",
+        "description": _text(cr.get("descriptionSnippet")), "_is_channel": True,
+    }
+
+
+def _parse_search_playlist(pr: dict) -> PlaylistEntry | None:
+    playlist_id = pr.get("playlistId")
+    if not playlist_id:
+        return None
+    title = _text(pr.get("title")) or playlist_id
+    thumbs = ((pr.get("thumbnails") or [{}])[0].get("thumbnails")) or []
+    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+    return {
+        "id": playlist_id, "title": title, "url": url, "webpage_url": url,
+        "uploader": _text(pr.get("shortBylineText")), "thumbnail": _https(thumbs[-1].get("url", "")) if thumbs else "",
+        "playlist_count": _parse_view_count(str(pr.get("videoCount", ""))),
+        "_type": "playlist", "_is_playlist": True, "_playlist_name": title,
+    }
+
+
+def _parse_search_item(item: dict) -> Entry | None:
+    """One search row (video, channel or playlist) as an entry; None for shelves, ads and anything else."""
+    if "videoRenderer" in item:
+        return _parse_search_video(item["videoRenderer"])
+    if "channelRenderer" in item:
+        return _parse_search_channel(item["channelRenderer"])
+    if "playlistRenderer" in item:
+        return _parse_search_playlist(item["playlistRenderer"])
+    return _parse_playlist_item(item)
+
+
+def _search_items(sections: list[dict]) -> tuple[list[Entry], str]:
+    """Result entries and the next continuation token from a list of result sections."""
+    entries: list[Entry] = []
     token = ""
     for section in sections:
         for item in section.get("itemSectionRenderer", {}).get("contents", []):
-            entry = _parse_search_video(item.get("videoRenderer", {}))
+            entry = _parse_search_item(item)
             if entry:
                 entries.append(entry)
         cont = section.get("continuationItemRenderer", {})
@@ -370,21 +436,26 @@ def _search_items(sections: list[dict]) -> tuple[list[VideoEntry], str]:
     return entries, token
 
 
-def search_videos(
+def search(
     query: str,
     *,
     count: int = 50,
     skip_ids: set[str] | None = None,
-    on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
-) -> list[VideoEntry]:
-    """Video results for ``query`` through InnerTube ``/search``. Anonymous. Empty on any failure.
+    on_first_batch: Callable[[list[Entry]], None] | None = None,
+    sort: str = "relevance",
+    kind: str = "all",
+) -> list[Entry]:
+    """Results for ``query`` through InnerTube ``/search``: videos, and with ``kind`` ``all``/``channel``/``playlist``
+    channel and playlist rows. ``sort`` is ``relevance``/``date``/``views``. Anonymous. Empty on any failure.
 
-    Follows continuation tokens until ``count`` videos are collected or ``_MAX_SEARCH_PAGES`` pages are read.
-    ``on_first_batch`` receives the first page's videos as soon as that page arrives.
+    Follows continuation tokens until ``count`` entries are collected or ``_MAX_SEARCH_PAGES`` pages are read.
+    ``on_first_batch`` receives the first page's entries as soon as that page arrives.
     """
     skip_ids = skip_ids or set()
     payload: dict = {"query": query, "context": _WEB_CONTEXT}
-    results: list[VideoEntry] = []
+    if params := search_params(sort, kind):
+        payload["params"] = params
+    results: list[Entry] = []
     seen = set(skip_ids)
     for _ in range(_MAX_SEARCH_PAGES):
         data = _post_json(_SEARCH_URL, payload)

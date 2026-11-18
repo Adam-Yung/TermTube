@@ -28,3 +28,20 @@ async def test_title_border_and_numbers_follow_each_theme(app, modal, title_id, 
             assert rows and THEME_COLORS[theme] in str(rows.first().content)
             app.pop_screen()
             await pilot.pause(0.1)
+
+
+async def test_sort_modal_takes_its_own_options_title_and_letters(app):
+    options = [("a", "Alpha", "x"), ("b", "Beta", "y")]
+    picked = []
+    async with app.run_test(size=(100, 30)) as pilot:
+        app.push_screen(SortModal("b", options=options, title="Pick one"), picked.append)
+        await pilot.pause(0.2)
+        assert "Pick one" in str(app.screen.query_one("#sort-title").content)
+        assert "✓" in str(app.screen.query(".nav-row").last().content)
+        await pilot.press("y")
+        await pilot.pause(0.2)
+        app.push_screen(SortModal("b", options=options), picked.append)
+        await pilot.pause(0.2)
+        await pilot.press("1")
+        await pilot.pause(0.2)
+    assert picked == ["b", "a"]

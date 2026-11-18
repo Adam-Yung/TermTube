@@ -47,7 +47,7 @@ def test_second_batch_yields_new_items(fake_ydl, temp_cache):
 
 
 def test_search_fallback_window_covers_skipped(fake_ydl, temp_cache, monkeypatch):
-    monkeypatch.setattr(ytdlp.innertube, "search_videos", lambda *a, **k: [])
+    monkeypatch.setattr(ytdlp.innertube, "search", lambda *a, **k: [])
     skip = {e["id"] for e in _FEED[:20]}
     results = ytdlp.fetch_search_batch("q", None, temp_cache, count=20, skip_ids=skip)
 

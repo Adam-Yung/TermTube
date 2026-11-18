@@ -141,6 +141,8 @@ class ActionBar(Widget):
         row3 = [r2("f", "Filter")]
         if getattr(self.screen, "HAS_LIST_TOOLS", False):
             row3 += [r2("m", "Mark"), r2("D", "Remove"), r2("u", "Undo")]
+        if getattr(self.screen, "HAS_SEARCH_FILTERS", False):
+            row3 += [r2("s", "Sort"), r2("t", "Type")]
         table.add_row(*row3)
 
         return table

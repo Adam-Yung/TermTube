@@ -91,7 +91,7 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 |---|---|---|
 | Home | stash, then disk cache or `ytdlp.fetch_page_batch` (`auth=True`, cookies) | paged, extendable; played videos suppressed (`docs/code/src/tui/screens/mixins/feed_loader.py.md`) |
 | Subscriptions | `ytdlp.fetch_subscribed_channels` | rows are channels; avatar and channel info workers per row; detail panel in channel mode |
-| Search | `ytdlp.fetch_search_batch` | 50 results, extendable; `SearchStack` (`src/search_stack.py`) holds up to 20 searches for Backspace |
+| Search | `ytdlp.fetch_search_batch` | 50 results at a time up to 200 (continuations as you page), `s` sort and `t` type per search; `SearchStack` (`src/search_stack.py`) holds up to 20 searches for Backspace |
 | History | `history.iter_entries` | local |
 | Library | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
 | Playlists | `playlist.py` + cached entries | index list, then one playlist (Backspace returns) |
