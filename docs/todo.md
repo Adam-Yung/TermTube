@@ -48,8 +48,8 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4) (81c6c46)
 
 ## Phase 5. Playlists v2 and Library fusion
-- [x] P5.1 Playlist v2 data model and migration (C1) (HASH)
-- [x] P5.2 Playlist management: rename, delete, reorder, move/copy, multi-add, play/enqueue all (B5.1)
+- [x] P5.1 Playlist v2 data model and migration (C1) (20816bd)
+- [x] P5.2 Playlist management: rename, delete, reorder, move/copy, multi-add, play/enqueue all (B5.1) (20816bd)
 - [ ] P5.3 One Library tab with left rail: downloads, videos, audio, playlists (B5.3a)
 - [ ] P5.4 Search within Library/playlists, token syntax (B5.2)
 
