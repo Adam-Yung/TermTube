@@ -255,12 +255,20 @@ def _browse_items(data: dict) -> list[dict]:
     for row in rows:
         if "playlistVideoListRenderer" in row:
             return row["playlistVideoListRenderer"].get("contents", [])
+    if any("lockupViewModel" in row for row in rows):  # a playlist page: videos, with the token in the section list
+        return rows + [c for c in sections if "continuationItemViewModel" in c]
     return [i for c in rows for i in c.get("gridRenderer", {}).get("items", [])]
 
 
 def _next_token(items: list[dict]) -> str:
-    return next((i["continuationItemRenderer"].get("continuationEndpoint", {}).get("continuationCommand", {})
-                 .get("token", "") for i in items if "continuationItemRenderer" in i), "")
+    for item in items:
+        if "continuationItemRenderer" in item:
+            command = item["continuationItemRenderer"].get("continuationEndpoint", {})
+            return command.get("continuationCommand", {}).get("token", "")
+        if "continuationItemViewModel" in item:
+            command = item["continuationItemViewModel"].get("continuationCommand", {}).get("innertubeCommand", {})
+            return command.get("continuationCommand", {}).get("token", "")
+    return ""
 
 
 def _parse_channel_video_item(item: dict) -> VideoEntry | None:
@@ -268,8 +276,11 @@ def _parse_channel_video_item(item: dict) -> VideoEntry | None:
     ri = item.get("richItemRenderer", {})
     if not ri:
         return None
+    return _video_from_lockup(ri.get("content", {}).get("lockupViewModel", {}))
 
-    lvm = ri.get("content", {}).get("lockupViewModel", {})
+
+def _video_from_lockup(lvm: dict) -> VideoEntry | None:
+    """A video entry from a ``lockupViewModel`` (channel grids and playlist pages share it), or None without an id."""
     if not lvm:
         return None
 
@@ -668,6 +679,22 @@ def _runs_text(node: dict | None) -> str:
 
 def _parse_playlist_video(item: dict) -> VideoEntry | None:
     """One ``playlistVideoRenderer`` of a playlist page as a video entry. [verify live]"""
+    lvm = item.get("lockupViewModel")
+    if lvm:  # the layout YouTube serves now: the uploader is the first metadata part, with the channel link
+        if lvm.get("contentType") != "LOCKUP_CONTENT_TYPE_VIDEO":
+            return None
+        entry = _video_from_lockup(lvm)
+        rows = (lvm.get("metadata", {}).get("lockupMetadataViewModel", {}).get("metadata", {})
+                .get("contentMetadataViewModel", {}).get("metadataRows", []))
+        part = next((p.get("text", {}) for r in rows for p in r.get("metadataParts", []) if p.get("text")), {})
+        if entry and part.get("content"):
+            entry["uploader"] = entry["channel"] = part["content"]
+            taps = (run.get("onTap", {}).get("innertubeCommand", {}) for run in part.get("commandRuns", []))
+            channel_id = next((tap.get("browseEndpoint", {}).get("browseId", "") for tap in taps), "")
+            if channel_id.startswith("UC"):
+                entry["channel_id"] = channel_id
+                entry["channel_url"] = f"https://www.youtube.com/channel/{channel_id}"
+        return entry
     pv = item.get("playlistVideoRenderer") or {}
     video_id = pv.get("videoId", "")
     if not video_id:

@@ -85,6 +85,12 @@ def isolated_sponsorblock_cache(tmp_path_factory, monkeypatch):
     monkeypatch.setattr("src.sponsorblock._SSL_PREF_PATH", root / "ssl_pref")
 
 
+@pytest.fixture(autouse=True)
+def no_keychain_reads(monkeypatch):
+    """TLS contexts must not shell out to the real macOS keychain during tests."""
+    monkeypatch.setattr("src.plat._macos_keychain_pem", lambda: "")
+
+
 @pytest.fixture
 def sample_entries():
     """List of realistic video entry dicts."""

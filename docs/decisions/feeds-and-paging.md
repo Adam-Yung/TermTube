@@ -113,7 +113,7 @@ Videos follow InnerTube continuations with the Home model: the screen keeps the 
 
 Sort: the argument stays removed from InnerTube and non-date sorts go to yt-dlp explicitly. Reading the popular and oldest filter chips means parsing a `chipCloudRenderer` whose continuation tokens come from the first response, and the one earlier attempt at a popular selector was unreliable; yt-dlp's `?sort=p` already works and returns one batch.
 
-**[verify live]** Not recorded against YouTube: the Shorts and Live tab selectors, the `shortsLockupViewModel` parser, the `LIVE` and "N watching" badges, and the "Joined" header text. The fixtures for these are hand-written. A recorded channel response should replace them; until then a layout mismatch shows as an empty tab ("No content found."), never an error.
+Checked live on 2026-11-18 (anonymous): the Shorts and Live tabs return rows and continue. The Shorts rows have no duration. The "Joined" text and the video count were empty in the header. Those fixtures remain hand-written; a layout mismatch shows as an empty tab ("No content found."), never an error.
 
 Also: one `channel_ref.parse` replaces the string splitting of channel URLs. `ChannelScreen._channel_id` resolves an `/@handle` URL once through `innertube.resolve_channel_id` on the worker, so handle channels reach InnerTube too.
 
@@ -127,7 +127,7 @@ No second stack: a channel opened from a channel is another `ChannelScreen` push
 
 ## 2026-11-18 — Channel playlists open inside the channel page (P7.2)
 
-Enter on a playlist row opens its videos in the same list (InnerTube `VL<id>` browse with continuations, yt-dlp when empty); `Esc` returns to the Playlists tab. No new screen: the list, pager, filter and breadcrumb are the channel page's. Bulk keys `P` play all, `E` enqueue all, `S` save as a local playlist. `E` was free (the single-track key is lower-case `e`); `P` and `S` were free. Play all replaces the queue, enqueue all skips known tracks, both through new `AudioController` methods so the queue rules live in one place. Save keeps the channel playlist's name; saving into an existing local playlist of that name only adds the missing ids. **[verify live]**: the playlist page parser and its fixture are hand-written.
+Enter on a playlist row opens its videos in the same list (InnerTube `VL<id>` browse with continuations, yt-dlp when empty); `Esc` returns to the Playlists tab. No new screen: the list, pager, filter and breadcrumb are the channel page's. Bulk keys `P` play all, `E` enqueue all, `S` save as a local playlist. `E` was free (the single-track key is lower-case `e`); `P` and `S` were free. Play all replaces the queue, enqueue all skips known tracks, both through new `AudioController` methods so the queue rules live in one place. Save keeps the channel playlist's name; saving into an existing local playlist of that name only adds the missing ids. Checked live on 2026-11-18: the page was `lockupViewModel` videos (not `playlistVideoRenderer`), so the first parser returned no rows; it now reads both, with a recorded fixture.
 
 ## 2026-11-18 — Local channel bookmarks and the Following view (P7.2)
 
@@ -150,3 +150,7 @@ A Home cache older than `cache_ttl.home_revalidate` (600 s) and younger than `ca
 ## 2026-11-18 — `Z` toggles the played videos on Home (P7.3)
 
 Home has always dropped videos already played (suppression). The footer now counts them (`18 hidden`) and `Z` (free: no binding in `keymap.py`, `BINDINGS` or `on_key`) shows them (`played shown`) and hides them again; it reloads the view, is Home only and a hint elsewhere, the per-tab-key pattern of `F` and `Y`. The count is per load and per extension (a set of ids, so a video seen twice counts once). The plan's `Z` was kept.
+
+
+## 2026-11-18: live check of the channel and playlist parsers
+With YouTube now reachable for agents (rate limited, anonymous), the channel tabs and a playlist page were read once each. The playlist page used a layout the hand-written parser did not know and returned an empty list for every playlist: fixed and recorded as a fixture. Everything else matched. Still needing a signed-in browser: Home, YouTube history, Watch Later.

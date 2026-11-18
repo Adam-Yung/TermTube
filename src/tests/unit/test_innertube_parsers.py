@@ -354,3 +354,13 @@ def test_playlist_continuation_sends_only_the_token_and_failure_is_empty():
     assert post.call_args.args[1]["continuation"] == "TOK" and "browseId" not in post.call_args.args[1]
     with patch.object(innertube, "_post_json", return_value=None):
         assert innertube.fetch_playlist_page("PLabc") == innertube.ChannelPage([])
+
+
+def test_playlist_page_parses_the_lockup_layout_recorded_from_youtube():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos_lockup.json")):
+        page = innertube.fetch_playlist_page("PLRPUpQa70I6A")
+    first, second = page.entries
+    assert first["id"] == "cv8tEbKtEvk" and first["title"].endswith("Gemini Live") and first["duration"] == 126
+    assert first["uploader"] == "Google for Developers" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+    assert second["id"] == "ID6vEy94j7c"
+    assert page.token.startswith("4qmFsgIx")

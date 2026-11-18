@@ -112,3 +112,10 @@ def test_a_refused_extractor_url_falls_back_to_the_plain_id_url(tmp_path, monkey
     path = thumbnail.download("abc123def45", "https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x")
     assert path is not None and path.exists()
     assert tried == ["https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x", URL]
+
+
+def test_the_keychain_certificates_join_the_verified_context(monkeypatch):
+    monkeypatch.setattr(plat, "_macos_keychain_pem", lambda: "not a certificate")
+    ctx = plat._ssl_context_verified()  # unparsable input is ignored, verification stays on
+    assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+    assert not ctx.verify_flags & getattr(ssl, "VERIFY_X509_STRICT", 0)

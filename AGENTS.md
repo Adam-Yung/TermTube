@@ -6,6 +6,12 @@
 > must repeat this rule and forbid downloading. Tests must not touch the network, the user's browser profile or keychain, or kill the test
 > runner (patch `_force_exit`, set `browser: none`).
 
+> **ALLOWLIST (amended 2026-11-18 by the owner; mirrors `~/.claude/CLAUDE.md`): `youtube.com` and its media hosts `googlevideo.com`, `ytimg.com`,
+> `youtu.be` may be downloaded from, including `yt-dlp` runs, and nothing else may.** Conditions: rate limit every call (one at a time, several
+> seconds apart, `--sleep-requests`, `--sleep-interval`, `--limit-rate`, small batches; stop at the first 429, bot check or sign-in demand, never
+> retry in a loop or evade a block); use judgement and skip sensitive or offensive items; only video, audio and image files, never code or
+> archives; subagent prompts must restate these conditions in full. Tests still never touch the network. This is the only exception to the rule above.
+
 > **MODEL BUDGET RULE: the token budget is very limited. Never use an Opus model. Use Sonnet (or smaller) for the main session and for every
 > subagent, and set `model: "sonnet"` explicitly when spawning one. Keep heavy usage down: do the work inline when it is a few tool calls,
 > spawn at most the agents the task needs, and give each a narrow brief.** Every prompt to a subagent must repeat this.

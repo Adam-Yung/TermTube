@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import errno
+import functools
 import glob
 import os
 import shutil
@@ -256,9 +257,40 @@ def download_thumbnail(url: str, dest: str, timeout: int = 8, *, insecure: bool 
     return False
 
 
+@functools.lru_cache(maxsize=1)
+def _macos_keychain_pem() -> str:
+    """Certificates (public parts only) of the macOS keychains, as PEM; "" elsewhere or on any failure.
+
+    Python builds that ship their own CA bundle (conda, python.org) do not know a company's TLS-inspection root,
+    which macOS trusts through the keychain; without it every image host that is inspected fails verification.
+    """
+    if sys.platform != "darwin":
+        return ""
+    pems = []
+    for extra in ([], ["/System/Library/Keychains/SystemRootCertificates.keychain"]):
+        try:
+            done = subprocess.run(
+                ["/usr/bin/security", "find-certificate", "-a", "-p", *extra],
+                capture_output=True, text=True, timeout=15, check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        pems.append(done.stdout)
+    return "\n".join(pems)
+
+
 def _ssl_context_verified():
     import ssl
-    return ssl.create_default_context()
+    ctx = ssl.create_default_context()
+    pem = _macos_keychain_pem()
+    if pem:
+        try:
+            ctx.load_verify_locations(cadata=pem)
+        except ssl.SSLError:
+            pass  # one unparsable certificate: keep the default bundle
+        # Inspection roots often lack key identifiers Python 3.13 insists on; chain and host name are still checked.
+        ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
+    return ctx
 
 
 def _ssl_context_unverified():
