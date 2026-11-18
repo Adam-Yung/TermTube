@@ -26,7 +26,7 @@ class NavModal(ModalScreen[str | None]):
     ]
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="nav-dialog"):
+        with Vertical(id="nav-dialog", classes="dialog"):
             yield Static("Go to page…", id="nav-title", markup=True)
             for num, _page, label in _PAGES:
                 yield Static(

@@ -38,7 +38,7 @@ class SortModal(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
-        with Vertical(id="sort-dialog"):
+        with Vertical(id="sort-dialog", classes="dialog"):
             yield Static(self._title, id="sort-title", markup=True)
             for num, (key, label, _) in enumerate(self._options, 1):
                 marker = " ✓" if key == self._current_sort else ""

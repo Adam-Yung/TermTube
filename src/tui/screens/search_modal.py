@@ -39,7 +39,7 @@ class SearchModal(ModalScreen[str | None]):
         self._debounce = None
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="search-dialog"):
+        with Vertical(id="search-dialog", classes="dialog"):
             yield Static("🔍  Search YouTube", id="search-title", markup=True)
             yield Input(placeholder="Type to search…", id="search-input")
             yield Static("", id="search-suggestions", markup=True)

@@ -43,13 +43,13 @@ class DownloadPickerModal(ModalScreen):
         self._dl_type: str = ""
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="dlpick-dialog"):
+        with Vertical(id="dlpick-dialog", classes="dialog"):
             if self._title:
                 t = self._title[:55]
                 yield Static(f"[bold]{t}[/bold]", id="dlpick-video-title", markup=True)
             yield Static("Download", id="dlpick-header", markup=False)
             yield Static("Choose format", id="dlpick-sub", markup=False)
-            yield ListView(id="dlpick-list")
+            yield ListView(id="dlpick-list", classes="dialog-list")
             yield Static("jk navigate  Enter select  Esc back", id="dlpick-hint", markup=False)
 
     def on_mount(self) -> None:

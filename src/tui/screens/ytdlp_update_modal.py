@@ -17,7 +17,7 @@ class YtdlpUpdateModal(ModalScreen[str]):
         self._error_detail = error_detail
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="ytdlp-update-dialog"):
+        with Vertical(id="ytdlp-update-dialog", classes="dialog"):
             yield Static(
                 "\u26a0  Video fetching error",
                 id="ytdlp-update-title",

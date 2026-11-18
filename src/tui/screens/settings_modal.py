@@ -74,7 +74,7 @@ class SettingsModal(ModalScreen[None]):
         for section in SECTIONS:
             items.append(_Section(section))
             items += [_Row(f, self._text(f)) for f in FIELDS if f.section == section]
-        with Vertical(id="settings-dialog"):
+        with Vertical(id="settings-dialog", classes="dialog"):
             yield Static("⚙  Settings", id="settings-title", markup=True)
             yield Static(f"Config file: {config.path}", id="settings-path", markup=False)
             yield ListView(*items, id="settings-list")

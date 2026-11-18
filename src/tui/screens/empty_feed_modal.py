@@ -13,7 +13,7 @@ class EmptyFeedModal(ModalScreen[str]):
     BINDINGS = [Binding("escape", "skip", "Skip", show=False)]
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="emptyfeed-dialog"):
+        with Vertical(id="emptyfeed-dialog", classes="dialog"):
             yield Static(
                 "⚠  Feed returned no results",
                 id="emptyfeed-title",

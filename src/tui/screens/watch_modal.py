@@ -61,7 +61,7 @@ class WatchModal(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or "Unknown"
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
-        with Vertical(id="watch-dialog"):
+        with Vertical(id="watch-dialog", classes="dialog"):
             yield Static("📺  Now playing in mpv", id="np-header")
             yield Static(f"[bold white]{escape_markup(title)}[/bold white]", id="np-title", markup=True)
             if channel:

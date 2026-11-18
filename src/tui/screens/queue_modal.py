@@ -50,9 +50,9 @@ class QueueModal(ModalScreen[None]):
         self._removed: list[tuple[int, Entry]] = []
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="queue-dialog"):
+        with Vertical(id="queue-dialog", classes="dialog"):
             yield Static("Queue", id="queue-title", markup=False)
-            yield OptionList(id="queue-list")
+            yield OptionList(id="queue-list", classes="dialog-list")
             yield Static(_HINT, id="queue-hint", markup=True)
 
     def on_mount(self) -> None:

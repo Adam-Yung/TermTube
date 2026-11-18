@@ -117,32 +117,6 @@ class HelpScreen(ModalScreen[None]):
         Binding("escape", "close", "Close", show=False),
     ]
 
-    DEFAULT_CSS = """
-    HelpScreen {
-        align: center middle;
-    }
-
-    #help-outer {
-        width: 80%;
-        height: 90%;
-        max-width: 100;
-        background: #0f0f18;
-        border: solid #ff4444;
-        border-title-color: #ff4444;
-        border-title-style: bold;
-    }
-
-    #help-scroll {
-        width: 100%;
-        height: 1fr;
-        padding: 1 3;
-    }
-
-    #help-content {
-        width: 100%;
-    }
-    """
-
     def _get_theme_color(self) -> str:
         try:
             theme = self.app.config.theme

@@ -57,7 +57,7 @@ class VideoActionModal(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         title = (self._entry.get("title") or "Video")[:50]
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
-        with Vertical(id="vaction-dialog"):
+        with Vertical(id="vaction-dialog", classes="dialog"):
             yield Static(
                 f"[bold white]{escape_markup(title)}[/bold white]",
                 id="vaction-title",
@@ -69,7 +69,7 @@ class VideoActionModal(ModalScreen[str | None]):
                     id="vaction-channel",
                     markup=True,
                 )
-            yield ListView(id="vaction-list")
+            yield ListView(id="vaction-list", classes="dialog-list")
             yield Static(
                 "[dim]↑↓ / jk[/dim] navigate  ·  [dim]Enter[/dim] select  ·  [dim]Esc[/dim] cancel",
                 id="vaction-hint",

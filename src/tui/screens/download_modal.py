@@ -37,7 +37,7 @@ class DownloadModal(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
         mode = "audio" if self._audio_only else "video"
-        with Vertical(id="download-dialog"):
+        with Vertical(id="download-dialog", classes="dialog"):
             yield Static(
                 f"\u2b07  Downloading {mode}",
                 id="download-title",

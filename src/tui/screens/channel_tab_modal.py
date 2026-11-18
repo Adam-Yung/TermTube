@@ -33,7 +33,7 @@ class ChannelTabModal(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
-        with Vertical(id="ch-tab-dialog"):
+        with Vertical(id="ch-tab-dialog", classes="dialog"):
             yield Static("Go to…", id="ch-tab-title", markup=True)
             for num, (tab_id, label) in enumerate(self._tabs, start=1):
                 marker = " ✓" if tab_id == self._current_tab else ""

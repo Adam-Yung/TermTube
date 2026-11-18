@@ -30,13 +30,13 @@ class PlaylistModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
-        with Vertical(id="playlist-dialog"):
+        with Vertical(id="playlist-dialog", classes="dialog"):
             yield Static(
                 f"🎵  Playlists — [dim]{escape_markup(title[:50])}[/dim]",
                 id="playlist-title",
                 markup=True,
             )
-            yield ListView(id="playlist-list")
+            yield ListView(id="playlist-list", classes="dialog-list")
             yield Input(
                 placeholder="New playlist name… (press Enter)",
                 id="playlist-new-input",

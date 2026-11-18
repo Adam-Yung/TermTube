@@ -13,7 +13,7 @@ class ImageWarningModal(ModalScreen[bool]):
     BINDINGS = [Binding("escape", "ok", "OK", show=False)]
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="imgwarn-dialog"):
+        with Vertical(id="imgwarn-dialog", classes="dialog"):
             yield Static("⚠  No image protocol support", id="imgwarn-title", markup=True)
             yield Static(
                 "Your terminal or tmux config doesn't support Kitty or\n"

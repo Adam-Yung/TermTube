@@ -20,7 +20,7 @@ class NameModal(ModalScreen[str | None]):
         self._initial = initial
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="playlist-dialog"):
+        with Vertical(id="playlist-dialog", classes="dialog"):
             yield Static(f"🎵  {escape_markup(self._title)}", id="playlist-title", markup=True)
             yield Input(value=self._initial, placeholder="Name… (press Enter)", id="name-input")
             yield Static("[dim]Enter[/dim] save  ·  [dim]Esc[/dim] cancel", id="playlist-hint", markup=True)

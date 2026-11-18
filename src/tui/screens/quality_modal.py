@@ -46,9 +46,9 @@ class QualityModal(ModalScreen[str | None]):
         self._current = current
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="quality-dialog"):
+        with Vertical(id="quality-dialog", classes="dialog"):
             yield Static(self._title, id="quality-title", markup=False)
-            yield ListView(id="quality-list")
+            yield ListView(id="quality-list", classes="dialog-list")
             yield Static(
                 "[dim]Enter[/dim] select  ·  [dim]Esc[/dim] cancel",
                 id="quality-hint",

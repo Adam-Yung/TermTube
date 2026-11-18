@@ -128,6 +128,7 @@ DetailPanel {
 
 #thumbnail-area {
     height: 25;
+    max-height: 50%;
     background: #050505;
     border-bottom: solid #2a2a2a;
     align: center middle;
@@ -294,8 +295,30 @@ ChannelInfoPanel {
     background: #0a0a0a;
 }
 
-HelpScreen {
+/* Every modal is centered; every dialog box shares .dialog: sizes to its content, never taller or wider than 90% of the screen, scrolls inside when it must. */
+ModalScreen {
     align: center middle;
+}
+
+.dialog {
+    height: auto;
+    max-height: 90%;
+    max-width: 90%;
+    min-width: 36;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border: solid #444444;
+    padding: 1 2;
+}
+
+/* A list inside a dialog grows with its rows, then scrolls: half the screen at most leaves room for the title and hint. */
+.dialog-list {
+    height: auto;
+    max-height: 50vh;
+}
+
+#vaction-dialog, #settings-dialog, #dlpick-dialog {
+    background: #111118;
 }
 
 #help-outer {
@@ -304,6 +327,8 @@ HelpScreen {
     max-width: 100;
     background: #0f0f18;
     border: solid #ff4444;
+    border-title-color: #ff4444;
+    border-title-style: bold;
 }
 
 #help-scroll {
@@ -317,42 +342,15 @@ HelpScreen {
     width: 100%;
 }
 
-SearchModal, DownloadModal, PlaylistModal, QualityModal, WatchModal, ImageWarningModal,
-EmptyFeedModal, NavModal, SortModal, ChannelTabModal, VideoActionModal, SettingsModal, DownloadPickerModal {
-    align: center middle;
-}
-
-#search-dialog, #download-dialog, #playlist-dialog, #quality-dialog {
-    height: auto;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
-
-#vaction-dialog, #settings-dialog, #dlpick-dialog {
-    background: #111118;
-    border: solid #444444;
-    padding: 1 2;
-}
-
 #search-dialog { width: 60%; }
 #download-dialog { width: 70%; }
-#playlist-dialog { width: 50%; max-height: 60%; }
+#playlist-dialog { width: 50%; }
 #quality-dialog { width: 55%; }
-#vaction-dialog { width: 52; height: auto; max-height: 80%; }
+#vaction-dialog { width: 56; }
 #settings-dialog { width: 60%; height: 80%; }
-#dlpick-dialog { width: 55; height: auto; max-height: 80%; }
+#dlpick-dialog { width: 55; }
 
-QueueModal { align: center middle; }
-
-#queue-dialog {
-    width: 70%;
-    height: auto;
-    max-height: 80%;
-    background: #1a1a1a;
-    border: solid #444444;
-    padding: 1 2;
-}
+#queue-dialog { width: 70%; }
 
 #queue-title {
     color: #ff4444;
@@ -366,8 +364,6 @@ QueueModal { align: center middle; }
 }
 
 #queue-list {
-    height: auto;
-    max-height: 18;
     background: #0a0a12;
     border: solid #2a2a2a;
 }
@@ -409,7 +405,12 @@ QueueModal { align: center middle; }
 }
 
 ProgressBar {
+    width: 100%;
     margin-bottom: 1;
+}
+
+ProgressBar Bar {
+    width: 1fr;
 }
 
 ProgressBar .bar--bar, ProgressBar .bar--complete {
@@ -417,24 +418,19 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 }
 
 #playlist-list, #quality-list {
-    height: auto;
-    max-height: 20;
     background: #0d0d0d;
     border: solid #333333;
     margin-bottom: 1;
 }
 
-#quality-list { max-height: 16; }
-
-#imgwarn-list, #emptyfeed-list {
+#imgwarn-list, #emptyfeed-list,
+#ytdlp-update-list {
     height: auto;
     background: #0d0d0d;
     border: solid #333333;
 }
 
 #vaction-list {
-    height: auto;
-    max-height: 18;
     background: #0a0a12;
     border: solid #2a2a2a;
     margin-bottom: 1;
@@ -447,8 +443,6 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 }
 
 #dlpick-list {
-    height: auto;
-    max-height: 12;
     background: #111118;
     border: none;
 }
@@ -456,7 +450,8 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #playlist-list > ListItem,
 #quality-list > ListItem,
 #imgwarn-list > ListItem,
-#emptyfeed-list > ListItem {
+#emptyfeed-list > ListItem,
+#ytdlp-update-list > ListItem {
     padding: 0 1;
     color: #888888;
     border-left: thick #0d0d0d;
@@ -471,6 +466,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 
 #imgwarn-list > ListItem,
 #emptyfeed-list > ListItem,
+#ytdlp-update-list > ListItem,
 #vaction-list > ListItem,
 #settings-list > ListItem {
     height: 1;
@@ -484,6 +480,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #quality-list > ListItem > Static,
 #imgwarn-list > ListItem > Static,
 #emptyfeed-list > ListItem > Static,
+#ytdlp-update-list > ListItem > Static,
 #vaction-list > ListItem > Static,
 #settings-list > ListItem > Static {
     background: transparent;
@@ -499,7 +496,8 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 }
 
 #imgwarn-list > ListItem.-highlight,
-#emptyfeed-list > ListItem.-highlight {
+#emptyfeed-list > ListItem.-highlight,
+#ytdlp-update-list > ListItem.-highlight {
     background: #1e1e00;
     border-left: thick #dddd00;
     color: #ffffff;
@@ -514,6 +512,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #quality-list > ListItem.-highlight > Static,
 #imgwarn-list > ListItem.-highlight > Static,
 #emptyfeed-list > ListItem.-highlight > Static,
+#ytdlp-update-list > ListItem.-highlight > Static,
 #vaction-list > ListItem.-highlight > Static,
 #settings-list > ListItem.-highlight > Static,
 #dlpick-list > ListItem.-highlight > Static {
@@ -522,10 +521,8 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 
 #watch-dialog {
     width: 65%;
-    height: auto;
     background: #0d0d0d;
     border: solid #ff4444;
-    padding: 1 2;
 }
 
 #watch-dialog #np-header {
@@ -555,31 +552,27 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     margin-top: 1;
 }
 
-#imgwarn-dialog, #emptyfeed-dialog {
+#imgwarn-dialog, #emptyfeed-dialog, #ytdlp-update-dialog {
     width: 56;
-    height: auto;
     background: #1a1a1a;
     border: solid #888800;
-    padding: 1 2;
 }
 
-#imgwarn-title, #emptyfeed-title {
+#imgwarn-title, #emptyfeed-title, #ytdlp-update-title {
     color: #dddd00;
     text-style: bold;
     margin-bottom: 1;
 }
 
-#imgwarn-body, #emptyfeed-body {
+#imgwarn-body, #emptyfeed-body, #ytdlp-update-body {
     color: #aaaaaa;
     margin-bottom: 1;
 }
 
 #nav-dialog, #sort-dialog, #ch-tab-dialog {
     width: 36;
-    height: auto;
     background: #141414;
     border: solid #ff4444;
-    padding: 1 2;
 }
 
 #nav-title, #sort-title, #ch-tab-title {
