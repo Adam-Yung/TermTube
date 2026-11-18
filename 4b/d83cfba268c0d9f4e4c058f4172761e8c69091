@@ -1,0 +1,67 @@
+docs/code/src/channel_pager.py.md
+  s_6c28d43e292a51::t_a6202d46f4b799 1-8
+docs/code/src/innertube.py.md
+  s_6c28d43e292a51::t_130688a9b3af8d 3,19,37-45,48
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_2856a1d4f6b02c 3,12,20-21,26,35-38,41-45
+docs/code/src/tui/screens/channel_tab_modal.py.md
+  s_6c28d43e292a51::t_c73a46b13ba0ca 3
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_76dd17ca1cf140 20
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_a9503981ab96b3 105-114
+docs/features/architecture.md
+  s_6c28d43e292a51::t_e2d72057f0ce14 98
+docs/status.md
+  s_6c28d43e292a51::t_504388e00ecae1 13
+docs/todo.md
+  s_6c28d43e292a51::t_d92d4cfcc59208 62
+src/channel_pager.py
+  s_6c28d43e292a51::t_3383007f9d091e 1-55
+src/innertube.py
+  s_6c28d43e292a51::t_44951f2653a28a 12,159-167,170-174,176-182,185,187-188,190-214,216-219,247,253,263-265,279,291-316,581-583,587-593,619-626,632,634-636
+src/tests/fixtures/innertube_channel_shorts.json
+  s_6c28d43e292a51::t_476f53ec04159a 1-16
+src/tests/fixtures/innertube_channel_videos.json
+  s_6c28d43e292a51::t_d72fd1c2aac838 1-23
+src/tests/fixtures/innertube_channel_videos_more.json
+  s_6c28d43e292a51::t_3b2c4915d17a15 1-8
+src/tests/tui/test_channel_paging.py
+  s_6c28d43e292a51::t_7413c24eb0c157 1-162
+src/tests/tui/test_key_hints.py
+  s_6c28d43e292a51::t_0df45377e78029 104
+src/tests/unit/test_channel_pager.py
+  s_6c28d43e292a51::t_c6ea7e86b56afa 1-55
+src/tests/unit/test_innertube_parsers.py
+  s_6c28d43e292a51::t_0887a806ad45ba 237-239,241-242,244,246-301
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_248ccd97d83748 13-14,18,26-38,81-84,92,108,148-150,175-176,178,184,187-221,235-240,245-248,250-315,318,325,328-348,363-364,374-375,378-379
+src/tui/screens/channel_tab_modal.py
+  s_6c28d43e292a51::t_19a21d99ef269f 11-12,16-19,24-26,29,32,38,40,42,52-57
+src/tui/widgets/video_list.py
+  s_2547108119c43f::t_4d03bd0fdc173f 228,400,620-621,624-628
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4bd83cfba268c0d9f4e4c058f4172761e8c69091",
+  "prompts": {},
+  "sessions": {
+    "s_2547108119c43f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b817fa3-b791-4a54-9730-75fe36b48eee",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
