@@ -39,7 +39,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P3.1 Search stack with page and cursor restore (B3.1) (4b8be39)
 - [x] P3.2 Persistent search history in the modal (B3.2) (ea91c0c)
 - [x] P3.3 Suggestions as you type, on by default, opt-out setting (B3.3) (0b8647c)
-- [x] P3.4 Type/sort filters, more than 50 results (B3.4, B3.5) (HASH)
+- [x] P3.4 Type/sort filters, more than 50 results (B3.4, B3.5) (4cb79a9)
 
 ## Phase 4. Library index and delete  (milestone 2: pipeline)
 - [ ] P4.1 Library index with incremental refresh (C3, A4.3)
