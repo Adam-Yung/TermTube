@@ -48,6 +48,11 @@ _SEARCH_TYPES = [
     ("channel", "📺  Channels", "c"),
     ("playlist", "🎵  Playlists", "p"),
 ]
+_HISTORY_SORTS = [
+    ("recent", "🕐  Recent first", "r"),
+    ("plays", "🔁  Most watched", "m"),
+    ("time", "⏱  Longest watched", "l"),
+]
 _LOADABLE_TABS = ("home", "subscriptions", "history", "library")
 _FORCE_EXIT_AFTER_S = 2.0
 _KILL_TIMEOUT_S = 1.5
@@ -120,13 +125,14 @@ class MainScreen(
         self._init_list_tools()
         self._init_library_rail()
         self._history_view = "history"
+        self._history_sort = "recent"
 
     def _removals(self) -> dict[str, Removal]:
         return {
             "history": Removal(
                 remove=lambda entries, _choice: history.remove_many([e["id"] for e in entries if e.get("id")]),
                 restore=history.restore,
-                reload=history.all_entries,
+                reload=lambda: history.ordered(history.all_entries(), self._history_sort),
                 noun="video",
             ),
             "library": library_delete.removal(self.app.config),
@@ -339,7 +345,21 @@ class MainScreen(
         self._open_search_dialog()
 
     def action_search_sort(self) -> None:
-        self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+        if self._current_tab == "history":
+            self._pick_history_sort()
+        else:
+            self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+
+    def _pick_history_sort(self) -> None:
+        """s on the local History tab: recent (with day headers), most watched or longest watched."""
+        from src.tui.screens.sort_modal import SortModal
+
+        def on_pick(value: str | None) -> None:
+            if value and value != self._history_sort:
+                self._history_sort = value
+                self._load_view("history")
+
+        self.app.push_screen(SortModal(self._history_sort, options=_HISTORY_SORTS, title="Sort history"), on_pick)
 
     def action_search_type(self) -> None:
         self._pick_search_filter("kind", "Result type", _SEARCH_TYPES, self._search.kind)
@@ -347,7 +367,9 @@ class MainScreen(
     def _pick_search_filter(self, field: str, title: str, options: list[tuple[str, str, str]], current: str) -> None:
         """Ask for a sort or type and reload the current search with it (Search tab only)."""
         if self._current_tab != "search" or not self._search.query:
-            self._hint("Sort and type apply to search results. Press / to search.", "information")
+            self._hint(
+                "Sort and type apply to search results (s also sorts local History). Press / to search.", "information"
+            )
             return
         from src.tui.screens.sort_modal import SortModal
 
@@ -519,6 +541,7 @@ class MainScreen(
         if self._current_tab in FEED_TABS:
             self._save_feed_stash(self._current_tab)
         self.app.audio.stop_audio()
+        history.flush()
         timer = threading.Timer(_FORCE_EXIT_AFTER_S, _force_exit)
         timer.daemon = True
         timer.start()

@@ -50,3 +50,9 @@ SponsorBlock auto-skip runs in the poll thread: `_segment_idx` walks the sorted 
 
 - The queue is in memory only.
 - `app.screen_stack` is read from whichever thread calls `_broadcast`; all callers are on the UI thread (completions, `_publish_progress`, `apply`).
+
+## Queue edits and progress
+
+`move_queued`, `remove_queued`, `insert_queued` (undo) and `play_queued` are the only queue edits besides enqueue/skip/stop; each broadcasts `AudioQueueChanged` through `_queue_changed`. Indexes are positions in the *upcoming* queue; the playing track is never in it, so it cannot be removed (the queue modal says `>` or `x`). `play_queued(i)` plays that track now and keeps the ones before it, like `a` keeps the queue. `insert_queued` ignores an entry that is playing or queued, so undo cannot create a duplicate.
+
+A `ProgressTracker` is created on the first poll of a session, next to `history.add`, and fed from `_publish_progress`. It is finished in `_reset_playback` (every stop, switch and failure) and with `completed=True` from `_on_finished`, which clears the resume point. `_play_with_retries` asks `progress.start_offset` once and puts `--start` in every attempt's command, with a "Resuming at m:ss" notice. See `docs/code/src/progress.py.md`.

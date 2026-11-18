@@ -50,7 +50,8 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |
 | `P` `S` `E` | play / shuffle / queue the open or highlighted playlist as audio (a hint elsewhere) | |
 | `Y` `I` | History tab: `Y` cycles the source (Local, YouTube history, Watch Later; the last two are read-only account lists) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
-| `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); a hint elsewhere | |
+| `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); `s` on the local History tab: recent / most watched / longest watched (a hint elsewhere) | |
+| `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
 | `s` `r` `Esc` | channel page only: sort / reload / back | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |
 | `↑` `↓` `Enter` `Ctrl+D` | search prompt only: walk the earlier searches / search the highlighted one / forget it | |

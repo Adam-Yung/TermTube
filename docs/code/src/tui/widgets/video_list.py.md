@@ -28,3 +28,5 @@ A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of th
 `set_matcher(fn)` swaps how the filter ranks entries (default `fuzzy.rank`); the feed loader sets it per view. Rows with `_dl` (playlist items) show a download badge: `⬇ video`, `⬇ audio`, `⬇ both` or `☁` for stream only.
 
 A row with `_yt` (account list) or `source == "yt"` (imported into local history) shows a `YT` badge after the download badges.
+
+History rows (records with `resume_s`, `plays`) add `▶ 2:05 / 10:00` (where playback resumes, over the length) and `×N` (plays, from the second) to the meta line. Both come from fields already on the row, so a list of thousands pays two dict lookups per row.

@@ -133,6 +133,8 @@ FIELDS: list[Field] = [
           parse=parse_categories, note="comma separated"),
     Field("sponsorblock.auto_skip", "Auto-skip segments", "bool", "Playback", lambda c: c.sponsorblock_auto_skip),
     Field("prefetch_video", "Prefetch video stream", "bool", "Playback", lambda c: c.prefetch_video_enabled),
+    Field("resume_playback", "Resume where you stopped", "bool", "Playback", lambda c: c.resume_playback_enabled,
+          note="History rows with a saved position start there"),
 
     Field("video_dir", "Video folder", "text", "Downloads", lambda c: c.get("video_dir"), parse=parse_dir),
     Field("audio_dir", "Audio folder", "text", "Downloads", lambda c: c.get("audio_dir"), parse=parse_dir),

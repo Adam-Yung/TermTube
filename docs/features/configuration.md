@@ -36,13 +36,14 @@ History (`history.json`) and local playlists (`playlists.json`) sit next to it. 
 | `search_suggestions` | `true` | `false` stops asking Google for search suggestions while you type (the partial text is sent to `suggestqueries.google.com`, anonymously); only a literal `false` turns it off. Settings modal has the toggle |
 | `history_max` | `500` | most entries kept in the local history; clamped to 50..5000, a non-integer reads as 500 |
 | `prefetch_video` | `false` | also pre-resolve a video stream URL when focusing a row (audio is always prefetched); only a literal `true` turns it on. Settings has the toggle |
+| `resume_playback` | `true` | start a video or track where it stopped last time (History rows show `▶ 2:05 / 10:00`); only a literal `false` turns it off. Needs history on. Settings has the toggle |
 | `rows_per_page` | `20` | entries per list page, clamped to 10..50 (a non-integer reads as 20). Applies at the next list load: switch tab, search again or refresh |
 
 `cache_ttl` and `sponsorblock` merge one level deep: setting one sub-key keeps the other defaults.
 
 ## Rules
 
-- Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`, `history`, `history_max`, `rows_per_page`, `prefetch_video`); raw `config["x"]` / `config.get` do not.
+- Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`, `history`, `history_max`, `rows_per_page`, `prefetch_video`, `resume_playback`); raw `config["x"]` / `config.get` do not.
 - Code changes a setting with `config.set(key, value)` (dotted keys such as `cache_ttl.home` work) and persists it with `config.save()`, which returns False when nothing was written; `config.reload()` re-reads the file. Nothing outside `src/config.py` touches `_data`.
 - Tests construct `Config(path=<tmp file>)`; the default path is the real user config.
 - `termtube --clear-cache` removes cached feeds and metadata; it never touches config, history or playlists.

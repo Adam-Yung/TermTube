@@ -9,3 +9,5 @@ The app stylesheet (`App.CSS_PATH`). Crimson is the base; amber, ocean and midni
 - Notifications: `ToastRack` and `Toast` (Textual's own widgets, no ids in Python) are styled at the end of the file; `Toast.-information` takes the theme accent per theme, `-warning` and `-error` are fixed. Decision: `docs/decisions/ui.md`. `run_test` hides toasts unless called with `notifications=True`.
 - Textual component classes (`.bar--bar`, `.footer-key--key`, `.scrollbar--thumb`) never appear in Python; they are not dead.
 - Every id and class here must appear in `src/**/*.py`; remove a rule with the widget that owned it.
+
+`QueueModal` (`Q`) uses `#queue-dialog`, `#queue-title`, `#queue-hint` and `#queue-list`; `#queue-title` is in the per-theme accent lists with the other dialog titles.

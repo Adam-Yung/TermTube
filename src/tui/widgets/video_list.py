@@ -15,7 +15,7 @@ from textual.widgets import Input, ListItem, ListView, LoadingIndicator, Static
 from src import fuzzy, logger
 from src.config import DEFAULT_ROWS_PER_PAGE
 from src.entries import Entry
-from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
+from src.tui.fmt import escape_markup, fmt_age, fmt_clock, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
 
@@ -193,6 +193,11 @@ class VideoListItem(ListItem):
             meta_parts.append(f"[dim]{age}[/dim]")
         if watched:
             meta_parts.append(f"[#6699cc]{watched}[/#6699cc]")
+        resume = entry.get("resume_s")
+        if resume and entry.get("duration"):
+            meta_parts.append(f"[#6bff6b]▶ {fmt_clock(resume)} / {duration}[/#6bff6b]")
+        if (entry.get("plays") or 0) > 1:
+            meta_parts.append(f"[dim]×{entry['plays']}[/dim]")
 
         line2 = "  [dim]·[/dim]  ".join(meta_parts) if meta_parts else ""
         return f"{line1}\n{line2}" if line2 else line1

@@ -6,6 +6,7 @@ import webbrowser
 from src import logger
 from src.entries import Entry
 from src.plat import clipboard_copy
+from src.progress import is_live
 
 _HINT_REPEAT_S = 2.0
 
@@ -172,6 +173,15 @@ class ItemActionsMixin:
         else:
             audio.skip_audio()
 
+    def action_audio_queue(self) -> None:
+        audio = self.app.audio
+        if not audio.is_playing and not audio.queue:
+            self._hint("Nothing playing.", "information")
+            return
+        from src.tui.screens.queue_modal import QueueModal
+
+        self.app.push_screen(QueueModal())
+
     def action_audio_pause(self) -> None:
         if not self.app.audio.is_playing:
             self._hint("Nothing playing.", "information")
@@ -194,7 +204,7 @@ class ItemActionsMixin:
         entry = self._playable_entry()
         if not entry:
             return
-        if entry.get("is_live") or entry.get("live_status") == "is_live":
+        if is_live(entry):
             self._hint("Live stream: cannot download.")
             return
         if entry.get("_has_audio"):  # library merges a video with its audio file: both forms exist

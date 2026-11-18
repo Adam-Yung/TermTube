@@ -19,7 +19,9 @@ from src.plat import (
     install_hint,
     terminate_process,
 )
+from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
+from src.tui.fmt import fmt_clock
 from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 from src.tui.screens.mixins.item_actions import watch_url
 
@@ -68,6 +70,7 @@ class AudioController:
         self._poll_timer: Timer | None = None
         self._poll_busy = False
         self._history_session = 0
+        self._tracker: ProgressTracker | None = None
         self._segments: list[Segment] = []
         self._segment_idx = 0
         self._progress: tuple[float, float, bool] | None = None
@@ -120,7 +123,7 @@ class AudioController:
         else:
             self._queue.append(entry)
             self._app.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)
-            self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+            self._queue_changed()
 
     def play_many(self, entries: list[Entry]) -> None:
         """Play the first entry now and queue the rest, replacing the queue (a playlist's play-all)."""
@@ -128,7 +131,7 @@ class AudioController:
             return
         self._queue = list(entries[1:])
         self.play_audio(entries[0])
-        self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+        self._queue_changed()
 
     def enqueue_many(self, entries: list[Entry]) -> int:
         """Queue each entry not playing or queued, with one notice (idle: start the first). Returns the count."""
@@ -143,7 +146,7 @@ class AudioController:
             self.play_many(fresh)
         else:
             self._queue.extend(fresh)
-            self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+            self._queue_changed()
         self._app.notify(f"Queued {len(fresh)} track{'s' if len(fresh) != 1 else ''}", timeout=3)
         return len(fresh)
 
@@ -156,6 +159,42 @@ class AudioController:
         """Stop playback and drop the queue."""
         self._queue.clear()
         self._stop()
+
+    def move_queued(self, index: int, step: int) -> int:
+        """Move the upcoming track at ``index`` by ``step`` places (clamped to the queue). Returns its new index."""
+        if not 0 <= index < len(self._queue):
+            return index
+        new = min(len(self._queue) - 1, max(0, index + step))
+        if new != index:
+            self._queue.insert(new, self._queue.pop(index))
+            self._queue_changed()
+        return new
+
+    def remove_queued(self, index: int) -> Entry | None:
+        """Drop the upcoming track at ``index`` and return it (None when out of range); the playing one is not queued"""
+        if not 0 <= index < len(self._queue):
+            return None
+        entry = self._queue.pop(index)
+        self._queue_changed()
+        return entry
+
+    def insert_queued(self, index: int, entry: Entry) -> None:
+        """Put ``entry`` back at ``index`` (undo of a removal), unless it is playing or queued again meanwhile."""
+        if entry.get("id") == (self._entry or {}).get("id") or any(e.get("id") == entry.get("id") for e in self._queue):
+            return
+        self._queue.insert(min(max(index, 0), len(self._queue)), entry)
+        self._queue_changed()
+
+    def play_queued(self, index: int) -> None:
+        """Play the upcoming track at ``index`` now. The tracks before it stay queued, in order (nothing is dropped)."""
+        if not 0 <= index < len(self._queue):
+            return
+        entry = self._queue.pop(index)
+        self.play_audio(entry)
+        self._queue_changed()
+
+    def _queue_changed(self) -> None:
+        self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
 
     def toggle_audio_pause(self) -> None:
         self._ipc({"command": ["cycle", "pause"]})
@@ -182,7 +221,13 @@ class AudioController:
         if session == self._session:
             self._play_pending = False
 
+    def _finish_progress(self, *, completed: bool = False) -> None:
+        if self._tracker:
+            self._tracker.finish(completed=completed)
+            self._tracker = None
+
     def _reset_playback(self) -> None:
+        self._finish_progress()
         self._proc = None
         self._entry = None
         self._progress = None
@@ -327,6 +372,9 @@ class AudioController:
         fmt = ytdl_format or _DEFAULT_AUDIO_FORMAT
         cookie_args = config.browser_cookie_args()
         url = stream_url
+        start = start_offset(entry, config)
+        if start:
+            self._app.call_from_thread(self._app.notify, f"Resuming at {fmt_clock(start)}", timeout=3)
 
         def build_cmd(attempt: int) -> list[str]:
             nonlocal url
@@ -344,6 +392,7 @@ class AudioController:
                 ytdl_format=ytdl_format,
                 cookie_args=cookie_args,
                 mpv_log=_mpv_log_path(),
+                start=start,
             )
             logger.debug("audio mpv cmd: %s", " ".join(cmd))
             return cmd
@@ -383,6 +432,7 @@ class AudioController:
             return
         title = entry.get("title", "")
         self.log(f"[dim]Audio finished: {title[:60]}[/dim]")
+        self._finish_progress(completed=True)
         self._reset_playback()
         if self._queue:
             if title:
@@ -431,7 +481,10 @@ class AudioController:
         if self._entry and self._history_session != session:
             self._history_session = session
             history.add(self._entry, self._app.config)
+            self._tracker = ProgressTracker(self._entry)
         self._progress = (pos, dur, paused)
+        if self._tracker:
+            self._tracker.tick(pos, dur)
         self._broadcast(lambda: PlayerStateUpdated(pos, dur, paused, playing=True))
 
     def _skip_sponsor_segment(self, pos: float, session: int) -> None:

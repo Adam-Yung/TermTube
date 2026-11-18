@@ -113,10 +113,11 @@ class FeedLoaderMixin:
             elif view == "history":
                 from src import history
 
+                recent = self._history_sort == "recent"
                 self._ui(
-                    lambda: panel.set_view_options(group_by=_day_label, show_count=True)
+                    lambda: panel.set_view_options(group_by=_day_label if recent else None, show_count=True)
                 )
-                self._load_simple_list(panel, history.all_entries())
+                self._load_simple_list(panel, history.ordered(history.all_entries(), self._history_sort))
             elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
                 self._load_collection(view, panel)
         except Exception as exc:
