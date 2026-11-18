@@ -40,7 +40,7 @@ ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)
 
 `ListToolsMixin` runs `f`, `m`/`M`, `D` and `u` over a `Removal` (what a tab's `D` deletes and how it reloads; `MainScreen._removals()` maps tab to `Removal`: History, Library in `src/tui/library_delete.py`, playlists via `PlaylistToolsMixin`). `LibraryRailMixin` drives the rail (All downloads, Videos, Audio, playlists). `QueueModal` shows and edits the audio queue.
 
-A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_last_page_reached`) in its docstring. Interfaces are listed in each mixin's mirror.
+A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_page_shown`, `_on_past_last_page`) in its docstring. Interfaces are listed in each mixin's mirror. A mixin never ships a no-op default for a hook another class provides: an earlier class in the MRO would shadow the real one (this broke Home paging once). `test_mixin_wiring.py` walks both screens' MRO and fails on an unlisted override, a silent stub, a `self.x` no class provides, a bound key without an action and a message nobody handles; `test_hook_wiring.py` spies on the real hooks through the running screens.
 
 ## Worker groups
 

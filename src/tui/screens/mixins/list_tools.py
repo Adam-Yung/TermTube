@@ -43,11 +43,9 @@ class ListToolsMixin:
     """Mark, remove (`D`, one inline confirmation) and undo for a screen with one ``VideoListPanel``.
 
     The screen supplies ``_removals()``, a dict from tab id to ``Removal``; a tab without an entry says why
-    through ``_hint``. Needs ``_list()``, ``_selected_entry()``, ``_detail()``, ``_current_tab`` and ``_hint``.
+    through ``_hint``. ``_after_removal()`` runs after a removal or an undo, for widgets that show what was removed
+    (``LibraryRailMixin``). Needs ``_list()``, ``_selected_entry()``, ``_detail()``, ``_current_tab`` and ``_hint``.
     """
-
-    def _removals(self) -> dict[str, Removal]:
-        return {}
 
     def _init_list_tools(self) -> None:
         self._pending_remove: tuple[list[Entry], dict[str, str]] | None = None
@@ -73,9 +71,6 @@ class ListToolsMixin:
             entry = self._selected_entry()
             targets = [entry] if entry else []
         return targets
-
-    def _after_removal(self) -> None:
-        """Called after a removal or an undo, for screens whose other widgets show what was removed."""
 
     def action_delete(self) -> None:
         key = self._removal_key()

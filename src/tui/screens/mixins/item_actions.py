@@ -38,7 +38,8 @@ def _page_url(entry: Entry | None) -> str:
 class ItemActionsMixin:
     """Actions on the highlighted row: play, download, copy, open, and the Enter menu.
 
-    Needs ``_selected_entry()`` (``ListNavMixin``) and ``_sync_player_bar()`` (``AudioBarMixin``).
+    Needs ``_selected_entry()`` (``ListNavMixin``), ``_sync_player_bar()`` (``AudioBarMixin``) and ``_crumbs()``
+    (the screen: the breadcrumb a channel page opened from here starts with).
     Audio keys act on ``app.audio``, the one controller shared by every screen.
     """
 
@@ -276,10 +277,6 @@ class ItemActionsMixin:
             return
         name = entry.get("uploader") or entry.get("channel") or "Channel"
         self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name, trail=self._crumbs()))
-
-    def _crumbs(self) -> list[str]:
-        """Where this screen sits, for the breadcrumb of a channel page opened from here."""
-        return []
 
     def action_playlist(self) -> None:
         entry = self._playable_entry()
