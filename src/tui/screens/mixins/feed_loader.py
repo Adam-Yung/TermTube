@@ -73,6 +73,10 @@ class FeedLoaderMixin:
     the other; ``_feed_session`` makes any result (load or paging) from before a view change a no-op.
     """
 
+    _feed_cursor = None
+    _extending_session: int | None = None
+    _pending_show = False
+
     def _load_view(self, view: str) -> None:
         self._log(f"[dim]Loading {view}…[/dim]")
         self._list().clear_and_set_loading()
@@ -84,6 +88,7 @@ class FeedLoaderMixin:
         self._start_view(view)
 
     def _start_view(self, view: str) -> None:
+        self._close_cursor()
         self._feed_session += 1
         self._stream_view(view, self._feed_session)
 
@@ -207,6 +212,9 @@ class FeedLoaderMixin:
                 self._eager_prefetch(batch[0])
             call(panel.finish_loading)
 
+        cursor = self._open_cursor(feed_key)
+        if cursor is None:
+            return
         fetched = visible(
             ytdlp.fetch_page_batch(
                 ytdlp.FEED_URLS[feed_key],
@@ -218,6 +226,7 @@ class FeedLoaderMixin:
                 on_first_batch=on_first_batch,
                 first_batch_size=FIRST_BATCH_COUNT,
                 auth=True,
+                cursor=cursor,
             )
         )
         if not fetched and not stash:
@@ -375,38 +384,80 @@ class FeedLoaderMixin:
             entries = self._collection_entries(view)
         self._load_simple_list(panel, entries)
 
+    def _open_cursor(self, feed_key: str):
+        """A lazy listing of the feed for this view (it opens on the first ``take``). None if the view changed."""
+        import src.ytdlp as ytdlp
+        from src.feed_cursor import FeedCursor
+
+        cursor = FeedCursor(ytdlp.FEED_URLS[feed_key], self.app.config, self.app.cache, auth=True)
+        if not self._ui(self._adopt_cursor, cursor):
+            cursor.close()
+            return None
+        return cursor
+
+    def _adopt_cursor(self, cursor) -> bool:
+        self._close_cursor()
+        self._feed_cursor = cursor
+        return True
+
+    def _close_cursor(self) -> None:
+        cursor, self._feed_cursor = self._feed_cursor, None
+        if cursor is not None:
+            cursor.close()
+
     def _can_extend(self) -> bool:
         """Feeds grow only when the list shows the full set: a filter works on what is loaded."""
-        return self._current_tab in PAGED_TABS and not self._list().filter_active
+        if self._current_tab not in PAGED_TABS or self._list().filter_active:
+            return False
+        cursor = self._feed_cursor
+        return not (cursor is not None and feed_key_of(self._current_tab) and cursor.exhausted)
 
-    def _on_last_page_reached(self) -> None:
-        if self._can_extend():
-            self._extend_feed(show=False, session=self._feed_session)
+    def _on_page_shown(self) -> None:
+        """Prefetch: a feed grows when the user reaches its second-to-last page, Search at its last."""
+        panel = self._list()
+        lead = 1 if feed_key_of(self._current_tab) else 0
+        if panel.current_page >= panel.total_pages - lead and not panel.is_loading and self._can_extend():
+            self._request_extension(show=False)
 
     def _on_past_last_page(self) -> None:
         if self._can_extend():
-            self._extend_feed(show=True, session=self._feed_session)
+            self._request_extension(show=True)
+
+    def _request_extension(self, *, show: bool) -> None:
+        """Start one extension, or when one is in flight only make its result show as soon as it lands."""
+        panel, session = self._list(), self._feed_session
+        if self._extending_session == session:
+            if show and not self._pending_show:
+                self._pending_show = True
+                panel.show_next_page_loading()
+            return
+        self._extending_session = session
+        more = SEARCH_FETCH_COUNT if self._current_tab == "search" else BATCH_FETCH_COUNT
+        panel.set_progress(f"loading {more} more…")
+        self._extend_feed(show=show, session=session)
 
     @work(thread=True, exclusive=True, group="feed_extend")
     def _extend_feed(self, *, show: bool, session: int) -> None:
         """Fetch the next batch of pages. With ``show`` the user is waiting on it. Dropped if the view changed."""
+        _loading.session = session
         panel = self._list()
         call = self.app.call_from_thread
         if show:
-            call(panel.show_next_page_loading)
+            call(self._show_waiting, session, panel)
         self._worker_start()
         try:
             entries = self._fetch_next_batch(panel)
-            if entries:
-                call(self._apply_extension, session, panel, entries, show)
-            elif show:
-                call(self._finish_extension, session, panel)
+            call(self._apply_extension, session, panel, entries, show)
         except Exception as exc:
             logger.debug("extend feed: %s", exc)
-            if show:
-                call(self._finish_extension, session, panel)
+            call(self._extension_failed, session, panel, classify(exc).message)
         finally:
             self._worker_end()
+
+    def _show_waiting(self, session: int, panel: VideoListPanel) -> None:
+        if session == self._feed_session and not self._pending_show:
+            self._pending_show = True
+            panel.show_next_page_loading()
 
     def _fetch_next_batch(self, panel: VideoListPanel) -> list[Entry]:
         import src.ytdlp as ytdlp
@@ -414,15 +465,21 @@ class FeedLoaderMixin:
         config, cache, tab = self.app.config, self.app.cache, self._current_tab
         skip = panel.seen_ids
         if feed_key := feed_key_of(tab):
-            entries = ytdlp.fetch_page_batch(
-                ytdlp.FEED_URLS[feed_key], config, cache,
-                skip_ids=skip, count=BATCH_FETCH_COUNT, feed_key=None, auth=True,
-            )
-            if tab in ACCOUNT_VIEWS:
-                return _tag_yt(entries)
-            if tab == "home":
-                entries = [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
-            return entries
+            cursor = self._feed_cursor or self._open_cursor(feed_key)
+            if cursor is None:
+                return []
+            out: list[Entry] = []
+            for _ in range(3):
+                got = cursor.take(BATCH_FETCH_COUNT, skip)
+                skip = skip | {e["id"] for e in got}
+                if tab in ACCOUNT_VIEWS:
+                    got = _tag_yt(got)
+                elif tab == "home":
+                    got = [e for e in got if not cache.is_suppressed(e.get("id", ""))]
+                out += got
+                if out or cursor.exhausted or cursor.closed:
+                    break
+            return out
         if tab == "search" and self._search.query:
             count = min(SEARCH_FETCH_COUNT, ytdlp.MAX_SEARCH_RESULTS - len(skip))
             if count <= 0:
@@ -433,13 +490,36 @@ class FeedLoaderMixin:
             )
         return []
 
-    def _finish_extension(self, session: int, panel: VideoListPanel) -> None:
-        if session == self._feed_session:
-            panel.finish_loading()
+    def _extension_done(self, session: int, panel: VideoListPanel) -> bool:
+        """Common end of an extension on the UI thread. False when the view changed meanwhile."""
+        if self._extending_session == session:
+            self._extending_session = None
+        if session != self._feed_session:
+            return False
+        panel.set_progress("")
+        return True
+
+    def _extension_failed(self, session: int, panel: VideoListPanel, message: str) -> None:
+        was_waiting = self._pending_show
+        if self._extension_done(session, panel):
+            self._pending_show = False
+            panel.set_progress(f"⚠ {message}")
+            if was_waiting:
+                panel.load_page(panel.total_pages, cursor="last")
+                self._hint(message)
 
     def _apply_extension(self, session: int, panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
-        if session == self._feed_session:
-            self._append_pages(panel, entries, show)
+        if not self._extension_done(session, panel):
+            return
+        show = show or self._pending_show
+        self._pending_show = False
+        if not entries:
+            if show:
+                panel.load_page(panel.total_pages, cursor="last")
+            return
+        self._append_pages(panel, entries, show)
+        panel.set_progress(f"{panel.loaded_count} loaded")
+        self._on_page_shown()
 
     @staticmethod
     def _append_pages(panel: VideoListPanel, entries: list[Entry], show: bool) -> None:

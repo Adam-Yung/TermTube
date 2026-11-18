@@ -9,7 +9,7 @@ SRC = Path(__file__).resolve().parents[2]
 ACCOUNT_BOUND = {
     ("ytdlp.py", "_list_subscribed_channels"),
     ("tui/screens/mixins/feed_loader.py", "_load_feed"),
-    ("tui/screens/mixins/feed_loader.py", "_fetch_next_batch"),
+    ("tui/screens/mixins/feed_loader.py", "_open_cursor"),
 }
 
 

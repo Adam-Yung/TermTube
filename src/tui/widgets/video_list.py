@@ -297,6 +297,11 @@ class VideoListPanel(Widget):
         return max(self._pages, default=0) + 1
 
     @property
+    def loaded_count(self) -> int:
+        """Entries held in the full set (not the filtered one)."""
+        return sum(len(p) for p in self._pages.values())
+
+    @property
     def filter_active(self) -> bool:
         return bool(self._filter)
 

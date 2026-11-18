@@ -10,8 +10,10 @@ from src.tui.widgets.video_list import FilterBar, VideoListPanel
 class ListNavMixin:
     """Cursor, page and focus handling for a screen that owns one ``VideoListPanel``.
 
-    The screen sets ``_LIST_ID`` to the panel's selector and may override the
-    ``_on_*`` hooks and ``action_tab_prev`` / ``action_tab_next``.
+    The screen sets ``_LIST_ID`` to the panel's selector, defines the hooks ``_on_page_shown`` (the user landed
+    on another held page) and ``_on_past_last_page`` (a page that is not held was asked for; not here as a
+    default: a no-op in this class would shadow the loader's), and may override ``action_tab_prev`` and
+    ``action_tab_next``.
     """
 
     _LIST_ID: str
@@ -40,6 +42,7 @@ class ListNavMixin:
         last = panel.total_pages
         if panel.current_page != last:
             panel.load_page(last, cursor="last")
+            self._on_page_shown()
         else:
             panel.cursor_last()
 
@@ -54,8 +57,7 @@ class ListNavMixin:
             return
         if panel.can_go_next():
             panel.load_page(panel.current_page + 1)
-            if not panel.can_go_next():
-                self._on_last_page_reached()
+            self._on_page_shown()
         else:
             self._on_past_last_page()
 
@@ -70,12 +72,6 @@ class ListNavMixin:
             return False
         panel.close_filter()
         return True
-
-    def _on_last_page_reached(self) -> None:
-        """The user just landed on the last held page."""
-
-    def _on_past_last_page(self) -> None:
-        """The user asked for a page that is not held."""
 
     def on_video_list_panel_page_change_requested(
         self, message: VideoListPanel.PageChangeRequested

@@ -170,6 +170,7 @@ class MainScreen(
         self.call_after_refresh(self._prewarm_cookies)
 
     def on_unmount(self) -> None:
+        self._close_cursor()
         if self._current_tab in FEED_TABS:
             self._save_feed_stash(self._current_tab)
 

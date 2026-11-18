@@ -345,6 +345,9 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         super().action_goto_end()
         self._maybe_prefetch()
 
+    def _on_page_shown(self) -> None:
+        """The page-change actions above prefetch themselves."""
+
     def _on_past_last_page(self) -> None:
         self._extend(show=True)
 

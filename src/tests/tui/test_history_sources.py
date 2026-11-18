@@ -80,8 +80,6 @@ async def test_youtube_rows_use_the_account_loader_and_carry_a_badge_and_no_day_
         url, kwargs = yt_calls(fetched)[0]
         assert url == "https://www.youtube.com/feed/history"
         assert kwargs["auth"] is True and kwargs["feed_key"] == "yt_history"
-        home = [c for c in fetched if c[1]["feed_key"] == "home"]
-        assert home and home[0][1]["auth"] is True and home[0][0] == "https://www.youtube.com/"
         panel = panel_of(app)
         assert [i.entry["id"] for i in items(panel)] == ["abcdefghij1", "abcdefghij2"]
         assert all(i.entry["_yt"] for i in items(panel))

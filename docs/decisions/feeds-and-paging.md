@@ -132,3 +132,13 @@ Enter on a playlist row opens its videos in the same list (InnerTube `VL<id>` br
 ## 2026-11-18 — Local channel bookmarks and the Following view (P7.2)
 
 `channels.json` (`JsonStore`) holds `{id, name, avatar, added}`; `B` on the channel page toggles it. The view is `F` on the Subscriptions tab, a drill-down from that tab like a playlist (Backspace returns), so it needs no new tab and works with `browser: none`. The existing Subscriptions behaviour is unchanged, as the owner decided. Keys: `B` and `F` were free; `F` is shift-`f` (filter) only by letter, the filter is not offered on that key. While wiring the back path the playlist drill-down turned out to leave its rows on screen after Backspace (an unchanged `Tabs.active` fires nothing); `action_nav_back` now reloads in that case, for playlists and Following alike.
+
+## 2026-11-18 — Home continues one open listing; hooks were shadowed (P7.3)
+
+Feed extension no longer re-extracts from the top. `src/feed_cursor.py` keeps one lazy flat yt-dlp listing per loaded view, `fetch_page_batch(cursor=)` uses it for the first 80 rows and `_fetch_next_batch` advances it by 80 per extension. A live iterator is safe here because every advance goes through one lock (one thread at a time), `close()` never touches the generator while a `take` runs (the running `take` closes the extractor when it returns), and the cursor's cancel event is registered with `ytdlp.cancel_all`. A failed `take` drops the generator and reopens from the top on the next call, with `skip_ids`, so the old windowed behaviour remains the fallback. When the start was served from the cache the cursor opens at the first extension and skips the held ids once. Applies to Home, History on YouTube and Watch Later; Search keeps its own paging.
+
+Found on the way: `ListNavMixin` defined no-op `_on_last_page_reached` and `_on_past_last_page` and precedes `FeedLoaderMixin` in `MainScreen`, so the loader's hooks never ran in the real app and Home never extended (the tests called `_extend_feed` directly). The no-op defaults are gone; the hosts define `_on_page_shown` and `_on_past_last_page`.
+
+Prefetch moved to the second-to-last held page for feeds (`_on_page_shown`); one extension per session in flight (`_extending_session`), a page request meanwhile only marks the result to show (`_pending_show`). Extension errors used to be swallowed; they now show as `⚠ <typed message>` in the footer, with a hint when the user was waiting.
+
+**[verify live]** The real generator across calls with the extractor left open (the tests use a fake that records opens and reads).

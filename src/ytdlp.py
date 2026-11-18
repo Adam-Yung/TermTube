@@ -211,10 +211,13 @@ def fetch_page_batch(
     on_first_batch: Callable[[list[VideoEntry]], None] | None = None,
     first_batch_size: int = 15,
     auth: bool = False,
+    cursor=None,
 ) -> list[VideoEntry]:
     """Up to ``count`` video entries from ``url`` minus ``skip_ids``; cache-first when ``feed_key`` is set.
 
     Blocking; run in a worker thread. ``on_first_batch`` gets the first ``first_batch_size`` entries early.
+    With a ``cursor`` (``feed_cursor.FeedCursor``) the network read advances that open listing instead of
+    starting a new one, and the caller keeps the cursor for the next batch.
     ``auth`` sends the browser's cookies (account feeds only: Home, YouTube history, Watch Later).
     """
     skip_ids = skip_ids or set()
@@ -225,6 +228,11 @@ def fetch_page_batch(
             return cached
 
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
+    if cursor is not None:
+        results = cursor.take(count, skip_ids, on_first_batch=on_first_batch, first_batch_size=first_batch_size)
+        if feed_key and len(cursor.ids) >= _MIN_FEED_COUNT:
+            cache.put_feed(feed_key, list(cursor.ids))
+        return results
     results, all_ids = _extract_videos(
         url, config, cache, count=count, skip_ids=skip_ids,
         on_first_batch=on_first_batch, first_batch_size=first_batch_size, auth=auth,

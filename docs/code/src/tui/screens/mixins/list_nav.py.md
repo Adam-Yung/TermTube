@@ -4,7 +4,7 @@ Cursor, page and focus handling for a screen that owns one `VideoListPanel` (`Ma
 
 ## Interface
 
-- `action_page_next` is a no-op while the panel is loading, loads the next page when it is held, and otherwise calls `_on_past_last_page()`. After landing on the last held page it calls `_on_last_page_reached()`. `FeedLoaderMixin` implements both hooks to extend the feed (prefetch in the background on the last page, blocking with a spinner when the user presses past it). `ChannelScreen` leaves them empty.
+- `action_page_next` is a no-op while the panel is loading, loads the next page when it is held, and otherwise calls `_on_past_last_page()`. After landing on a page (and after `action_goto_end`) it calls `_on_page_shown()`. The hooks have no default here on purpose: `ListNavMixin` precedes `FeedLoaderMixin` in `MainScreen`'s MRO, so a no-op default would shadow the loader (which is how Home never extended in the real app before P7.3). `FeedLoaderMixin` implements `_on_page_shown` and `_on_past_last_page`; `ChannelScreen` has its own.
 - `action_goto_end` loads the last held page with the cursor on its last row.
 - `on_video_list_panel_page_change_requested` routes clicks on the `PageIndicator` to the same actions as `h`/`l`.
 

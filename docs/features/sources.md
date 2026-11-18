@@ -29,7 +29,7 @@ Notes:
   in November 2026, so it is not used. The channel page needs nothing it provided.
 - **InnerTube is undocumented.** A response shape can change without notice; parsers are small, tested on recorded fixtures, and every call falls
   back one step. A weekly canary (`scripts/canary-live.py`, GitHub `canary.yml`) checks the live shapes.
-- The page size is 20 rows; Home fetches 80 at a time (the first 15 appear as soon as they arrive) and fetches more as you reach the last page.
+- The page size is 20 rows; Home fetches 80 at a time (the first 15 appear as soon as they arrive) and fetches the next 80 when you reach the second-to-last page, continuing the same open yt-dlp listing instead of re-reading from the top (History on YouTube and Watch Later work the same). The footer shows `loading 80 more…` and then the new total.
 
 Code: `docs/code/src/innertube.py.md`, `ytdlp.py.md`, `streams.py.md`, `cache.py.md`. Decisions: `docs/decisions/feeds-and-paging.md`,
 `cookies-and-auth.md`, `playback.md`.
