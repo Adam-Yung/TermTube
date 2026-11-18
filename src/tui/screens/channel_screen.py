@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from textual import work
+from textual._context import NoActiveAppError
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -159,6 +160,18 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
     def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
         self.action_activate()
 
+    def _call_ui(self, fn, *args) -> None:
+        """Hand a worker's result to the UI thread; dropped when the screen was popped or the app quit meanwhile."""
+
+        def run() -> None:
+            if self.is_attached:
+                fn(*args)
+
+        try:
+            self.app.call_ui(run)
+        except NoActiveAppError:  # a popped screen has no app to ask
+            return
+
     @work(thread=True, exclusive=True, group="ch_info")
     def _load_channel_info(self) -> None:
         import src.ytdlp as ytdlp
@@ -169,9 +182,9 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             logger.debug("channel info: %s", exc)
             info = None
         if info:
-            self.app.call_from_thread(self._apply_info, info)
+            self._call_ui(self._apply_info, info)
         else:
-            self.app.call_from_thread(self._show_info_error)
+            self._call_ui(self._show_info_error)
 
     def _show_info_error(self) -> None:
         self._info_panel().show_error()
@@ -215,7 +228,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
 
     @work(thread=True, exclusive=True, group="ch_content")
     def _load_content(self, kind: str, sort: str, session: int) -> None:
-        call = self.app.call_from_thread
+        call = self._call_ui
         try:
             page = self._fetch_first_page(kind, sort)
         except Exception as exc:
@@ -328,7 +341,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
                 self._label(page.entries)
         except Exception as exc:
             logger.debug("channel extend: %s", exc)
-        self.app.call_from_thread(self._apply_extension, session, page, show)
+        self._call_ui(self._apply_extension, session, page, show)
 
     def _apply_extension(self, session: int, page: innertube.ChannelPage, show: bool) -> None:
         if session != self._content_session:

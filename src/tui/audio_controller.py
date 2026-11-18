@@ -356,11 +356,9 @@ class AudioController:
                 self._segment_idx = 0
                 self._broadcast(lambda: AudioSegmentsLoaded(segments))
 
-        def deliver(segments: list[Segment]) -> None:
-            if self._app.is_running:  # the fetch can outlive the app: a closed loop would leave a coroutine unawaited
-                self._app.call_from_thread(apply, segments)
-
-        return fetch_segments_async(vid, config.sponsorblock_categories, deliver)
+        return fetch_segments_async(
+            vid, config.sponsorblock_categories, lambda segments: self._app.call_ui(apply, segments)
+        )
 
     def _launch_failed(self, session: int, message: str) -> None:
         self._clear_pending(session)

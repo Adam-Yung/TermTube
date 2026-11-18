@@ -101,7 +101,8 @@ Left for part B (screens, rail, bars):
 - [x] `--debug` log redaction of URL queries, cookies, tokens, Authorization (`logger.redact`)
 - [x] Damaged-file matrix for all five stores (truncated, wrong type, future version, scalar)
 - [x] Per-loader injection matrix (`test_loader_errors.py`): Home, Subscriptions, both account History sources, Search, Library, local History, channel videos/playlists/shorts/live/playlist open, detail fetch, stream resolve, download, suggestions. Found: `escape_markup` let a trailing backslash swallow the next closing tag; unescaped error text in the debug log, audio notices, download modal, playlist and follow notices; stream prefetch called a removed `ytdlp.prefetch_stream_url` (silently dead); a failed playlist gather acted on a partial list; the SponsorBlock thread called `call_from_thread` on a closed app (the unawaited-coroutine `RuntimeWarning`; `test_channel_following.py` now errors on it)
-- [ ] Not covered (time budget): race scenarios, 5000-row paging budget, playlist name collision after strip, journeys. Single-writer assumption is documented in `docs/decisions/concurrency.md`; no cross-process lock exists.
+- [x] Races (`test_races.py`, gated fakes): tab switch, search, rapid rail, quit during load, `D` question vs replaced list (fixed), undo after view change, marks across re-page, History `Y` mid-load, FeedCursor closed mid-take (fixed), channel screen popped mid-fetch (fixed: `NoActiveAppError` in the worker), filter while an extension lands, queue modal emptying
+- [ ] Not covered (time budget): 5000-row paging budget, playlist name collision after strip, journeys. Single-writer assumption is documented in `docs/decisions/concurrency.md`; no cross-process lock exists.
 
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)

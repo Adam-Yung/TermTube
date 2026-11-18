@@ -23,7 +23,7 @@ Audio keys act on `app.audio`, so music keeps playing across channel pages and t
 
 Groups are per node, so this screen's `ch_thumb` does not interact with `MainScreen`'s group of the same name.
 
-`_info_avatar_session` is separate from the counters `DetailFocusMixin` bumps on every cursor move. The info-column avatar does not depend on the highlighted row; if it shared the cursor-bumped counter, moving the cursor while it loads would drop the avatar and leave "Loading…" forever. `_content_session` is bumped on tab, sort and reload so a slow earlier load cannot overwrite a newer list. Workers never touch the list: they hand a page to `_show_first_page` / `_apply_extension` through `call_from_thread`, and those check the session on the UI thread.
+`_info_avatar_session` is separate from the counters `DetailFocusMixin` bumps on every cursor move. The info-column avatar does not depend on the highlighted row; if it shared the cursor-bumped counter, moving the cursor while it loads would drop the avatar and leave "Loading…" forever. `_content_session` is bumped on tab, sort and reload so a slow earlier load cannot overwrite a newer list. Workers never touch the list: they hand a page to `_show_first_page` / `_apply_extension` through `_call_ui` (`App.call_ui`, dropped when the screen was popped or the app quit), and those check the session on the UI thread.
 
 ## Global keys
 

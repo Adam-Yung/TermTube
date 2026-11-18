@@ -10,7 +10,7 @@ A dict from tab id to `Removal(remove, restore, reload, noun)`. `remove(entries)
 
 ## Flow
 
-- `D` targets the marked rows, else the highlighted row, and shows the question in the action bar (`ActionBar.show_prompt`). `_pending_remove` holds the targets.
+- `D` targets the marked rows, else the highlighted row, and shows the question in the action bar (`ActionBar.show_prompt`). `_pending_remove` holds the targets; `_cancel_removal_prompt` (called by `_start_view`) drops the question when the list is replaced, so a late `y` never removes from the wrong list.
 - `on_key` runs while a question is open: `y` confirms, any other key cancels, and the event is stopped and default-prevented so it reaches no binding (a stray `j` or `q` must not act). The mixin precedes `ListNavMixin` in the MRO so its `on_key` runs first.
 - After removal the cursor goes to the next surviving row (else the previous one) on whichever page it now lives.
 - `_undo` keeps one removal for 30 s (`time.monotonic`). `u` restores it even after a tab change; the list is re-paged only when that tab is showing. Records are copies: `history.all_entries()` shares its dicts with the store.

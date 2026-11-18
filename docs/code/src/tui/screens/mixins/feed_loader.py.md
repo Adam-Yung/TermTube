@@ -8,7 +8,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 
 `_feed_session` (on the screen) is bumped by `_start_view`, the only entry to `_stream_view`. `_extend_feed` carries the value it started under and its result goes through `_apply_extension` / `_finish_extension` on the UI thread, which drop it when the session moved on. A tab switch, search or playlist open therefore cannot receive pages from the view before it.
 
-`_stream_view` takes the session too and stores it in a thread-local (`_loading`). Every loader pushes to the UI through `_ui`, which checks that session on the UI thread and drops the call when the view changed. A cancelled thread still runs until its network call returns, but its late rows, error messages and modals are discarded. Loader code must call `self._ui`, never `app.call_from_thread`, except `_extend_feed`, which carries its own session.
+`_stream_view` takes the session too and stores it in a thread-local (`_loading`). Every loader pushes to the UI through `_ui`, which checks that session on the UI thread and drops the call when the view changed. A cancelled thread still runs until its network call returns, but its late rows, error messages and modals are discarded. Loader code must call `self._ui`, never `app.call_from_thread` (`_ui` goes through `App.call_ui` and drops the call when the app has quit), except `_extend_feed`, which carries its own session.
 
 `_worker_start`/`_worker_end` wrap the thread bodies so the header spinner counts them.
 

@@ -98,6 +98,8 @@ class FeedCursor:
                 if self._rows is None:
                     self._open()
                 for entry in self._rows:
+                    if self.closed:
+                        break
                     self._consumed += 1
                     if not ytdlp._is_playable_video(entry):
                         continue

@@ -95,6 +95,12 @@ class ListToolsMixin:
         self._pending_remove = (targets, choices)
         self._detail().action_bar.show_prompt(question)
 
+    def _cancel_removal_prompt(self) -> None:
+        """Drop an open ``D`` question: its targets belong to a list that is gone."""
+        if self._pending_remove is not None:
+            self._pending_remove = None
+            self._detail().action_bar.clear_prompt()
+
     def on_key(self, event: Key) -> None:
         """With the removal question open, a choice key confirms and any other key cancels; none reaches a binding."""
         if self._pending_remove is None:

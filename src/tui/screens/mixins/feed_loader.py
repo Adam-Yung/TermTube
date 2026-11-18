@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 
 from textual import work
+from textual._context import NoActiveAppError
 
 from src import logger
 from src.cookies import resolve_browser
@@ -74,7 +75,8 @@ class FeedLoaderMixin:
     """Loads each tab's entries into the ``VideoListPanel`` and keeps paging ahead of the user.
 
     Needs ``_current_tab``, ``_search`` (a ``SearchStack``), ``_feed_session``, ``_log``, ``_worker_start`` and
-    ``_worker_end`` from the screen, plus ``_show_empty_feed_modal`` and ``_prompt_ytdlp_update``.
+    ``_worker_end`` from the screen, plus ``_show_empty_feed_modal``, ``_prompt_ytdlp_update`` and
+    ``_cancel_removal_prompt``.
     Tab loads run in the exclusive ``feed_loader`` group and paging in ``feed_extend``, so neither cancels
     the other; ``_feed_session`` makes any result (load or paging) from before a view change a no-op.
     """
@@ -97,6 +99,7 @@ class FeedLoaderMixin:
 
     def _start_view(self, view: str) -> None:
         self._close_cursor()
+        self._cancel_removal_prompt()
         self._feed_session += 1
         self._pending_show = False
         self._stream_view(view, self._feed_session)
@@ -109,7 +112,10 @@ class FeedLoaderMixin:
             if session == self._feed_session:
                 return fn(*args, **kwargs)
 
-        return self.app.call_from_thread(run)
+        try:
+            return self.app.call_ui(run)
+        except NoActiveAppError:  # the app quit while this loader thread ran
+            return None
 
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str, session: int) -> None:

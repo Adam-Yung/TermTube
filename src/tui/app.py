@@ -69,6 +69,20 @@ class TermTubeApp(App):
         else:
             self.call_from_thread(self.notify, message, severity="error", timeout=8)
 
+    def call_ui(self, fn, *args, **kwargs):
+        """``call_from_thread`` for a worker thread that may outlive the app: once it is closing the call is dropped.
+
+        A closed loop would raise ``RuntimeError`` in the thread and leave the callback coroutine unawaited.
+        """
+        if not self.is_running:
+            return None
+        try:
+            return self.call_from_thread(fn, *args, **kwargs)
+        except RuntimeError:
+            if self.is_running:
+                raise
+            return None
+
     def on_unmount(self) -> None:
         store.set_failure_hook(None)
         self._atexit_cleanup()
