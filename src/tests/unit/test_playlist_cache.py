@@ -135,8 +135,7 @@ class TestPinAllPlaylistVideos:
         (video_dir / "vid2.json").write_text(json.dumps(entry2), encoding="utf-8")
         (thumb_dir / "vid1.jpg").write_bytes(b"thumb1")
 
-        monkeypatch.setattr("src.playlist.list_names", lambda: ["My List"])
-        monkeypatch.setattr("src.playlist.get_playlist", lambda n: ["vid1", "vid2", "vid3"])
+        monkeypatch.setattr("src.playlist.all_video_ids", lambda: {"vid1", "vid2", "vid3"})
 
         cache.pin_all_playlist_videos()
 
@@ -152,8 +151,7 @@ class TestPinAllPlaylistVideos:
         (playlist_video_dir / "vid1.json").write_text(json.dumps(entry), encoding="utf-8")
         (video_dir / "vid1.json").write_text(json.dumps({"id": "vid1", "title": "Main"}), encoding="utf-8")
 
-        monkeypatch.setattr("src.playlist.list_names", lambda: ["List"])
-        monkeypatch.setattr("src.playlist.get_playlist", lambda n: ["vid1"])
+        monkeypatch.setattr("src.playlist.all_video_ids", lambda: {"vid1"})
 
         cache.pin_all_playlist_videos()
 

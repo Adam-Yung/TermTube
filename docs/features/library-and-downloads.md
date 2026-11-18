@@ -37,3 +37,12 @@ same name, merges a video and its audio into one row, and sorts by upload date, 
 ## Related files
 
 `src/downloads.py`, `src/library.py`, `src/tui/screens/download_modal.py`, `download_picker_modal.py`; mirrors under `docs/code/`.
+
+## Playlists
+
+Local playlists live in `playlists.json` (v2: stable ids, items as slim snapshots with title, uploader, duration; see
+[src/playlist.py](../code/src/playlist.py.md)). They hold references only: removing a video from a playlist or deleting a playlist never
+deletes a downloaded file. In the Playlists tab (`F6`): `n` new, `R` rename, `D` delete (one question, `u` undoes), `Enter` opens one. Inside
+one: `m`/`M` mark, `D` remove from the playlist, `J`/`K` reorder, `f` filter, `P` play, `S` shuffle, `E` queue the whole playlist as audio.
+`p` on any video opens the playlist dialog: `Space` selects several playlists, `Enter` toggles them. Videos in a playlist are pinned in the
+cache so the list and its thumbnails work offline. The first run on a v1 file keeps `playlists.json.v1` beside it.

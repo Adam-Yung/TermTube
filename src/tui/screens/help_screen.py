@@ -47,8 +47,15 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("LIST TOOLS", [
         ("f", "Filter the loaded list as you type (Enter keeps it, Esc clears it)"),
         ("m / M", "Mark the row and move down / mark the whole page"),
-        ("D", "Remove the row or the marked rows from this list, after one y / N (History)"),
+        ("D", "Remove the row or the marked rows from this list, after one y / N (History, Library, Playlists)"),
         ("u", "Undo the last removal (within 30 s)"),
+    ]),
+    ("PLAYLISTS TAB", [
+        ("n / R", "New playlist / rename the highlighted or open playlist"),
+        ("D", "Delete the playlist (videos stay on disk); inside one, remove the videos from it"),
+        ("J / K", "Inside a playlist: move the video down / up"),
+        ("P / S / E", "Play / shuffle / queue the open or highlighted playlist as audio"),
+        ("p", "In the playlist dialog: Space selects several playlists, Enter toggles them"),
     ]),
     ("APP", [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),

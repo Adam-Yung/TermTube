@@ -369,11 +369,8 @@ class Cache:
     def pin_all_playlist_videos(self) -> None:
         """Pin every video in any playlist (startup migration; skips already-pinned)."""
         from src import playlist
-        all_ids: set[str] = set()
-        for name in playlist.list_names():
-            all_ids.update(playlist.get_playlist(name))
         pinned = 0
-        for vid_id in all_ids:
+        for vid_id in playlist.all_video_ids():
             dest = PLAYLIST_VIDEO_DIR / f"{vid_id}.json"
             if dest.exists():
                 continue

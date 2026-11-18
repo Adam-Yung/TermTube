@@ -49,6 +49,16 @@ LIST_TOOLS = [
     Binding("u", "undo", show=False),
 ]
 
+PLAYLIST_TOOLS = [
+    Binding("n", "playlist_new", show=False),
+    Binding("R", "playlist_rename", show=False),
+    Binding("J", "playlist_move_down", show=False),
+    Binding("K", "playlist_move_up", show=False),
+    Binding("P", "playlist_play", show=False),
+    Binding("S", "playlist_shuffle", show=False),
+    Binding("E", "playlist_enqueue", show=False),
+]
+
 SEARCH = Binding("/", "search", "Search")
 SEARCH_FILTERS = [
     Binding("s", "search_sort", show=False),

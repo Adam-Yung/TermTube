@@ -7,6 +7,7 @@ from textual import work
 from src import logger
 from src.entries import Entry
 from src.tui.fmt import fmt_day_group
+from src.tui.screens.mixins.playlist_tools import index_entries, item_entries
 from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
 
 BATCH_FETCH_COUNT = 80
@@ -293,37 +294,17 @@ class FeedLoaderMixin:
         self._show_pages(panel, entries, evict=False)
 
     def _load_playlist_index(self, panel: VideoListPanel) -> None:
-        from src import playlist
-
-        names = playlist.list_names()
-        if not names:
-            self._ui(panel.set_empty_message, "No playlists. Select a video and press p.")
+        entries = index_entries()
+        if not entries:
+            self._ui(panel.set_empty_message, "No playlists. Press n to create one, or p on a video.")
             return
-        entries = []
-        for name in names:
-            count = len(playlist.get_playlist(name))
-            entries.append({
-                "id": f"__playlist__{name}",
-                "title": f"🎵  {name}",
-                "uploader": f"{count} video{'s' if count != 1 else ''}",
-                "duration": None,
-                "view_count": None,
-                "_is_playlist": True,
-                "_playlist_name": name,
-            })
         self._show_pages(panel, entries, evict=False)
 
-    def _load_playlist_videos(self, name: str, panel: VideoListPanel) -> None:
-        from src import playlist
-
-        ids = playlist.get_playlist(name)
-        if not ids:
-            self._ui(panel.set_empty_message, f'Playlist "{name}" is empty.')
+    def _load_playlist_videos(self, pid: str, panel: VideoListPanel) -> None:
+        entries = item_entries(pid, self.app.cache)
+        if not entries:
+            self._ui(panel.set_empty_message, "This playlist is empty. Press p on a video to add it.")
             return
-        cache = self.app.cache
-        entries = [
-            cache.get_video_raw(vid) or {"id": vid, "title": vid, "uploader": ""} for vid in ids
-        ]
         self._show_pages(panel, entries, evict=False)
 
     def _can_extend(self) -> bool:

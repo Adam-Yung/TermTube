@@ -122,6 +122,31 @@ class AudioController:
             self._app.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)
             self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
 
+    def play_many(self, entries: list[Entry]) -> None:
+        """Play the first entry now and queue the rest, replacing the queue (a playlist's play-all)."""
+        if not entries:
+            return
+        self._queue = list(entries[1:])
+        self.play_audio(entries[0])
+        self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+
+    def enqueue_many(self, entries: list[Entry]) -> int:
+        """Queue each entry not playing or queued, with one notice (idle: start the first). Returns the count."""
+        fresh, seen = [], {(self._entry or {}).get("id"), *(e.get("id") for e in self._queue)}
+        for entry in entries:
+            if entry.get("id") not in seen:
+                seen.add(entry.get("id"))
+                fresh.append(entry)
+        if not fresh:
+            return 0
+        if not self.is_playing:
+            self.play_many(fresh)
+        else:
+            self._queue.extend(fresh)
+            self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+        self._app.notify(f"Queued {len(fresh)} track{'s' if len(fresh) != 1 else ''}", timeout=3)
+        return len(fresh)
+
     def skip_audio(self) -> None:
         if not self.is_playing or not self._queue:
             return

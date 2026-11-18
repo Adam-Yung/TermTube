@@ -144,6 +144,8 @@ class ActionBar(Widget):
         if getattr(self.screen, "HAS_SEARCH_FILTERS", False):
             row3 += [r2("s", "Sort"), r2("t", "Type")]
         table.add_row(*row3)
+        if getattr(self.screen, "HAS_PLAYLIST_TOOLS", False):
+            table.add_row(r2("n", "New list"), r2("R", "Rename"), r2("J K", "Move"), r2("P S E", "Play/Shuffle/Queue"))
 
         return table
 

@@ -4,7 +4,7 @@ The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It
 
 ## Tabs
 
-- `_current_tab` is a tab id, or `playlist:<name>` inside a playlist, or `search`. `_nav_stack` holds the tab to return to (Backspace/Esc) after a playlist drill-down.
+- `_current_tab` is a tab id, or `playlist:<id>` (the playlist's stable id) inside a playlist, or `search`. `_nav_stack` holds the tab to return to (Backspace/Esc) after a playlist drill-down.
 - `on_tabs_tab_activated` ignores an activation of the current tab. Appending list items can move focus to the tab bar, which re-fires activation of the tab already shown and would reload it. A real switch always changes the id.
 - Search and Help are tabs that open a modal. Cancelling the search modal must not set `tabs.active` (that re-activates the current tab and reloads its list); `_opening_search_tab` suppresses the dialog when `_show_search_results` sets the tab itself.
 - Switching away from the home tab saves the feed stash first (`FeedLoaderMixin._save_feed_stash`); `on_unmount` and quit do the same.

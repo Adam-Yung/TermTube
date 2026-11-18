@@ -3,6 +3,8 @@
 import pytest
 from textual.widgets import Tabs
 
+from src import playlist
+
 
 @pytest.fixture(autouse=True)
 def fake_search(monkeypatch):
@@ -60,9 +62,8 @@ async def test_backspace_on_another_tab_leaves_the_stack_alone(app, monkeypatch)
         assert screen._search.query == "beta" and screen._current_tab == "history"
 
 
-async def test_backspace_in_a_playlist_still_goes_to_the_playlist_index(app, monkeypatch):
-    monkeypatch.setattr("src.playlist.list_names", lambda: ["mix"])
-    monkeypatch.setattr("src.playlist.get_playlist", lambda name: [])
+async def test_backspace_in_a_playlist_still_goes_to_the_playlist_index(app, temp_playlists):
+    pid = playlist.create("mix")["id"]
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._show_search_results("alpha")
@@ -71,7 +72,7 @@ async def test_backspace_in_a_playlist_still_goes_to_the_playlist_index(app, mon
         await pilot.pause(0.4)
         screen.query_one("#nav-tabs", Tabs).active = "playlists"
         await pilot.pause(0.4)
-        screen._open_playlist("mix")
+        screen._open_playlist(pid)
         await pilot.pause(0.3)
         await pilot.press("backspace")
         await pilot.pause(0.4)

@@ -21,7 +21,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 | search | `_load_search` | `ytdlp.fetch_search_batch` (50 per batch, `sort`/`kind` from the search frame) |
 | history | `_load_simple_list` | `history.all_entries`, split into `PAGE_SIZE` pages |
 | library | `_load_simple_list` | `library.all_entries` (filesystem only) |
-| playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py`, cached entries from `cache.get_video_raw` |
+| playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py` rows built by `playlist_tools.index_entries` / `item_entries` (title from the snapshot, cache fills migrated items); was: cached entries from `cache.get_video_raw` |
 
 `FEED_TABS` (cached feeds with stash and suppression) is just `home`. `PAGED_TABS` (extendable) are `home` and `search`.
 

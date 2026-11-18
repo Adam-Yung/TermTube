@@ -10,7 +10,7 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Footer, RichLog, Tab, Tabs
 
-from src import history, logger, search_history
+from src import history, logger, playlist, search_history
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.search_stack import SearchStack
@@ -22,6 +22,7 @@ from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
+from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
 from src.tui.widgets.app_header import AppHeader
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
@@ -60,6 +61,7 @@ def _force_exit() -> None:
 
 
 class MainScreen(
+    PlaylistToolsMixin,
     ListToolsMixin,
     ListNavMixin,
     DetailFocusMixin,
@@ -82,6 +84,7 @@ class MainScreen(
         *keymap.ITEM_ACTIONS,
         keymap.FILTER,
         *keymap.LIST_TOOLS,
+        *keymap.PLAYLIST_TOOLS,
         Binding("backspace,escape", "nav_back", show=False),
         Binding("grave_accent", "nav_picker", show=False),
         Binding("f1", "goto_tab('home')", show=False),
@@ -121,6 +124,7 @@ class MainScreen(
                 noun="video",
             ),
             "library": library_delete.removal(self.app.config),
+            **self._playlist_removals(),
         }
 
     def compose(self) -> ComposeResult:
@@ -344,14 +348,17 @@ class MainScreen(
         tabs.active = "search"
         self._load_view("search")
 
-    def _open_playlist(self, name: str) -> None:
+    def _open_playlist(self, pid: str) -> None:
+        record = playlist.get(pid)
+        if record is None:
+            return
         self._nav_stack.append(self._current_tab)
-        self._current_tab = f"playlist:{name}"
+        self._current_tab = f"playlist:{pid}"
         panel = self._list()
         panel.clear_and_set_loading()
-        panel.set_breadcrumb(f"🎵 {name}  ← backspace to go back")
+        panel.set_breadcrumb(f"🎵 {record['name']}  ← backspace to go back")
         self._detail().clear()
-        self._start_view(f"playlist:{name}")
+        self._start_view(f"playlist:{pid}")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
@@ -368,7 +375,7 @@ class MainScreen(
         if entry.get("_is_playlist") and self._current_tab == "search":
             self._hint("Press b to open the playlist in the browser.", "information")
         elif entry.get("_is_playlist"):
-            self._open_playlist(entry.get("_playlist_name", ""))
+            self._open_playlist(entry.get("_playlist_id", ""))
         elif entry.get("_is_channel"):
             self._open_channel(entry)
         else:

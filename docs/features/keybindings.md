@@ -18,7 +18,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
    **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
-   `J` `K` (move in an ordered list) and `Q` (queue view) are reserved for later phases and unbound today.
+   `Q` (queue view) is reserved for a later phase and unbound today.
 7. `Esc` and `Backspace` go back (out of a playlist or channel; on the Search tab, to the previous search at its page and row). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
 
 ## Map
@@ -41,9 +41,12 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `d` `c` `p` `y` `b` | download / channel / playlist / copy URL / browser | |
 | `f` | filter the loaded list as you type, across all pages (`Enter` keeps it, `Esc` clears it); also on the channel page | |
 | `m` `M` | mark the row and move down / mark the page (`●`; marks survive paging, clear on a view change) | |
-| `D` `u` | remove the row or the marked rows (History only so far) after `y` / `N` / undo the last removal | |
+| `D` `u` | remove the row or the marked rows (History, Library and Playlists) after `y` / `N` / undo the last removal | |
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
 | `F1`–`F7` `` ` `` | jump to a tab / tab picker | |
+| `n` `R` | Playlists tab: new playlist / rename the highlighted or open one (a hint elsewhere) | |
+| `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |
+| `P` `S` `E` | play / shuffle / queue the open or highlighted playlist as audio (a hint elsewhere) | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); a hint elsewhere | |
 | `s` `r` `Esc` | channel page only: sort / reload / back | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |

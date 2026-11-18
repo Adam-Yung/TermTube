@@ -34,6 +34,7 @@ class Removal:
     noun: str
     ask: Callable[[list[Entry]], tuple[str, dict[str, str]]] | None = None  # (question markup, key -> choice)
     permanent: bool = False  # files are deleted: nothing to undo
+    label: str = ""  # where a restore puts things back (default: the tab's name)
 
 
 class ListToolsMixin:
@@ -134,4 +135,5 @@ class ListToolsMixin:
         if tab == self._current_tab:
             self._list().replace_entries(removal.reload(), focus_id=records[0].get("id"))
         count = len(records)
-        self.notify(f"Restored {count} {removal.noun}{'' if count == 1 else 's'} to {tab.title()}.", timeout=4)
+        noun = f"{removal.noun}{'' if count == 1 else 's'}"
+        self.notify(f"Restored {count} {noun} to {removal.label or tab.title()}.", timeout=4)

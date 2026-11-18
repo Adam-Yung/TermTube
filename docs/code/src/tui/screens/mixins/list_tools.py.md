@@ -4,7 +4,7 @@ Mark, remove and undo for `MainScreen` (`ChannelScreen` has only the filter). Ma
 
 ## Extension point: `_removals()`
 
-A dict from tab id to `Removal(remove, restore, reload, noun)`. `remove(entries)` deletes and returns copies of the removed records; `restore(records)` puts them back; `reload()` returns the tab's entries as they are now (the panel re-pages from it, so day headers, the filter and the page stay right). Only `history` has one. A tab without an entry answers `D` with a hint from `_NOT_REMOVABLE` (or a generic line); Library and Playlists get theirs in their own phases.
+A dict from tab id to `Removal(remove, restore, reload, noun)`. `remove(entries)` deletes and returns copies of the removed records; `restore(records)` puts them back; `reload()` returns the tab's entries as they are now (the panel re-pages from it, so day headers, the filter and the page stay right). `history`, `library` and the Playlists views (`playlists`, `playlist:<id>`, from [playlist_tools.py](playlist_tools.py.md)) have one. A tab without an entry answers `D` with a hint from `_NOT_REMOVABLE` (or a generic line); `label` names where an undo puts things back (default: the tab name).
 
 ## Flow
 
