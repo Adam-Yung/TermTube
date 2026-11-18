@@ -1,0 +1,108 @@
+src/tests/unit/test_library.py
+  s_6c28d43e292a51::t_be0dc2ab577ac2 66,72-289
+docs/code/src/tui/widgets/detail_panel.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 16-17
+src/tests/tui/test_list_tools.py
+  s_6c28d43e292a51::t_76c6c9fa2fb9eb 305
+docs/features/thumbnails.md
+  s_6c28d43e292a51::t_8e9c3eb741f6ac 17
+src/tui/library_delete.py
+  s_6c28d43e292a51::t_ac62f27c74a2e0 1-26,33-49
+  s_6c28d43e292a51::t_e72fc596f6eb34 27-32
+docs/status.md
+  s_6c28d43e292a51::t_8e9c3eb741f6ac 12,39
+src/tests/tui/test_download_modal.py
+  s_6c28d43e292a51::t_5845b57ea65441 29-30,32-40,43-56
+  s_6c28d43e292a51::t_3ba3162a5a4f72 31
+  s_6c28d43e292a51::t_a4ac06e752c922 41-42
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_ac62f27c74a2e0 154-156
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_ac62f27c74a2e0 109-110
+  s_6c28d43e292a51::t_9b38008042972a 108
+docs/code/src/tui/screens/download_modal.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 12-13
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_a13a7b7621a2a7 183-187
+src/ui/thumbnail.py
+  s_6c28d43e292a51::t_3097e3c3b531fa 37-44
+  s_6c28d43e292a51::t_a13a7b7621a2a7 34-36
+src/tests/tui/test_library_delete.py
+  s_6c28d43e292a51::t_9fa45c605cce8a 1-91,93-111,113-120
+  s_6c28d43e292a51::t_76c6c9fa2fb9eb 92,112
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_8e9c3eb741f6ac 101-104
+docs/features/library-and-downloads.md
+  s_6c28d43e292a51::t_8e9c3eb741f6ac 9-11,20-29,33-34
+docs/todo.md
+  s_6c28d43e292a51::t_8e9c3eb741f6ac 43,46-48
+src/tui/screens/download_modal.py
+  s_6c28d43e292a51::t_3097e3c3b531fa 176
+  s_6c28d43e292a51::t_e72fc596f6eb34 172
+  s_6c28d43e292a51::t_a13a7b7621a2a7 4,171,173-175,177-179,188
+  s_6c28d43e292a51::t_be0dc2ab577ac2 34,92,101
+src/downloads.py
+  s_6c28d43e292a51::t_be0dc2ab577ac2 32-36,41-42,59-63,65-67,115,119-120,128-129,149,160,169,183
+  s_6c28d43e292a51::t_a710807f361a93 37
+src/history.py
+  s_6c28d43e292a51::t_be0dc2ab577ac2 18-20,34,54
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 25-26
+docs/code/src/library.py.md
+  s_6c28d43e292a51::t_be0dc2ab577ac2 3-5,7,9-21,25-33,35,37-42
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_1fa41247e815bf 118,123
+  s_6c28d43e292a51::t_ac62f27c74a2e0 17
+docs/code/src/cache.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 25-26
+docs/code/src/tui/screens/mixins/list_tools.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 15-16
+src/tests/unit/test_download_progress.py
+  s_6c28d43e292a51::t_5845b57ea65441 307-315
+src/cache.py
+  s_6c28d43e292a51::t_a13a7b7621a2a7 343-345
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_e72fc596f6eb34 26-28
+  s_6c28d43e292a51::t_1fa41247e815bf 24,29-31,35-36,52,78-79,81-89,92,97,99-100,102,112,115-123
+docs/code/src/downloads.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 18-20
+docs/code/src/tui/fmt.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 13-14
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 36-37
+docs/code/src/ui/thumbnail.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 35-36
+docs/code/src/history.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 17-18
+src/tests/conftest.py
+  s_6c28d43e292a51::t_be0dc2ab577ac2 73-79
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_6c28d43e292a51::t_3ba3162a5a4f72 19-20
+src/library.py
+  s_6c28d43e292a51::t_be0dc2ab577ac2 1,7,9-10,13,15-17,19-31,34-41,47,51-52,58-64,67-91,93-103,105-125,127-157,163-164,168,170-177,182,185-230,243,249-264,266-278,282-382
+  s_6c28d43e292a51::t_e72fc596f6eb34 231-242,244-248,265,279-281
+src/tui/fmt.py
+  s_6c28d43e292a51::t_1fa41247e815bf 86-97
+docs/code/src/tui/library_delete.py.md
+  s_6c28d43e292a51::t_ac62f27c74a2e0 1-10
+src/tui/widgets/detail_panel.py
+  s_6c28d43e292a51::t_df6d951296d521 16,201
+  s_6c28d43e292a51::t_ac62f27c74a2e0 18,48,119-137
+  s_6c28d43e292a51::t_e72fc596f6eb34 74-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "81c6c463fc4c64aaba70cd961ff28415d5bc8347",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
