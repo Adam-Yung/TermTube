@@ -10,5 +10,6 @@ the cache, and `Cache.pin_all_playlist_videos` (housekeeping) keeps playlist vid
 - A missing file reads as empty; a corrupt one is kept as `playlists.json.bad` and reads as empty.
 - `add_video` creates the playlist if absent and returns `False` for a duplicate. Name order is creation order (dict order).
 - `create` returns `False` and writes nothing when the name exists (it used to reset the playlist). The playlist modal reports it and adds nothing.
+- `add_videos(name, ids)` appends the ids not yet present, in order, in one store update, and returns how many it added (the channel playlist "save" key).
 - No rename or delete: nothing in the UI uses them.
 

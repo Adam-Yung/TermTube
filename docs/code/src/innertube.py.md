@@ -43,6 +43,8 @@ trimmed recordings in `src/tests/fixtures/innertube_*.json` (recorded 2026-11-15
 - `fetch_channel_info` also returns `video_count` (the "442 videos" header text), `joined` (a header text starting "Joined"; **[verify live]**: the current layout may only show it in the About popup, a separate request this app does not make, so it can be empty) and `tabs` (which of `CHANNEL_TABS` have a tab title in the first response; the screen hides the rest).
 - Popular and oldest sorts (the filter chips in the rich grid header) are not read: see the 2026-11-18 entry in `docs/decisions/feeds-and-paging.md`.
 
+`fetch_playlist_page(playlist_id, token)` is the same shape for a playlist: `browseId` is `VL` plus the id, items are `playlistVideoListRenderer.contents` (`_browse_items` finds them), each `playlistVideoRenderer` becomes a video entry with the uploader and `channel_id` from `shortBylineText`. Rows without a `videoId` (deleted or private videos) are dropped. **[verify live]**: written from the documented shape.
+
 ## Channel playlists
 
 `fetch_channel_playlists` calls `fetch_channel_page(..., "playlists")` and follows the grid's continuation up to `count` (80) or `_MAX_PLAYLIST_PAGES`. Live check 2026-11-15: 80 playlists in 1.0 s over 3 requests. Only `lockupViewModel` items with

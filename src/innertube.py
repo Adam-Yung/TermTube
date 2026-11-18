@@ -180,6 +180,19 @@ def fetch_channel_page(channel_id: str, tab: str = "videos", token: str = "", *,
         payload: dict = {"continuation": token, "context": _WEB_CONTEXT}
     else:
         payload = {"browseId": channel_id, "params": _CHANNEL_TAB_PARAMS[tab], "context": _WEB_CONTEXT}
+    return _browse_page(payload, _TAB_PARSERS[tab], timeout)
+
+
+def fetch_playlist_page(playlist_id: str, token: str = "", *, timeout: int = 12) -> ChannelPage:
+    """One page (about 100 videos) of a playlist, or the page ``token`` points at. Empty on failure. [verify live]"""
+    if token:
+        payload: dict = {"continuation": token, "context": _WEB_CONTEXT}
+    else:
+        payload = {"browseId": "VL" + playlist_id, "context": _WEB_CONTEXT}
+    return _browse_page(payload, _parse_playlist_video, timeout)
+
+
+def _browse_page(payload: dict, parse: Callable[[dict], Entry | None], timeout: int) -> ChannelPage:
     data = _post_json(_BROWSE_URL, payload, timeout=timeout)
     if not data:
         return ChannelPage([])
@@ -188,9 +201,8 @@ def fetch_channel_page(channel_id: str, tab: str = "videos", token: str = "", *,
     except (KeyError, TypeError, AttributeError, IndexError) as exc:
         logger.debug("innertube browse parse error: %s", exc)
         return ChannelPage([])
-    parse = _TAB_PARSERS[tab]
     entries = [e for e in map(parse, items) if e]
-    logger.debug("innertube: %d %s entries for %s", len(entries), tab, channel_id)
+    logger.debug("innertube: %d browse entries", len(entries))
     return ChannelPage(entries, _next_token(items))
 
 
@@ -210,8 +222,11 @@ def _browse_items(data: dict) -> list[dict]:
     if "richGridRenderer" in content:
         return content["richGridRenderer"].get("contents", [])
     sections = content.get("sectionListRenderer", {}).get("contents", [])
-    return [i for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])
-            for i in c.get("gridRenderer", {}).get("items", [])]
+    rows = [c for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])]
+    for row in rows:
+        if "playlistVideoListRenderer" in row:
+            return row["playlistVideoListRenderer"].get("contents", [])
+    return [i for c in rows for i in c.get("gridRenderer", {}).get("items", [])]
 
 
 def _next_token(items: list[dict]) -> str:
@@ -614,6 +629,37 @@ def _parse_playlist_item(item: dict) -> PlaylistEntry | None:
         "_is_playlist": True,
         "_playlist_name": title or playlist_id,
     }
+
+
+def _runs_text(node: dict | None) -> str:
+    runs = (node or {}).get("runs") or []
+    return "".join(r.get("text", "") for r in runs) or (node or {}).get("simpleText", "")
+
+
+def _parse_playlist_video(item: dict) -> VideoEntry | None:
+    """One ``playlistVideoRenderer`` of a playlist page as a video entry. [verify live]"""
+    pv = item.get("playlistVideoRenderer") or {}
+    video_id = pv.get("videoId", "")
+    if not video_id:
+        return None
+    byline = (pv.get("shortBylineText") or {}).get("runs") or [{}]
+    channel_id = byline[0].get("navigationEndpoint", {}).get("browseEndpoint", {}).get("browseId", "")
+    thumbs = pv.get("thumbnail", {}).get("thumbnails") or []
+    duration = _parse_int(pv.get("lengthSeconds"))
+    entry: VideoEntry = {
+        "id": video_id,
+        "title": _runs_text(pv.get("title")) or video_id,
+        "uploader": byline[0].get("text", ""),
+        "channel": byline[0].get("text", ""),
+        "duration": duration,
+        "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+        "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
+        "_type": "url",
+    }
+    if channel_id.startswith("UC"):
+        entry["channel_id"] = channel_id
+        entry["channel_url"] = f"https://www.youtube.com/channel/{channel_id}"
+    return entry
 
 
 _JOINED = re.compile(r"^Joined\b", re.IGNORECASE)

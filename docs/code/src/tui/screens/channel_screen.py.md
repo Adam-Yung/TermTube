@@ -46,6 +46,10 @@ All four tabs are composed; `_show_tabs` hides the ones the channel lacks. Until
 
 `i` (`keymap.CHANNEL_PAGE`) expands or collapses the description in the info column. The handoff named `a` or Enter; `a` plays audio and Enter opens the action menu on this page, so neither can mean "expand".
 
+## Playlists inside the page
+
+`ChannelPlaylistMixin` (`docs/code/src/tui/screens/mixins/channel_playlist.py.md`) opens a playlist row in place and adds `P` / `E` / `S`. `_content_kind()` is `playlist` while one is open, and the breadcrumb gets its name as the last crumb.
+
 ## Breadcrumb and back stack
 
 `ChannelScreen(url, name, trail)` takes the crumbs of where it was opened from (`MainScreen._crumbs()` gives the tab label; a `ChannelScreen` gives its own trail plus its channel name). `_show_breadcrumb` writes `Home › Name › Videos  ← esc to go back` into the list panel's breadcrumb line after every content start and when the info arrives (the info's channel name wins over the name from the row). The back stack is the screen stack: `c` on a row that names a different channel (`_is_other_channel`: a `channel_id` or `channel_url` id that differs from `_known_id()`) pushes another `ChannelScreen` with the extended trail, and `Esc` pops back to the first. A row with no channel id, which is what InnerTube's channel rows carry, counts as this channel: the menu entry stays hidden and `c` says "Already on this channel.". `_known_id` never does a lookup, so it is safe on the UI thread; `_channel_id` (workers only) adds the one `resolve_channel_id` call.

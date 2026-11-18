@@ -63,6 +63,8 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("s", "Sort (date / views)"),
         ("r", "Reload"),
         ("i", "Show all of the channel description / show less"),
+        ("Enter", "On a playlist row: open its videos (Esc returns to the list)"),
+        ("P E S", "Open playlist: play all / add all to the queue / save as a local playlist"),
         ("/ , ? q", "Search, settings, help, quit (as on the main page)"),
         ("Esc", "Back to the previous page"),
     ]),

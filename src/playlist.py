@@ -61,3 +61,14 @@ def is_in_playlist(name: str, video_id: str) -> bool:
 def video_playlists(video_id: str) -> list[str]:
     """Return names of all playlists containing video_id."""
     return _store.read(lambda data: [name for name, ids in data.items() if video_id in ids])
+
+
+def add_videos(name: str, video_ids: list[str]) -> int:
+    """Add the ids not yet in the playlist (created if needed), in order. Returns how many were added."""
+    def apply(data: dict) -> int:
+        ids = data.setdefault(name, [])
+        fresh = [v for v in dict.fromkeys(video_ids) if v not in ids]
+        ids.extend(fresh)
+        return len(fresh)
+
+    return _store.update(apply)

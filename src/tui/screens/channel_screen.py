@@ -15,6 +15,7 @@ from src.entries import Entry, PlaylistEntry
 from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_breadcrumb
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
+from src.tui.screens.mixins.channel_playlist import ChannelPlaylistMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
@@ -47,7 +48,7 @@ def _avatar_id(info: dict) -> str:
     return "ch_" + raw[:50]
 
 
-class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, Screen):
+class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, Screen):
     """One channel: info on the left, its videos or playlists in the middle, detail on the right.
 
     Audio belongs to ``app.audio``; this screen forwards the keys and mirrors playback state
@@ -139,8 +140,10 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         return info.get("channel") or self._channel_name or "Channel"
 
     def _show_breadcrumb(self) -> None:
-        tab = _TAB_LABELS[self._tab_kind()]
-        self._list().set_breadcrumb(escape_markup(fmt_breadcrumb([*self._crumbs(), tab])) + "  ← esc to go back")
+        parts = [*self._crumbs(), _TAB_LABELS[self._tab_kind()]]
+        if self._playlist:
+            parts.append(self._playlist.get("_playlist_name") or self._playlist.get("title", "Playlist"))
+        self._list().set_breadcrumb(escape_markup(fmt_breadcrumb(parts)) + "  ← esc to go back")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._focus_video(message.entry)
@@ -200,7 +203,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._pending_show = False
         self._list().clear_and_set_loading()
         self._show_breadcrumb()
-        self._load_content(self._tab_kind(), self._sort, self._content_session)
+        self._load_content(self._content_kind(), self._sort, self._content_session)
 
     @work(thread=True, exclusive=True, group="ch_content")
     def _load_content(self, kind: str, sort: str, session: int) -> None:
@@ -232,6 +235,8 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             self._list().set_error_message(message)
 
     def _fetch_first_page(self, kind: str, sort: str) -> innertube.ChannelPage:
+        if kind == "playlist":
+            return self._fetch_playlist_videos()
         if kind == "playlists":
             return innertube.ChannelPage(self._fetch_playlists())
         if kind in ("shorts", "live"):
@@ -302,14 +307,17 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         panel.set_progress(self._pager.note())
         if show:
             panel.show_next_page_loading()
-        self._extend_content(self._tab_kind(), token, show, self._content_session)
+        self._extend_content(self._content_kind(), token, show, self._content_session)
 
     @work(thread=True, exclusive=True, group="ch_extend")
     def _extend_content(self, kind: str, token: str, show: bool, session: int) -> None:
         page = innertube.ChannelPage([])
         try:
-            page = innertube.fetch_channel_page(self._channel_id() or "", kind, token)
-            self._label(page.entries)
+            if kind == "playlist":
+                page = innertube.fetch_playlist_page(self._playlist["id"], token)
+            else:
+                page = innertube.fetch_channel_page(self._channel_id() or "", kind, token)
+                self._label(page.entries)
         except Exception as exc:
             logger.debug("channel extend: %s", exc)
         self.app.call_from_thread(self._apply_extension, session, page, show)
@@ -379,9 +387,13 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _tab_kind(self) -> str:
         return _TAB_KINDS[self._current_tab]
 
+    def _content_kind(self) -> str:
+        return "playlist" if self._playlist else self._tab_kind()
+
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         tab_id = event.tab.id if event.tab else None
         if tab_id and (tab_id != self._current_tab or not self._content_started):
+            self._playlist = None
             self._current_tab = tab_id
             self._start_content_load()
 
@@ -430,7 +442,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._start_content_load()
 
     def action_go_back(self) -> None:
-        if not self._close_filter_if_active():
+        if not self._close_filter_if_active() and not self._leave_playlist():
             self.app.pop_screen()
 
     def _on_main_screen(self, method: str) -> None:

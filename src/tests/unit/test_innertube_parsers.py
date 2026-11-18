@@ -299,3 +299,24 @@ def test_channel_info_carries_video_count_join_date_and_the_tabs_the_channel_has
     with patch.object(innertube, "_post_json", return_value=browse):
         info = innertube.fetch_channel_info(url)
     assert info["tabs"] == ["videos", "live", "playlists"]
+
+
+def test_playlist_page_parses_videos_with_their_channel_and_returns_the_token():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos.json")) as post:
+        page = innertube.fetch_playlist_page("PLabc")
+    assert post.call_args.args[1]["browseId"] == "VLPLabc"
+    first, second = page.entries
+    assert page.token == "PL-TOKEN"
+    assert first["id"] == "PPPPPPPPPPP" and first["title"] == "First track" and first["duration"] == 245
+    assert first["uploader"] == "Other Channel" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+    assert first["channel_url"].endswith(first["channel_id"]) and first["thumbnail"].endswith("hq.jpg")
+    assert second["id"] == "QQQQQQQQQQQ" and "channel_id" not in second
+
+
+def test_playlist_continuation_sends_only_the_token_and_failure_is_empty():
+    more = load("innertube_channel_videos_more.json")
+    with patch.object(innertube, "_post_json", return_value=more) as post:
+        innertube.fetch_playlist_page("PLabc", "TOK")
+    assert post.call_args.args[1]["continuation"] == "TOK" and "browseId" not in post.call_args.args[1]
+    with patch.object(innertube, "_post_json", return_value=None):
+        assert innertube.fetch_playlist_page("PLabc") == innertube.ChannelPage([])

@@ -1,6 +1,6 @@
 # src/tui/audio_controller.py
 
-Background audio: a headless mpv controlled over an IPC socket, with a queue, SponsorBlock auto-skip and progress reporting. One `AudioController` lives on the app (`app.audio`, created in `TermTubeApp.__init__`), so music survives every screen push and pop. Screens call its public methods (`play_audio`, `enqueue_audio`, `skip_audio`, `stop_audio`, `toggle_audio_pause`, `seek_audio`, `seek_audio_percent`, `can_enqueue`) through `ItemActionsMixin` and mirror its state through messages (`docs/code/src/tui/screens/mixins/audio_bar.py.md`). Decisions: `docs/decisions/playback.md`.
+Background audio: a headless mpv controlled over an IPC socket, with a queue, SponsorBlock auto-skip and progress reporting. One `AudioController` lives on the app (`app.audio`, created in `TermTubeApp.__init__`), so music survives every screen push and pop. Screens call its public methods (`play_audio`, `enqueue_audio`, `enqueue_many`, `play_all`, `skip_audio`, `stop_audio`, `toggle_audio_pause`, `seek_audio`, `seek_audio_percent`, `can_enqueue`) through `ItemActionsMixin` and mirror its state through messages (`docs/code/src/tui/screens/mixins/audio_bar.py.md`). Decisions: `docs/decisions/playback.md`.
 
 ## Session and stale rules
 

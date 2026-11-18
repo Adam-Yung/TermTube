@@ -1,0 +1,20 @@
+{
+  "_note": "Hand-written from the documented playlist /browse shape, not recorded. [verify live]",
+  "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [
+    {"tabRenderer": {"selected": true, "content": {"sectionListRenderer": {"contents": [
+      {"itemSectionRenderer": {"contents": [
+        {"playlistVideoListRenderer": {"contents": [
+          {"playlistVideoRenderer": {
+            "videoId": "PPPPPPPPPPP",
+            "title": {"runs": [{"text": "First "}, {"text": "track"}]},
+            "lengthSeconds": "245",
+            "thumbnail": {"thumbnails": [{"url": "https://i.ytimg.com/vi/PPPPPPPPPPP/default.jpg"}, {"url": "https://i.ytimg.com/vi/PPPPPPPPPPP/hq.jpg"}]},
+            "shortBylineText": {"runs": [{"text": "Other Channel", "navigationEndpoint": {"browseEndpoint": {"browseId": "UC_x5XG1OV2P6uZZ5FSM9Ttw"}}}]}}},
+          {"playlistVideoRenderer": {"title": {"simpleText": "Deleted video"}}},
+          {"playlistVideoRenderer": {"videoId": "QQQQQQQQQQQ", "title": {"simpleText": "Second"}}},
+          {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "PL-TOKEN"}}}}
+        ]}}
+      ]}}
+    ]}}}}
+  ]}}
+}

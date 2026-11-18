@@ -60,7 +60,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 
 ## Phase 7. Channel and Home paging
 - [x] P7.1 Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10)
-- [ ] P7.2 Channel playlist opens as a list, enqueue all, local channel bookmarks (B2.6-2.8)
+- [ ] P7.2 Channel playlist opens as a list, enqueue all, local channel bookmarks (B2.6-2.8). Done: playlist list, play all, enqueue all, save. Open: bookmarks and the Following (local) view.
 - [ ] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6)
 
 ## Phase 8. Settings, auth, polish  (milestone 4: pipeline)

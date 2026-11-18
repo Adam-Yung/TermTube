@@ -64,6 +64,9 @@ CHANNEL_PAGE = [
     Binding("s", "sort", "Sort"),
     Binding("r", "reload", "Reload"),
     Binding("i", "info", "Info"),
+    Binding("P", "play_all", show=False),
+    Binding("E", "enqueue_all", show=False),
+    Binding("S", "save_list", show=False),
 ]
 
 FOCUS_RECLAIM_KEYS = frozenset(

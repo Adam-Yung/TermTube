@@ -120,3 +120,7 @@ The description shows its first three lines; `i` expands it. The handoff propose
 ## 2026-11-18 — Channel back stack is the screen stack (P7.1)
 
 No second stack: a channel opened from a channel is another `ChannelScreen` pushed on the first, so `Esc` returns to its origin for free. What was missing was context, so each page shows a breadcrumb (`Home › A › B › Videos`) built from a `trail` passed at construction. `c` on the channel page now opens a row that belongs to a different channel (rows in another channel's playlist, once P7.2 lists them); rows with no channel id still count as this channel.
+
+## 2026-11-18 — Channel playlists open inside the channel page (P7.2)
+
+Enter on a playlist row opens its videos in the same list (InnerTube `VL<id>` browse with continuations, yt-dlp when empty); `Esc` returns to the Playlists tab. No new screen: the list, pager, filter and breadcrumb are the channel page's. Bulk keys `P` play all, `E` enqueue all, `S` save as a local playlist. `E` was free (the single-track key is lower-case `e`); `P` and `S` were free. Play all replaces the queue, enqueue all skips known tracks, both through new `AudioController` methods so the queue rules live in one place. Save keeps the channel playlist's name; saving into an existing local playlist of that name only adds the missing ids. **[verify live]**: the playlist page parser and its fixture are hand-written.
