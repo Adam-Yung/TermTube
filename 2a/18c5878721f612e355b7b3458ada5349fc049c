@@ -1,0 +1,25 @@
+docs/features/architecture.md
+  s_6c28d43e292a51::t_70788c99456436 12,22-27,33-35,41-42,66-67,104,106
+README.md
+  s_6c28d43e292a51::t_660f6e086de770 22-26,92,97,118-119,142-144,240
+docs/glossary.md
+  s_6c28d43e292a51::t_70788c99456436 21-25
+docs/status.md
+  s_6c28d43e292a51::t_58855ebe0c82e7 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2a18c5878721f612e355b7b3458ada5349fc049c",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
