@@ -84,3 +84,33 @@ async def test_a_long_local_list_keeps_every_page(app, monkeypatch):
         panel = screen._list()
         assert panel.total_pages == 33
         assert panel.load_page(2)
+
+
+async def test_a_slow_home_load_does_not_land_in_the_next_tab(app, monkeypatch):
+    from textual.widgets import Tabs
+
+    from src import history
+
+    started, release = threading.Event(), threading.Event()
+    monkeypatch.setattr(history, "all_entries", lambda: _entries(3, "hist"))
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+
+        def slow_home(feed_key, panel):
+            started.set()
+            release.wait(5)
+            screen._ui(panel.add_entries, 1, _entries(30, "late"))
+            screen._ui(panel.load_page, 1)
+
+        screen._load_feed = slow_home
+        screen._load_view("home")
+        await pilot.pause(0.1)
+        assert started.wait(2)
+        screen.query_one("#nav-tabs", Tabs).active = "history"
+        await pilot.pause(0.4)
+        panel = screen._list()
+        assert [e["id"] for e in panel.visited_entries()] == [e["id"] for e in _entries(3, "hist")]
+        release.set()
+        await pilot.pause(0.4)
+        assert panel.total_pages == 1
+        assert not any(e["id"].startswith("late") for e in panel.visited_entries())

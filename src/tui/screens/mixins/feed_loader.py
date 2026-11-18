@@ -17,6 +17,9 @@ FEED_TABS = ("home",)
 PAGED_TABS = ("home", "search")
 CHANNEL_TABS = ("subscriptions",)
 
+_loading = threading.local()
+"""Per loader thread: the ``_feed_session`` its view started under (read by ``_ui``)."""
+
 _EXTRACTION_ERRORS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
 
 
@@ -34,7 +37,7 @@ class FeedLoaderMixin:
     Needs ``_current_tab``, ``_search_query``, ``_feed_session``, ``_log``, ``_worker_start`` and
     ``_worker_end`` from the screen, plus ``_show_empty_feed_modal`` and ``_prompt_ytdlp_update``.
     Tab loads run in the exclusive ``feed_loader`` group and paging in ``feed_extend``, so neither cancels
-    the other; ``_feed_session`` makes a paging result from before a view change a no-op.
+    the other; ``_feed_session`` makes any result (load or paging) from before a view change a no-op.
     """
 
     def _load_view(self, view: str) -> None:
@@ -48,10 +51,21 @@ class FeedLoaderMixin:
 
     def _start_view(self, view: str) -> None:
         self._feed_session += 1
-        self._stream_view(view)
+        self._stream_view(view, self._feed_session)
+
+    def _ui(self, fn, *args, **kwargs):
+        """Run ``fn`` on the UI thread from a loader thread, unless the view that loader began for is gone."""
+        session = _loading.session
+
+        def run():
+            if session == self._feed_session:
+                return fn(*args, **kwargs)
+
+        return self.app.call_from_thread(run)
 
     @work(thread=True, exclusive=True, group="feed_loader")
-    def _stream_view(self, view: str) -> None:
+    def _stream_view(self, view: str, session: int) -> None:
+        _loading.session = session
         panel = self._list()
         self._worker_start()
         try:
@@ -64,7 +78,7 @@ class FeedLoaderMixin:
             elif view == "history":
                 from src import history
 
-                self.app.call_from_thread(
+                self._ui(
                     lambda: panel.set_view_options(group_by=_day_label, show_count=True)
                 )
                 self._load_simple_list(panel, history.all_entries())
@@ -82,15 +96,15 @@ class FeedLoaderMixin:
         except Exception as exc:
             msg = str(exc)
             if view in FEED_TABS and any(p in msg.lower() for p in _EXTRACTION_ERRORS):
-                self.app.call_from_thread(self._prompt_ytdlp_update, view, msg)
+                self._ui(self._prompt_ytdlp_update, view, msg)
             else:
-                self.app.call_from_thread(panel.set_error_message, f"⚠ {msg}")
-            self.app.call_from_thread(self._log, f"[red]Error in {view}: {msg}[/red]")
+                self._ui(panel.set_error_message, f"⚠ {msg}")
+            self._ui(self._log, f"[red]Error in {view}: {msg}[/red]")
         finally:
             self._worker_end()
 
     def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
-        call = self.app.call_from_thread
+        call = self._ui
         call(lambda: panel.add_entries(1, entries, evict=evict))
         call(panel.load_page, 1)
         call(panel.finish_loading)
@@ -104,7 +118,7 @@ class FeedLoaderMixin:
         import src.ytdlp as ytdlp
 
         cache = self.app.cache
-        call = self.app.call_from_thread
+        call = self._ui
 
         def visible(entries: list[Entry]) -> list[Entry]:
             if feed_key != "home":
@@ -186,7 +200,7 @@ class FeedLoaderMixin:
                 break
         if not entries:
             return False
-        self.app.call_from_thread(panel.add_entries, 2, entries)
+        self._ui(panel.add_entries, 2, entries)
         logger.debug("feed %s: %d cached entries, no network", feed_key, len(entries))
         return True
 
@@ -230,18 +244,18 @@ class FeedLoaderMixin:
 
         entries = ytdlp.fetch_subscribed_channels(self.app.config, self.app.cache)
         if not entries:
-            self.app.call_from_thread(self._show_empty_feed_modal, "subscriptions")
+            self._ui(self._show_empty_feed_modal, "subscriptions")
             return
-        self.app.call_from_thread(self._detail().set_channel_mode)
+        self._ui(self._detail().set_channel_mode)
         self._show_pages(panel, entries)
 
     def _load_search(self, panel: VideoListPanel) -> None:
         import src.ytdlp as ytdlp
 
         if not self._search_query:
-            self.app.call_from_thread(panel.set_empty_message, "Press / to search")
+            self._ui(panel.set_empty_message, "Press / to search")
             return
-        call = self.app.call_from_thread
+        call = self._ui
         shown: list[Entry] = []
 
         def on_first_batch(entries: list[Entry]) -> None:
@@ -264,7 +278,7 @@ class FeedLoaderMixin:
 
     def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry]) -> None:
         if not entries:
-            self.app.call_from_thread(panel.set_empty_message, "No items")
+            self._ui(panel.set_empty_message, "No items")
             return
         self._show_pages(panel, entries, evict=False)
 
@@ -273,7 +287,7 @@ class FeedLoaderMixin:
 
         names = playlist.list_names()
         if not names:
-            self.app.call_from_thread(panel.set_empty_message, "No playlists. Select a video and press p.")
+            self._ui(panel.set_empty_message, "No playlists. Select a video and press p.")
             return
         entries = []
         for name in names:
@@ -294,7 +308,7 @@ class FeedLoaderMixin:
 
         ids = playlist.get_playlist(name)
         if not ids:
-            self.app.call_from_thread(panel.set_empty_message, f'Playlist "{name}" is empty.')
+            self._ui(panel.set_empty_message, f'Playlist "{name}" is empty.')
             return
         cache = self.app.cache
         entries = [

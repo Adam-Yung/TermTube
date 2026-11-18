@@ -94,3 +94,7 @@ History, Library and the playlist views load through `add_entries` in `PAGE_SIZE
 ## 2026-11-17 — History v2: slim records, deferred writes
 
 History records keep only what a row and the detail panel show (plus `view_count` and `upload_date`, which the row markup reads, beyond the audit's minimal list) and the counters `plays`, `seconds`, `resume_s`, `source`. `_watched_at` became `watched_at`. `add` updates memory at once and writes after a 0.5 s debounce and at exit, so the UI thread never waits on the disk; a hard kill can lose the last half second. `history: false` stops recording but keeps the file; `--clear-history` erases it.
+
+## 2026-11-17 — Every loader result is session-guarded
+
+A running Home load was not cancelled when the user switched tabs (a thread worker cannot be), so its rows landed in the next tab's list. `_stream_view` now receives the `_feed_session` it started under and keeps it in a thread-local; all loader pushes go through `FeedLoaderMixin._ui`, which re-checks the session on the UI thread. One choke point instead of a session argument on eight loaders.

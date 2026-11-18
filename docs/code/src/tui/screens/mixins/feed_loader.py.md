@@ -6,7 +6,9 @@ Loads each tab's entries into the `VideoListPanel` and keeps the next pages read
 
 Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab load) and `feed_extend` for `_extend_feed` (next batch). They are separate so paging to the end during the first home fetch does not cancel that fetch.
 
-`_feed_session` (on the screen) is bumped by `_start_view`, the only entry to `_stream_view`. `_extend_feed` carries the value it started under and its result goes through `_apply_extension` / `_finish_extension` on the UI thread, which drop it when the session moved on. A tab switch, search or playlist open therefore cannot receive pages from the view before it. A cancelled thread still runs until its network call returns, so `_stream_view`'s own late pushes to the panel remain unguarded (limit).
+`_feed_session` (on the screen) is bumped by `_start_view`, the only entry to `_stream_view`. `_extend_feed` carries the value it started under and its result goes through `_apply_extension` / `_finish_extension` on the UI thread, which drop it when the session moved on. A tab switch, search or playlist open therefore cannot receive pages from the view before it.
+
+`_stream_view` takes the session too and stores it in a thread-local (`_loading`). Every loader pushes to the UI through `_ui`, which checks that session on the UI thread and drops the call when the view changed. A cancelled thread still runs until its network call returns, but its late rows, error messages and modals are discarded. Loader code must call `self._ui`, never `app.call_from_thread`, except `_extend_feed`, which carries its own session.
 
 `_worker_start`/`_worker_end` wrap the thread bodies so the header spinner counts them.
 
@@ -51,4 +53,3 @@ Local lists (history, library, playlist index and view) go through `_show_pages(
 
 - `_can_extend` is false while a filter is active: a filter works on what is loaded, and extending would re-page the shown set under the cursor. `_append_pages` uses `panel.next_page_number` (pages of the full set), not `total_pages` (pages of what is shown).
 - The `history` load sets `panel.set_view_options(group_by=_day_label, show_count=True)` before the pages arrive; `clear_and_set_loading` resets it on every view change.
-- Known race (not fixed here): a tab switch does not stop a running home load; its `call_from_thread` results can still land in the next tab's list. Tests wait for the home load before opening History.
