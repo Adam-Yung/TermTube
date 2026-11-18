@@ -21,12 +21,19 @@ _NOT_REMOVABLE = {
 
 @dataclass(frozen=True)
 class Removal:
-    """How one tab removes rows from where they live. `reload` returns the tab's entries as they are now."""
+    """How one tab removes rows from where they live. `reload` returns the tab's entries as they are now.
 
-    remove: Callable[[list[Entry]], list[Entry]]
+    `remove(targets, choice)` gets the choice the user's key maps to (`""` for the plain y/N question) and returns
+    what it removed. `ask` replaces the plain question when a tab offers more than yes/no; `permanent` skips undo
+    (the notice says files are gone).
+    """
+
+    remove: Callable[[list[Entry], str], list[Entry]]
     restore: Callable[[list[Entry]], None]
     reload: Callable[[], list[Entry]]
     noun: str
+    ask: Callable[[list[Entry]], tuple[str, dict[str, str]]] | None = None  # (question markup, key -> choice)
+    permanent: bool = False  # files are deleted: nothing to undo
 
 
 class ListToolsMixin:
@@ -42,7 +49,7 @@ class ListToolsMixin:
         return {}
 
     def _init_list_tools(self) -> None:
-        self._pending_remove: list[Entry] | None = None
+        self._pending_remove: tuple[list[Entry], dict[str, str]] | None = None
         self._undo: tuple[str, list[Entry], float] | None = None
 
     def action_mark(self) -> None:
@@ -68,26 +75,31 @@ class ListToolsMixin:
         if not targets:
             self._hint("Nothing selected.", "information")
             return
-        self._pending_remove = targets
-        if len(targets) == 1:
-            title = escape_markup((targets[0].get("title") or "Untitled")[:_TITLE_MAX])
-            question = f'Remove "{title}"?'
+        if removal.ask is not None:
+            question, choices = removal.ask(targets)
         else:
-            question = f"Remove {len(targets)} items?"
-        self._detail().action_bar.show_prompt(f"[bold]{question}[/bold]   [bold]y[/bold] / [dim]N[/dim]")
+            if len(targets) == 1:
+                title = escape_markup((targets[0].get("title") or "Untitled")[:_TITLE_MAX])
+                question = f'Remove "{title}"?'
+            else:
+                question = f"Remove {len(targets)} items?"
+            question = f"[bold]{question}[/bold]   [bold]y[/bold] / [dim]N[/dim]"
+            choices = {"y": ""}
+        self._pending_remove = (targets, choices)
+        self._detail().action_bar.show_prompt(question)
 
     def on_key(self, event: Key) -> None:
-        """With the removal question open, `y` confirms and any other key cancels; none reaches a binding."""
+        """With the removal question open, a choice key confirms and any other key cancels; none reaches a binding."""
         if self._pending_remove is None:
             return
         event.stop()
         event.prevent_default()
-        targets, self._pending_remove = self._pending_remove, None
+        (targets, choices), self._pending_remove = self._pending_remove, None
         self._detail().action_bar.clear_prompt()
-        if event.key == "y":
-            self._remove(targets)
+        if event.key in choices:
+            self._remove(targets, choices[event.key])
 
-    def _remove(self, targets: list[Entry]) -> None:
+    def _remove(self, targets: list[Entry], choice: str) -> None:
         tab = self._current_tab
         removal = self._removals()[tab]
         panel = self._list()
@@ -97,11 +109,18 @@ class ListToolsMixin:
         neighbour = next((v for v in visible[keep_at:] if v not in gone), None) or next(
             (v for v in reversed(visible[:keep_at]) if v not in gone), None
         )
-        removed = removal.remove(targets)
-        self._undo = (tab, removed, time.monotonic())
+        removed = removal.remove(targets, choice)
         panel.replace_entries(removal.reload(), focus_id=neighbour)
         count = len(removed)
-        self.notify(f"Removed {count} {removal.noun}{'' if count == 1 else 's'}. Press u to undo.", timeout=4)
+        noun = f"{removal.noun}{'' if count == 1 else 's'}"
+        if removal.permanent:
+            self._undo = None
+            failed = len(targets) - count
+            tail = f" {failed} could not be deleted." if failed else ""
+            self.notify(f"Deleted {count} {noun}. The files are gone; u cannot undo this.{tail}", timeout=6)
+            return
+        self._undo = (tab, removed, time.monotonic())
+        self.notify(f"Removed {count} {noun}. Press u to undo.", timeout=4)
 
     def action_undo(self) -> None:
         if self._undo is None or time.monotonic() - self._undo[2] > _UNDO_WINDOW_S:

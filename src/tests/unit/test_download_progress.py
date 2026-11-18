@@ -304,3 +304,12 @@ class TestCancelHandle:
                 "abc123def45", self._config(tmp_path), cancel=threading.Event()
             ) is True
         assert results == ["finished"]
+
+
+def test_hooks_report_finished_files_to_on_file():
+    seen = []
+    _make_progress_hook(None, threading.Event(), seen.append)({"status": "finished", "filename": "x.f137.mp4"})
+    _make_progress_hook(None, threading.Event(), seen.append)({"status": "downloading", "filename": "ignored"})
+    _make_postprocessor_hook(None, seen.append)({"status": "started", "info_dict": {"filepath": "early"}})
+    _make_postprocessor_hook(None, seen.append)({"status": "finished", "info_dict": {"filepath": "x.mp4"}})
+    assert seen == ["x.f137.mp4", "x.mp4"]

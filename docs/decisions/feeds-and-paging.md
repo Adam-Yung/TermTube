@@ -98,3 +98,7 @@ History records keep only what a row and the detail panel show (plus `view_count
 ## 2026-11-17 — Every loader result is session-guarded
 
 A running Home load was not cancelled when the user switched tabs (a thread worker cannot be), so its rows landed in the next tab's list. `_stream_view` now receives the `_feed_session` it started under and keeps it in a thread-local; all loader pushes go through `FeedLoaderMixin._ui`, which re-checks the session on the UI thread. One choke point instead of a session argument on eight loaders.
+
+## 2026-11-17 — Library index keyed by sidecar `(mtime, size)`; deletes are outright and path-checked
+
+The Phase 0 measurement (300 sidecars scan in 52 ms) said the index is about size and robustness, not speed, so it stores only the slim record per sidecar and re-reads a sidecar only when its `(mtime, size)` changes; paths, sizes and the video/audio merge come from the single `os.scandir` walk, so a sidecar can never point a row at another file. `safe_delete` removes files outright (owner answer, no trash, no dependency): every path must be inside a configured root with no symlink and no `..`, and only the media plus same-stem `.info.json`, images and subtitles go. `entry_only` removes the sidecar and keeps the media, because the Library lists sidecars. Thumbnails are normalised to `<stem>.jpg` next to the media (not a separate folder), since that path already survives cache pruning and is deleted with the file group.

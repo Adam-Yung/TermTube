@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 from textual import work
 from textual.app import ComposeResult
@@ -30,6 +31,7 @@ class DownloadModal(ModalScreen[bool]):
         self._audio_only = audio_only
         self._fmt = fmt
         self._cancelled = False
+        self._files: list[str] = []  # every file yt-dlp finished; the last is the media file
         self._cancel_event: threading.Event | None = None
 
     def compose(self) -> ComposeResult:
@@ -87,6 +89,7 @@ class DownloadModal(ModalScreen[bool]):
                     app.config,
                     on_progress=on_progress,
                     cancel=self._cancel_event,
+                    on_file=self._files.append,
                 )
             else:
                 success = downloads.download_video_with_progress(
@@ -95,6 +98,7 @@ class DownloadModal(ModalScreen[bool]):
                     quality_format=self._fmt,
                     on_progress=on_progress,
                     cancel=self._cancel_event,
+                    on_file=self._files.append,
                 )
         except RuntimeError as exc:
             success = False
@@ -164,6 +168,15 @@ class DownloadModal(ModalScreen[bool]):
         except Exception:
             pass
 
+    def _pin(self, entry: Entry | None) -> None:
+        """Pin a downloaded video's metadata and thumbnail where cache pruning never reaches (Library works offline)."""
+        if entry is None or not entry.get("id"):
+            return
+        cache = self.app.cache
+        cache.pin_video(entry["id"], {k: v for k, v in entry.items() if not k.startswith("_")})
+        thumb = entry.get("_thumb_path")
+        cache.pin_thumb(entry["id"], Path(thumb) if thumb else None)
+
     def _on_done(self, success: bool, error_msg: str = "") -> None:
         if success:
             try:
@@ -172,7 +185,7 @@ class DownloadModal(ModalScreen[bool]):
             except Exception:
                 pass
             try:
-                library.invalidate_cache()
+                self._pin(library.finish_download(self._files))
             except Exception:
                 pass
             self.dismiss(True)

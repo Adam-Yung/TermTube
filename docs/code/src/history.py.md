@@ -14,3 +14,5 @@ Local watch history: videos played through this TUI, not the Google account's hi
 - The v1 file (a bare list of full entries with `_watched_at`) migrates on first load: slimmed, `plays` 1, then saved as v2.
 - `all_entries()` returns a shallow copy: safe to hold, the dicts are shared.
 - Entry ids fall back to `webpage_url_basename`; an entry with neither is ignored.
+
+`slim(entry, vid, keys=_KEPT)` is public: the Library index reuses it with a longer key list, so a row played from the Library is stored as slim as any other.

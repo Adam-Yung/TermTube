@@ -12,3 +12,5 @@ A dict from tab id to `Removal(remove, restore, reload, noun)`. `remove(entries)
 - `on_key` runs while a question is open: `y` confirms, any other key cancels, and the event is stopped and default-prevented so it reaches no binding (a stray `j` or `q` must not act). The mixin precedes `ListNavMixin` in the MRO so its `on_key` runs first.
 - After removal the cursor goes to the next surviving row (else the previous one) on whichever page it now lives.
 - `_undo` keeps one removal for 30 s (`time.monotonic`). `u` restores it even after a tab change; the list is re-paged only when that tab is showing. Records are copies: `history.all_entries()` shares its dicts with the store.
+
+`Removal` also has `ask(targets) -> (question markup, {key: choice})` for tabs with more than yes/no, `permanent` (files deleted: no undo entry, the notice says the files are gone), and `remove(targets, choice)` takes the chosen value (`""` for the plain y/N). The Library handler is in [tui/library_delete.py](library_delete.py.md).

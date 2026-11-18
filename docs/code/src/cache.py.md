@@ -22,3 +22,5 @@ Disk cache under the platform cache dir: video metadata JSON, feed id lists, sup
 
 - `clear_all` removes feeds, videos and thumbnails but leaves the stash, suppression state and pinned playlist copies.
 - No cross-process locking: two TermTube instances can interleave writes (each write stays atomic; last writer wins).
+
+`pin_thumb(video_id, source=None)` pins `source` (a downloaded file's normalised JPEG) when given, else the cached thumbnail. The download modal pins every finished download with `pin_video` (public fields only) and `pin_thumb`.

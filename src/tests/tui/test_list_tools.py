@@ -302,8 +302,7 @@ async def test_removing_the_last_row_empties_the_list(app, temp_history):
         assert len(rows(panel_of(app))) == 1
 
 
-@pytest.mark.parametrize("tab,key,said", [("home", "f1", "Home rows cannot be removed"),
-                                          ("library", "f5", "Nothing here can be removed")])
+@pytest.mark.parametrize("tab,key,said", [("home", "f1", "Home rows cannot be removed")])
 async def test_tabs_without_a_remove_handler_say_why(app, temp_history, tab, key, said):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.press(key)

@@ -180,6 +180,11 @@ ThumbnailWidget > #thumb-image {
     margin-bottom: 1;
 }
 
+#video-file {
+    color: #666666;
+    margin-bottom: 1;
+}
+
 #video-desc-header {
     color: #444444;
     margin-top: 1;

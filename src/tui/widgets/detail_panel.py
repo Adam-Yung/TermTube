@@ -13,9 +13,9 @@ from textual.timer import Timer
 from textual.widget import Widget
 from textual.widgets import Static
 
-from src import playlist
+from src import library, playlist
 from src.entries import Entry
-from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
+from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_size, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
@@ -45,6 +45,7 @@ class DetailPanel(Widget):
             yield Static(_IDLE_HINT, id="video-title", markup=True)
             yield Static("", id="video-channel", markup=True)
             yield Static("", id="video-stats", markup=True)
+            yield Static("", id="video-file", markup=True)
             yield Static("", id="video-desc-header", markup=True)
             yield Static("", id="video-desc", markup=True)
             yield Static("", id="video-playlists", markup=True)
@@ -70,7 +71,8 @@ class DetailPanel(Widget):
         self._last_entry = None
         self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
         self._text("#video-title", _IDLE_HINT)
-        for wid in ("#video-channel", "#video-stats", "#video-desc-header", "#video-desc", "#video-playlists"):
+        for wid in ("#video-channel", "#video-stats", "#video-file", "#video-desc-header", "#video-desc",
+                    "#video-playlists"):
             self._text(wid, "")
 
     def update_basic(self, entry: Entry) -> None:
@@ -114,6 +116,25 @@ class DetailPanel(Widget):
             fmt_age(entry.get("upload_date")),
         ]
         self._text("#video-stats", _STATS_SEP.join(p for p in stats if p))
+        self._text("#video-file", self._file_line(entry))
+
+    def _file_line(self, entry: Entry) -> str:
+        """For a Library row: where the file lives (relative to its download folder) and its total size."""
+        if entry.get("_missing_file"):
+            return "[#ff6b6b]⚠ file missing[/]"
+        path = entry.get("_local_path")
+        if not path:
+            return ""
+        config = self.app.config
+        shown = path
+        for root in (config.video_dir, config.audio_dir):
+            try:
+                shown = str(Path(path).relative_to(root))
+                break
+            except ValueError:
+                continue
+        size = fmt_size(library.total_size(entry))
+        return f"[dim]📁 {escape_markup(shown)}{_STATS_SEP + size if size else ''}[/dim]"
 
     def _set_description(self, desc: str) -> None:
         desc = desc.strip()
@@ -177,7 +198,7 @@ class DetailPanel(Widget):
     def set_channel_mode(self) -> None:
         """Subscriptions tab: hide the action bar; the panel shows channel info."""
         self.action_bar.display = False
-        for wid in ("#video-stats", "#video-playlists"):
+        for wid in ("#video-stats", "#video-file", "#video-playlists"):
             self._text(wid, "")
 
     def set_video_mode(self) -> None:

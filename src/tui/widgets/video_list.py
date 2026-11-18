@@ -151,7 +151,9 @@ class VideoListItem(ListItem):
             line1 = f"[bold white]{escape_markup(ch_name)}[/bold white] [{theme_color}]📺[/{theme_color}]"
             return f"{line1}\n{line2}" if line2 else line1
 
-        if is_playlist:
+        if entry.get("_missing_file"):
+            badge = " [#ff6b6b]⚠ file missing[/]"
+        elif is_playlist:
             badge = " [#6b9eff]▶ PLAYLIST[/]"
         elif local_type == "video" and has_audio:
             badge = " [#6bff6b]↓ VIDEO+AUDIO[/]"

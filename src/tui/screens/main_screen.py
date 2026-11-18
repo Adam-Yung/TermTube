@@ -14,7 +14,7 @@ from src import history, logger, search_history
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.search_stack import SearchStack
-from src.tui import keymap
+from src.tui import keymap, library_delete
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
@@ -115,11 +115,12 @@ class MainScreen(
     def _removals(self) -> dict[str, Removal]:
         return {
             "history": Removal(
-                remove=lambda entries: history.remove_many([e["id"] for e in entries if e.get("id")]),
+                remove=lambda entries, _choice: history.remove_many([e["id"] for e in entries if e.get("id")]),
                 restore=history.restore,
                 reload=history.all_entries,
                 noun="video",
             ),
+            "library": library_delete.removal(self.app.config),
         }
 
     def compose(self) -> ComposeResult:

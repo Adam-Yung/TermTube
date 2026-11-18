@@ -29,11 +29,17 @@ PHASE_NEW_STREAM = -2.0
 PHASE_POSTPROCESS = -3.0
 
 
-def _make_progress_hook(on_progress: Callable[[str, float], None] | None, cancel: threading.Event):
-    """yt-dlp progress hook that forwards to ``on_progress`` and aborts once ``cancel`` is set."""
+def _make_progress_hook(
+    on_progress: Callable[[str, float], None] | None,
+    cancel: threading.Event,
+    on_file: Callable[[str], None] | None = None,
+):
+    """Progress hook: forwards to ``on_progress``, reports finished files to ``on_file``, aborts on ``cancel``."""
     def hook(d: dict) -> None:
         if cancel.is_set():
             raise yt_dlp.utils.DownloadError("Cancelled by user")
+        if on_file is not None and d.get('status') == 'finished' and d.get('filename'):
+            on_file(d['filename'])
         if on_progress is None:
             return
         status = d.get('status')
@@ -50,9 +56,15 @@ def _make_progress_hook(on_progress: Callable[[str, float], None] | None, cancel
     return hook
 
 
-def _make_postprocessor_hook(on_progress: Callable[[str, float], None] | None):
-    """yt-dlp postprocessor hook reporting merge/extraction as the post-process phase."""
+def _make_postprocessor_hook(
+    on_progress: Callable[[str, float], None] | None,
+    on_file: Callable[[str], None] | None = None,
+):
+    """yt-dlp postprocessor hook reporting merge/extraction as the post-process phase and the files they produce."""
     def hook(d: dict) -> None:
+        path = (d.get('info_dict') or {}).get('filepath')
+        if on_file is not None and d.get('status') == 'finished' and path:
+            on_file(path)
         if on_progress is None:
             return
         status = d.get('status')
@@ -100,8 +112,11 @@ def _run_download(
     on_progress: Callable[[str, float], None] | None,
     label: str,
     cancel: threading.Event | None,
+    on_file: Callable[[str], None] | None = None,
 ) -> bool:
     """Download ``video_id`` with ``opts`` plus progress/cancel hooks. True on success.
+
+    ``on_file`` is called with each file yt-dlp finishes (the last one is the final media file).
 
     Setting ``cancel`` aborts at the next progress callback. Without one, a private event is used.
     """
@@ -110,8 +125,8 @@ def _run_download(
     opts['noprogress'] = True
     owned = cancel is None
     cancel = cancel or new_cancel_event()
-    opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel)]
-    opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress)]
+    opts['progress_hooks'] = [_make_progress_hook(on_progress, cancel, on_file)]
+    opts['postprocessor_hooks'] = [_make_postprocessor_hook(on_progress, on_file)]
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.add_post_processor(_StayInside(ydl, root), when='video')
@@ -131,6 +146,7 @@ def download_video_with_progress(
     quality_format: str = "",
     on_progress: Callable[[str, float], None] | None = None,
     cancel: threading.Event | None = None,
+    on_file: Callable[[str], None] | None = None,
 ) -> bool:
     """Download video; ``quality_format`` overrides ``config.preferred_quality``. Set ``cancel`` to abort."""
     config.video_dir.mkdir(parents=True, exist_ok=True)
@@ -141,7 +157,7 @@ def download_video_with_progress(
     opts['format'] = fmt
     opts['merge_output_format'] = 'mp4'
     opts['outtmpl'] = _outtmpl(config.video_dir, config.video_format)
-    return _run_download(video_id, opts, config.video_dir, on_progress, "download_video", cancel)
+    return _run_download(video_id, opts, config.video_dir, on_progress, "download_video", cancel, on_file)
 
 
 def download_audio_with_progress(
@@ -150,6 +166,7 @@ def download_audio_with_progress(
     *,
     on_progress: Callable[[str, float], None] | None = None,
     cancel: threading.Event | None = None,
+    on_file: Callable[[str], None] | None = None,
 ) -> bool:
     """Download audio as mp3. Set ``cancel`` to abort."""
     config.audio_dir.mkdir(parents=True, exist_ok=True)
@@ -163,4 +180,4 @@ def download_audio_with_progress(
         'preferredcodec': 'mp3',
         'preferredquality': '0',
     }]
-    return _run_download(video_id, opts, config.audio_dir, on_progress, "download_audio", cancel)
+    return _run_download(video_id, opts, config.audio_dir, on_progress, "download_audio", cancel, on_file)

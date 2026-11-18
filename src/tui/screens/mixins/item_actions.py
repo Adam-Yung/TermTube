@@ -106,6 +106,9 @@ class ItemActionsMixin:
         if entry and not _is_video(entry):
             self._hint("Not a video.", "information")
             return None
+        if entry and entry.get("_missing_file"):
+            self._hint("The file is missing. Press D to remove this entry.", "information")
+            return None
         return entry
 
     def action_watch(self) -> None:

@@ -83,3 +83,15 @@ def fmt_day_group(ts: float | None, today: datetime.date | None = None) -> str:
         return "Yesterday"
     label = f"{day:%a} {day.day} {day:%b}"
     return label if day.year == today.year else f"{label} {day.year}"
+
+
+def fmt_size(n: int | float | None) -> str:
+    """Bytes as `812 KB`, `120 MB`, `1.4 GB`; empty when unknown."""
+    if not n:
+        return ""
+    value = float(n)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1000 or unit == "GB":
+            return f"{value:.0f} {unit}" if value >= 100 or unit == "B" else f"{value:.1f} {unit}"
+        value /= 1000
+    return ""

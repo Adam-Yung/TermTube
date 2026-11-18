@@ -15,8 +15,9 @@ _DEFAULT_MAX = 500
 _KEPT = ("title", "uploader", "channel_id", "duration", "thumbnail", "view_count", "upload_date")
 
 
-def _slim(entry: Entry, vid: str) -> dict:
-    record = {k: entry.get(k) for k in _KEPT}
+def slim(entry: Entry, vid: str, keys: tuple[str, ...] = _KEPT) -> dict:
+    """The fields of ``entry`` listed in ``keys`` (list row and detail panel by default), keyed by ``vid``."""
+    record = {k: entry.get(k) for k in keys}
     record["uploader"] = entry.get("uploader") or entry.get("channel")
     thumb = record["thumbnail"]
     record["thumbnail"] = thumb if isinstance(thumb, str) else None
@@ -30,7 +31,7 @@ def _migrate(data: list, from_version: int) -> list:
         vid = old.get("id")
         if not vid:
             continue
-        record = _slim(old, vid)
+        record = slim(old, vid)
         record.update(watched_at=old.get("_watched_at"), plays=1, seconds=0, resume_s=None, source="local")
         out.append(record)
     return out
@@ -50,7 +51,7 @@ def add(entry: Entry, config=None) -> None:
     if not vid:
         return
     limit = config.history_max if config is not None else _DEFAULT_MAX
-    record = _slim(entry, vid)
+    record = slim(entry, vid)
 
     def apply(data: list) -> bool:
         previous = next((e for e in data if e.get("id") == vid), None)

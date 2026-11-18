@@ -40,11 +40,12 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P3.2 Persistent search history in the modal (B3.2) (ea91c0c)
 - [x] P3.3 Suggestions as you type, on by default, opt-out setting (B3.3) (0b8647c)
 - [x] P3.4 Type/sort filters, more than 50 results (B3.4, B3.5) (4cb79a9)
+- [x] P3.5 Search modal debounce tests made deterministic (Windows runner flake) (ed5fe0a)
 
 ## Phase 4. Library index and delete  (milestone 2: pipeline)
-- [ ] P4.1 Library index with incremental refresh (C3, A4.3)
-- [ ] P4.2 `library.safe_delete`, delete with confirmation, multi-select (A1.4, B5.5)
-- [ ] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4)
+- [x] P4.1 Library index with incremental refresh (C3, A4.3) (HASH)
+- [x] P4.2 `library.safe_delete`, delete with confirmation, multi-select (A1.4, B5.5) (HASH)
+- [x] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4) (HASH)
 
 ## Phase 5. Playlists v2 and Library fusion
 - [ ] P5.1 Playlist v2 data model and migration (C1)

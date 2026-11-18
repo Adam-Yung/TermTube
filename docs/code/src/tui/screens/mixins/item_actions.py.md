@@ -16,3 +16,5 @@ Actions on the highlighted row: watch, audio, download, channel, playlist, copy 
 - `action_audio_seek(seconds)` and `action_audio_seek_pct(percent)` receive their argument from bindings such as `audio_seek(-5)`; keys are listed in `docs/features/keybindings.md`.
 
 Video playback (`WatchModal`) suspends the app and runs mpv in the foreground (`docs/decisions/playback.md`); it does not go through `app.audio`.
+
+`_playable_entry` refuses a Library row flagged `_missing_file` with a hint to press `D`.

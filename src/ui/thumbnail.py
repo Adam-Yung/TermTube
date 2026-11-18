@@ -31,6 +31,17 @@ def _thumb_path(video_id: str) -> Path:
 
 def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
     """Find the thumbnail yt-dlp wrote next to a downloaded file and copy it into the cache."""
+    own = entry.get("_thumb_path")  # the library index already knows the image next to the file
+    if own and Path(own).exists():
+        dest = _thumb_path(video_id)
+        if dest.exists():
+            return dest
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(own, dest)
+            return dest
+        except OSError:
+            return Path(own)
     local_path = entry.get("_local_path")
     if not local_path:
         return None

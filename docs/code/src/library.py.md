@@ -1,25 +1,42 @@
 # src/library.py
 
-Data for the Library page: scans `video_dir` and `audio_dir` for the `.info.json` sidecars yt-dlp writes next to each download. Callers:
-the library feed loader (`all_entries`) and the download modal (`invalidate_cache` after a download completes).
+Data for the Library page: a slim index of the `.info.json` sidecars yt-dlp writes next to each download in `video_dir` and `audio_dir`,
+plus deletion of a row's files. Callers: the library feed loader and the Library removal handler (`all_entries`, `safe_delete`, `forms`,
+`form_sizes`, `total_size`), the download modal (`refresh` / `finish_download` after a download), the detail panel and list rows.
 
-## How entries are built
+## The index
 
-- One recursive walk per directory collects sidecars and media files, keyed by file stem. A sidecar `Title.info.json` pairs with the media
-  file whose stem is `Title`. Images and `.json` files are not media.
-- The entry is the sidecar's JSON plus `_local_path`, `_local_type` (`video` by extension, else `audio`) and `_sidecar_path`. A sidecar
-  with no media file still yields an entry without `_local_path`.
-- The same video id in both directories yields one entry, taken from the video directory, with `_has_audio` and `_audio_path` added.
-- Sorted by `upload_date` descending (yt-dlp `YYYYMMDD` strings compare correctly as text). Entries without a date sort last.
+`INDEX_PATH` (`library.json` in the cache dir, a `JsonStore`, version 1) maps `sidecar path -> {mtime, size, entry}`. `entry` is slim: id,
+title, uploader, channel, channel_id, duration, upload_date, view_count, webpage_url, tags, thumbnail URL and `description` cut to 500
+characters. Never `formats`. It reuses `history.slim` for the common fields, so there is one slimming helper.
+
+`all_entries` rebuilds in one `os.scandir` walk per root (`_walk`; symlinked files and folders are neither followed nor listed). A sidecar whose
+`(mtime, size)` equals its index record is not read; new or changed ones are parsed (`_parse`); records of vanished sidecars drop out. A
+sidecar that is unreadable, is not JSON or has no `id` is skipped with a debug log.
+
+Fields added per entry at build time (never stored): `_sidecar_path`, `_local_type` (`video` or `audio`, by the root the sidecar is in),
+`_local_path` and `_size` (media file with the sidecar's stem in the same folder), `_thumb_path` (image with that stem, `.jpg` preferred),
+`_missing_file=True` when there is a sidecar but no media. Media without a sidecar is not listed. The same id in both roots is one row (video
+row): `_has_audio`, `_audio_path`, `_audio_size`, `_audio_sidecar_path`. When the video file is gone but the audio exists the audio row wins.
+Sorted by `upload_date` descending. Because paths come from the walk, a sidecar cannot point a row at another file.
 
 ## Cache
 
-`all_entries` caches per `(video_dir, audio_dir)`. A cached list is returned while the newest mtime in each tree is unchanged. `_dir_mtime`
-walks the directory and every subdirectory (directories only, not files): adding a file bumps its folder, adding a folder bumps its
-parent, so the check is one `stat` and one `scandir` per directory in the tree.
+`all_entries` also keeps the built list per `(video_dir, audio_dir)` and returns it while `_dir_mtime` (newest mtime over the directories of
+each tree) is unchanged. `invalidate_cache()` drops the list; the index still saves the parsing. `refresh(paths)` takes the media files a
+download finished, parses only their sidecars into the index and drops the list. `_lock` serializes rebuilds; call from a worker.
 
-Limit: editing a sidecar in place does not change any directory mtime, so it shows up only after `invalidate_cache()` (the download modal
-calls it after each download). A filesystem with coarse timestamps can miss two changes within one tick.
+## After a download
 
-`_lock` serializes scans, so a second caller waits for the first scan instead of repeating it. A scan walks the whole tree on the
-calling thread; call from a worker.
+`normalise_thumbnail(media)` makes the thumbnail yt-dlp wrote a JPEG named after the media (PIL converts webp and png; if conversion fails
+the original stays). `finish_download(paths)` normalises, calls `refresh` and returns the slim entry (with `_local_path`, `_thumb_path`) for
+the modal to pin in the cache.
+
+## Deleting
+
+`safe_delete(entry, roots, which)` with `which` in `video | audio | both | entry_only` returns a `DeleteResult` (`removed`, `failed` as
+`(path, reason)`, `freed`). Per form it removes the media, its `.info.json`, and images/subtitles with exactly that stem (`stem.jpg`,
+`stem.en.vtt`); `entry_only` removes the sidecar only and keeps the media. If another media file with the same stem survives in the same folder
+the form's sidecar and extras are kept. Every path is checked by `_refusal`: no `..`, inside a configured root, no symlink anywhere below the
+root; refusals land in `failed` and nothing else is touched. A path that is already gone is skipped silently. Afterwards the sidecar records
+leave the index and the list is invalidated. Files are removed outright (no trash); undo never brings them back.

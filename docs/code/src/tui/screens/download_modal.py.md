@@ -9,3 +9,5 @@ Progress dialog for one yt-dlp download (`downloads.download_video_with_progress
 ## Audio keys
 
 `Space` and `x` pause and stop background audio while the download runs (a download is long and every other key is blocked by the modal). The hint line shows them only when audio is playing. Esc still cancels the download only.
+
+On success `_on_done` calls `library.finish_download(self._files)` (thumbnail to JPEG, index that one sidecar) and `_pin` stores the slim entry and thumbnail with `cache.pin_video` / `pin_thumb`. `_files` collects the paths from `on_file`.

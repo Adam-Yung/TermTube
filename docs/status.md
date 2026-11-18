@@ -9,7 +9,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`.
 - Search keeps a session stack of 20 searches (Backspace/Esc returns to the previous results at their page and row) and a persistent history of 100 queries (`search_history` setting) offered in the search prompt, followed by suggestions from Google as you type (on by default, `search_suggestions` setting; the partial text is sent to Google). On the Search tab `s` sorts (relevance / date / views) and `t` picks the type (all / video / channel / playlist; channel rows open the channel, playlist rows say `b`); results come 50 at a time up to 200.
-- List tools on the shared list: `f` filter (all loaded pages, live, ranked), `m`/`M` marks, `D` remove after one `y`/N in the action bar, `u` undo for 30 s. History uses all four and shows day headers and a count; Home, Search, Subscriptions, Library and Playlists answer `D` with a reason (Library and Playlists get delete in Phases 4 and 5). The channel page has the filter only.
+- List tools on the shared list: `f` filter (all loaded pages, live, ranked), `m`/`M` marks, `D` remove after one `y`/N in the action bar, `u` undo for 30 s. History uses all four and shows day headers and a count; Home, Search, Subscriptions, Library and Playlists answer `D` with a reason (Playlists gets delete in Phase 5; Library `D` deletes files for good after one question, no undo). The channel page has the filter only.
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home and the subscription list
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
@@ -36,6 +36,6 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - InnerTube fetch errors become empty results; callers then fall back to yt-dlp.
 - `sponsorblock.py` still falls back to an unverified TLS context when certifi and the system store both fail to build (separate from the thumbnail setting, which is now opt-in).
 - A sign-in failure on Home or Subscriptions shows the empty-feed dialog, not a "sign in again" message.
-- History stores the row as played; a row played from the Library carries the whole sidecar (large file).
+- History stores slim records, including for rows played from the Library. The Library index (`library.json`) is slim too.
 
 Next work: [todo.md](todo.md). Open plans: [plans/](plans/).

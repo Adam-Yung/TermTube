@@ -340,9 +340,9 @@ class Cache:
             _atomic_write(dest, json.dumps(entry, ensure_ascii=False))
         logger.debug("cache.pin_video %s", video_id)
 
-    def pin_thumb(self, video_id: str) -> None:
-        """Copy the thumbnail into the playlist cache that pruning skips."""
-        src = THUMB_DIR / f"{video_id}.jpg"
+    def pin_thumb(self, video_id: str, source: Path | None = None) -> None:
+        """Copy the thumbnail (default: the cached one, or ``source``) into the playlist cache that pruning skips."""
+        src = source or THUMB_DIR / f"{video_id}.jpg"
         if not src.exists():
             return
         dest = PLAYLIST_THUMB_DIR / f"{video_id}.jpg"

@@ -33,3 +33,5 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 - `_search` is a `SearchStack`. `_show_search_results` saves the page and row of the results being left (`_save_search_position`, also when switching tabs), pushes the query and shows it through `_show_search_frame`. `action_nav_back` pops it only when `_nav_stack` is empty and the Search tab is current, so playlist and channel "back" keep priority. The saved position is applied once by `FeedLoaderMixin._finish_search_load` after the (cached) results load.
 
 - `s` / `t` (`action_search_sort`, `action_search_type`) open the shared `SortModal` with the search sort or type options and write the choice to the current `SearchFrame` (`set_filter`), then `_show_search_frame` reloads (own cache entry per sort and type). Off the Search tab they only hint. Enter on a playlist row of a Search result hints "Press b to open the playlist in the browser" (`b` opens the page); channel rows open the channel page as on Subscriptions.
+
+`_removals()` registers History and Library (`library_delete.removal(config)`).

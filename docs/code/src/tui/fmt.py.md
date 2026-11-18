@@ -10,3 +10,5 @@ join non-empty parts without checks.
 - `fmt_day_group` is the History day header: `Today`, `Yesterday`, `Mon 9 Nov` (year added for another year), `Earlier` for a row without `watched_at`.
 - `fmt_views` rounds 1,000 to 999,999 to whole K and larger values to one decimal.
 - `fmt_subscribers` returns the bare number (`1.2M`, `340K`); the caller appends the noun.
+
+`fmt_size(n)` formats bytes (`812 B`, `1.4 KB`, `120 MB`).

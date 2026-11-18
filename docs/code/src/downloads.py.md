@@ -15,3 +15,6 @@ Offline video and audio downloads through yt-dlp, with progress forwarded to the
 Output templates are checked twice. `_outtmpl` rejects an absolute path, a drive, or a `..` part before yt-dlp starts (the download dialog shows the `RuntimeError` text). `_StayInside` is a yt-dlp postprocessor at stage `video` (before the filename is used and before any file is written) that refuses a computed path outside the configured directory, which a field can cause even with a safe template: a title that is exactly `..` becomes a `..` path component. That second refusal is a `DownloadError`, so it reads as a failed download with the reason in the debug log.
 
 `QUALITY_CHOICES` and `AUDIO_QUALITY_CHOICES` are the single source for the quality pickers. A failed download returns False with the reason only in the debug log.
+
+## Finished files
+`download_video_with_progress` and `download_audio_with_progress` take `on_file(path)`: called for every file yt-dlp finishes (progress hook `finished`, postprocessor hook `finished` with `info_dict.filepath`), so the caller learns the final media file without scanning. The download modal passes the list to `library.finish_download`.

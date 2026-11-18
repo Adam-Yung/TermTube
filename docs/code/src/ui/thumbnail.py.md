@@ -32,3 +32,5 @@ Order: the extractor's `thumbnail`, the last JPG in `thumbnails`, then `https://
 11-character video id. The last rung needs no yt-dlp or InnerTube call, so rows that carry only an id (history, playlists, queue) get a
 thumbnail. Channel rows (`_is_channel`) and placeholder ids (`__playlist__…`) never match. The CDN returns a generic grey image, not a
 404, for a deleted video; `validate_thumb` accepts it. Optimization plan step 1: `docs/plans/2026-11-15-optimization-PLAN.md`.
+
+A Library entry's `_thumb_path` (from the index) is the first local source in `_resolve_local_thumb`; it is copied into the thumbnail cache, so a downloaded item never needs the network.

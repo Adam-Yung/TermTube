@@ -70,6 +70,13 @@ SAMPLE_FORMATS = [
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def isolated_library_index(tmp_path_factory, monkeypatch):
+    """The Library index lives in the cache dir; no test may read or write the real one."""
+    monkeypatch.setattr("src.library.INDEX_PATH", tmp_path_factory.mktemp("libindex") / "library.json")
+    monkeypatch.setattr("src.library._index._data", None)
+
+
 @pytest.fixture
 def sample_entries():
     """List of realistic video entry dicts."""

@@ -14,7 +14,7 @@ a terminal with image support (useful if its graphics render badly). The change 
 
 ## How a thumbnail arrives
 
-Pausing on a row starts a worker that resolves the image, in order: a copy already on disk, a thumbnail yt-dlp saved next to a download, then a
+Pausing on a row starts a worker that resolves the image, in order: a copy already on disk, a thumbnail saved next to a download (at download completion it is converted to `<name>.jpg`, and the Library index records it as `_thumb_path`, so a downloaded item never needs the network; the download is also pinned in the playlist thumbnail cache that pruning skips), then a
 download from `i.ytimg.com` (the URL is derived from the video id when a row has none). The JPEG is validated, cached on disk, and rendered or
 handed to the widget. Moving the cursor again discards a stale result; a screen closed meanwhile is ignored. Channel avatars load the same way.
 
