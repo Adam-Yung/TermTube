@@ -1,0 +1,79 @@
+docs/code/scripts/check-dead-code.py.md
+  s_6c28d43e292a51::t_4e429a15ec891a 8
+docs/code/src/cache.py.md
+  s_2547108119c43f::t_eaf68409d7288f 23
+docs/code/src/config.py.md
+  s_2547108119c43f::t_5366243c252108 17-18
+docs/code/src/tui/screens/quality_modal.py.md
+  s_2547108119c43f::t_161ae18af86dd5 4-5
+docs/code/src/tui/screens/settings_modal.py.md
+  s_2547108119c43f::t_be4d0e0c24c3a2 3,5-12,14
+docs/code/src/tui/settings_fields.py.md
+  s_2547108119c43f::t_22f260253d0cd9 1-14
+docs/decisions/config.md
+  s_2547108119c43f::t_46b1292b874e2a 23-30
+docs/features/accounts-and-cookies.md
+  s_2547108119c43f::t_96e76865395b48 24
+docs/features/configuration.md
+  s_2547108119c43f::t_186837e5585cd0 11,29,31,38,46
+docs/status.md
+  s_2547108119c43f::t_ca86a2ad8cc745 11
+scripts/check-dead-code.py
+  s_6c28d43e292a51::t_3bf45904e64ce6 20
+src/cache.py
+  s_3ef608857743d7::t_0666151c7c1601 281-282,289-290,293
+src/config.py
+  s_2547108119c43f::t_122f1402000805 5,17,53,56,60-61,63,66-77,79-98,202-206,212-214,220-221,224-225,231-233,236-250
+src/tests/tui/test_search_modal.py
+  s_2547108119c43f::t_51c94a07b03e05 162,164,168-170,174
+src/tests/tui/test_settings.py
+  s_2547108119c43f::t_378cdbb0e75936 1-314
+src/tests/unit/test_cache.py
+  s_3ef608857743d7::t_295aabb24ffcba 274-286
+src/tests/unit/test_config.py
+  s_2547108119c43f::t_628e981d2283eb 4,212-292
+src/tests/unit/test_settings_fields.py
+  s_2547108119c43f::t_67f75cfa45ae69 1-73
+src/tui/screens/quality_modal.py
+  s_3ef608857743d7::t_e621d350a9cffb 23-27,35-42,44-46,50,61-62,64-65
+src/tui/screens/settings_modal.py
+  s_3ef608857743d7::t_00f84d0ca22463 3,6,8,10,12-14,18-41,44-47,51-54,57-63,68-69,72-76,79-83,86-125,127-148,150-160,162-176,178-182,185-191,193-196,198-209,211-226,228-231,233-241,243-247,264-268,271,274,277-288
+src/tui/settings_fields.py
+  s_2547108119c43f::t_38561b95bfa5ba 1-167
+src/tui/theme.tcss
+  s_2547108119c43f::t_31a2dccb833668 412-413,435,444,457,464,487,591-593,596,598-613,644,667,690
+docs/todo.md
+  s_2547108119c43f::t_fba2069f9e142f 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "291dca1d5a18aa7bc4b61539ad44582544376a9b",
+  "prompts": {},
+  "sessions": {
+    "s_2547108119c43f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b817fa3-b791-4a54-9730-75fe36b48eee",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_3ef608857743d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6c1eb729-1712-435b-ac7e-a782f6098fd2",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
