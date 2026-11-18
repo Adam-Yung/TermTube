@@ -1,0 +1,53 @@
+src/tui/widgets/library_rail.py
+  s_6c28d43e292a51::t_7fdb1d8a883edb 45-47,88
+docs/code/src/tui/keymap.py.md
+  s_6c28d43e292a51::t_739bb6c11f6b9d 10
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_739bb6c11f6b9d 79-82
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_739bb6c11f6b9d 33
+src/tests/tui/test_actions_panel.py
+  s_6c28d43e292a51::t_05344d8df3c9e7 1-75,77-86
+  s_6c28d43e292a51::t_dd8fcb1ff9015b 76
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_b0617ca2dc1e09 141-142,145
+  s_6c28d43e292a51::t_7fdb1d8a883edb 139,156
+  s_6c28d43e292a51::t_738e9597506c40 140
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_6c28d43e292a51::t_9d51feba43b20d 22-23
+src/tui/keymap.py
+  s_6c28d43e292a51::t_5e92d3f5800eb1 72-78,134-169
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_72e35f45efd00e 116-122
+src/tui/widgets/action_bar.py
+  s_6c28d43e292a51::t_2644e53c57c2e4 127-128
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_cb63409650aafc 143-151,153,156-157,160,162
+  s_6c28d43e292a51::t_7fdb1d8a883edb 142,152,154-155,158-159,161,163-182
+docs/status.md
+  s_6c28d43e292a51::t_9d51feba43b20d 8
+docs/code/src/tui/widgets/action_bar.py.md
+  s_6c28d43e292a51::t_9aaa23b1ec2c82 21
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_b1ab6af02148e2 64
+  s_6c28d43e292a51::t_284e94730e7fa6 10,59-63,65-82
+  s_6c28d43e292a51::t_4167f700ef6abd 83
+docs/todo.md
+  s_6c28d43e292a51::t_739bb6c11f6b9d 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "acd27b381366c27b3cf814aade4dca91dee911e4",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
