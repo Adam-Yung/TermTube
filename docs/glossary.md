@@ -18,3 +18,8 @@
 | Managed bin | The folder of Deno, ffmpeg and mpv that TermTube installs and looks in (`~/.local/termtube-deps/bin`). |
 | Installed app | The copy in `~/.local/share/TermTube` with its own venv, distinct from the checkout. `docs/guides/environments.md`. |
 | Mirror | The `docs/code/<path>.md` file for a source file. |
+| Removal | A tab's description of `D`: remove, restore (undo), reload, question. `ListToolsMixin` runs it. |
+| Library rail | The left column of the Library tab: All downloads, Videos, Audio, one entry per playlist. |
+| Store | `src/store.py`: the locked, atomic, versioned JSON file behind history, playlists, search history and the Library index. |
+| Search stack | `src/search_stack.py`: the session's searches, so Backspace returns to the previous results at their page and row. |
+| Resume point | Where playback stopped (`resume_s` in history), saved by `src/progress.py` every 5 s and on stop. |

@@ -19,8 +19,11 @@ Browse, search, listen in the background and watch, without leaving the command 
 
 ## What it does
 
-- **Home feed, search, channels, playlists, history, library** in tabs, driven entirely from the keyboard (vim-style `hjkl`).
-- **Background audio** through a headless mpv: queue, pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
+- **Home feed, subscriptions, search, channels, history and a Library** in tabs, driven entirely from the keyboard (vim-style `hjkl`).
+- **List tools** on every list: `f` filters all loaded pages as you type, `m`/`M` mark rows, `D` removes them after one `y`/N, `u` undoes (History and playlists; Library deletes files for good).
+- **History** with day headers, resume points (`▶ 2:05 / 10:00`), watch time and sorting; `Y` switches between local history, your YouTube history and Watch Later. `history: false` records nothing.
+- **Library** with a left rail (All downloads, Videos, Audio and your local playlists), search tokens (`type:audio`, `dur:<10m`) and delete of the files with sizes shown first.
+- **Background audio** through a headless mpv: queue (`Q` shows and reorders it), pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
 - **Video** in an mpv window, with progress and controls in the terminal.
 - **Downloads** (video as mp4, audio as mp3) with progress, then a **Library** tab that lists and plays what you downloaded.
 - **Thumbnails** as real images (Kitty, Sixel) where the terminal supports it, as colour half-block art everywhere else.
@@ -86,11 +89,12 @@ The full install, update and troubleshooting guide, including how to move to ano
 
 ## Using it
 
-Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History**, **Library**, **Playlists**, **Help**.
+Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History**, **Library**, **Help**. Playlists live in the Library rail.
 
 - Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F6`.
 - `Enter` opens the action menu for the highlighted video; every action also has its own key, shown in the footer and the in-app help (`?`).
 - `/` searches. `a` plays the audio in the background, `v` watches the video, `d` downloads, `c` opens the channel, `p` adds to a playlist.
+- `f` filters the list, `m`/`M` mark rows, `D` removes (then `u` undoes), `Q` opens the audio queue, `,` opens settings.
 - `q` quits (stops audio; the queue is not saved).
 
 ### Keys
@@ -111,6 +115,8 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `d` | download (video or audio) | `/` | search |
 | `c` | channel page (`s` sort, `r` reload) | `r` | refresh the feed |
 | `p` | add to a local playlist | `,` | settings |
+| `f` `m` `M` | filter / mark row / mark page | `D` `u` | remove marked or current / undo |
+| `Y` | History: cycle source | `Q` | audio queue |
 | `y` | copy the URL | `?` | help |
 | `b` | open in the browser | `q` | quit |
 
@@ -133,6 +139,9 @@ video_format: "%(title)s_%(uploader)s.%(ext)s"   # yt-dlp output template
 audio_format: "%(title)s_%(uploader)s.%(ext)s"
 preferred_quality: best  # best | 1080 | 720 | 480 | 360   (default for video downloads)
 theme: crimson           # crimson | amber | ocean | midnight
+history: true            # false: record nothing in local history (the History tab says so)
+history_max: 500         # local history length
+resume_playback: true    # remember where you stopped
 thumbnail_format: auto   # auto (real images where supported) | symbols (always half-block art)
 sponsorblock:
   enabled: true
@@ -228,7 +237,7 @@ src/                  the app
   innertube.py          YouTube web API client (search, channels, playlists, details)
   ytdlp.py streams.py downloads.py cookies.py    yt-dlp: feeds, stream URLs, downloads, browser cookies
   player.py plat.py bootstrap.py                 mpv control, per-OS paths and processes, tool installer
-  cache.py history.py library.py playlist.py config.py    local state
+  cache.py history.py library.py playlist.py store.py config.py    local state
   tests/                unit, integration and headless TUI tests
 scripts/              installers, the gate, end-to-end and smoke checks, benchmarks, canary
 docs/                 features, guides, decisions, plans, history, and a mirror of every source file (docs/code/)

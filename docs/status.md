@@ -17,7 +17,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home, the subscription list, YouTube history and Watch Later (the last two read-only)
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, 526 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, 805 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 

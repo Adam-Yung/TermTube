@@ -9,7 +9,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Entry | `src/main.py` | CLI args, logger, imports `textual_image` before Textual, launches the app |
 | App | `src/tui/app.py` | `TermTubeApp`: config and cache, screen push, housekeeping, warm-ups |
 | Screens | `src/tui/screens/main_screen.py`, `channel_screen.py` | Thin; compose widgets and mixins |
-| Mixins | `src/tui/screens/mixins/` | list navigation, detail focus, item actions, feed loading, audio bar, debug log |
+| Mixins | `src/tui/screens/mixins/` | list navigation, list tools (filter, marks, remove, undo), playlist tools, Library rail, detail focus, item actions, feed loading, audio bar, debug log |
 | Audio | `src/tui/audio_controller.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
 | Widgets | `src/tui/widgets/` | list, detail panel, action bar, thumbnail, page indicator, header, channel info |
 | Keys | `src/tui/keymap.py` | The only definition of the keymap in code (`docs/features/keybindings.md`) |
@@ -19,19 +19,26 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
 | Player | `src/player.py` | mpv command lines, IPC, polling |
 | Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
-| Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/config.py` | disk and RAM state |
+| Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/search_history.py`, `src/config.py` | disk and RAM state |
+| Store | `src/store.py` | locked, atomic, versioned JSON file shared by history, playlists, search history and the Library index; a corrupt file is kept as `.bad` and the store starts empty |
+| Errors | `src/errors.py` | typed `SourceError` (`SignInRequired`, ...) from `classify(exc)`; feed loaders show its message |
+| Search | `src/search_stack.py`, `src/fuzzy.py`, `src/library_query.py` | session stack of searches (Backspace), list-filter ranking, Library `key:value` queries |
+| Progress | `src/progress.py` | turns mpv's polled position into history `resume_s` and `seconds` |
+| Settings | `src/tui/settings_fields.py` | the Settings rows: names, parsing, validation (`SettingsModal` renders them) |
 | Platform | `src/plat.py` | paths, clipboard, process registry, IPC paths |
 
 ## Screens and mixins
 
 ```
-MainScreen (ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
- |- AppHeader, Tabs, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
- |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, HelpScreen, ...
+MainScreen (PlaylistTools, LibraryRail, ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
+ |- AppHeader, Tabs, LibraryRail, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
+ |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, QueueModal, PlaylistModal, HelpScreen, ...
 ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)
  |- ChannelInfoPanel, Tabs, VideoListPanel, DetailPanel
  |- audio: mirrors app.audio, like MainScreen
 ```
+
+`ListToolsMixin` runs `f`, `m`/`M`, `D` and `u` over a `Removal` (what a tab's `D` deletes and how it reloads; `MainScreen._removals()` maps tab to `Removal`: History, Library in `src/tui/library_delete.py`, playlists via `PlaylistToolsMixin`). `LibraryRailMixin` drives the rail (All downloads, Videos, Audio, playlists). `QueueModal` shows and edits the audio queue.
 
 A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_last_page_reached`) in its docstring. Interfaces are listed in each mixin's mirror.
 
@@ -56,6 +63,8 @@ All are `@work(thread=True, exclusive=True)` unless noted. `exclusive` cancels t
 | default (not exclusive) | Main | `_run_ytdlp_update` | yt-dlp self-update |
 | `video_player`, `mpv_poll` | WatchModal | | foreground mpv (`docs/code/src/tui/screens/watch_modal.py.md`) |
 | `download` | DownloadModal | | one download |
+| `suggest` | SearchModal | | search suggestions as you type |
+| `settings_clear` | SettingsModal | | clear-data actions |
 
 ## Session counters
 
@@ -92,9 +101,9 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 | Home | stash, then disk cache or `ytdlp.fetch_page_batch` (`auth=True`, cookies) | paged, extendable; played videos suppressed (`docs/code/src/tui/screens/mixins/feed_loader.py.md`) |
 | Subscriptions | `ytdlp.fetch_subscribed_channels` | rows are channels; avatar and channel info workers per row; detail panel in channel mode |
 | Search | `ytdlp.fetch_search_batch` | 50 results at a time up to 200 (continuations as you page), `s` sort and `t` type per search; `SearchStack` (`src/search_stack.py`) holds up to 20 searches for Backspace |
-| History | `history.iter_entries` | local |
+| History | `history.iter_entries` (Local), `playlist?list=WL` (Watch Later), `:ythis` through the Home loader (YouTube); `Y` cycles | Local is read off disk; the other two are read-only and need cookies |
 | Library (rail: All downloads, Videos, Audio) | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
-| Library rail: playlists | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
+| Library rail: playlists (`playlists.json`) | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
 | Channel page | `fetch_channel_info`, InnerTube browse or `fetch_channel_videos` | pushed `ChannelScreen` |
 
 Cursor move on a video row: `update_basic` immediately; 100 ms later the metadata worker (skipped if the entry has a description); 150 ms later the thumbnail worker.
