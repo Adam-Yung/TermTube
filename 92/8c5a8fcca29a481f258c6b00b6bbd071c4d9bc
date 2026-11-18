@@ -1,0 +1,48 @@
+docs/features/sources.md
+  s_6c28d43e292a51::t_cbeeabb707694f 32
+docs/status.md
+  s_6c28d43e292a51::t_cbeeabb707694f 18
+src/config.py
+  s_6c28d43e292a51::t_a727bbde781ce1 18,30,241-243
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_cbeeabb707694f 21
+docs/code/src/feed_cursor.py.md
+  s_6c28d43e292a51::t_cbeeabb707694f 9
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_a727bbde781ce1 18,189-191,201-202,255-257,263-281
+  s_6c28d43e292a51::t_97e532795fecea 282
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_cbeeabb707694f 35
+src/tests/tui/test_home_revalidate.py
+  s_6c28d43e292a51::t_2e1041f8ce42db 41,43
+  s_6c28d43e292a51::t_4d9cf29a6049a0 1-40,42,44-108
+docs/code/src/cache.py.md
+  s_6c28d43e292a51::t_cbeeabb707694f 27-28
+docs/features/configuration.md
+  s_6c28d43e292a51::t_cbeeabb707694f 31
+src/cache.py
+  s_6c28d43e292a51::t_a727bbde781ce1 147-156
+docs/code/src/config.py.md
+  s_6c28d43e292a51::t_cbeeabb707694f 9
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_cbeeabb707694f 145-148
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_a727bbde781ce1 248,431,656-657,662-665
+  s_6c28d43e292a51::t_594886e8997a8d 666
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "928c5a8fcca29a481f258c6b00b6bbd071c4d9bc",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
