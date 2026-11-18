@@ -1,0 +1,59 @@
+docs/code/src/ytdlp.py.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 30
+src/feed_cursor.py
+  s_6c28d43e292a51::t_ec40c0abfff247 1-127,130-133
+  s_6c28d43e292a51::t_295822437062bc 128-129
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_2bf6e57e68dcb3 76-79,91,215-217,229,387-407,410-413,415-420,424-434,437,442,446,450,453,457-461,468-482,493-509,512-522
+  s_6c28d43e292a51::t_56286a4dd7ebd7 435-436
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_e2d3e2279ec100 348-350
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 34
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_9e63916b07fbc5 300-303
+  s_6c28d43e292a51::t_18ab88dced9cdd 299
+docs/code/src/feed_cursor.py.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 1-8
+src/tests/unit/test_cookie_policy.py
+  s_6c28d43e292a51::t_88edb019747947 12
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_dcee70ab2f5437 173
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_feef59f9acfe8e 20
+src/tests/tui/test_feed_prefetch.py
+  s_6c28d43e292a51::t_5ce4b2a860a808 1-129
+src/tui/screens/mixins/list_nav.py
+  s_6c28d43e292a51::t_9e63916b07fbc5 45,60
+  s_6c28d43e292a51::t_e2d3e2279ec100 13-14
+  s_6c28d43e292a51::t_56286a4dd7ebd7 15-16
+src/tests/unit/test_feed_cursor.py
+  s_6c28d43e292a51::t_1153ca4ee2a120 1-6,8-19,21-38,40-47,49-92,94-106
+  s_6c28d43e292a51::t_6a676308f7bd24 7,20,39,48,93
+docs/code/src/tui/screens/mixins/list_nav.py.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 7
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 135-144
+src/ytdlp.py
+  s_6c28d43e292a51::t_88edb019747947 214,219-220,231-235
+docs/features/sources.md
+  s_6c28d43e292a51::t_6d0a942808b0e1 32
+docs/status.md
+  s_6c28d43e292a51::t_feef59f9acfe8e 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5aca658b4634438b99e1339d53fce4b3105e54a5",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
