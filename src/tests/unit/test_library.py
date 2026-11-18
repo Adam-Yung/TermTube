@@ -205,11 +205,11 @@ def test_delete_video_leaves_audio_and_neighbours(tmp_path):
     assert [e["id"] for e in left] == ["v1"] and left[0]["_local_type"] == "audio"
 
 
-def test_delete_both_and_entry_only(tmp_path):
+def test_delete_both_and_no_entry_only_choice(tmp_path):
     entry, roots = full_entry(tmp_path)
-    library.safe_delete(entry, roots, "entry_only")
-    assert (tmp_path / "v" / "v1.mp4").exists() and not (tmp_path / "v" / "v1.info.json").exists()
-    assert library.all_entries(*roots) == []
+    with pytest.raises(ValueError):
+        library.safe_delete(entry, roots, "entry_only")
+    assert (tmp_path / "v" / "v1.mp4").exists()
     entry, roots = full_entry(tmp_path, "v3")
     result = library.safe_delete(entry, roots, "both")
     assert result.freed >= 3

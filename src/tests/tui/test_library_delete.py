@@ -56,7 +56,7 @@ async def test_question_names_forms_with_sizes_and_b_deletes_both_for_good(app, 
         await pilot.press("j", "D")
         await pilot.pause(0.1)
         targets, choices = app.screen._pending_remove
-        assert targets[0]["id"] == "b2" and set(choices) == {"v", "a", "b", "e"}
+        assert targets[0]["id"] == "b2" and set(choices) == {"v", "a", "b"}
         await pilot.press("b")
         await pilot.pause(0.4)
         assert ids(app) == ["a1", "c3"]
@@ -96,7 +96,7 @@ async def test_missing_file_row_is_flagged_blocks_play_and_removes_the_entry(app
         assert not watch.called
         await pilot.press("D")
         await pilot.pause(0.1)
-        assert app.screen._pending_remove[1] == {"y": "entry_only"}
+        assert app.screen._pending_remove[1] == {"y": "both"}
         await pilot.press("y")
         await pilot.pause(0.4)
         assert ids(app) == ["b2", "c3"] and not (videos / "a1.info.json").exists()
@@ -106,7 +106,7 @@ def test_question_text_has_sizes(lib):
     videos, audio = lib
     entries = {e["id"]: e for e in library.all_entries(videos, audio)}
     text, choices = ask([entries["b2"]])
-    assert "video 2.0 KB + audio 40 B" in text and "entry only" in text and len(choices) == 4
+    assert "video 2.0 KB + audio 40 B" in text and "entry only" not in text and len(choices) == 3
     text, choices = ask([entries["a1"]])
     assert "video 5 B" in text and choices == {"y": "both"}
     assert "Delete 2 items (2.0 KB)" in ask([entries["a1"], entries["b2"]])[0]

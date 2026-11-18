@@ -20,15 +20,12 @@ def ask(entries: list[Entry]) -> tuple[str, dict[str, str]]:
     title = escape_markup((entry.get("title") or "Untitled")[:_TITLE_MAX])
     sizes = library.form_sizes(entry)
     if not sizes:
-        return f'[bold]Remove "{title}" (file missing)?[/bold]   [bold]y[/bold] / [dim]N[/dim]', {"y": "entry_only"}
+        return f'[bold]Remove "{title}" (file missing)?[/bold]   [bold]y[/bold] / [dim]N[/dim]', {"y": "both"}
     parts = " + ".join(f"{form} {fmt_size(size) or '0 B'}" for form, size in sizes.items())
     if len(sizes) == 1:
         return f'[bold]Delete "{title}" - {parts}?[/bold]   [bold]y[/bold] / [dim]N[/dim]', {"y": "both"}
-    keys = (
-        "[bold]v[/bold] video / [bold]a[/bold] audio / [bold]b[/bold] both / [bold]e[/bold] entry only"
-        " / [dim]N[/dim] cancel"
-    )
-    choices = {"v": "video", "a": "audio", "b": "both", "e": "entry_only"}
+    keys = "[bold]v[/bold] video / [bold]a[/bold] audio / [bold]b[/bold] both / [dim]N[/dim] cancel"
+    choices = {"v": "video", "a": "audio", "b": "both"}
     return f'[bold]Delete "{title}" - {parts}?[/bold]   {keys}', choices
 
 

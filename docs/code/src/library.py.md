@@ -34,9 +34,9 @@ the modal to pin in the cache.
 
 ## Deleting
 
-`safe_delete(entry, roots, which)` with `which` in `video | audio | both | entry_only` returns a `DeleteResult` (`removed`, `failed` as
+`safe_delete(entry, roots, which)` with `which` in `video | audio | both` returns a `DeleteResult` (`removed`, `failed` as
 `(path, reason)`, `freed`). Per form it removes the media, its `.info.json`, and images/subtitles with exactly that stem (`stem.jpg`,
-`stem.en.vtt`); `entry_only` removes the sidecar only and keeps the media. If another media file with the same stem survives in the same folder
+`stem.en.vtt`). A row whose media is missing (`_missing_file`) deletes its sidecar group whatever `which` is. If another media file with the same stem survives in the same folder
 the form's sidecar and extras are kept. Every path is checked by `_refusal`: no `..`, inside a configured root, no symlink anywhere below the
 root; refusals land in `failed` and nothing else is touched. A path that is already gone is skipped silently. Afterwards the sidecar records
 leave the index and the list is invalidated. Files are removed outright (no trash); undo never brings them back.

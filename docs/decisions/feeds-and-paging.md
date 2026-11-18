@@ -102,3 +102,7 @@ A running Home load was not cancelled when the user switched tabs (a thread work
 ## 2026-11-17 — Library index keyed by sidecar `(mtime, size)`; deletes are outright and path-checked
 
 The Phase 0 measurement (300 sidecars scan in 52 ms) said the index is about size and robustness, not speed, so it stores only the slim record per sidecar and re-reads a sidecar only when its `(mtime, size)` changes; paths, sizes and the video/audio merge come from the single `os.scandir` walk, so a sidecar can never point a row at another file. `safe_delete` removes files outright (owner answer, no trash, no dependency): every path must be inside a configured root with no symlink and no `..`, and only the media plus same-stem `.info.json`, images and subtitles go. `entry_only` removes the sidecar and keeps the media, because the Library lists sidecars. Thumbnails are normalised to `<stem>.jpg` next to the media (not a separate folder), since that path already survives cache pruning and is deleted with the file group.
+
+## 2026-11-17 — Library delete drops the "entry only" choice
+
+"Entry only" deleted the sidecar and kept the media, so the file vanished from the Library (which lists sidecars) but stayed on disk as an orphan. The choices are now video / audio / both. A row flagged `_missing_file` (sidecar without media) keeps its single "remove entry", which deletes the sidecar.

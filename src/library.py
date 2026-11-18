@@ -349,13 +349,13 @@ def _refusal(path: str, roots: list[Path]) -> str | None:
 _LANG = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]+)*$")
 
 
-def _group(sidecar: str | None, media: str | None, deleting: set[str], with_media: bool) -> list[str]:
+def _group(sidecar: str | None, media: str | None, deleting: set[str]) -> list[str]:
     """Files to delete for one form: the media, its sidecar, and thumbnails/subtitles that share its stem.
 
     The sidecar group is left alone when another media file with the same stem survives (one folder holding
     both a video and an audio file of the same name).
     """
-    files = [media] if with_media and media else []
+    files = [media] if media else []
     anchor = Path(sidecar) if sidecar else (Path(media) if media else None)
     if anchor is None:
         return files
@@ -369,33 +369,33 @@ def _group(sidecar: str | None, media: str | None, deleting: set[str], with_medi
         full = str(anchor.parent / name)
         base, ext = os.path.splitext(name)
         ext = ext.lower()
-        if base == stem and ext in _MEDIA_EXTS and full not in deleting and with_media:
+        if base == stem and ext in _MEDIA_EXTS and full not in deleting:
             return files
-        if name == stem + _INFO or (with_media and base == stem and ext in _IMAGE_EXTS):
+        if name == stem + _INFO or (base == stem and ext in _IMAGE_EXTS):
             aux.append(full)
-        elif with_media and ext in _SUBTITLE_EXTS and base.startswith(stem + ".") and _LANG.match(base[len(stem) + 1:]):
+        elif ext in _SUBTITLE_EXTS and base.startswith(stem + ".") and _LANG.match(base[len(stem) + 1:]):
             aux.append(full)
     return files + aux
 
 
 def safe_delete(entry: LibraryEntry, roots: Iterable[Path], which: str) -> DeleteResult:
-    """Delete files of ``entry``; ``which`` is video | audio | both | entry_only (sidecars only, media stays).
+    """Delete files of ``entry``; ``which`` is video | audio | both.
 
     Every path must lie inside one of ``roots`` without symlinks or `..`; anything else is reported in `failed`
     and left alone. Only the media, its `.info.json` and the thumbnails/subtitles sharing its stem are touched.
     A missing file is not an error. The index and the in-memory list are updated.
     """
-    if which not in ("video", "audio", "both", "entry_only"):
+    if which not in ("video", "audio", "both"):
         raise ValueError(f"unknown delete choice {which!r}")
     root_list = [Path(r) for r in roots]
     have = forms(entry)
-    chosen = list(have) if which in ("both", "entry_only") else [which] if which in have else []
+    chosen = list(have) if which == "both" else [which] if which in have else []
     if not have:  # the file is gone: removing the entry means removing its sidecar
         sidecar = entry.get("_sidecar_path")
-        wanted = _group(sidecar, None, set(), with_media=True) if sidecar else []
+        wanted = _group(sidecar, None, set()) if sidecar else []
     else:
         deleting = {m for f in chosen if (m := have[f][0])}
-        wanted = [p for f in chosen for p in _group(have[f][1], have[f][0], deleting, which != "entry_only")]
+        wanted = [p for f in chosen for p in _group(have[f][1], have[f][0], deleting)]
     result = DeleteResult()
     for path in dict.fromkeys(wanted):
         reason = _refusal(path, root_list)
