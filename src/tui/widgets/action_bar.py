@@ -20,7 +20,8 @@ _WAVE_CHARS = "▁▂▃▄▅▆▇█"
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
     e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]add to queue[/dim]"
     skip_part = (
-        f"[bold {color}]>[/bold {color}] [dim]skip to next  ({queue_len} queued)[/dim]"
+        f"[bold {color}]>[/bold {color}] [dim]skip to next  ({queue_len} queued)[/dim]  "
+        f"[bold {color}]Q[/bold {color}] [dim]queue[/dim]"
         if queue_len > 0
         else ""
     )

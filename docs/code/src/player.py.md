@@ -87,3 +87,5 @@ one, mpv resolves `page_url` through its own yt-dlp hook, with `--ytdl-format` a
 - `stale` is returned when `is_stale()` is true before a launch or after an exit; the process may have run, and the caller discards the result.
 - `launch_error` (mpv missing, or `OSError`) is never retried; `message` is ready to show.
 - The process is registered with `ProcessRegistry` before `on_spawn` runs and unregistered when it exits, so `on_spawn` is where callers store the `Popen` and clear their "pending" flag.
+
+`start_args(start)` is the one place the `--start=<s>` flag is built (resume position); `audio_command(start=)` and `WatchModal._build_command` both use it. It goes before the `--` that separates options from the URL.

@@ -21,6 +21,7 @@ from src.plat import (
     install_hint,
     terminate_process,
 )
+from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
 from src.tui.fmt import escape_markup, fmt_clock
 
@@ -52,6 +53,7 @@ class WatchModal(ModalScreen[bool]):
         self._dur: float = 0.0
         self._poll_timer = None
         self._socket = get_video_ipc_path()
+        self._tracker: ProgressTracker | None = None
         self._segment_cols: list[bool] = []
         self._segment_cols_width: int = 0
         self._segment_cols_dur: float = 0.0
@@ -125,9 +127,12 @@ class WatchModal(ModalScreen[bool]):
         input_conf = player_mod.write_input_conf()
         page_url = local_path or f"https://www.youtube.com/watch?v={vid}"
         cookie_args = config.browser_cookie_args() if config else []
+        start = start_offset(self._entry, config) if config else None
+        if start:
+            self.app.call_from_thread(self.app.notify, f"Resuming at {fmt_clock(start)}", timeout=3)
 
         def build(stream_urls: list[str] | None) -> list[str]:
-            return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args)
+            return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args, start)
 
         current = urls
 
@@ -141,10 +146,13 @@ class WatchModal(ModalScreen[bool]):
             self._proc = proc
             if attempt == 1:
                 history.add(self._entry, getattr(self.app, "config", None))
+                self._tracker = ProgressTracker(self._entry)
 
         outcome = player_mod.run_mpv_with_retries(
             build_cmd, headless=False, is_stale=lambda: self._stopped, on_spawn=on_spawn
         )
+        if self._tracker:
+            self._tracker.finish(completed=outcome.status == "ok" and outcome.returncode == 0)
         self._cleanup_ipc(input_conf)
         if outcome.status == "launch_error":
             self._fail_launch(outcome.message)
@@ -178,6 +186,7 @@ class WatchModal(ModalScreen[bool]):
         page_url: str,
         fmt: str,
         cookie_args: list[str],
+        start: float | None = None,
     ) -> list[str]:
         cmd = [
             exe,
@@ -188,6 +197,7 @@ class WatchModal(ModalScreen[bool]):
             "--msg-level=all=no",
             "--cache=yes",
             "--demuxer-max-bytes=150M",
+            *player_mod.start_args(start),
         ]
         if title:
             cmd += [f"--title={title}", f"--force-media-title={title}"]
@@ -239,7 +249,8 @@ class WatchModal(ModalScreen[bool]):
             pos_f = float(pos)
             dur_f = float(dur)
             self._dur = dur_f
-
+            if self._tracker:
+                self._tracker.tick(pos_f, dur_f)
             # Segments are sorted by start; the pointer only moves forward.
             config = getattr(self.app, "config", None)
             if config and config.sponsorblock_auto_skip and self._segments:

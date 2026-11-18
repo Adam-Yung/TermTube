@@ -39,3 +39,7 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 ## Library rail
 
 `#library-rail` (`LibraryRail`) sits left of the list and is shown only on the Library tab (`_show_rail`); behaviour is in `LibraryRailMixin`. `_selected_entry` returns None while the rail has focus, so row actions never act on a row the user is not on. `Tab` is `keymap.RAIL`.
+
+## History sort
+
+`s` is `search_sort`: on the Search tab it picks a result order, on the local History tab (`_current_tab == "history"`, not the YouTube lists) it opens `SortModal` with `_HISTORY_SORTS` (recent, most watched, longest watched), elsewhere it is a hint. The choice lives in `_history_sort` for the session and is applied where the view loads (`FeedLoaderMixin._stream_view`): `recent` keeps the day headers, the other two drop them because the order no longer follows time. The History `Removal.reload` applies the same order, so removing or undoing a row does not reshuffle a sorted list. `action_quit_app` calls `history.flush()` after stopping audio: the force-exit timer ends in `os._exit`, which skips `atexit`.

@@ -23,6 +23,7 @@ PLAYBACK = [
     Binding("A", "audio_quality", show=False),
     Binding("e", "audio_enqueue", show=False),
     Binding(">", "audio_skip", show=False),
+    Binding("Q", "audio_queue", show=False),
     Binding("space", "audio_pause", show=False),
     Binding("x", "audio_stop", show=False),
     Binding("left_square_bracket", "audio_seek(-5)", show=False),

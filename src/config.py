@@ -42,6 +42,7 @@ DEFAULT_CONFIG: dict = {
         "categories": list(_DEFAULT_SB_CATEGORIES),
     },
     "prefetch_video": False,
+    "resume_playback": True,
     "rows_per_page": DEFAULT_ROWS_PER_PAGE,
     "history": True,
     "history_max": 500,
@@ -185,6 +186,11 @@ class Config:
     def prefetch_video_enabled(self) -> bool:
         """True only for a literal ``true``; it costs a second stream resolve per focused row."""
         return self._data.get("prefetch_video") is True
+
+    @property
+    def resume_playback_enabled(self) -> bool:
+        """On unless a literal ``false``: a typo must not silently drop where the user stopped."""
+        return self._data.get("resume_playback") is not False
 
     @property
     def sponsorblock_enabled(self) -> bool:

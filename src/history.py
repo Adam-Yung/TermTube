@@ -55,6 +55,8 @@ def add(entry: Entry, config=None) -> None:
 
     def apply(data: list) -> bool:
         previous = next((e for e in data if e.get("id") == vid), None)
+        if previous and not record["duration"]:
+            record["duration"] = previous.get("duration")
         record.update(
             watched_at=time.time(),
             plays=(previous.get("plays", 1) if previous else 0) + 1,
@@ -67,6 +69,43 @@ def add(entry: Entry, config=None) -> None:
         return True
 
     _store.update(apply, defer=True)
+
+
+def get(vid: str) -> Entry | None:
+    """A copy of the history record for ``vid``, or None."""
+    return _store.read(lambda data: next((dict(e) for e in data if e.get("id") == vid), None))
+
+
+def record_progress(vid: str, *, resume_s: int | None, watched: float, duration: float | None = None) -> None:
+    """Add ``watched`` seconds to a recorded video and set where to resume (None: play from the start next time).
+
+    A video with no record (history off, or removed meanwhile) is left alone. The disk write is deferred.
+    """
+    def apply(data: list) -> bool:
+        record = next((e for e in data if e.get("id") == vid), None)
+        if record is None:
+            return False
+        record["resume_s"] = resume_s
+        record["seconds"] = round((record.get("seconds") or 0) + watched, 1)
+        if duration and not record.get("duration"):
+            record["duration"] = int(duration)
+        return True
+
+    _store.update(apply, defer=True)
+
+
+def flush() -> None:
+    """Write deferred changes now (the quit path does not wait for the background timer)."""
+    _store.flush()
+
+
+def ordered(entries: list[Entry], sort: str) -> list[Entry]:
+    """``entries`` (newest first) as ``sort``: ``plays`` (then time watched) or ``time``; else unchanged. Stable."""
+    if sort == "plays":
+        return sorted(entries, key=lambda e: (e.get("plays") or 0, e.get("seconds") or 0), reverse=True)
+    if sort == "time":
+        return sorted(entries, key=lambda e: e.get("seconds") or 0, reverse=True)
+    return entries
 
 
 def remove_many(ids: list[str]) -> list[Entry]:

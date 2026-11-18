@@ -25,6 +25,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("a / A", "Play audio / choose quality first (replaces the current track)"),
         ("e", "Add audio to the queue"),
         (">", "Skip to the next queued track"),
+        ("Q", "Open the queue: j/k move, J/K reorder, D remove, u undo, Enter play now"),
         ("Space", "Pause / resume audio"),
         ("x", "Stop audio and clear the queue"),
         ("[ / ]", "Audio seek −5 s / +5 s"),
@@ -66,7 +67,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("APP", [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
-        ("s / t", "Search tab: sort (relevance / date / views) / type (all / video / channel / playlist)"),
+        ("s / t", "Search tab: sort / type; s on local History: recent, most or longest watched"),
         ("r", "Refresh the current feed (clears its cache)"),
         (",", "Settings"),
         ("?", "This screen"),

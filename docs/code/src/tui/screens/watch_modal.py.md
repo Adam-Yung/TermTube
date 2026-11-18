@@ -30,3 +30,7 @@ h/l/left/right and `[` `]` seek 5 s, H/L and `{` `}` seek 10 s, 0-9 seek to 0-90
 ## Limits
 
 The progress bar needs mpv's IPC to answer; until it does the modal shows "Buffering...".
+
+## Resume and watch time
+
+`_launch_video` asks `progress.start_offset` for the saved position and passes it to `_build_command`, which adds `--start` through `player.start_args`; a "Resuming at m:ss" notice follows. A `ProgressTracker` is created next to `history.add` (first spawn) and fed from `_poll_mpv_threaded`; it is finished when `run_mpv_with_retries` returns, whatever the outcome, with `completed` only for exit code 0 (end of file; `q` in the window is code 4). Rules: `docs/code/src/progress.py.md`.

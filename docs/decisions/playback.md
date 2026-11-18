@@ -92,3 +92,13 @@ The first Windows run of the real-app pipeline played nothing from the Library: 
 ## 2026-11-17 — SponsorBlock never falls back to unverified TLS
 
 When neither the certifi nor the system context builds, `sponsorblock` returns no skip segments (debug log) instead of disabling certificate checks. A saved `unverified` preference from an older build is ignored. Reason: a man-in-the-middle could otherwise inject skip ranges; losing skips is the cheaper failure.
+
+## 2026-11-18 — Resume, watch time and the queue view
+
+**Resume lives in the history record**, not in a new file: `resume_s` and `seconds` were already placeholders in the v2 record, so there is no schema change and `history_max`, undo and `--clear-history` apply for free. The cost is that resume needs History on (no record, no resume). It is written from the poll loop that already exists, by `ProgressTracker` (`src/progress.py`), every 5 s of *watched* time instead of every N seconds of wall clock, so the debounce does not depend on the clock and is testable without sleeping; the store's own deferred write coalesces the disk. Quit calls `history.flush()` because the force-exit timer uses `os._exit`.
+
+**Thresholds.** No resume below 10 s or from 95 %; a natural end clears it; live streams never record or resume. Watch time ignores steps over 3 s between polls (seeks, SponsorBlock skips) and zero steps (pause). `--start` is built in one place, `player.start_args`.
+
+**Queue view.** `AudioController` stays the only owner of queue state: four small methods (`move_queued`, `remove_queued`, `insert_queued`, `play_queued`) and a modal that redraws from `app.audio.queue` on the controller's broadcasts. Choices: the playing track is shown but is not editable (`>` and `x` already end it, and removing it would need a rule for what plays next); `Enter` plays the chosen track now and leaves the tracks before it queued, like `a`; undo is local to the dialog.
+
+**History sort** (`s` on the local History tab) reuses `SortModal` and the existing `s` key, which is a hint elsewhere. The two non-recent orders drop the day headers. The choice lasts for the session. This needed a small change in `FeedLoaderMixin._stream_view` (the History branch), the one place the order is applied at load.
