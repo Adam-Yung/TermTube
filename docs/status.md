@@ -5,7 +5,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 
 ## What exists
 
-- Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` runs with mpv launch and polling stubbed); `test_screen_layout_audit.py` does the same for every main-screen tab, the Library rail and the channel page, and sets the width rules (rail 24, list `9fr` min 40, detail `11fr` min 30, `-narrow` under 100 columns). `test_mixin_wiring.py`, `test_hook_wiring.py` and `test_theme_wiring.py` read both screens' MRO, spy on the real hooks and check CSS selectors against the composed widgets. The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS`; the panel lists only what applies to the tab, focus and row ([decisions/ui.md](decisions/ui.md)).
+- Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` runs with mpv launch and polling stubbed); `test_screen_layout_audit.py` does the same for every main-screen tab, the Library rail and the channel page, and sets the width rules (rail 24, list `9fr` min 40, detail `11fr` min 30, `-narrow` under 100 columns). `test_mixin_wiring.py`, `test_hook_wiring.py` and `test_theme_wiring.py` read both screens' MRO, spy on the real hooks and check CSS selectors against the composed widgets. Error paths, races, 5000-row lists, hostile text and whole-screen journeys have their own suites (`test_loader_errors.py`, `test_races.py`, `test_scale_edge.py`, `test_journeys.py`). The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS`; the panel lists only what applies to the tab, focus and row ([decisions/ui.md](decisions/ui.md)).
 - A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Help (`F1`..`F6`); vim-style keys ([features/keybindings.md](features/keybindings.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`; a failed write there never raises: it notifies once and stays dirty. Debug logs are redacted (`logger.redact`).
@@ -22,7 +22,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home, the subscription list, YouTube history and Watch Later (the last two read-only)
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, 805 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, about 1210 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 
