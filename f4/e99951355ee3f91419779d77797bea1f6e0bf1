@@ -1,0 +1,41 @@
+docs/code/src/tui/fmt.py.md
+  s_6c28d43e292a51::t_690481301b0391 15-16
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_5536a3d122878a 48-51
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_786a483f483018 38-39
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_6c28d43e292a51::t_88ef83a5a5d095 21
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_5c12ed7371fe41 119-122
+docs/todo.md
+  s_6c28d43e292a51::t_a37fab0a1478ed 62
+src/tests/tui/test_channel_breadcrumb.py
+  s_6c28d43e292a51::t_932af535d7450f 1-89
+src/tests/tui/test_key_hints.py
+  s_6c28d43e292a51::t_353869134eb28a 104-105
+src/tui/fmt.py
+  s_6c28d43e292a51::t_f4ff8d52ef22ec 38-45
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_e85f88b52977ba 16,72,74,118-125,128-143,171,202,342-343,353-359
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_8c15b5e44385ff 347-351
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_9a3235d8c3a41b 249-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f4e99951355ee3f91419779d77797bea1f6e0bf1",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
