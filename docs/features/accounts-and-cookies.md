@@ -22,7 +22,7 @@ TermTube has no login of its own and no telemetry. It can borrow the YouTube ses
 - a browser name (`firefox`, `chrome`, `brave`, `edge`, and the others yt-dlp can read cookies from): use that one.
 - `none` (or empty): anonymous mode; nothing is ever read from a browser. Home and Subscriptions then show generic or no content, and the YouTube and Watch Later sources say they need a signed-in browser.
 
-The Settings picker lists detected browsers first, then supported but missing ones labelled "(not found)", and shows whether cookies will be used.
+The Settings picker lists detected browsers first, then supported but missing ones labelled "(not found)", and shows whether cookies will be used (the Account section has a read-only "In use" line naming the browser `auto` resolved to, or saying there are no cookies). The picker also offers `none`.
 You must be signed in to YouTube in that browser. `termtube --browser-help` prints the short version.
 
 ## How the cookies are handled

@@ -13,12 +13,12 @@ from textual.widget import Widget
 from textual.widgets import Input, ListItem, ListView, LoadingIndicator, Static
 
 from src import fuzzy, logger
+from src.config import DEFAULT_ROWS_PER_PAGE
 from src.entries import Entry
 from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
 
-PAGE_SIZE = 20
 _MAX_PAGES_IN_MEMORY = 30
 
 
@@ -30,8 +30,8 @@ _DL_BADGES = {
 }
 
 
-def _paginate(entries: list[Entry]) -> dict[int, list[Entry]]:
-    return {n + 1: entries[i:i + PAGE_SIZE] for n, i in enumerate(range(0, len(entries), PAGE_SIZE))}
+def _paginate(entries: list[Entry], size: int) -> dict[int, list[Entry]]:
+    return {n + 1: entries[i:i + size] for n, i in enumerate(range(0, len(entries), size))}
 
 
 class _ItemClicked(Message):
@@ -199,7 +199,7 @@ class VideoListItem(ListItem):
 
 
 class VideoListPanel(Widget):
-    """Pages of ``PAGE_SIZE`` entries, deduplicated by id across pages.
+    """Pages of ``page_size`` entries (``rows_per_page``, latched at each list load), deduplicated by id across pages.
 
     ``_pages`` always holds every loaded entry. While a filter is active the list shows ``_filtered_pages``
     (the ranked matches, re-paged) instead; paging, the indicator and the cursor all follow the shown pages.
@@ -226,6 +226,7 @@ class VideoListPanel(Widget):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._pages: dict[int, list[Entry]] = {}
+        self._page_size = DEFAULT_ROWS_PER_PAGE
         self._seen_ids: set[str] = set()
         self._current_page: int = 0
         self._max_visited_page: int = 0
@@ -270,6 +271,10 @@ class VideoListPanel(Widget):
         except Exception:
             pass
         return None
+
+    @property
+    def page_size(self) -> int:
+        return self._page_size
 
     @property
     def current_page(self) -> int:
@@ -402,7 +407,8 @@ class VideoListPanel(Widget):
         return entries
 
     def clear_and_set_loading(self) -> None:
-        """Wipe all pages and show the loading indicator."""
+        """Wipe all pages and show the loading indicator. Picks up a changed ``rows_per_page``."""
+        self._page_size = self.app.config.rows_per_page
         self._pages.clear()
         self._seen_ids.clear()
         self._items_by_id.clear()
@@ -474,9 +480,10 @@ class VideoListPanel(Widget):
         item.refresh_markup()
 
     def add_entries(self, start_page: int, entries: list[Entry], *, evict: bool = True) -> None:
-        """Add ``entries`` as consecutive PAGE_SIZE pages starting at ``start_page``."""
-        for n, i in enumerate(range(0, len(entries), PAGE_SIZE)):
-            self.add_page(start_page + n, entries[i:i + PAGE_SIZE], evict=evict)
+        """Add ``entries`` as consecutive ``page_size`` pages starting at ``start_page``."""
+        size = self._page_size
+        for n, i in enumerate(range(0, len(entries), size)):
+            self.add_page(start_page + n, entries[i:i + size], evict=evict)
 
     @property
     def seen_ids(self) -> set[str]:
@@ -520,7 +527,7 @@ class VideoListPanel(Widget):
 
     def replace_entries(self, entries: list[Entry], *, focus_id: str | None = None) -> None:
         """Swap the full entry set (after a removal or undo), keeping the filter, marks and, if possible, the page."""
-        self._pages = _paginate(entries)
+        self._pages = _paginate(entries, self._page_size)
         self._seen_ids = {e["id"] for e in entries if e.get("id")}
         self._marked &= self._seen_ids
         if self._filter:
@@ -594,7 +601,7 @@ class VideoListPanel(Widget):
 
     def _rebuild_filtered(self) -> None:
         matched = self._matcher(self.visited_entries(), self._filter)
-        self._filtered_pages = _paginate(matched)
+        self._filtered_pages = _paginate(matched, self._page_size)
 
     def toggle_mark(self, entry: Entry) -> None:
         vid = entry.get("id", "")

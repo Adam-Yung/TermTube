@@ -128,7 +128,7 @@ class DetailFocusMixin:
         try:  # everything inside: a worker that outlives its app (quit, screen popped) must end quietly
             config = self.app.config
             ytdlp.prefetch_stream_url(vid, config)
-            if config.get("prefetch_video", False):
+            if config.prefetch_video_enabled:
                 ytdlp.prefetch_stream_url(vid, config, format_spec="bv+ba/b")
         except Exception as exc:
             logger.debug("stream prefetch %s: %s", vid, exc)
