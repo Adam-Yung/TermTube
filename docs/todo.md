@@ -86,6 +86,13 @@ Left for part B (screens, rail, bars):
 - [x] At 80x24 the detail panel leaves 2 rows for the video info; decide a minimum size or a compact layout (info keeps 6 rows, thumbnail hides first)
 - [x] `WatchModal` is in the harness (mpv launch and poll stubbed); its box fits at all five sizes, no fix needed
 
+## Bug hunt 1: wiring (2026-11-18)
+- [x] `ListToolsMixin._removals`, `ListToolsMixin._after_removal`, `ItemActionsMixin._crumbs`: empty defaults another class always overrode; one wrong MRO order away from the Home paging bug. Removed (dcfcadc)
+- [x] `FeedLoaderMixin._pending_show` survived a view change; the next view's first background extension jumped a page (78688c0)
+- [x] `theme.tcss`: `#list-loading` rules and eight `Scrollbar` rules matched nothing (470fd62)
+- [x] Guards: `test_mixin_wiring.py` (MRO overrides with winners, stubs, `self.x` contracts, bindings, message handlers), `test_hook_wiring.py` (spies through the running screens), `test_theme_wiring.py` (selectors and queried ids)
+- [ ] Judgment calls: `DownloadModal` swallows a failed `library.finish_download` with `except Exception: pass` (a download that never registers is invisible); `MainScreen.on_unmount` leaves `app.audio.log` pointing at the dead screen
+
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
 - [x] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
