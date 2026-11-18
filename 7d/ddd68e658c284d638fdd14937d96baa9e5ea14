@@ -1,0 +1,35 @@
+src/tests/tui/test_save_failure_notice.py
+  s_6c28d43e292a51::t_907f4c2b8732d8 5-6,8,10-11,14-15,20-27,29
+  s_6c28d43e292a51::t_bd9dded4f53fc6 1-4,7,9,12-13,16-19,28,30
+src/tui/app.py
+  s_6c28d43e292a51::t_bd9dded4f53fc6 12,57,65-71,73
+src/store.py
+  s_6c28d43e292a51::t_7e7e25ae775803 24,114-115
+  s_6c28d43e292a51::t_b35f304d6aa324 20-23,25-26,62,76-77,87,90-91,109,111-113,116-117
+  s_6c28d43e292a51::t_2b5fe85e79199a 95-96,132
+docs/decisions/concurrency.md
+  s_6c28d43e292a51::t_4621e89804f294 52-57
+src/tests/unit/test_store.py
+  s_6c28d43e292a51::t_b35f304d6aa324 133,135-150,152-157
+  s_6c28d43e292a51::t_c06eee87805fb3 151
+docs/code/src/store.py.md
+  s_6c28d43e292a51::t_4621e89804f294 12-14
+docs/code/src/tui/app.py.md
+  s_6c28d43e292a51::t_3945278422b5e7 29-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7dddd68e658c284d638fdd14937d96baa9e5ea14",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
