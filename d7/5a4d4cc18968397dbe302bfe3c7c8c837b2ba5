@@ -1,0 +1,79 @@
+docs/code/src/channel_bookmarks.py.md
+  s_6c28d43e292a51::t_f0708cda5882c3 1-7
+docs/code/src/tui/keymap.py.md
+  s_6c28d43e292a51::t_839f498558b6be 21
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_30c553b22ced8b 56-59
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_8cdd5c8bd43f92 40-43
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_e9d82aaeaa6004 62-63
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_0c811081e3ab79 127-130
+docs/status.md
+  s_6c28d43e292a51::t_f27248260cbe07 13
+docs/todo.md
+  s_6c28d43e292a51::t_e5d578df056a54 63
+src/tests/tui/test_channel_following.py
+  s_19485800bd94b9::t_de3f6986d253ea 1-125
+src/tests/unit/test_channel_bookmarks.py
+  s_6c28d43e292a51::t_35538441055ffd 1-44
+src/tui/screens/main_screen.py
+  s_19485800bd94b9::t_68ed9fedd9db86 98,282-284,286,354-366
+docs/features/keybindings.md
+  s_4cdab11f0f8d35::t_bab3bef2c5d422 49-50
+src/channel_bookmarks.py
+  s_753aceb5cff2f0::t_56cf992162775e 1-61
+src/tests/conftest.py
+  s_753aceb5cff2f0::t_f220c5de67166c 142-149
+src/tests/unit/test_keymap.py
+  s_4cdab11f0f8d35::t_45e5f5584da84c 42
+src/tui/keymap.py
+  s_4cdab11f0f8d35::t_a383b0f522c04e 70,73-74
+src/tui/screens/channel_screen.py
+  s_753aceb5cff2f0::t_919b6ca7cb7a72 12,436-447
+src/tui/screens/help_screen.py
+  s_4cdab11f0f8d35::t_61d706dd8ce932 57,68
+src/tui/screens/mixins/feed_loader.py
+  s_4cdab11f0f8d35::t_afdb640e43b2f9 92-93,254-263
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d75a4d4cc18968397dbe302bfe3c7c8c837b2ba5",
+  "prompts": {},
+  "sessions": {
+    "s_19485800bd94b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "66024557-3c98-4548-90fc-ff25b4f88d6a",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_4cdab11f0f8d35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ae8308e21308f51f8",
+        "model": "unknown"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    },
+    "s_753aceb5cff2f0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a4a81db4419672831",
+        "model": "unknown"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
