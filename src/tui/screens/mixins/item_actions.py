@@ -7,6 +7,7 @@ from src import logger
 from src.entries import Entry
 from src.plat import clipboard_copy
 from src.progress import is_live
+from src.strings import text
 from src.tui import keymap
 from src.tui.fmt import escape_markup
 
@@ -70,10 +71,10 @@ class ItemActionsMixin:
             if entry.get("_is_channel") or entry.get("_is_playlist"):
                 shown = {"copy_url", "browser"}
                 if entry.get("_is_channel"):
-                    hints.append(("⏎", "Open channel"))
+                    hints.append(("⏎", text("item_actions.open_channel")))
             else:
                 shown = {row.action for row in keymap.ROW_ACTIONS} - self._hidden_menu_actions(entry)
-                hints.append(("⏎", "Video actions"))
+                hints.append(("⏎", text("item_actions.video_actions")))
             hints += [(keymap.key_of(r.action), r.bar) for r in keymap.ROW_ACTIONS if r.bar and r.action in shown]
         return [*hints, *keymap.tool_hints(self._tool_actions())]
 
@@ -87,7 +88,7 @@ class ItemActionsMixin:
         """Label overrides for the Enter menu: with nothing playing, ``e`` starts playback instead of queueing."""
         if self.app.audio.is_playing:
             return {}
-        return {"audio_enqueue": "Play audio, queue more after"}
+        return {"audio_enqueue": text("item_actions.menu_play_audio")}
 
     def _hint(self, message: str, severity: str = "warning") -> None:
         """Short notice for a key that cannot act now. The same message is shown at most once per 2 s (held keys)."""
@@ -101,7 +102,7 @@ class ItemActionsMixin:
         """True (with a hint) while background audio plays: video and audio together overlap."""
         if not self.app.audio.is_playing:
             return False
-        self._hint("Audio is playing. Stop it with x before watching video.")
+        self._hint(text("item_actions.audio_blocks_video"))
         return True
 
     def action_activate(self) -> None:
@@ -126,10 +127,10 @@ class ItemActionsMixin:
     def _playable_entry(self) -> Entry | None:
         entry = self._selected_entry()
         if entry and not _is_video(entry):
-            self._hint("Not a video.", "information")
+            self._hint(text("item_actions.not_a_video"), "information")
             return None
         if entry and entry.get("_missing_file"):
-            self._hint("The file is missing. Press D to remove this entry.", "information")
+            self._hint(text("item_actions.file_missing"), "information")
             return None
         return entry
 
@@ -166,7 +167,7 @@ class ItemActionsMixin:
             return
         audio = self.app.audio
         if audio.is_playing and entry.get("id") == (audio.entry or {}).get("id"):
-            self._hint("Already playing this track.", "information")
+            self._hint(text("item_actions.already_playing"), "information")
             return
         self._play_audio(entry)
 
@@ -188,16 +189,16 @@ class ItemActionsMixin:
     def action_audio_skip(self) -> None:
         audio = self.app.audio
         if not audio.is_playing:
-            self._hint("Nothing playing.", "information")
+            self._hint(text("item_actions.nothing_playing"), "information")
         elif not audio.queue:
-            self._hint("Queue is empty.", "information")
+            self._hint(text("item_actions.queue_empty"), "information")
         else:
             audio.skip_audio()
 
     def action_audio_queue(self) -> None:
         audio = self.app.audio
         if not audio.is_playing and not audio.queue:
-            self._hint("Nothing playing.", "information")
+            self._hint(text("item_actions.nothing_playing"), "information")
             return
         from src.tui.screens.queue_modal import QueueModal
 
@@ -205,13 +206,13 @@ class ItemActionsMixin:
 
     def action_audio_pause(self) -> None:
         if not self.app.audio.is_playing:
-            self._hint("Nothing playing.", "information")
+            self._hint(text("item_actions.nothing_playing"), "information")
             return
         self.app.audio.toggle_audio_pause()
 
     def action_audio_stop(self) -> None:
         if not self.app.audio.is_playing:
-            self._hint("Nothing playing.", "information")
+            self._hint(text("item_actions.nothing_playing"), "information")
             return
         self.app.audio.stop_audio()
 
@@ -226,10 +227,10 @@ class ItemActionsMixin:
         if not entry:
             return
         if is_live(entry):
-            self._hint("Live stream: cannot download.")
+            self._hint(text("item_actions.live_no_download"))
             return
         if entry.get("_has_audio"):  # library merges a video with its audio file: both forms exist
-            self._hint("Already downloaded as video and audio.", "information")
+            self._hint(text("item_actions.already_downloaded"), "information")
             return
         from src.tui.screens.download_picker_modal import DownloadPickerModal
 
@@ -246,15 +247,13 @@ class ItemActionsMixin:
         from src.tui.screens.download_modal import DownloadModal
 
         title = entry.get("title", entry.get("id", ""))
-        kind = "audio" if audio_only else "video"
+        key = "item_actions.downloaded_audio" if audio_only else "item_actions.downloaded_video"
 
         def on_done(success: bool | None) -> None:
             if success:
-                self.notify(f"✓ Downloaded {kind}: {escape_markup(title[:40])}", timeout=5)
+                self.notify(text(key, title=escape_markup(title[:40])), timeout=5)
             else:
-                self.notify(
-                    "✗ Download failed or cancelled", severity="warning", timeout=4
-                )
+                self.notify(text("item_actions.download_failed"), severity="warning", timeout=4)
 
         self.app.push_screen(
             DownloadModal(entry.get("id", ""), entry, audio_only=audio_only, fmt=fmt), on_done
@@ -274,9 +273,9 @@ class ItemActionsMixin:
             if uid:
                 url = f"https://www.youtube.com/{uid}" if uid.startswith("@") else f"https://www.youtube.com/channel/{uid}"
         if not url:
-            self.notify("No channel URL found.", severity="warning")
+            self.notify(text("item_actions.no_channel_url"), severity="warning")
             return
-        name = entry.get("uploader") or entry.get("channel") or "Channel"
+        name = entry.get("uploader") or entry.get("channel") or text("item_actions.default_channel_name")
         self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name, trail=self._crumbs()))
 
     def action_playlist(self) -> None:
@@ -293,16 +292,16 @@ class ItemActionsMixin:
     def action_copy_url(self) -> None:
         url = _page_url(self._selected_entry())
         if not url:
-            self._hint("No URL available.")
+            self._hint(text("item_actions.no_url"))
         elif clipboard_copy(url):
-            self.notify("URL copied to clipboard")
+            self.notify(text("item_actions.url_copied"))
         else:
-            self.notify(f"URL: {escape_markup(url)}", timeout=10)
+            self.notify(text("item_actions.url_shown", url=escape_markup(url)), timeout=10)
 
     def action_browser(self) -> None:
         url = _page_url(self._selected_entry())
         if not url:
-            self._hint("No URL available.")
+            self._hint(text("item_actions.no_url"))
             return
         webbrowser.open(url)
-        self.notify("Opened in browser")
+        self.notify(text("item_actions.opened_in_browser"))

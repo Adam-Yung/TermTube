@@ -8,6 +8,7 @@ from textual.widgets import Input, ListItem, ListView, Static
 
 from src import playlist
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup
 
 
@@ -32,18 +33,17 @@ class PlaylistModal(ModalScreen[None]):
         title = self._entry.get("title", self._video_id)
         with Vertical(id="playlist-dialog", classes="dialog"):
             yield Static(
-                f"🎵  Playlists — [dim]{escape_markup(title[:50])}[/dim]",
+                text("playlist_modal.title", title=escape_markup(title[:50])),
                 id="playlist-title",
                 markup=True,
             )
             yield ListView(id="playlist-list", classes="dialog-list")
             yield Input(
-                placeholder="New playlist name… (press Enter)",
+                placeholder=text("playlist_modal.placeholder"),
                 id="playlist-new-input",
             )
             yield Static(
-                "[dim]Space[/dim] select  ·  [dim]Enter[/dim] toggle selected / this one  ·  [dim]n[/dim] new"
-                "  ·  [dim]Esc[/dim] close",
+                text("playlist_modal.hint"),
                 id="playlist-hint",
                 markup=True,
             )
@@ -58,7 +58,7 @@ class PlaylistModal(ModalScreen[None]):
         lv.clear()
         playlists = playlist.list_playlists()
         if not playlists:
-            lv.append(ListItem(Static("[dim]No playlists yet — press n to create one[/dim]", markup=True)))
+            lv.append(ListItem(Static(text("playlist_modal.empty"), markup=True)))
             return
         for pl in playlists:
             member = any(i["id"] == self._video_id for i in pl["items"])
@@ -68,7 +68,7 @@ class PlaylistModal(ModalScreen[None]):
             item = ListItem(
                 Static(
                     f"{mark}{check}[bold]{escape_markup(pl['name'])}[/bold]  "
-                    f"[dim]{count} video{'s' if count != 1 else ''}[/dim]",
+                    + text("playlist_modal.row_count", count=count),
                     markup=True,
                 )
             )
@@ -101,10 +101,10 @@ class PlaylistModal(ModalScreen[None]):
     def _toggle(self, pid: str, name: str, member: bool) -> None:
         if member:
             playlist.remove_items(pid, [self._video_id])
-            self.app.notify(f'Removed from "{escape_markup(name)}"')
+            self.app.notify(text("playlist_modal.removed", name=escape_markup(name)))
         else:
             playlist.add_items(pid, [self._entry])
-            self.app.notify(f'Added to "{escape_markup(name)}"')
+            self.app.notify(text("playlist_modal.added", name=escape_markup(name)))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         name = event.value.strip()
@@ -112,12 +112,12 @@ class PlaylistModal(ModalScreen[None]):
             return
         created = playlist.create(name, [self._entry])
         if created is None:
-            self.app.notify(f'Playlist "{escape_markup(name)}" already exists.', severity="warning")
+            self.app.notify(text("playlist_modal.exists", name=escape_markup(name)), severity="warning")
             return
         self._sync_pins()
         event.input.value = ""
         self._refresh_list()
-        self.app.notify(f'Created playlist "{escape_markup(name)}" and added video')
+        self.app.notify(text("playlist_modal.created", name=escape_markup(name)))
         self.query_one("#playlist-list", ListView).focus()
 
     def _sync_pins(self) -> None:

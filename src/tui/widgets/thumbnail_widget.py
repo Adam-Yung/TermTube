@@ -11,6 +11,7 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 from src.plat import IS_WINDOWS
+from src.strings import text
 
 # textual_image probes the terminal at import time, so it must be imported before Textual
 # starts its I/O threads (src/main.py does). Pixel images are off inside tmux (passthrough
@@ -67,7 +68,7 @@ class ThumbnailWidget(Widget):
         self._current_id: str = ""
 
     def compose(self) -> ComposeResult:
-        yield Static("[dim]▪ No thumbnail[/dim]", id="thumb-status", markup=True)
+        yield Static(text("thumbnail.none"), id="thumb-status", markup=True)
         if _HAS_TEXTUAL_IMAGE:
             yield _TIImage(id="thumb-image")
 
@@ -89,10 +90,10 @@ class ThumbnailWidget(Widget):
         self._current_id = video_id
 
     def set_loading(self) -> None:
-        self._show_status("[dim]⏳ Loading…[/dim]")
+        self._show_status(text("thumbnail.loading"))
 
     def set_placeholder(self) -> None:
-        self._show_status("[dim]▪ No thumbnail[/dim]")
+        self._show_status(text("thumbnail.none"))
 
     def set_image_path(self, video_id: str, path: Path) -> None:
         """Show an image file via textual-image; no-op without it."""
@@ -128,9 +129,9 @@ class ThumbnailWidget(Widget):
         else:
             self.set_placeholder()
 
-    def _show_status(self, text: str) -> None:
+    def _show_status(self, markup: str) -> None:
         try:
-            self.query_one("#thumb-status", Static).update(text)
+            self.query_one("#thumb-status", Static).update(markup)
             self.query_one("#thumb-status").display = True
         except Exception:
             pass

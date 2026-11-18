@@ -9,6 +9,7 @@ The Library tab's rail logic, split from `MainScreen`. The rail picks which coll
   playlist (count of its items), `+ New playlist` (`NEW_PLAYLIST`; Enter on it calls `action_playlist_new`).
 - Focus: `Tab` (`action_rail_toggle`) flips between rail and list; it is ignored while the filter bar has focus. The rail's own bindings take
   `j k g G Enter l`; `OWNS_NAV_KEYS` stops `ListNavMixin.on_key` from pulling focus back to the list.
+- `action_page_prev` overrides the list's `h`: on the first page of a Library list it moves focus to the rail instead of paging.
 - `_after_removal` recounts and, when the shown playlist is gone, falls back to All downloads without taking focus from the rail.
 - Narrow terminals: `on_resize` collapses the rail to a docked one-line selector below `NARROW_BELOW` columns (same keys: `Tab`, `j`/`k`, `Enter`).
 - `_collection_entries(view)` is called from loader threads too: it only reads the Library index and `playlists.json`.

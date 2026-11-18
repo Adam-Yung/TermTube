@@ -6,6 +6,8 @@ from typing import NamedTuple
 
 from textual.binding import Binding
 
+from src.strings import text
+
 LIST_NAV = [
     Binding("j", "cursor_down", show=False),
     Binding("k", "cursor_up", show=False),
@@ -55,16 +57,16 @@ class RowAction(NamedTuple):
 
 
 ROW_ACTIONS = [
-    RowAction("watch", "▶", "Watch video", "Video"),
-    RowAction("watch_quality", "▶·", "Watch — choose quality…", None),
-    RowAction("audio", "♪", "Play audio", "Audio"),
-    RowAction("audio_quality", "♪·", "Play audio — choose quality…", None),
-    RowAction("audio_enqueue", "♪+", "Add audio to queue", None),
-    RowAction("download", "↓", "Download…", "Download"),
-    RowAction("channel", "📺", "Browse channel", "Channel"),
-    RowAction("copy_url", "⎘", "Copy video URL", "Copy URL"),
-    RowAction("playlist", "+", "Add to playlist", "Playlist"),
-    RowAction("browser", "🌐", "Open in browser", "Browser"),
+    RowAction("watch", "▶", text("keymap.row_watch"), text("keymap.row_watch_bar")),
+    RowAction("watch_quality", "▶·", text("keymap.row_watch_quality"), None),
+    RowAction("audio", "♪", text("keymap.row_audio"), text("keymap.row_audio_bar")),
+    RowAction("audio_quality", "♪·", text("keymap.row_audio_quality"), None),
+    RowAction("audio_enqueue", "♪+", text("keymap.row_audio_enqueue"), None),
+    RowAction("download", "↓", text("keymap.row_download"), text("keymap.row_download_bar")),
+    RowAction("channel", "📺", text("keymap.row_channel"), text("keymap.row_channel_bar")),
+    RowAction("copy_url", "⎘", text("keymap.row_copy_url"), text("keymap.row_copy_url_bar")),
+    RowAction("playlist", "+", text("keymap.row_playlist"), text("keymap.row_playlist_bar")),
+    RowAction("browser", "🌐", text("keymap.row_browser"), text("keymap.row_browser_bar")),
 ]
 
 
@@ -141,26 +143,26 @@ class PanelTool(NamedTuple):
 
 
 PANEL_TOOLS = [
-    PanelTool(("filter",), "Filter"),
-    PanelTool(("mark",), "Mark"),
-    PanelTool(("delete",), "Remove"),
-    PanelTool(("undo",), "Undo"),
-    PanelTool(("history_source",), "Source"),
-    PanelTool(("history_import",), "Import"),
-    PanelTool(("search_sort",), "Sort"),
-    PanelTool(("search_type",), "Type"),
-    PanelTool(("show_played",), "Played"),
-    PanelTool(("following",), "Following"),
-    PanelTool(("playlist_new",), "New playlist"),
-    PanelTool(("playlist_rename",), "Rename"),
-    PanelTool(("playlist_move_down", "playlist_move_up"), "Move"),
-    PanelTool(("playlist_play",), "Play"),
-    PanelTool(("playlist_shuffle",), "Shuffle"),
-    PanelTool(("playlist_enqueue",), "Queue"),
-    PanelTool(("play_all",), "Play all"),
-    PanelTool(("enqueue_all",), "Queue all"),
-    PanelTool(("save_list",), "Save playlist"),
-    PanelTool(("bookmark",), "Follow"),
+    PanelTool(("filter",), text("keymap.tool_filter")),
+    PanelTool(("mark",), text("keymap.tool_mark")),
+    PanelTool(("delete",), text("keymap.tool_delete")),
+    PanelTool(("undo",), text("keymap.tool_undo")),
+    PanelTool(("history_source",), text("keymap.tool_history_source")),
+    PanelTool(("history_import",), text("keymap.tool_history_import")),
+    PanelTool(("search_sort",), text("keymap.tool_search_sort")),
+    PanelTool(("search_type",), text("keymap.tool_search_type")),
+    PanelTool(("show_played",), text("keymap.tool_show_played")),
+    PanelTool(("following",), text("keymap.tool_following")),
+    PanelTool(("playlist_new",), text("keymap.tool_playlist_new")),
+    PanelTool(("playlist_rename",), text("keymap.tool_playlist_rename")),
+    PanelTool(("playlist_move_down", "playlist_move_up"), text("keymap.tool_playlist_move")),
+    PanelTool(("playlist_play",), text("keymap.tool_playlist_play")),
+    PanelTool(("playlist_shuffle",), text("keymap.tool_playlist_shuffle")),
+    PanelTool(("playlist_enqueue",), text("keymap.tool_playlist_enqueue")),
+    PanelTool(("play_all",), text("keymap.tool_play_all")),
+    PanelTool(("enqueue_all",), text("keymap.tool_enqueue_all")),
+    PanelTool(("save_list",), text("keymap.tool_save_list")),
+    PanelTool(("bookmark",), text("keymap.tool_bookmark")),
 ]
 
 

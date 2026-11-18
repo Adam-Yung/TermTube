@@ -71,7 +71,7 @@ def test_stale_before_launch_and_after_exit():
 def test_launch_errors_are_not_retried():
     FakePopen.script[:] = [FileNotFoundError()]
     outcome = run()
-    assert outcome.status == "launch_error" and "mpv not found" in outcome.message
+    assert outcome.status == "launch_error" and "mpv was not found" in outcome.message
     FakePopen.script[:] = [PermissionError("denied")]
     assert "denied" in run().message
 

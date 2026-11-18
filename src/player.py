@@ -17,6 +17,7 @@ from typing import Any
 
 from src import logger
 from src.plat import IS_WINDOWS, ProcessRegistry, get_deps_bin, get_ipc_path, get_popen_kwargs, install_hint
+from src.strings import text
 
 _persistent_sockets: dict[str, socket.socket] = {}
 _persistent_lock = threading.Lock()
@@ -438,18 +439,18 @@ def cookie_args_to_ytdl_raw(cookie_args: list[str]) -> str:
 
 
 _MPV_ERROR_HINTS: tuple[tuple[str, str], ...] = (
-    ("could not open/read", "Network error — video unavailable or region-blocked"),
-    ("http error 403", "Access denied — check browser authentication in Settings"),
-    ("http error 429", "Rate limited by YouTube — wait a moment and try again"),
-    ("no video", "No playable video stream found"),
-    ("no audio", "No playable audio stream found"),
-    ("connection refused", "Network connection failed"),
-    ("timed out", "Connection timed out"),
-    ("does not exist", "Video not found or deleted"),
-    ("drm", "DRM-protected content cannot be played"),
-    ("login required", "Video requires login — set a browser in Settings"),
-    ("private video", "This video is private"),
-    ("age-restricted", "Age-restricted — browser authentication required"),
+    ("could not open/read", "player.error_network"),
+    ("http error 403", "player.error_denied"),
+    ("http error 429", "player.error_rate_limited"),
+    ("no video", "player.error_no_video"),
+    ("no audio", "player.error_no_audio"),
+    ("connection refused", "player.error_refused"),
+    ("timed out", "player.error_timeout"),
+    ("does not exist", "player.error_not_found"),
+    ("drm", "player.error_drm"),
+    ("login required", "player.error_login"),
+    ("private video", "player.error_private"),
+    ("age-restricted", "player.error_age"),
 )
 
 
@@ -458,7 +459,7 @@ def friendly_mpv_error(raw: str) -> str:
     lower = raw.lower()
     for pattern, friendly in _MPV_ERROR_HINTS:
         if pattern in lower:
-            return friendly
+            return text(friendly)
     return raw[:100]
 
 
@@ -558,9 +559,9 @@ def run_mpv_with_retries(
                 **get_popen_kwargs(headless=headless),
             )
         except FileNotFoundError:
-            return MpvOutcome("launch_error", message=f"mpv not found — install with: {install_hint('mpv')}")
+            return MpvOutcome("launch_error", message=text("player.mpv_missing", hint=install_hint("mpv")))
         except OSError as exc:
-            return MpvOutcome("launch_error", message=f"Failed to launch mpv: {exc}")
+            return MpvOutcome("launch_error", message=text("player.launch_failed", error=exc))
         ProcessRegistry.get().register(proc)
         if on_spawn:
             on_spawn(proc, attempt)

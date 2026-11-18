@@ -9,22 +9,18 @@ from textual.widgets import OptionList, Static
 from textual.widgets.option_list import Option
 
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import fmt_duration
 from src.tui.messages import AudioQueueChanged, AudioTrackChanged, PlayerStateUpdated
-
-_HINT = (
-    "[dim]j k[/dim] move  ·  [dim]J K[/dim] reorder  ·  [dim]D[/dim] remove  ·  [dim]u[/dim] undo  ·  "
-    "[dim]Enter[/dim] play now  ·  [dim]Esc[/dim] close"
-)
 
 
 def _label(prefix: str, entry: Entry) -> Text:
     who = entry.get("uploader") or entry.get("channel") or ""
     length = fmt_duration(entry.get("duration"))
-    text = Text(f"{prefix} {entry.get('title') or 'Untitled'}")
+    label = Text(f"{prefix} {entry.get('title') or text('queue_modal.untitled')}")
     if who or length:
-        text.append("  " + "  ·  ".join(p for p in (who, length) if p), style="dim")
-    return text
+        label.append("  " + "  ·  ".join(p for p in (who, length) if p), style="dim")
+    return label
 
 
 class QueueModal(ModalScreen[None]):
@@ -51,9 +47,9 @@ class QueueModal(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="queue-dialog", classes="dialog"):
-            yield Static("Queue", id="queue-title", markup=False)
+            yield Static(text("queue_modal.title"), id="queue-title", markup=False)
             yield OptionList(id="queue-list", classes="dialog-list")
-            yield Static(_HINT, id="queue-hint", markup=True)
+            yield Static(text("queue_modal.hint"), id="queue-hint", markup=True)
 
     def on_mount(self) -> None:
         self._rebuild()
@@ -76,7 +72,7 @@ class QueueModal(ModalScreen[None]):
         self._rows += [("next", e) for e in audio.queue]
         lv.clear_options()
         if not self._rows:
-            lv.add_option(Option("Nothing queued. Press e on a video to add it.", disabled=True))
+            lv.add_option(Option(text("queue_modal.empty"), disabled=True))
         upcoming = 0
         for kind, entry in self._rows:
             upcoming += kind == "next"
@@ -85,7 +81,9 @@ class QueueModal(ModalScreen[None]):
         if self._rows:
             lv.highlighted = ids.index(focus_id) if focus_id in ids else min(here, len(self._rows) - 1)
         count = len(audio.queue)
-        self.query_one("#queue-title", Static).update(f"Queue · {count} up next" if count else "Queue")
+        self.query_one("#queue-title", Static).update(
+            text("queue_modal.title_count", count=count) if count else text("queue_modal.title")
+        )
 
     def _current_row(self) -> tuple[str, Entry] | None:
         index = self._list.highlighted
@@ -112,7 +110,7 @@ class QueueModal(ModalScreen[None]):
         index = self._queue_index()
         if index is None:
             if self._current_row():
-                self.notify("Already playing.", timeout=2)
+                self.notify(text("queue_modal.already_playing"), timeout=2)
             return
         self.app.audio.play_queued(index)  # type: ignore[attr-defined]
         self._rebuild()
@@ -127,7 +125,7 @@ class QueueModal(ModalScreen[None]):
         index, row = self._queue_index(), self._current_row()
         if index is None or row is None:
             if row:
-                self.notify("That track is playing: > skips it, x stops audio.", timeout=3)
+                self.notify(text("queue_modal.is_playing"), timeout=3)
             return
         removed = self.app.audio.remove_queued(index)  # type: ignore[attr-defined]
         if removed:

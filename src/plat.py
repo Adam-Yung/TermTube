@@ -16,6 +16,8 @@ import threading
 import time
 from pathlib import Path
 
+from src.strings import text
+
 IS_WINDOWS = sys.platform == "win32"
 IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
@@ -403,7 +405,7 @@ _INSTALL_HINTS: dict[str, dict[str, str]] = {
         "linux":   "curl -fsSL https://deno.land/install.sh | sh",
     },
     "mpv": {
-        "windows": "re-run setup.ps1 (bundles standalone mpv)",
+        "windows": text("plat.mpv_windows"),
         "macos":   "brew install mpv",
         "linux":   "sudo apt install mpv",
     },
@@ -418,7 +420,7 @@ _INSTALL_HINTS: dict[str, dict[str, str]] = {
 def install_hint(tool: str) -> str:
     hints = _INSTALL_HINTS.get(tool, {})
     if IS_WINDOWS:
-        return hints.get("windows", f"Install {tool} manually")
+        return hints.get("windows", text("plat.install_manually", tool=tool))
     if IS_MACOS:
         return hints.get("macos", f"brew install {tool}")
     return hints.get("linux", f"sudo apt install {tool}")

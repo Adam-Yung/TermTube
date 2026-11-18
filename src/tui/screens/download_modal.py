@@ -12,6 +12,7 @@ from textual.widgets import ProgressBar, Static
 
 from src import library, logger
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup
 
 
@@ -36,22 +37,22 @@ class DownloadModal(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
-        mode = "audio" if self._audio_only else "video"
+        title_key = "title_audio" if self._audio_only else "title_video"
         with Vertical(id="download-dialog", classes="dialog"):
             yield Static(
-                f"\u2b07  Downloading {mode}",
+                text(f"download_modal.{title_key}"),
                 id="download-title",
                 markup=True,
             )
             yield Static(
-                f"[dim]{escape_markup(title[:60])}[/dim]",
+                text("download_modal.status_title", title=escape_markup(title[:60])),
                 id="download-status",
                 markup=True,
             )
             yield ProgressBar(total=100, show_eta=False, id="download-bar")
-            audio = "  [dim]Space[/dim] pause audio  [dim]x[/dim] stop audio" if self.app.audio.is_playing else ""
+            audio = text("download_modal.hint_audio") if self.app.audio.is_playing else ""
             yield Static(
-                f"[dim]Esc[/dim] to cancel{audio}",
+                text("download_modal.hint", audio=audio),
                 id="download-hint",
                 markup=True,
             )
@@ -105,7 +106,7 @@ class DownloadModal(ModalScreen[bool]):
             error_lines.append(str(exc))
         except Exception as exc:
             success = False
-            error_lines.append(f"Unexpected error: {exc}")
+            error_lines.append(text("download_modal.unexpected_error", error=exc))
         finally:
             from src.ytdlp import release_cancel_event
 
@@ -118,12 +119,12 @@ class DownloadModal(ModalScreen[bool]):
     def _switch_to_audio_phase(self) -> None:
         try:
             self.query_one("#download-title", Static).update(
-                "\u2b07  Downloading audio"
+                text("download_modal.title_audio")
             )
             bar = self.query_one("#download-bar", ProgressBar)
             bar.progress = 0
             self.query_one("#download-status", Static).update(
-                "[dim]Downloading audio track...[/dim]"
+                text("download_modal.status_audio_track")
             )
         except Exception:
             pass
@@ -131,18 +132,18 @@ class DownloadModal(ModalScreen[bool]):
     def _switch_to_postprocess(self, line: str) -> None:
         try:
             if "Merger" in line or "Merging" in line:
-                label = "Merging video + audio..."
+                label = text("download_modal.merging")
             elif "ExtractAudio" in line or "FFmpegExtractAudio" in line:
-                label = "Converting audio..."
+                label = text("download_modal.converting")
             else:
-                label = "Processing..."
+                label = text("download_modal.processing")
             self.query_one("#download-title", Static).update(
-                f"\u2699  {label}"
+                text("download_modal.title_postprocess", label=label)
             )
             bar = self.query_one("#download-bar", ProgressBar)
             bar.update(total=None, progress=0)
             self.query_one("#download-status", Static).update(
-                "[dim]Please wait...[/dim]"
+                text("download_modal.status_wait")
             )
         except Exception:
             pass
@@ -181,9 +182,9 @@ class DownloadModal(ModalScreen[bool]):
         """The file is on disk; the Library scan indexes it later. Say so instead of hiding it."""
         logger.warning("download not registered in the Library: %s", type(exc).__name__)
         library.invalidate_cache()
-        name = Path(self._files[-1]).name if self._files else "the file"
+        name = Path(self._files[-1]).name if self._files else text("download_modal.the_file")
         self.app.notify(
-            f"{name} downloaded but not added to the Library yet; it appears after the next scan.",
+            text("download_modal.not_registered", name=name),
             severity="warning",
         )
 
@@ -202,14 +203,14 @@ class DownloadModal(ModalScreen[bool]):
         else:
             try:
                 self.query_one("#download-title", Static).update(
-                    "[bold red]\u26a0  Download failed[/bold red]"
+                    text("download_modal.title_failed")
                 )
-                msg = error_msg or "yt-dlp returned an error -- check network or browser auth."
+                msg = error_msg or text("download_modal.default_error")
                 self.query_one("#download-status", Static).update(
-                    f"[red]{escape_markup(msg[:80])}[/red]"
+                    text("download_modal.status_error", message=escape_markup(msg[:80]))
                 )
                 self.query_one("#download-hint", Static).update(
-                    "[dim]Press Esc to close[/dim]"
+                    text("download_modal.hint_close")
                 )
                 bar = self.query_one("#download-bar", ProgressBar)
                 bar.update(total=100, progress=0)

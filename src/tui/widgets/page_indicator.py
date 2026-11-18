@@ -7,6 +7,7 @@ from textual.events import Click
 from textual.message import Message
 from textual.widget import Widget
 
+from src.strings import text
 from src.tui.fmt import escape_markup
 
 
@@ -55,8 +56,9 @@ class PageIndicator(Widget):
         prev_arrow = "◀" if self._current > 1 else "·"
         next_arrow = "▶" if self._next_ready else "·"
         note = f"  ·  {escape_markup(self._note)}" if self._note else ""
+        page = text("page_indicator.page", current=self._current, total=self._total)
         return Text.from_markup(
-            f"[dim]{prev_arrow}  Page {self._current} / {self._total}  {next_arrow}{note}[/dim]"
+            f"[dim]{prev_arrow}  {page}  {next_arrow}{note}[/dim]"
         )
 
     def on_click(self, event: Click) -> None:

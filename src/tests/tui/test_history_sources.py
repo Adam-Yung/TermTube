@@ -137,7 +137,7 @@ async def test_d_on_youtube_history_explains_and_removes_nothing(app, signed_in,
         screen._load_view("history:yt")
         await pilot.pause(0.5)
         await pilot.press("D")
-        assert hints and "not supported" in hints[0]
+        assert hints and "cannot be removed" in hints[0]
         assert len(items(panel_of(app))) == 2
 
 

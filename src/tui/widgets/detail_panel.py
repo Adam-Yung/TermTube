@@ -15,13 +15,12 @@ from textual.widgets import Static
 
 from src import library, playlist
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_size, fmt_subscribers, fmt_views
 from src.tui.layout import MAX_THUMB_ROWS, MIN_INFO_ROWS, MIN_THUMB_ROWS
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
-_IDLE_HINT = "[dim]j/k move  ·  h/l page  ·  ⏎ actions  ·  v video  ·  a audio  ·  / search[/dim]"
-_DESC_HEADER = "[dim]─── Description ──────────────────────────[/dim]"
 _STATS_SEP = "  [dim]·[/dim]  "
 
 
@@ -43,7 +42,7 @@ class DetailPanel(Widget):
         with Vertical(id="thumbnail-area"):
             yield ThumbnailWidget(id="thumbnail")
         with ScrollableContainer(id="video-info"):
-            yield Static(_IDLE_HINT, id="video-title", markup=True)
+            yield Static(text("detail_panel.idle_hint"), id="video-title", markup=True)
             yield Static("", id="video-channel", markup=True)
             yield Static("", id="video-stats", markup=True)
             yield Static("", id="video-file", markup=True)
@@ -71,7 +70,7 @@ class DetailPanel(Widget):
         self._current_id = ""
         self._last_entry = None
         self.query_one("#thumbnail", ThumbnailWidget).set_placeholder()
-        self._text("#video-title", _IDLE_HINT)
+        self._text("#video-title", text("detail_panel.idle_hint"))
         for wid in ("#video-channel", "#video-stats", "#video-file", "#video-desc-header", "#video-desc",
                     "#video-playlists"):
             self._text(wid, "")
@@ -84,15 +83,16 @@ class DetailPanel(Widget):
         vid = entry.get("id", "")
         self._current_id = vid
         self._last_entry = entry
-        self._text("#video-title", f"[bold white]{escape_markup(entry.get('title') or 'Untitled')}[/bold white]")
+        title = entry.get("title") or text("detail_panel.untitled")
+        self._text("#video-title", f"[bold white]{escape_markup(title)}[/bold white]")
         self._paint_channel_and_stats(entry)
 
         desc = entry.get("description", "")
         if desc:
             self._set_description(desc)
         elif vid and not vid.startswith("__"):
-            self._text("#video-desc-header", _DESC_HEADER)
-            self._text("#video-desc", "[dim]Loading…[/dim]")
+            self._text("#video-desc-header", text("detail_panel.description_header"))
+            self._text("#video-desc", text("detail_panel.loading"))
         else:
             self._text("#video-desc-header", "")
             self._text("#video-desc", "")
@@ -122,7 +122,7 @@ class DetailPanel(Widget):
     def _file_line(self, entry: Entry) -> str:
         """For a Library row: where the file lives (relative to its download folder) and its total size."""
         if entry.get("_missing_file"):
-            return "[#ff6b6b]⚠ file missing[/]"
+            return text("detail_panel.file_missing")
         path = entry.get("_local_path")
         if not path:
             return ""
@@ -141,13 +141,13 @@ class DetailPanel(Widget):
         desc = desc.strip()
         if len(desc) > 500:
             desc = desc[:497] + "…"
-        self._text("#video-desc-header", _DESC_HEADER)
+        self._text("#video-desc-header", text("detail_panel.description_header"))
         self._text("#video-desc", f"[dim]{escape_markup(desc)}[/dim]")
 
     def refresh_playlists(self, vid: str) -> None:
         names = playlist.video_playlists(vid) if vid and not vid.startswith("__") else []
         listed = ", ".join(escape_markup(n) for n in names)
-        self._text("#video-playlists", f"[#6699cc]♪ In playlists: {listed}[/#6699cc]" if names else "")
+        self._text("#video-playlists", text("detail_panel.in_playlists", names=listed) if names else "")
 
     def thumbnail_cell_size(self) -> tuple[int, int]:
         """Cells available for the half-block fallback render."""
@@ -225,15 +225,19 @@ class DetailPanel(Widget):
     def update_channel_entry(self, entry: Entry) -> None:
         self._current_id = entry.get("id", "")
         self._last_entry = entry
-        name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"
+        name = (entry.get("channel") or entry.get("title") or entry.get("uploader")
+                or text("detail_panel.channel_fallback"))
         subs = fmt_subscribers(entry.get("subscriber_count"))
         vcnt = entry.get("video_count")
         url = entry.get("channel_url") or entry.get("uploader_url") or ""
         desc = entry.get("description") or ""
-        stats = [f"{subs} subscribers" if subs else "", f"{vcnt} videos" if vcnt else ""]
+        stats = [
+            text("detail_panel.subscribers", count=subs) if subs else "",
+            text("detail_panel.videos", count=vcnt) if vcnt else "",
+        ]
         self._text("#video-title", f"[bold white]{escape_markup(name)}[/bold white]")
         self._text("#video-stats", "  ·  ".join(f"[dim]{p}[/dim]" for p in stats if p))
         self._text("#video-channel", f"[dim]{url[:60]}[/dim]" if url else "")
-        self._text("#video-desc-header", "[dim]About[/dim]" if desc else "")
+        self._text("#video-desc-header", text("detail_panel.about") if desc else "")
         self._text("#video-desc", escape_markup(desc[:1500]))
         self._text("#video-playlists", "")

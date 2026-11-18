@@ -7,18 +7,24 @@ from dataclasses import dataclass
 from textual.events import Key
 
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup
 
 _UNDO_WINDOW_S = 30.0
 _TITLE_MAX = 40
 
 _NOT_REMOVABLE = {
-    "home": "Home rows cannot be removed.",
-    "subscriptions": "Subscriptions cannot be removed here.",
-    "search": "Search results cannot be removed.",
-    "history:wl": "Removing from Watch Later is not supported here. Open youtube.com/playlist?list=WL in a browser.",
-    "history:yt": "Removing from YouTube history is not supported here. Open youtube.com/feed/history in a browser.",
+    "home": "list_tools.not_removable_home",
+    "subscriptions": "list_tools.not_removable_subscriptions",
+    "search": "list_tools.not_removable_search",
+    "history:wl": "list_tools.not_removable_watch_later",
+    "history:yt": "list_tools.not_removable_youtube_history",
 }
+
+
+def _noun(removal_noun: str, count: int) -> str:
+    """The removal's noun (`video`, `playlist`, `item`) in singular or plural for ``count``."""
+    return text(f"list_tools.noun_{removal_noun}{'' if count == 1 else '_plural'}")
 
 
 @dataclass(frozen=True)
@@ -76,21 +82,21 @@ class ListToolsMixin:
         key = self._removal_key()
         removal = self._removals().get(key)
         if removal is None:
-            self._hint(_NOT_REMOVABLE.get(key, "Nothing here can be removed."))
+            self._hint(text(_NOT_REMOVABLE.get(key, "list_tools.not_removable_default")))
             return
         targets = self._delete_targets()
         if not targets:
-            self._hint("Nothing selected.", "information")
+            self._hint(text("list_tools.nothing_selected"), "information")
             return
         if removal.ask is not None:
             question, choices = removal.ask(targets)
         else:
             if len(targets) == 1:
-                title = escape_markup((targets[0].get("title") or "Untitled")[:_TITLE_MAX])
-                question = f'Remove "{title}"?'
+                title = escape_markup((targets[0].get("title") or text("list_tools.untitled"))[:_TITLE_MAX])
+                question = text("list_tools.remove_one", title=title)
             else:
-                question = f"Remove {len(targets)} items?"
-            question = f"[bold]{question}[/bold]   [bold]y[/bold] / [dim]N[/dim]"
+                question = text("list_tools.remove_many", count=len(targets))
+            question = text("list_tools.confirm", question=question)
             choices = {"y": ""}
         self._pending_remove = (targets, choices)
         self._detail().action_bar.show_prompt(question)
@@ -127,15 +133,15 @@ class ListToolsMixin:
         removed = removal.remove(targets, choice)
         panel.replace_entries(removal.reload(), focus_id=neighbour)
         count = len(removed)
-        noun = f"{removal.noun}{'' if count == 1 else 's'}"
+        noun = _noun(removal.noun, count)
         if removal.permanent:
             self._undo = None
             failed = len(targets) - count
-            tail = f" {failed} could not be deleted." if failed else ""
-            self.notify(f"Deleted {count} {noun}. The files are gone; u cannot undo this.{tail}", timeout=6)
+            tail = text("list_tools.delete_failed_tail", failed=failed) if failed else ""
+            self.notify(text("list_tools.deleted", count=count, noun=noun, tail=tail), timeout=6)
         else:
             self._undo = (tab, removed, time.monotonic())
-            self.notify(f"Removed {count} {noun}. Press u to undo.", timeout=4)
+            self.notify(text("list_tools.removed", count=count, noun=noun), timeout=4)
         self._after_removal()
         self._refresh_actions()
 
@@ -145,7 +151,7 @@ class ListToolsMixin:
     def action_undo(self) -> None:
         if not self._can_undo():
             self._undo = None
-            self._hint("Nothing to undo.", "information")
+            self._hint(text("list_tools.nothing_to_undo"), "information")
             return
         tab, records, _ = self._undo
         self._undo = None
@@ -156,5 +162,5 @@ class ListToolsMixin:
         self._after_removal()
         self._refresh_actions()
         count = len(records)
-        noun = f"{removal.noun}{'' if count == 1 else 's'}"
-        self.notify(f"Restored {count} {noun} to {removal.label or tab.title()}.", timeout=4)
+        noun = _noun(removal.noun, count)
+        self.notify(text("list_tools.restored", count=count, noun=noun, where=removal.label or tab.title()), timeout=4)

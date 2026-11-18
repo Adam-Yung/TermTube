@@ -13,6 +13,7 @@ from textual.widgets import Static
 
 from src.entries import Entry
 from src.sponsorblock import Segment
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
 from src.tui.layout import MIN_INFO_ROWS
 
@@ -25,10 +26,10 @@ _MAX_ROWS = 5  # grid rows; more entries end in a "…" cell
 
 
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
-    e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]add to queue[/dim]"
+    e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]{text('action_bar.queue_add')}[/dim]"
     skip_part = (
-        f"[bold {color}]>[/bold {color}] [dim]skip to next  ({queue_len} queued)[/dim]  "
-        f"[bold {color}]Q[/bold {color}] [dim]queue[/dim]"
+        f"[bold {color}]>[/bold {color}] [dim]{text('action_bar.queue_skip', count=queue_len)}[/dim]  "
+        f"[bold {color}]Q[/bold {color}] [dim]{text('action_bar.queue_open')}[/dim]"
         if queue_len > 0
         else ""
     )
@@ -105,7 +106,7 @@ class ActionBar(Widget):
         yield Static("", id="ab-prompt", markup=True)
 
     def on_mount(self) -> None:
-        self.border_title = "Actions"
+        self.border_title = text("action_bar.title_actions")
         self.render_actions()
         self.query_one("#ab-prompt").display = False
         self._update_np_keys()
@@ -150,10 +151,10 @@ class ActionBar(Widget):
         for _ in range(cols):
             table.add_column()
         for start in range(0, len(entries), cols):
-            text = "#cccccc" if start == 0 else "#888888"
+            tone = "#cccccc" if start == 0 else "#888888"
             table.add_row(
                 *[
-                    f"[{text}][bold {color}]{key}[/bold {color}] [dim]{label}[/dim][/{text}]"
+                    f"[{tone}][bold {color}]{key}[/bold {color}] [dim]{label}[/dim][/{tone}]"
                     for key, label in entries[start : start + cols]
                 ]
             )
@@ -227,12 +228,14 @@ class ActionBar(Widget):
 
     def _update_np_keys(self) -> None:
         color = self._get_theme_color()
+        label = {name: f"[dim]{text(f'action_bar.key_{name}')}[/dim]" for name in
+                 ("pause", "seek_5", "seek_10", "seek_percent", "stop")}
         keys = (
-            f"[bold {color}]⎵[/bold {color}] [dim]pause[/dim]  "
-            f"[bold {color}]\\[[/bold {color}][dim]/[/dim][bold {color}]][/bold {color}] [dim]±5s[/dim]  "
-            f"[bold {color}]{{[/bold {color}][dim]/[/dim][bold {color}]}}[/bold {color}] [dim]±10s[/dim]  "
-            f"[bold {color}]0[/bold {color}][dim]–[/dim][bold {color}]9[/bold {color}] [dim]seek%[/dim]  "
-            f"[bold {color}]x[/bold {color}] [dim]stop[/dim]"
+            f"[bold {color}]⎵[/bold {color}] {label['pause']}  "
+            f"[bold {color}]\\[[/bold {color}][dim]/[/dim][bold {color}]][/bold {color}] {label['seek_5']}  "
+            f"[bold {color}]{{[/bold {color}][dim]/[/dim][bold {color}]}}[/bold {color}] {label['seek_10']}  "
+            f"[bold {color}]0[/bold {color}][dim]–[/dim][bold {color}]9[/bold {color}] {label['seek_percent']}  "
+            f"[bold {color}]x[/bold {color}] {label['stop']}"
         )
         self.query_one("#np-keys", Static).update(keys)
 
@@ -258,7 +261,7 @@ class ActionBar(Widget):
         self._set_mode_actions()
 
     def set_player_mode(self, entry: Entry, queue_len: int = 0) -> None:
-        self._title = (entry.get("title") or "Unknown")[:52]
+        self._title = (entry.get("title") or text("action_bar.untitled"))[:52]
         self._channel = entry.get("uploader") or entry.get("channel") or ""
         self._playing = True
         self._paused = False
@@ -337,7 +340,7 @@ class ActionBar(Widget):
     def _set_mode_actions(self) -> None:
         self.styles.height = self._actions_height
         self.post_message(self.HeightChanged())
-        self.border_title = "Actions"
+        self.border_title = text("action_bar.title_actions")
         self.query_one("#ab-actions").display = True
         self.query_one("#np-title-line").display = False
         self.query_one("#np-bar-text").display = False
@@ -351,7 +354,7 @@ class ActionBar(Widget):
     def _set_mode_player(self) -> None:
         self.styles.height = self._HEIGHT_PLAYER
         self.post_message(self.HeightChanged())
-        self.border_title = "Now Playing"
+        self.border_title = text("action_bar.title_now_playing")
         self.query_one("#ab-actions").display = False
         self.query_one("#np-title-line").display = True
         self.query_one("#np-bar-text").display = True
@@ -383,6 +386,8 @@ class ActionBar(Widget):
             time_str = f"{elapsed}  /  {total}  ({pct}%)"
         else:
             wait_s = int(time.monotonic() - self._buffering_since)
-            time_str = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
-        paused_tag = "  [bold]\\[PAUSED][/bold]" if self._paused else ""
+            time_str = (
+                text("action_bar.buffering_seconds", seconds=wait_s) if wait_s > 0 else text("action_bar.buffering")
+            )
+        paused_tag = f"  {text('action_bar.paused_tag')}" if self._paused else ""
         self.query_one("#np-time-line", Static).update(f"[dim]{time_str}[/dim]{paused_tag}")

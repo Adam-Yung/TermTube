@@ -22,6 +22,7 @@ from src.plat import (
 )
 from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
 from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 from src.tui.screens.mixins.item_actions import watch_url
@@ -122,12 +123,13 @@ class AudioController:
             return
         entry_id = entry.get("id")
         if entry_id and entry_id == (self._entry or {}).get("id"):
-            self._app.notify("Already playing this track.", timeout=2)
+            self._app.notify(text("audio_controller.already_playing"), timeout=2)
         elif entry_id and any(e.get("id") == entry_id for e in self._queue):
-            self._app.notify("Already in the queue.", timeout=2)
+            self._app.notify(text("audio_controller.already_queued"), timeout=2)
         else:
             self._queue.append(entry)
-            self._app.notify(f"Added to queue: {escape_markup(entry.get('title', 'video')[:40])}", timeout=3)
+            title = entry.get("title", text("audio_controller.default_title"))
+            self._app.notify(text("audio_controller.added_to_queue", title=escape_markup(title[:40])), timeout=3)
             self._queue_changed()
 
     def play_many(self, entries: list[Entry]) -> None:
@@ -152,7 +154,8 @@ class AudioController:
         else:
             self._queue.extend(fresh)
             self._queue_changed()
-        self._app.notify(f"Queued {len(fresh)} track{'s' if len(fresh) != 1 else ''}", timeout=3)
+        key = "audio_controller.queued_one" if len(fresh) == 1 else "audio_controller.queued_many"
+        self._app.notify(text(key, count=len(fresh)), timeout=3)
         return len(fresh)
 
     def skip_audio(self) -> None:
@@ -292,7 +295,7 @@ class AudioController:
             self._launch(entry, session, ytdl_format)
         except Exception as exc:
             logger.exception("audio launch worker crashed")
-            message = exc.message if isinstance(exc, SourceError) else f"Audio failed to start: {exc}"
+            message = exc.message if isinstance(exc, SourceError) else text("audio_controller.start_failed", error=exc)
             self._launch_failed(session, message)
 
     def _launch(self, entry: Entry, session: int, ytdl_format: str) -> None:
@@ -314,7 +317,9 @@ class AudioController:
                 config,
                 fmt,
                 cancelled=lambda: self._stale(session),
-                on_resolving=lambda: self._app.call_from_thread(self._app.notify, "Resolving stream…", timeout=5),
+                on_resolving=lambda: self._app.call_from_thread(
+                    self._app.notify, text("audio_controller.resolving"), timeout=5
+                ),
             )
             if self._stale(session):
                 self._clear_pending(session)
@@ -328,12 +333,11 @@ class AudioController:
         exe = player.mpv_exe(headless=True)
         if not exe:
             hint = (
-                "run 'termtube --update' to install a standalone headless mpv.exe. "
-                "mpv.net opens a GUI window and cannot be used for background audio."
+                text("audio_controller.windows_mpv_hint")
                 if IS_WINDOWS
                 else install_hint("mpv")
             )
-            self._launch_failed(session, f"No headless mpv found — {hint}")
+            self._launch_failed(session, text("audio_controller.no_mpv", hint=hint))
             return
 
         input_conf = player.write_input_conf()
@@ -383,7 +387,8 @@ class AudioController:
         url = stream_url
         start = start_offset(entry, config)
         if start:
-            self._app.call_from_thread(self._app.notify, f"Resuming at {fmt_clock(start)}", timeout=3)
+            resuming = text("audio_controller.resuming", clock=fmt_clock(start))
+            self._app.call_from_thread(self._app.notify, resuming, timeout=3)
 
         def build_cmd(attempt: int) -> list[str]:
             nonlocal url
@@ -445,12 +450,12 @@ class AudioController:
         self._reset_playback()
         if self._queue:
             if title:
-                self._app.notify(f"✓ {escape_markup(title[:40])}", timeout=3)
+                self._app.notify(text("audio_controller.next_track", title=escape_markup(title[:40])), timeout=3)
             self._advance_queue()
         else:
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
             if title:
-                self._app.notify(f"✓ Finished: {escape_markup(title[:50])}", timeout=4)
+                self._app.notify(text("audio_controller.finished", title=escape_markup(title[:50])), timeout=4)
 
     def _on_failed(self, entry: Entry, returncode: int | None, stderr: str, session: int) -> None:
         if session != self._session:
@@ -460,7 +465,7 @@ class AudioController:
         first_line = next((ln.strip() for ln in stderr.splitlines() if ln.strip()), "")
         detail = player.friendly_mpv_error(first_line) if first_line else f"exit code {returncode}"
         self.log(f"[red]Audio failed: {escape_markup(title[:50])} — {escape_markup(detail)}[/red]")
-        shown = f"✗ Audio failed: {title[:40]} ({detail[:80]})"
+        shown = text("audio_controller.failed", title=title[:40], detail=detail[:80])
         self._app.notify(escape_markup(shown), severity="error", timeout=8)
         if not self._advance_queue():
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
@@ -511,5 +516,7 @@ class AudioController:
             self._segment_idx += 1
             player.send_ipc_command({"command": ["seek", seg.end, "absolute"]}, socket_path=_socket_for(session))
             self._app.call_from_thread(
-                self._app.notify, f"Skipped: {seg.category} ({int(seg.end - seg.start)}s)", timeout=3
+                self._app.notify,
+                text("audio_controller.skipped_segment", category=seg.category, seconds=int(seg.end - seg.start)),
+                timeout=3,
             )

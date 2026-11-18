@@ -15,6 +15,7 @@ from textual.widgets import Input, ListItem, ListView, LoadingIndicator, Static
 from src import fuzzy, logger
 from src.config import DEFAULT_ROWS_PER_PAGE
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_age, fmt_clock, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
 from src.tui.widgets.page_indicator import PageIndicator
@@ -23,10 +24,10 @@ _MAX_PAGES_IN_MEMORY = 30
 
 
 _DL_BADGES = {
-    "video": " [#6bff6b]⬇ video[/]",
-    "audio": " [#6b9eff]⬇ audio[/]",
-    "both": " [#6bff6b]⬇ both[/]",
-    "": " [dim]☁[/dim]",
+    "video": "badge_dl_video",
+    "audio": "badge_dl_audio",
+    "both": "badge_dl_both",
+    "": "badge_dl_remote",
 }
 
 
@@ -53,14 +54,14 @@ def _fmt_watched(ts: float | None) -> str:
         return ""
     delta = time.time() - ts
     if delta < 60:
-        return "watched just now"
+        return text("video_list.watched_now")
     if delta < 3600:
-        return f"watched {int(delta / 60)}m ago"
+        return text("video_list.watched_minutes", count=int(delta / 60))
     if delta < 86400:
-        return f"watched {int(delta / 3600)}h ago"
+        return text("video_list.watched_hours", count=int(delta / 3600))
     if delta < 86400 * 30:
-        return f"watched {int(delta / 86400)}d ago"
-    return f"watched {int(delta / (86400 * 30))}mo ago"
+        return text("video_list.watched_days", count=int(delta / 86400))
+    return text("video_list.watched_months", count=int(delta / (86400 * 30)))
 
 
 class HeaderListItem(ListItem):
@@ -139,7 +140,7 @@ class VideoListItem(ListItem):
         theme_color = THEME_COLORS.get(theme, "#ff6666")
 
         entry = self.entry
-        title = entry.get("title") or "Untitled"
+        title = entry.get("title") or text("video_list.untitled")
         channel = entry.get("uploader") or entry.get("channel") or ""
         duration = fmt_duration(entry.get("duration"))
         views = fmt_views(entry.get("view_count"))
@@ -152,30 +153,34 @@ class VideoListItem(ListItem):
         is_channel = entry.get("_is_channel", False)
 
         if is_channel:
-            ch_name = entry.get("channel") or entry.get("title") or entry.get("uploader") or "Channel"
+            ch_name = (entry.get("channel") or entry.get("title") or entry.get("uploader")
+                       or text("video_list.channel_fallback"))
             if len(ch_name) > 50:
                 ch_name = ch_name[:47] + "..."
             subs = fmt_subscribers(entry.get("subscriber_count"))
             vcnt = entry.get("video_count")
-            parts = [f"{subs} subs" if subs else "", f"{vcnt} videos" if vcnt else ""]
+            parts = [
+                text("video_list.subscribers", count=subs) if subs else "",
+                text("video_list.videos", count=vcnt) if vcnt else "",
+            ]
             line2 = "  [dim]·[/dim]  ".join(f"[dim]{p}[/dim]" for p in parts if p)
             line1 = f"[bold white]{escape_markup(ch_name)}[/bold white] [{theme_color}]📺[/{theme_color}]"
             return f"{line1}\n{line2}" if line2 else line1
 
         if entry.get("_missing_file"):
-            badge = " [#ff6b6b]⚠ file missing[/]"
+            badge = text("video_list.badge_file_missing")
         elif is_playlist:
-            badge = " [#6b9eff]▶ PLAYLIST[/]"
+            badge = text("video_list.badge_playlist")
         elif "_dl" in entry:
-            badge = _DL_BADGES[entry["_dl"]]
+            badge = text(f"video_list.{_DL_BADGES[entry['_dl']]}")
         elif local_type == "video" and has_audio:
-            badge = " [#6bff6b]↓ VIDEO+AUDIO[/]"
+            badge = text("video_list.badge_video_audio")
         elif local_type == "video":
-            badge = " [#6bff6b]↓ VIDEO[/]"
+            badge = text("video_list.badge_video")
         elif local_type == "audio":
-            badge = " [#6b9eff]↓ AUDIO[/]"
+            badge = text("video_list.badge_audio")
         elif entry.get("_yt") or entry.get("source") == "yt":
-            badge = " [#ff8c6b]YT[/]"
+            badge = text("video_list.badge_youtube")
         else:
             badge = ""
 
@@ -263,7 +268,7 @@ class VideoListPanel(Widget):
         yield LoadingIndicator(id="list-loading-anim")
         yield Static("", id="list-message", markup=True)
         yield ListView(id="list-view")
-        yield FilterBar(placeholder="Filter…  Enter keeps it, Esc clears", id="list-filter")
+        yield FilterBar(placeholder=text("video_list.filter_placeholder"), id="list-filter")
         yield PageIndicator(id="list-page-indicator")
 
     def on_mount(self) -> None:
@@ -664,15 +669,15 @@ class VideoListPanel(Widget):
         total = sum(len(p) for p in self._pages.values())
         parts = []
         if self._filter:
-            parts.append(f"{shown} of {total} match")
+            parts.append(text("video_list.status_matches", shown=shown, total=total))
         elif self._show_count:
-            parts.append(f"{total} videos")
+            parts.append(text("video_list.status_total", total=total))
         if self._marked:
-            parts.append(f"{len(self._marked)} marked")
+            parts.append(text("video_list.status_marked", count=len(self._marked)))
         if self._played_shown:
-            parts.append("played shown")
+            parts.append(text("video_list.status_played_shown"))
         elif self._hidden:
-            parts.append(f"{self._hidden} hidden")
+            parts.append(text("video_list.status_hidden", count=self._hidden))
         if self._notice:
             parts.append(self._notice)
         if self._progress:

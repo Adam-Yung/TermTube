@@ -8,6 +8,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
 from src import innertube, search_history
+from src.strings import text
 
 _MAX_ROWS = 8
 _MIN_SUGGEST_CHARS = 2
@@ -40,12 +41,11 @@ class SearchModal(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="search-dialog", classes="dialog"):
-            yield Static("🔍  Search YouTube", id="search-title", markup=True)
-            yield Input(placeholder="Type to search…", id="search-input")
+            yield Static(text("search_modal.title"), id="search-title", markup=True)
+            yield Input(placeholder=text("search_modal.placeholder"), id="search-input")
             yield Static("", id="search-suggestions", markup=True)
             yield Static(
-                "[dim]Enter[/dim] search  ·  [dim]↑↓[/dim] history  ·  "
-                "[dim]Ctrl+D[/dim] forget  ·  [dim]Esc[/dim] cancel",
+                text("search_modal.hint"),
                 id="search-hint",
                 markup=True,
             )
@@ -129,7 +129,7 @@ class SearchModal(ModalScreen[str | None]):
         lines = [
             ("[reverse] " if i == self._selected else "[dim] ")
             + ("🕐 " if i < local else "🔍 ")
-            + escape(text) + " [/]"
-            for i, text in enumerate(self._candidates)
+            + escape(candidate) + " [/]"
+            for i, candidate in enumerate(self._candidates)
         ]
         self.query_one("#search-suggestions", Static).update("\n".join(lines))

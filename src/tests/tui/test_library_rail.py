@@ -299,3 +299,14 @@ async def test_wide_terminal_shows_the_full_rail(app, lib):
     async with app.run_test(size=(120, 30)) as pilot:
         await open_library(app, pilot)
         assert not app.screen._rail().narrow and app.screen._rail().size.width == 23
+
+
+async def test_h_on_the_first_page_moves_to_the_rail_and_l_comes_back(app, lib):
+    async with app.run_test(size=(110, 40)) as pilot:
+        await open_library(app, pilot)
+        screen = app.screen
+        assert not screen._rail_focused()
+        await pilot.press("h")
+        assert screen._rail_focused()
+        await pilot.press("l")
+        assert not screen._rail_focused()

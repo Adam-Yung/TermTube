@@ -7,14 +7,15 @@ from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
 from src.downloads import QUALITY_CHOICES
+from src.strings import text
 
 _VIDEO_DL_QUALITY = QUALITY_CHOICES
 _AUDIO_DL_QUALITY = [
-    ("best audio", "bestaudio/best"),
-    ("medium audio (128k)", "bestaudio[abr<=128]/bestaudio/best"),
+    ("download_picker_modal.audio_best", "bestaudio/best"),
+    ("download_picker_modal.audio_medium", "bestaudio[abr<=128]/bestaudio/best"),
 ]
 
-_TYPE_CHOICES = [("video", "DL Video"), ("audio", "DL Audio (MP3)")]
+_TYPE_CHOICES = [("video", "download_picker_modal.type_video"), ("audio", "download_picker_modal.type_audio")]
 
 
 class _SelectItem(ListItem):
@@ -47,10 +48,10 @@ class DownloadPickerModal(ModalScreen):
             if self._title:
                 t = self._title[:55]
                 yield Static(f"[bold]{t}[/bold]", id="dlpick-video-title", markup=True)
-            yield Static("Download", id="dlpick-header", markup=False)
-            yield Static("Choose format", id="dlpick-sub", markup=False)
+            yield Static(text("download_picker_modal.header"), id="dlpick-header", markup=False)
+            yield Static(text("download_picker_modal.sub_type"), id="dlpick-sub", markup=False)
             yield ListView(id="dlpick-list", classes="dialog-list")
-            yield Static("jk navigate  Enter select  Esc back", id="dlpick-hint", markup=False)
+            yield Static(text("download_picker_modal.hint"), id="dlpick-hint", markup=False)
 
     def on_mount(self) -> None:
         self._render_step1()
@@ -71,9 +72,10 @@ class DownloadPickerModal(ModalScreen):
     def _render_step1(self) -> None:
         lv = self.query_one("#dlpick-list", ListView)
         lv.clear()
-        self.query_one("#dlpick-sub", Static).update("Choose format")
+        self.query_one("#dlpick-sub", Static).update(text("download_picker_modal.sub_type"))
         c = self._theme_color()
-        for key, label in _TYPE_CHOICES:
+        for key, label_key in _TYPE_CHOICES:
+            label = text(label_key)
             lv.append(_SelectItem(key, f"[bold {c}]{label}[/bold {c}]"))
         lv.focus()
 
@@ -81,10 +83,10 @@ class DownloadPickerModal(ModalScreen):
         lv = self.query_one("#dlpick-list", ListView)
         lv.clear()
         choices = _AUDIO_DL_QUALITY if self._dl_type == "audio" else _VIDEO_DL_QUALITY
-        mode = "audio" if self._dl_type == "audio" else "video"
-        self.query_one("#dlpick-sub", Static).update("Select " + mode + " quality")
+        sub_key = "sub_audio_quality" if self._dl_type == "audio" else "sub_video_quality"
+        self.query_one("#dlpick-sub", Static).update(text(f"download_picker_modal.{sub_key}"))
         for label, fmt in choices:
-            lv.append(_SelectItem(fmt, label))
+            lv.append(_SelectItem(fmt, text(label) if label.startswith("download_picker_modal.") else label))
         lv.focus()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:

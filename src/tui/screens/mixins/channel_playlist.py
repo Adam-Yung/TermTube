@@ -6,8 +6,7 @@ from src import innertube, logger, playlist
 from src.channel_pager import MAX_ENTRIES
 from src.entries import Entry, PlaylistEntry, VideoEntry
 from src.errors import classify
-
-_BULK_NOUN = {"play": "Playing", "enqueue": "Queued", "save": "Saved"}
+from src.strings import text
 
 
 class ChannelPlaylistMixin:
@@ -56,11 +55,11 @@ class ChannelPlaylistMixin:
 
     def _bulk(self, action: str) -> None:
         if self._playlist is None:
-            self._hint("Open a playlist first (Enter on a playlist row).", "information")
+            self._hint(text("channel_playlist.open_playlist_first"), "information")
             return
         panel = self._list()
         if panel.is_loading or self._pager.fetching:
-            self._hint("Still loading the playlist.", "information")
+            self._hint(text("channel_playlist.still_loading"), "information")
         elif self._pager.token:
             self._gather_playlist(action, self._playlist, self._content_session)
         else:
@@ -89,7 +88,7 @@ class ChannelPlaylistMixin:
             return
         videos = [e for e in entries if e.get("id") and not e.get("_is_playlist") and not e.get("_is_channel")]
         if not videos:
-            self._hint("No videos to use.", "information")
+            self._hint(text("channel_playlist.no_videos"), "information")
             return
         audio = self.app.audio
         if action == "play":
@@ -101,7 +100,8 @@ class ChannelPlaylistMixin:
         else:
             count = self._save_local(source, videos)
         if action != "enqueue":
-            self.notify(f"{_BULK_NOUN[action]} {count} video{'s' if count != 1 else ''}", timeout=3)
+            key = f"channel_playlist.{action}_{'one' if count == 1 else 'many'}"
+            self.notify(text(key, count=count), timeout=3)
         self._sync_player_bar()
 
     def _save_local(self, source: PlaylistEntry, videos: list[VideoEntry]) -> int:

@@ -15,6 +15,7 @@ from src.entries import Entry, LibraryEntry
 from src.history import slim
 from src.plat import get_cache_dir
 from src.store import JsonStore
+from src.strings import text
 
 INDEX_PATH = get_cache_dir() / "library.json"
 
@@ -329,7 +330,7 @@ def _refusal(path: str, roots: list[Path]) -> str | None:
     """Why ``path`` may not be deleted, or None. It must sit inside a root with no symlink on the way and no `..`."""
     candidate = Path(path)
     if ".." in candidate.parts:
-        return "path contains .."
+        return text("library.refuse_dotdot")
     absolute = Path(os.path.abspath(candidate))
     for root in roots:
         try:
@@ -340,10 +341,10 @@ def _refusal(path: str, roots: list[Path]) -> str | None:
         for part in relative.parts:
             walk = walk / part
             if walk.is_symlink():
-                return "symlink"
+                return text("library.refuse_symlink")
         if relative.parts and absolute.resolve().is_relative_to(root.resolve()):
             return None
-    return "outside the library folders"
+    return text("library.refuse_outside")
 
 
 _LANG = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]+)*$")

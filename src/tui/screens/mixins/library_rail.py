@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src import library, playlist
 from src.entries import Entry
+from src.strings import text
 from src.tui.layout import NARROW_BELOW
 from src.tui.widgets.library_rail import NEW_PLAYLIST, LibraryRail, RailItem
 from src.tui.widgets.video_list import FilterBar
@@ -12,9 +13,9 @@ ACCOUNT_VIEWS = {"history:yt": "yt_history", "history:wl": "yt_watchlater"}
 """History-tab sources read from the account (read-only), each with its feed key."""
 HISTORY_SOURCES = ("history", *ACCOUNT_VIEWS)
 _COLLECTIONS = (
-    ("library", "All downloads", ""),
-    ("library:video", "Videos", "video"),
-    ("library:audio", "Audio", "audio"),
+    ("library", "library_rail.all_downloads", ""),
+    ("library:video", "library_rail.videos", "video"),
+    ("library:audio", "library_rail.audio", "audio"),
 )
 
 
@@ -54,9 +55,9 @@ class LibraryRailMixin:
 
     def _rail_items(self) -> list[RailItem]:
         counts = self._library_counts
-        items = [RailItem(view, label, counts[key]) for view, label, key in _COLLECTIONS]
+        items = [RailItem(view, text(label_key), counts[key]) for view, label_key, key in _COLLECTIONS]
         items += [RailItem(f"{PLAYLIST_VIEW}{p['id']}", p["name"], len(p["items"])) for p in playlist.list_playlists()]
-        return [*items, RailItem(NEW_PLAYLIST, "+ New playlist")]
+        return [*items, RailItem(NEW_PLAYLIST, text("library_rail.new_playlist"))]
 
     def _refresh_rail(self) -> None:
         self._rail().set_items(self._rail_items(), self._library_view)
@@ -85,7 +86,7 @@ class LibraryRailMixin:
         self._load_view(view)
         record = playlist.get(view.removeprefix(PLAYLIST_VIEW)) if view.startswith(PLAYLIST_VIEW) else None
         if record:
-            self._list().set_breadcrumb(f"🎵 {record['name']}")
+            self._list().set_breadcrumb(text("library_rail.playlist_crumb", name=record["name"]))
         if focus_list:
             self._list().focus_list()
 
@@ -95,10 +96,17 @@ class LibraryRailMixin:
         else:
             self._select_collection(message.view)
 
+    def action_page_prev(self) -> None:
+        """h on the first page of a Library list moves to the rail; elsewhere it pages back as usual."""
+        if tab_of(self._current_tab) == "library" and not self._list().can_go_prev() and self._rail().display:
+            self._rail().focus()
+        else:
+            super().action_page_prev()
+
     def action_rail_toggle(self) -> None:
         """Tab: move focus between the Library rail and its list."""
         if tab_of(self._current_tab) != "library":
-            self._hint("The rail belongs to the Library tab (F5).", "information")
+            self._hint(text("library_rail.rail_hint"), "information")
         elif self._rail_focused():
             self._list().focus_list()
         elif not isinstance(self.app.focused, FilterBar):

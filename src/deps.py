@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 
 from src.plat import get_config_dir, get_deps_bin, is_tool_installed
+from src.strings import text
 
 REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]
 
@@ -12,20 +13,9 @@ REQUIRED_TOOLS: list[str] = ["deno", "mpv", "ffmpeg"]
 def print_cookies_help() -> None:
     conf = str(get_config_dir() / "config.yaml")
     print()
-    print("\033[1;36mBrowser Authentication\033[0m")
+    print("\033[1;36m" + text("deps.cookies_title") + "\033[0m")
     print()
-    print("  TermTube reads cookies directly from your browser.")
-    print("  Set the browser in your config or in Settings > Browser:")
-    print()
-    print(f"    Config: \033[36m{conf}\033[0m")
-    print()
-    print("    browser: auto       # auto-detect (default)")
-    print("    browser: firefox    # use Firefox")
-    print("    browser: chrome     # use Chrome (may require keychain access)")
-    print("    browser: none       # unauthenticated mode")
-    print()
-    print("  You must be logged into YouTube in that browser.")
-    print("  On macOS, Firefox is recommended (no keychain prompt).")
+    print(text("deps.cookies_body", config=f"\033[36m{conf}\033[0m"))
     print()
 
 
@@ -38,7 +28,7 @@ def check_dependencies() -> bool:
     if not missing:
         return True
 
-    print(f"\n\033[31m✗ Required tools missing from {get_deps_bin()}:\033[0m")
+    print("\n\033[31m" + text("deps.missing", path=get_deps_bin()) + "\033[0m")
     for tool in missing:
         print(f"  • {tool}")
 
@@ -53,12 +43,11 @@ def _offer_bootstrap(missing: list[str]) -> bool:
     from src.bootstrap import install_tool
 
     print()
-    print("  TermTube can download these from GitHub into:")
-    print(f"    \033[36m{get_deps_bin()}\033[0m")
+    print(text("deps.offer", path=f"\033[36m{get_deps_bin()}\033[0m"))
     print()
 
     try:
-        ans = input("  Install missing tools now? [Y/n] ").strip().lower()
+        ans = input(text("deps.prompt")).strip().lower()
     except (EOFError, KeyboardInterrupt):
         ans = "n"
 
@@ -68,11 +57,11 @@ def _offer_bootstrap(missing: list[str]) -> bool:
 
     all_ok = True
     for tool in missing:
-        print(f"  Installing {tool}...", flush=True)
+        print(text("deps.installing", tool=tool), flush=True)
         if install_tool(tool, force=True):
-            print(f"\033[32m  ✓ {tool} installed\033[0m")
+            print("\033[32m" + text("deps.installed", tool=tool) + "\033[0m")
         else:
-            print(f"\033[31m  ✗ {tool} installation failed\033[0m")
+            print("\033[31m" + text("deps.failed", tool=tool) + "\033[0m")
             all_ok = False
 
     if all_ok:
@@ -81,9 +70,5 @@ def _offer_bootstrap(missing: list[str]) -> bool:
 
 
 def _print_bootstrap_hint() -> None:
-    print("\n  Install manually by running:")
-    print("    \033[36mpython -m src.bootstrap\033[0m")
-    print()
-    print("  Or install individually:")
-    print(f"    Target: {get_deps_bin()}")
+    print("\n" + text("deps.manual", command="\033[36mpython -m src.bootstrap\033[0m", path=get_deps_bin()))
     print()

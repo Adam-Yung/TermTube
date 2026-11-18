@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
+from src.strings import text
+
 
 class EmptyFeedModal(ModalScreen[str]):
     """Shown when a feed returns no results. Dismisses with "update", "refresh", "settings" or "skip"."""
@@ -15,21 +17,20 @@ class EmptyFeedModal(ModalScreen[str]):
     def compose(self) -> ComposeResult:
         with Vertical(id="emptyfeed-dialog", classes="dialog"):
             yield Static(
-                "⚠  Feed returned no results",
+                text("empty_feed_modal.title"),
                 id="emptyfeed-title",
                 markup=True,
             )
             yield Static(
-                "This usually means browser authentication isn't working.\n"
-                "Make sure you're logged into YouTube in your browser.",
+                text("empty_feed_modal.body"),
                 id="emptyfeed-body",
                 markup=True,
             )
             yield ListView(
-                ListItem(Static("  Update yt-dlp"), id="emptyfeed-update"),
-                ListItem(Static("  Refresh account (re-read browser sign-in)"), id="emptyfeed-refresh"),
-                ListItem(Static("  Open Settings"), id="emptyfeed-settings"),
-                ListItem(Static("  Skip"), id="emptyfeed-skip"),
+                ListItem(Static(text("empty_feed_modal.update")), id="emptyfeed-update"),
+                ListItem(Static(text("empty_feed_modal.refresh")), id="emptyfeed-refresh"),
+                ListItem(Static(text("empty_feed_modal.settings")), id="emptyfeed-settings"),
+                ListItem(Static(text("empty_feed_modal.skip")), id="emptyfeed-skip"),
                 id="emptyfeed-list",
             )
 

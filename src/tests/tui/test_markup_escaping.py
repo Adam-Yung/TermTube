@@ -56,7 +56,7 @@ async def test_watch_modal_hint_shows_plain_brackets(app):
         hint = plain(str(modal.query_one("#np-hint").content))
         title = plain(str(modal.query_one("#np-title").content))
         app.pop_screen()
-    assert "[ ] ±5s" in hint and "\\" not in hint and title == "T [x]"
+    assert "[ ] ±5 s" in hint and "\\" not in hint and title == "T [x]"
 
 
 @pytest.mark.parametrize("text", ["ends with a backslash \\", "a\\[b] c", "\\\\", "[/y] \\"])

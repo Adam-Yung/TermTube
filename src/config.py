@@ -9,6 +9,7 @@ import yaml
 
 from src import logger
 from src.plat import get_config_dir
+from src.strings import text
 
 _DEFAULT_CONFIG_PATH = get_config_dir() / "config.yaml"
 _THEMES = ("crimson", "amber", "ocean", "midnight")
@@ -70,7 +71,7 @@ class Config:
         with open(self.path, encoding="utf-8") as f:
             loaded = yaml.safe_load(f) or {}
         if not isinstance(loaded, dict):
-            raise ValueError("the file must hold a mapping of settings")
+            raise ValueError(text("config.not_a_mapping"))
         return loaded
 
     def _apply(self, loaded: dict) -> None:
@@ -99,7 +100,7 @@ class Config:
         except (OSError, ValueError, yaml.YAMLError) as exc:
             return (str(exc).strip().splitlines() or [type(exc).__name__])[0]
         if not self.path.exists():
-            return "the file does not exist"
+            return text("config.missing")
         self._apply(loaded)
         return None
     def resolved_browser(self) -> str | None:

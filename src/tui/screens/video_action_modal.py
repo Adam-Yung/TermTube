@@ -7,6 +7,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup
 from src.tui.keymap import ROW_ACTIONS, key_of
 
@@ -43,7 +44,7 @@ class VideoActionModal(ModalScreen[str | None]):
         self._labels = labels or {}
 
     def compose(self) -> ComposeResult:
-        title = (self._entry.get("title") or "Video")[:50]
+        title = (self._entry.get("title") or text("video_action_modal.untitled"))[:50]
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
         with Vertical(id="vaction-dialog", classes="dialog"):
             yield Static(
@@ -59,7 +60,7 @@ class VideoActionModal(ModalScreen[str | None]):
                 )
             yield ListView(id="vaction-list", classes="dialog-list")
             yield Static(
-                "[dim]↑↓ / jk[/dim] navigate  ·  [dim]Enter[/dim] select  ·  [dim]Esc[/dim] cancel",
+                text("video_action_modal.hint"),
                 id="vaction-hint",
                 markup=True,
             )

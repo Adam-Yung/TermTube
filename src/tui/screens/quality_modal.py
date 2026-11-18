@@ -7,6 +7,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
 from src.downloads import AUDIO_QUALITY_CHOICES, QUALITY_CHOICES
+from src.strings import text
 
 
 class _QualityItem(ListItem):
@@ -42,7 +43,7 @@ class QualityModal(ModalScreen[str | None]):
     ) -> None:
         super().__init__()
         self._choices = choices or (AUDIO_QUALITY_CHOICES if audio_only else QUALITY_CHOICES)
-        self._title = title or f"Select {'audio' if audio_only else 'video'} quality"
+        self._title = title or text("quality_modal.title_audio" if audio_only else "quality_modal.title_video")
         self._current = current
 
     def compose(self) -> ComposeResult:
@@ -50,7 +51,7 @@ class QualityModal(ModalScreen[str | None]):
             yield Static(self._title, id="quality-title", markup=False)
             yield ListView(id="quality-list", classes="dialog-list")
             yield Static(
-                "[dim]Enter[/dim] select  ·  [dim]Esc[/dim] cancel",
+                text("quality_modal.hint"),
                 id="quality-hint",
                 markup=True,
             )

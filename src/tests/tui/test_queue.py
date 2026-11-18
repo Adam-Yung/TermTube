@@ -7,6 +7,7 @@ import pytest
 from textual.screen import Screen
 
 from src import history, player
+from src.strings import text
 from src.tui.audio_controller import AudioController
 from src.tui.screens.queue_modal import QueueModal
 
@@ -153,7 +154,7 @@ async def test_the_playing_track_cannot_be_moved_or_removed(audio):
             await pilot.press("D", "J", "K")
             await pilot.press("enter")
         assert ids(audio.audio) == ["B", "C"] and audio.audio.entry is A
-        assert shown[0].startswith("That track is playing") and shown[-1] == "Already playing."
+        assert shown[0].startswith("This track is playing") and shown[-1] == "This track is already playing."
 
 
 async def test_enter_plays_the_highlighted_upcoming_track_now(audio):
@@ -182,7 +183,7 @@ async def test_the_modal_follows_the_queue_while_open(audio):
         audio.audio._broadcast(lambda: __import__("src.tui.messages", fromlist=["x"]).PlayerStateUpdated(
             0.0, 0.0, False, playing=False))
         await pilot.pause(0.2)
-        assert titles(modal) == ["Nothing queued. Press e on a video to add it."]
+        assert titles(modal) == ["Nothing is queued. Press e on a video to add it."]
 
 
 async def test_escape_closes_the_modal_and_q_works_again(audio):
@@ -247,7 +248,7 @@ async def test_resume_is_passed_to_mpv_as_start_and_announced(audio, monkeypatch
         controller._session = 1
         await asyncio.to_thread(controller._play_with_retries, A, 1, "mpv", "in.conf", "http://s", "")
         await asyncio.sleep(0.1)
-        assert "--start=125" in built[0] and "Resuming at 2:05" in notices
+        assert "--start=125" in built[0] and text("audio_controller.resuming", clock="2:05") in notices
         audio.config.set("resume_playback", False)
         built.clear()
         await asyncio.to_thread(controller._play_with_retries, A, 1, "mpv", "in.conf", "http://s", "")

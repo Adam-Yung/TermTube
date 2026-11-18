@@ -145,7 +145,7 @@ async def test_a_valid_directory_is_saved_and_the_input_closes(app, tmp_path):
     ("rows_per_page", "5", "from 10 to 50"),
     ("rows_per_page", "many", "whole number"),
     ("history_max", "10", "from 50 to 5000"),
-    ("sponsorblock.categories", "sponsor, bogus", "unknown: bogus"),
+    ("sponsorblock.categories", "sponsor, bogus", "Unknown: bogus"),
     ("cache_ttl.home", "1", "from 60"),
 ])
 async def test_an_invalid_value_is_refused_with_a_reason_and_nothing_is_saved(app, key, text, reason):

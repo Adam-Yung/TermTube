@@ -3,6 +3,7 @@
 import threading
 from unittest.mock import patch
 
+from src.strings import text
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.download_modal import DownloadModal
 from src.tui.screens.help_screen import HelpScreen
@@ -74,7 +75,7 @@ async def test_the_open_menu_shows_the_override_label(app):
         await pilot.pause(0.4)
         assert isinstance(app.screen, VideoActionModal)
         labels = [str(w.content) for w in app.screen.query("#vaction-list Static")]
-        assert any("Play audio, queue more after" in label for label in labels)
+        assert any(text("item_actions.menu_play_audio") in label for label in labels)
 
 
 async def test_space_and_x_reach_the_audio_during_a_download(app):

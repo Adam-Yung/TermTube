@@ -272,7 +272,7 @@ def run(args, tmp: Path) -> int:
         started = wait_for(lambda: (lambda r: r if r[0] is not None and r[1] else None)(poll()), 30, session)
         if not step("a: the app starts real mpv and it answers over IPC", started is not None):
             return 1
-        step("a: the Now Playing bar is drawn", session.expect("Now Playing", mark, 10))
+        step("a: the Now Playing bar is drawn", session.expect("Now playing", mark, 10))
         pos0 = started[0]
         session.pump(1.5)
         pos1 = poll()[0]

@@ -8,6 +8,8 @@ from textual.timer import Timer
 from textual.widget import Widget
 from textual.widgets import Static
 
+from src.strings import text
+
 _SPINNER = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
 
 
@@ -22,7 +24,7 @@ class AppHeader(Widget):
     def compose(self) -> ComposeResult:
         with Horizontal(id="header-layout"):
             yield Static("", id="header-clock")
-            yield Static("📺 TermTube", id="header-title")
+            yield Static(text("app_header.title"), id="header-title")
             yield Static("", id="header-status")
 
     def on_mount(self) -> None:

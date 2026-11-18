@@ -9,7 +9,7 @@ Audio keys act on `app.audio`, so music keeps playing across channel pages and t
 - `on_mount` calls `_sync_player_bar` to copy the current track into this screen's action bar.
 - The controller broadcasts its messages to every screen on the stack, so this screen's bar updates while it is on top and stays current for the `MainScreen` below it.
 
-`action_channel` says "Already on this channel." and the "channel" menu entry is hidden. `s` on a tab without a sort says so ("Playlists have no sort."); choosing "Most viewed" says "Loading from yt-dlp (slower)…" because that sort bypasses InnerTube.
+`action_channel` says "Already on this channel." and the "channel" menu entry is hidden. `s` on a tab without a sort says so ("Playlists have no sort order."); choosing "Most viewed" says "Loading from yt-dlp (slower)…" because that sort bypasses InnerTube.
 
 ## Workers and counters
 

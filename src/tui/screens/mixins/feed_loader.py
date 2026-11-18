@@ -9,6 +9,7 @@ from src import logger
 from src.cookies import resolve_browser
 from src.entries import Entry
 from src.errors import ExtractionFailed, SourceError, classify
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_day_group
 from src.tui.screens.mixins.library_rail import ACCOUNT_VIEWS, LIBRARY_VIEWS, PLAYLIST_VIEW
 from src.tui.widgets.video_list import VideoListPanel
@@ -25,21 +26,16 @@ CHANNEL_TABS = ("subscriptions",)
 _loading = threading.local()
 """Per loader thread: the ``_feed_session`` its view started under (read by ``_ui``)."""
 
-_NEEDS_BROWSER = (
-    "This list needs a signed-in browser. The browser setting is none or no browser was found: "
-    "pick one in Settings (,)."
-)
-_HISTORY_OFF = "Watch history is off, so nothing is recorded. Turn it on in Settings (,) under Data."
 _EMPTY_ACCOUNT = {
-    "yt_history": "Nothing here. Is watch history paused on this account?",
-    "yt_watchlater": "Nothing here. Is Watch Later empty?",
+    "yt_history": "feed_loader.empty_yt_history",
+    "yt_watchlater": "feed_loader.empty_watch_later",
 }
 _EMPTY_LIBRARY = {
-    "library": "No downloads yet. Press d on a video to download it.",
-    "library:video": "No video downloads yet. Press d on a video to download it.",
-    "library:audio": "No audio downloads yet. Press d on a video, then choose audio.",
+    "library": "feed_loader.empty_library",
+    "library:video": "feed_loader.empty_library_video",
+    "library:audio": "feed_loader.empty_library_audio",
 }
-_ACCOUNT_TITLES = {"yt_history": "YouTube history", "yt_watchlater": "Watch Later"}
+_ACCOUNT_TITLES = {"yt_history": "feed_loader.title_yt_history", "yt_watchlater": "feed_loader.title_watch_later"}
 
 
 def _day_label(entry: Entry) -> str:
@@ -140,9 +136,9 @@ class FeedLoaderMixin:
                 )
                 entries = history.ordered(history.all_entries(), self._history_sort)
                 if not entries and not self.app.config.history_enabled:
-                    self._ui(panel.set_empty_message, _HISTORY_OFF)
+                    self._ui(panel.set_empty_message, text("feed_loader.history_off"))
                     return
-                self._load_simple_list(panel, entries, "Nothing watched yet. Videos you watch appear here.")
+                self._load_simple_list(panel, entries, text("feed_loader.empty_history"))
             elif view == "following":
                 self._load_following(panel)
             elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
@@ -160,9 +156,10 @@ class FeedLoaderMixin:
             if isinstance(exc, SourceError) and view in FEED_TABS:
                 self._ui(self._prompt_ytdlp_update, view, msg)
             else:
-                self._ui(panel.set_error_message, f"⚠ {err.message if isinstance(exc, SourceError) else msg}")
+                shown = err.message if isinstance(exc, SourceError) else msg
+                self._ui(panel.set_error_message, text("feed_loader.error", message=shown))
         else:
-            self._ui(panel.set_error_message, f"⚠ {err.message}")
+            self._ui(panel.set_error_message, text("feed_loader.error", message=err.message))
         self._ui(self._log, f"[red]Error in {view}: {escape_markup(msg)}[/red]")
 
     def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
@@ -174,10 +171,10 @@ class FeedLoaderMixin:
     def _load_account_feed(self, view: str, panel: VideoListPanel) -> None:
         """A read-only History source from the account: needs a browser, else the same loader as Home."""
         if resolve_browser(self.app.config) is None:
-            self._ui(panel.set_empty_message, _NEEDS_BROWSER)
+            self._ui(panel.set_empty_message, text("feed_loader.needs_browser"))
             return
         feed_key = ACCOUNT_VIEWS[view]
-        self._ui(panel.set_breadcrumb, f"{_ACCOUNT_TITLES[feed_key]} (read-only; Y switches source)")
+        self._ui(panel.set_breadcrumb, text("feed_loader.account_crumb", title=text(_ACCOUNT_TITLES[feed_key])))
         self._load_feed(feed_key, panel)
 
     def _load_feed(self, feed_key: str, panel: VideoListPanel) -> None:
@@ -255,7 +252,7 @@ class FeedLoaderMixin:
         )
         if not fetched and not stash:
             if account:
-                call(panel.set_empty_message, _EMPTY_ACCOUNT[feed_key])
+                call(panel.set_empty_message, text(_EMPTY_ACCOUNT[feed_key]))
             else:
                 call(self._show_empty_feed_modal, feed_key)
             return
@@ -308,7 +305,7 @@ class FeedLoaderMixin:
             held = self._ui(lambda: panel.seen_ids)
             new = [e for e in fresh if held is not None and e.get("id") not in held]
             if new:
-                self._ui(panel.set_notice, f"↑ {len(new)} new · r to refresh")
+                self._ui(panel.set_notice, text("feed_loader.new_videos", count=len(new)))
         except Exception as exc:
             logger.debug("revalidate %s: %s", feed_key, exc)
 
@@ -383,7 +380,7 @@ class FeedLoaderMixin:
 
         entries = channel_bookmarks.entries()
         if not entries:
-            self._ui(panel.set_empty_message, "No channels followed here yet. Press B on a channel page.")
+            self._ui(panel.set_empty_message, text("feed_loader.empty_following"))
             return
         self._ui(self._detail().set_channel_mode)
         self._show_pages(panel, entries, evict=False)
@@ -392,7 +389,7 @@ class FeedLoaderMixin:
         import src.ytdlp as ytdlp
 
         if not self._search.query:
-            self._ui(panel.set_empty_message, "Press / to search")
+            self._ui(panel.set_empty_message, text("feed_loader.search_prompt"))
             return
         call = self._ui
         shown: list[Entry] = []
@@ -435,7 +432,7 @@ class FeedLoaderMixin:
         """A Library collection or a playlist. Library loads also refresh the rail's counts."""
         if view.startswith(PLAYLIST_VIEW):
             if not (entries := self._collection_entries(view)):
-                self._ui(panel.set_empty_message, "This playlist is empty. Press p on a video to add it.")
+                self._ui(panel.set_empty_message, text("feed_loader.empty_playlist"))
                 return
         else:
             from src import library
@@ -443,7 +440,7 @@ class FeedLoaderMixin:
             config = self.app.config
             self._ui(self._set_library_counts, library.counts(library.all_entries(config.video_dir, config.audio_dir)))
             entries = self._collection_entries(view)
-        self._load_simple_list(panel, entries, _EMPTY_LIBRARY.get(view, _EMPTY_LIBRARY["library"]))
+        self._load_simple_list(panel, entries, text(_EMPTY_LIBRARY.get(view, _EMPTY_LIBRARY["library"])))
 
     def _open_cursor(self, feed_key: str):
         """A lazy listing of the feed for this view (it opens on the first ``take``). None if the view changed."""
@@ -494,7 +491,7 @@ class FeedLoaderMixin:
             return
         self._extending_session = session
         more = SEARCH_FETCH_COUNT if self._current_tab == "search" else BATCH_FETCH_COUNT
-        panel.set_progress(f"loading {more} more…")
+        panel.set_progress(text("feed_loader.loading_more", count=more))
         self._extend_feed(show=show, session=session)
 
     @work(thread=True, exclusive=True, group="feed_extend")
@@ -564,7 +561,7 @@ class FeedLoaderMixin:
         was_waiting = self._pending_show
         if self._extension_done(session, panel):
             self._pending_show = False
-            panel.set_progress(f"⚠ {message}")
+            panel.set_progress(text("feed_loader.error", message=message))
             if was_waiting:
                 panel.load_page(panel.total_pages, cursor="last")
                 self._hint(message)
@@ -579,7 +576,7 @@ class FeedLoaderMixin:
                 panel.load_page(panel.total_pages, cursor="last")
             return
         self._append_pages(panel, entries, show)
-        panel.set_progress(f"{panel.loaded_count} loaded")
+        panel.set_progress(text("feed_loader.loaded_count", count=panel.loaded_count))
         self._on_page_shown()
 
     @staticmethod

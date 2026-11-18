@@ -5,6 +5,8 @@ from __future__ import annotations
 import datetime
 import re
 
+from src.strings import text
+
 _BACKSLASH_BEFORE_BRACKET = re.compile(r"\\(?=\[|\Z)")
 
 
@@ -89,13 +91,13 @@ def fmt_age(upload_date: str | None) -> str:
 def fmt_day_group(ts: float | None, today: datetime.date | None = None) -> str:
     """Day header for a history row: Today, Yesterday, `Mon 9 Nov` (with the year when not this year)."""
     if not ts:
-        return "Earlier"
+        return text("fmt.day_earlier")
     today = today or datetime.date.today()
     day = datetime.date.fromtimestamp(ts)
     if day == today:
-        return "Today"
+        return text("fmt.day_today")
     if day == today - datetime.timedelta(days=1):
-        return "Yesterday"
+        return text("fmt.day_yesterday")
     label = f"{day:%a} {day.day} {day:%b}"
     return label if day.year == today.year else f"{label} {day.year}"
 

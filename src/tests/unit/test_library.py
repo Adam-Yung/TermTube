@@ -239,7 +239,7 @@ def test_delete_refuses_symlinks_dotdot_and_outside_paths(tmp_path):
     entry = {"id": "s", "_local_type": "video", "_local_path": str(videos / "s.mp4"),
              "_sidecar_path": str(videos / "s.info.json")}
     result = library.safe_delete(entry, [videos, audio], "video")
-    assert victim.exists() and any("symlink" in why for _, why in result.failed)
+    assert victim.exists() and any("symbolic link" in why for _, why in result.failed)
     for evil in (str(videos / ".." / "out" / "precious.mp4"), str(victim)):
         entry = {"id": "s", "_local_type": "video", "_local_path": evil, "_sidecar_path": None}
         result = library.safe_delete(entry, [videos, audio], "video")

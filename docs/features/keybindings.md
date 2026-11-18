@@ -20,7 +20,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
    `Q` (queue view) is reserved for a later phase and unbound today.
 7. `Esc` and `Backspace` go back (out of the channel page; on the Search tab, to the previous search at its page and row; on the Library tab, from the list to the rail). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
-8. **The Library tab has two panes, and `Tab` moves between them.** With the rail focused `j`/`k`/`g`/`G` walk its entries, `Enter` shows one (and focuses the list), `l`/`→` returns to the list without choosing. Keys that act on a row (`v` `a` `d` `p` ...) do nothing while the rail has focus; the playlist keys (`R` `D` `P` `S` `E`) act on the playlist under the rail cursor. `D` still means "remove the thing I am on": a row in the list, a playlist in the rail.
+8. **The Library tab has two panes, and `Tab` moves between them.** With the rail focused `j`/`k`/`g`/`G` walk its entries, `Enter` shows one (and focuses the list), `l`/`→` returns to the list without choosing, and `h`/`←` on the first page of the list moves to the rail. Keys that act on a row (`v` `a` `d` `p` ...) do nothing while the rail has focus; the playlist keys (`R` `D` `P` `S` `E`) act on the playlist under the rail cursor. `D` still means "remove the thing I am on": a row in the list, a playlist in the rail.
 
 ## Map
 

@@ -408,4 +408,4 @@ async def test_s_outside_search_and_local_history_is_still_a_hint(app, monkeypat
         monkeypatch.setattr(app.screen, "notify", lambda msg, **kw: shown.append(msg))
         await pilot.press("s")
         await pilot.pause(0.1)
-        assert shown and "search results" in shown[0] and "local History" in shown[0]
+        assert shown and "search results" in shown[0] and "local history" in shown[0]

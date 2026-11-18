@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from src import library
 from src.entries import Entry
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_size
 from src.tui.screens.mixins.list_tools import Removal
 
@@ -14,19 +15,22 @@ def ask(entries: list[Entry]) -> tuple[str, dict[str, str]]:
     """The question for ``entries`` and which key means which `safe_delete` choice."""
     if len(entries) > 1:
         total = sum(library.total_size(e) for e in entries)
-        size = f" ({fmt_size(total)})" if total else ""
-        return f"[bold]Delete {len(entries)} items{size}?[/bold]   [bold]y[/bold] / [dim]N[/dim]", {"y": "both"}
+        if total:
+            question = text("library_delete.delete_many_sized", count=len(entries), size=fmt_size(total))
+        else:
+            question = text("library_delete.delete_many", count=len(entries))
+        return text("list_tools.confirm", question=question), {"y": "both"}
     entry = entries[0]
-    title = escape_markup((entry.get("title") or "Untitled")[:_TITLE_MAX])
+    title = escape_markup((entry.get("title") or text("list_tools.untitled"))[:_TITLE_MAX])
     sizes = library.form_sizes(entry)
     if not sizes:
-        return f'[bold]Remove "{title}" (file missing)?[/bold]   [bold]y[/bold] / [dim]N[/dim]', {"y": "both"}
-    parts = " + ".join(f"{form} {fmt_size(size) or '0 B'}" for form, size in sizes.items())
+        return text("list_tools.confirm", question=text("library_delete.remove_missing", title=title)), {"y": "both"}
+    parts = " + ".join(f"{form} {fmt_size(size) or text('library_delete.zero_size')}" for form, size in sizes.items())
     if len(sizes) == 1:
-        return f'[bold]Delete "{title}" - {parts}?[/bold]   [bold]y[/bold] / [dim]N[/dim]', {"y": "both"}
-    keys = "[bold]v[/bold] video / [bold]a[/bold] audio / [bold]b[/bold] both / [dim]N[/dim] cancel"
+        question = text("library_delete.delete_one", title=title, parts=parts)
+        return text("list_tools.confirm", question=question), {"y": "both"}
     choices = {"v": "video", "a": "audio", "b": "both"}
-    return f'[bold]Delete "{title}" - {parts}?[/bold]   {keys}', choices
+    return text("library_delete.choose_form", title=title, parts=parts), choices
 
 
 def removal(config, kind: str = "") -> Removal:

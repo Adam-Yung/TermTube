@@ -14,6 +14,7 @@ from src import history, logger, search_history
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.search_stack import SearchStack
+from src.strings import text
 from src.tui import keymap, library_delete
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
@@ -30,28 +31,28 @@ from src.tui.widgets.library_rail import LibraryRail
 from src.tui.widgets.video_list import VideoListPanel
 
 _TABS = (
-    ("home", "🏠 Home"),
-    ("subscriptions", "📺 Subscriptions"),
-    ("search", "🔍 Search"),
-    ("history", "🕐 History"),
-    ("library", "📁 Library"),
-    ("help", "📚 Help"),
+    ("home", text("main_screen.tab_home")),
+    ("subscriptions", text("main_screen.tab_subscriptions")),
+    ("search", text("main_screen.tab_search")),
+    ("history", text("main_screen.tab_history")),
+    ("library", text("main_screen.tab_library")),
+    ("help", text("main_screen.tab_help")),
 )
 _SEARCH_SORTS = [
-    ("relevance", "🎯  Relevance", "r"),
-    ("date", "📅  Newest first", "d"),
-    ("views", "👁  Most viewed", "v"),
+    ("relevance", text("main_screen.sort_relevance"), "r"),
+    ("date", text("main_screen.sort_date"), "d"),
+    ("views", text("main_screen.sort_views"), "v"),
 ]
 _SEARCH_TYPES = [
-    ("all", "🔍  All results", "a"),
-    ("video", "🎬  Videos", "v"),
-    ("channel", "📺  Channels", "c"),
-    ("playlist", "🎵  Playlists", "p"),
+    ("all", text("main_screen.type_all"), "a"),
+    ("video", text("main_screen.type_video"), "v"),
+    ("channel", text("main_screen.type_channel"), "c"),
+    ("playlist", text("main_screen.type_playlist"), "p"),
 ]
 _HISTORY_SORTS = [
-    ("recent", "🕐  Recent first", "r"),
-    ("plays", "🔁  Most watched", "m"),
-    ("time", "⏱  Longest watched", "l"),
+    ("recent", text("main_screen.history_recent"), "r"),
+    ("plays", text("main_screen.history_plays"), "m"),
+    ("time", text("main_screen.history_time"), "l"),
 ]
 _LOADABLE_TABS = ("home", "subscriptions", "history", "library")
 _FORCE_EXIT_AFTER_S = 2.0
@@ -167,7 +168,7 @@ class MainScreen(
 
     def panel_hints(self) -> list[tuple[str, str]]:
         if self._rail_focused():
-            return [("⏎", "Open"), *keymap.tool_hints(self._tool_actions())]
+            return [("⏎", text("main_screen.open_hint")), *keymap.tool_hints(self._tool_actions())]
         return super().panel_hints()
 
     def on_list_view_highlighted(self) -> None:
@@ -264,9 +265,7 @@ class MainScreen(
             if choice == "update":
                 self._run_ytdlp_update(reload_tab=feed_key)
             else:
-                self._list().set_error_message(
-                    "⚠ Feed loading failed.\n\nTry updating manually:\n  termtube --update"
-                )
+                self._list().set_error_message(text("main_screen.feed_failed"))
 
         self.app.push_screen(YtdlpUpdateModal(error_detail), on_result)
 
@@ -275,14 +274,14 @@ class MainScreen(
         from src.updater import update_ytdlp
 
         call = self.app.call_from_thread
-        call(self.notify, "Updating yt-dlp…", timeout=3)
+        call(self.notify, text("main_screen.updating_ytdlp"), timeout=3)
         if not update_ytdlp(verbose=False):
-            call(self.notify, "yt-dlp update failed. Try: termtube --update", severity="error", timeout=6)
+            call(self.notify, text("main_screen.ytdlp_update_failed"), severity="error", timeout=6)
         elif reload_tab:
-            call(self.notify, "yt-dlp updated — reloading feed…", timeout=4)
+            call(self.notify, text("main_screen.ytdlp_updated_reloading"), timeout=4)
             call(self._load_view, reload_tab)
         else:
-            call(self.notify, "yt-dlp updated successfully.", timeout=5)
+            call(self.notify, text("main_screen.ytdlp_updated"), timeout=5)
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         tab_id = event.tab.id if event.tab else None
@@ -313,7 +312,7 @@ class MainScreen(
     def action_history_source(self) -> None:
         """Y: cycle the History tab's source (Local, then each YouTube account list)."""
         if tab_of(self._current_tab) != "history":
-            self._hint("Y switches the History source (F4).", "information")
+            self._hint(text("main_screen.history_source_hint"), "information")
             return
         self._cancel_pending_focus_and_thumb()
         sources = HISTORY_SOURCES
@@ -323,12 +322,12 @@ class MainScreen(
     def action_history_import(self) -> None:
         """I: copy the loaded YouTube history rows (or the marked ones) into the local history."""
         if self._current_tab != "history:yt":
-            self._hint("I imports YouTube history; switch to it with Y on the History tab.", "information")
+            self._hint(text("main_screen.history_import_hint"), "information")
             return
         panel = self._list()
         rows = panel.marked_entries() or panel.visited_entries()
         added = history.import_entries(rows, self.app.config)
-        self.notify(f"Imported {added} of {len(rows)} into local history (the rest were already there).", timeout=5)
+        self.notify(text("main_screen.imported", added=added, total=len(rows)), timeout=5)
 
     def _show_help(self, *, restore_tab: str = "") -> None:
         from src.tui.screens.help_screen import HelpScreen
@@ -394,7 +393,7 @@ class MainScreen(
         if self._current_tab == "history":
             self._pick_history_sort()
         else:
-            self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+            self._pick_search_filter("sort", text("main_screen.sort_results_title"), _SEARCH_SORTS, self._search.sort)
 
     def _pick_history_sort(self) -> None:
         """s on the local History tab: recent (with day headers), most watched or longest watched."""
@@ -405,17 +404,16 @@ class MainScreen(
                 self._history_sort = value
                 self._load_view("history")
 
-        self.app.push_screen(SortModal(self._history_sort, options=_HISTORY_SORTS, title="Sort history"), on_pick)
+        title = text("main_screen.sort_history_title")
+        self.app.push_screen(SortModal(self._history_sort, options=_HISTORY_SORTS, title=title), on_pick)
 
     def action_search_type(self) -> None:
-        self._pick_search_filter("kind", "Result type", _SEARCH_TYPES, self._search.kind)
+        self._pick_search_filter("kind", text("main_screen.result_type_title"), _SEARCH_TYPES, self._search.kind)
 
     def _pick_search_filter(self, field: str, title: str, options: list[tuple[str, str, str]], current: str) -> None:
         """Ask for a sort or type and reload the current search with it (Search tab only)."""
         if self._current_tab != "search" or not self._search.query:
-            self._hint(
-                "Sort and type apply to search results (s also sorts local History). Press / to search.", "information"
-            )
+            self._hint(text("main_screen.search_filter_hint"), "information")
             return
         from src.tui.screens.sort_modal import SortModal
 
@@ -460,7 +458,7 @@ class MainScreen(
         tabs = self.query_one("#nav-tabs", Tabs)
         for tab in tabs.query(Tab):
             if tab.id == "search":
-                tab.label = f"🔍 {self._search.query[:20]}"
+                tab.label = text("main_screen.tab_search_query", query=self._search.query[:20])
         tabs.active = "search"
         self._load_view("search")
 
@@ -472,20 +470,20 @@ class MainScreen(
     def action_show_played(self) -> None:
         """Home: show or hide the videos already played (the footer counts the hidden ones)."""
         if self._current_tab != "home":
-            self._hint("Open the Home tab, then press Z to show or hide videos you already played.", "information")
+            self._hint(text("main_screen.show_played_hint"), "information")
             return
         self._show_played = not self._show_played
         self._load_view("home")
-        self.notify("Showing played videos" if self._show_played else "Hiding played videos", timeout=2)
+        self.notify(text("main_screen.showing_played" if self._show_played else "main_screen.hiding_played"), timeout=2)
 
     def action_following(self) -> None:
         """The local Following list, from the Subscriptions tab (it needs no account)."""
         if self._current_tab != "subscriptions":
-            self._hint("Open the Subscriptions tab, then press F for the channels you follow here.", "information")
+            self._hint(text("main_screen.following_hint"), "information")
             return
         self._current_tab = "following"
         self._load_view("following")
-        self._list().set_breadcrumb("📌 Following (local)  ← backspace to go back")
+        self._list().set_breadcrumb(text("main_screen.following_crumb"))
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         if entry.get("_is_channel"):
@@ -499,7 +497,7 @@ class MainScreen(
 
     def _activate_entry(self, entry: Entry) -> None:
         if entry.get("_is_playlist"):
-            self._hint("Press b to open the playlist in the browser.", "information")
+            self._hint(text("main_screen.open_playlist_in_browser"), "information")
         elif entry.get("_is_channel"):
             self._open_channel(entry)
         else:
@@ -594,7 +592,7 @@ class MainScreen(
             if self._current_tab == "home":
                 self.app.cache.clear_home_stash()
         self._load_view(self._current_tab)
-        self.notify(f"Refreshing {self._current_tab}…", timeout=2)
+        self.notify(text("main_screen.refreshing", tab=self._current_tab), timeout=2)
 
     def action_help(self) -> None:
         self._show_help()

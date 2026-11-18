@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
+from src.strings import text
+
 
 class ImageWarningModal(ModalScreen[bool]):
     """Startup notice for terminals without Kitty/Sixel. Dismisses with True for "never show again"."""
@@ -14,18 +16,15 @@ class ImageWarningModal(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="imgwarn-dialog", classes="dialog"):
-            yield Static("⚠  No image protocol support", id="imgwarn-title", markup=True)
+            yield Static(text("image_warning_modal.title"), id="imgwarn-title", markup=True)
             yield Static(
-                "Your terminal or tmux config doesn't support Kitty or\n"
-                "Sixel graphics. Thumbnails will use ANSI block art instead.\n\n"
-                "For native image rendering, use [bold]Kitty[/bold], [bold]WezTerm[/bold],\n"
-                "or [bold]iTerm2[/bold] — and launch TermTube outside of tmux.",
+                text("image_warning_modal.body"),
                 id="imgwarn-body",
                 markup=True,
             )
             yield ListView(
-                ListItem(Static("  OK"), id="imgwarn-ok"),
-                ListItem(Static("  Never show again"), id="imgwarn-never"),
+                ListItem(Static(text("image_warning_modal.ok")), id="imgwarn-ok"),
+                ListItem(Static(text("image_warning_modal.never")), id="imgwarn-never"),
                 id="imgwarn-list",
             )
 

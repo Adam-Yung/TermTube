@@ -22,7 +22,7 @@ def test_dir_accepts_an_existing_and_a_creatable_directory(tmp_path):
 
 def test_dir_refuses_empty_relative_and_a_file(tmp_path):
     (tmp_path / "f").write_text("x", encoding="utf-8")
-    for text, reason in (("", "enter a directory"), ("rel/dir", "absolute"), (str(tmp_path / "f" / "x"), "is a file")):
+    for text, reason in (("", "Enter a directory"), ("rel/dir", "absolute"), (str(tmp_path / "f" / "x"), "is a file")):
         with pytest.raises(Refused, match=reason):
             parse_dir(text)
 
@@ -50,7 +50,7 @@ def test_categories_are_checked_and_deduplicated():
     assert parse_categories("sponsor, intro  sponsor") == ["sponsor", "intro"]
     with pytest.raises(Refused, match="at least one"):
         parse_categories(" , ")
-    with pytest.raises(Refused, match="unknown: nope"):
+    with pytest.raises(Refused, match="Unknown: nope"):
         parse_categories("sponsor nope")
 
 

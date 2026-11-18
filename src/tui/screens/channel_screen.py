@@ -14,6 +14,7 @@ from src import channel_bookmarks, channel_ref, innertube, logger
 from src.channel_pager import ChannelPager
 from src.entries import Entry, PlaylistEntry
 from src.errors import classify
+from src.strings import text
 from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_breadcrumb
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
@@ -33,12 +34,17 @@ _TAB_KINDS = {
     "ch-tab-live": "live",
     "ch-tab-playlists": "playlists",
 }
-_TAB_LABELS = {"videos": "Videos", "shorts": "Shorts", "live": "Live", "playlists": "Playlists"}
+_TAB_LABELS = {
+    "videos": "channel_screen.tab_videos",
+    "shorts": "channel_screen.tab_shorts",
+    "live": "channel_screen.tab_live",
+    "playlists": "channel_screen.tab_playlists",
+}
 _DEFAULT_TABS = ("videos", "playlists")
 _NO_SORT = {
-    "playlists": "Playlists have no sort.",
-    "shorts": "Shorts have no sort.",
-    "live": "Live streams have no sort.",
+    "playlists": "channel_screen.no_sort_playlists",
+    "shorts": "channel_screen.no_sort_shorts",
+    "live": "channel_screen.no_sort_live",
 }
 _UNSAFE_ID_CHARS = re.compile(r"[^A-Za-z0-9_\-]")
 
@@ -93,7 +99,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             yield ChannelInfoPanel(id="ch-info-panel")
             with Vertical(id="ch-center"):
                 yield Tabs(
-                    *(Tab(_TAB_LABELS[kind], id=f"ch-tab-{kind}") for kind in _TAB_LABELS),
+                    *(Tab(text(_TAB_LABELS[kind]), id=f"ch-tab-{kind}") for kind in _TAB_LABELS),
                     id="ch-tabs",
                 )
                 yield VideoListPanel(id="ch-video-list")
@@ -139,20 +145,21 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         if entry and self._is_other_channel(entry):
             self._open_channel(entry)
         else:
-            self._hint("Already on this channel.", "information")
+            self._hint(text("channel_screen.already_here"), "information")
 
     def _crumbs(self) -> list[str]:
         return [*self._trail, self._display_name()]
 
     def _display_name(self) -> str:
         info = self._info_panel().info or {}
-        return info.get("channel") or self._channel_name or "Channel"
+        return info.get("channel") or self._channel_name or text("channel_screen.channel_fallback")
 
     def _show_breadcrumb(self) -> None:
-        parts = [*self._crumbs(), _TAB_LABELS[self._tab_kind()]]
+        parts = [*self._crumbs(), text(_TAB_LABELS[self._tab_kind()])]
         if self._playlist:
-            parts.append(self._playlist.get("_playlist_name") or self._playlist.get("title", "Playlist"))
-        self._list().set_breadcrumb(fmt_breadcrumb(parts) + "  ← esc to go back")
+            fallback = text("channel_screen.playlist_fallback")
+            parts.append(self._playlist.get("_playlist_name") or self._playlist.get("title", fallback))
+        self._list().set_breadcrumb(text("channel_screen.breadcrumb", trail=fmt_breadcrumb(parts)))
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._focus_video(message.entry)
@@ -243,7 +250,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             return
         panel = self._list()
         if not page.entries:
-            panel.set_empty_message("No content found.")
+            panel.set_empty_message(text("channel_screen.no_content"))
             return
         panel.add_entries(1, page.entries)
         panel.load_page(1)
@@ -439,12 +446,12 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             if tab_id:
                 self.query_one("#ch-tabs", Tabs).active = tab_id
 
-        shown = [(f"ch-tab-{kind}", _TAB_LABELS[kind]) for kind in _TAB_LABELS if kind in self._shown_tabs]
+        shown = [(f"ch-tab-{kind}", text(_TAB_LABELS[kind])) for kind in _TAB_LABELS if kind in self._shown_tabs]
         self.app.push_screen(ChannelTabModal(self._current_tab, shown), on_pick)
 
     def action_sort(self) -> None:
         if self._tab_kind() != "videos":
-            self._hint(_NO_SORT[self._tab_kind()], "information")
+            self._hint(text(_NO_SORT[self._tab_kind()]), "information")
             return
         from src.tui.screens.sort_modal import SortModal
 
@@ -452,7 +459,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             if sort and sort != self._sort:
                 self._sort = sort
                 if sort != "date":
-                    self.notify("Loading from yt-dlp (slower)…", timeout=3)
+                    self.notify(text("channel_screen.sort_slow"), timeout=3)
                 self._start_content_load()
 
         self.app.push_screen(SortModal(current_sort=self._sort), on_pick)
@@ -460,18 +467,18 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
     def action_bookmark(self) -> None:
         channel_id = self._known_id()
         if not channel_id:
-            self._hint("The channel is still loading.", "information")
+            self._hint(text("channel_screen.still_loading"), "information")
             return
         info = self._info_panel().info or {}
         name = self._display_name()
         if channel_bookmarks.toggle(channel_id, name, info.get("thumbnail", "")):
-            self.notify(f"Following {escape_markup(name)} (local, no account needed)", timeout=3)
+            self.notify(text("channel_screen.following", name=escape_markup(name)), timeout=3)
         else:
-            self.notify(f"Unfollowed {escape_markup(name)}", timeout=3)
+            self.notify(text("channel_screen.unfollowed", name=escape_markup(name)), timeout=3)
 
     def action_info(self) -> None:
         if not self._info_panel().toggle_description():
-            self._hint("Nothing more to show.", "information")
+            self._hint(text("channel_screen.nothing_more"), "information")
 
     def action_reload(self) -> None:
         self._load_channel_info()

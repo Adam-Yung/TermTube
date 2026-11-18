@@ -8,103 +8,108 @@ from textual.containers import ScrollableContainer, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from src.strings import text
+
 _RULE = "[bold #888888]" + "─" * 70 + "[/bold #888888]"
 
+# (section id, [(key combination, row id)]): the section title and each row's description live in strings.json
+# under help_screen.<section>_title and help_screen.<section>_<row>.
 _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
-    ("MOVE", [
-        ("j / k", "Cursor down / up"),
-        ("h / l  ← / →", "Previous / next page of the list"),
-        ("g / G", "First / last item of the whole list"),
-        ("H / L", "Previous / next tab"),
-        ("Enter", "Action menu for the row"),
-        ("Backspace / Esc", "Back (on Library, from the list to the rail; on Search, to the previous results)"),
-        ("F1–F6  `", "Jump to a tab / open the tab picker"),
+    ("move", [
+        ("j / k", "cursor"),
+        ("h / l  ← / →", "page"),
+        ("g / G", "ends"),
+        ("H / L", "tab"),
+        ("Enter", "menu"),
+        ("Backspace / Esc", "back"),
+        ("F1–F6  `", "jump"),
     ]),
-    ("PLAY", [
-        ("v / V", "Watch video / choose quality first"),
-        ("a / A", "Play audio / choose quality first (replaces the current track)"),
-        ("e", "Add audio to the queue"),
-        (">", "Skip to the next queued track"),
-        ("Q", "Open the queue: j/k move, J/K reorder, D remove, u undo, Enter play now"),
-        ("Space", "Pause / resume audio"),
-        ("x", "Stop audio and clear the queue"),
-        ("[ / ]", "Audio seek −5 s / +5 s"),
-        ("{ / }", "Audio seek −10 s / +10 s"),
-        ("0–9", "Audio seek to 0%–90%"),
+    ("play", [
+        ("v / V", "watch"),
+        ("a / A", "audio"),
+        ("e", "enqueue"),
+        (">", "skip"),
+        ("Q", "queue"),
+        ("Space", "pause"),
+        ("x", "stop"),
+        ("[ / ]", "seek5"),
+        ("{ / }", "seek10"),
+        ("0–9", "seek_pct"),
     ]),
-    ("VIDEO PLAYER", [
-        ("h / l  ← / →", "Seek −5 s / +5 s"),
-        ("H / L", "Seek −10 s / +10 s"),
-        ("Space  0–9", "Pause / seek to a percentage"),
-        ("q / Esc", "Stop"),
+    ("player", [
+        ("h / l  ← / →", "seek5"),
+        ("H / L", "seek10"),
+        ("Space  0–9", "pause"),
+        ("q / Esc", "stop"),
     ]),
-    ("ROW ACTIONS", [
-        ("d", "Download (video or audio, quality picker)"),
-        ("c", "Open the channel page"),
-        ("p", "Add to a playlist"),
-        ("y", "Copy the video URL"),
-        ("b", "Open in the browser"),
+    ("row", [
+        ("d", "download"),
+        ("c", "channel"),
+        ("p", "playlist"),
+        ("y", "copy"),
+        ("b", "browser"),
     ]),
-    ("LIST TOOLS", [
-        ("f", "Filter the loaded list as you type (Enter keeps it, Esc clears it)"),
-        ("m / M", "Mark the row and move down / mark the whole page"),
-        ("D", "Remove the row or the marked rows from this list, after one y / N (History, Library, playlists)"),
-        ("u", "Undo the last removal (within 30 s)"),
+    ("tools", [
+        ("f", "filter"),
+        ("m / M", "mark"),
+        ("D", "remove"),
+        ("u", "undo"),
     ]),
-    ("LIBRARY TAB", [
-        ("Tab", "Move between the rail (downloads, videos, audio, playlists) and the list"),
-        ("j / k  Enter", "In the rail: move / show that collection (Enter on + New playlist creates one)"),
-        ("f", "Filter with words and tokens: type:audio dur:<10m by:\"name\" year:2024 pl:name dl:yes"),
-        ("n / R", "New playlist / rename the highlighted or open playlist"),
-        ("D", "On the rail: delete the playlist (videos stay on disk); in a playlist, remove the videos from it"),
-        ("J / K", "Inside a playlist: move the video down / up"),
-        ("P / S / E", "Play / shuffle / queue the open or highlighted playlist as audio"),
-        ("p", "In the playlist dialog: Space selects several playlists, Enter toggles them"),
+    ("library", [
+        ("Tab", "rail"),
+        ("j / k  Enter", "rail_nav"),
+        ("f", "filter"),
+        ("n / R", "playlist_new"),
+        ("D", "delete"),
+        ("J / K", "reorder"),
+        ("P / S / E", "playlist_play"),
+        ("p", "playlist_dialog"),
     ]),
-    ("HISTORY TAB", [
-        ("Y", "Switch the source: Local, YouTube history, Watch Later (last two: read-only, need a browser)"),
-        ("I", "On the YouTube source: copy the rows (or the marked ones) into local history; rows already there stay"),
+    ("history", [
+        ("Y", "source"),
+        ("I", "import"),
     ]),
-    ("APP", [
-        ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
-        ("s / t", "Search tab: sort / type; s on local History: recent, most or longest watched"),
-        ("r", "Refresh the current feed (clears its cache)"),
-        ("Z", "Home tab: show or hide the videos you already played (the footer counts the hidden ones)"),
-        ("F", "Subscriptions tab: the channels you follow locally (Esc returns)"),
-        (",", "Settings"),
-        ("?", "This screen"),
-        ("Ctrl+D", "Debug log panel"),
-        ("q", "Quit (the audio queue is not saved)"),
+    ("app", [
+        ("/", "search"),
+        ("s / t", "sort"),
+        ("r", "refresh"),
+        ("Z", "hide_played"),
+        ("F", "follow"),
+        (",", "settings"),
+        ("?", "help"),
+        ("Ctrl+D", "debug"),
+        ("q", "quit"),
     ]),
-    ("CHANNEL PAGE", [
-        ("s", "Sort (date / views)"),
-        ("r", "Reload"),
-        ("i", "Show all of the channel description / show less"),
-        ("Enter", "On a playlist row: open its videos (Esc returns to the list)"),
-        ("B", "Follow or unfollow this channel locally (kept in channels.json, no account needed)"),
-        ("P E S", "Open playlist: play all / add all to the queue / save as a local playlist"),
-        ("/ , ? q", "Search, settings, help, quit (as on the main page)"),
-        ("Esc", "Back to the previous page"),
+    ("channel", [
+        ("s", "sort"),
+        ("r", "reload"),
+        ("i", "description"),
+        ("Enter", "playlist"),
+        ("B", "follow"),
+        ("P E S", "playlist_bulk"),
+        ("/ , ? q", "global"),
+        ("Esc", "back"),
     ]),
 ]
 
 _CONFIG_KEYS = [
-    ("browser", "auto / none / firefox / chrome / … (cookie source for your account feeds)"),
-    ("preferred_quality", "best / 1080 / 720 / 480 / 360"),
-    ("video_dir", "Download directory for videos"),
-    ("audio_dir", "Download directory for audio"),
+    ("browser", "config_browser"),
+    ("preferred_quality", "config_quality"),
+    ("video_dir", "config_video_dir"),
+    ("audio_dir", "config_audio_dir"),
 ]
 
 
 def _render_help(color: str) -> str:
-    lines = [f"[bold {color}]TermTube — Keyboard Reference[/bold {color}]", ""]
-    for title, rows in _SECTIONS:
-        lines += [_RULE, f"[bold white]{title}[/bold white]", _RULE, ""]
-        lines += [f"  [{color}]{key:<16}[/{color}] {text}" for key, text in rows]
+    title = text("help_screen.title")
+    lines = [f"[bold {color}]{title}[/bold {color}]", ""]
+    for section, rows in _SECTIONS:
+        lines += [_RULE, f"[bold white]{text(f'help_screen.{section}_title')}[/bold white]", _RULE, ""]
+        lines += [f"  [{color}]{key:<16}[/{color}] {text(f'help_screen.{section}_{row}')}" for key, row in rows]
         lines.append("")
-    lines += [_RULE, "[bold white]CONFIG  (~/.config/TermTube/config.yaml)[/bold white]", _RULE, ""]
-    lines += [f"  [{color}]{key:<18}[/{color}] {text}" for key, text in _CONFIG_KEYS]
-    lines += ["", "  [dim]Press [bold]?[/bold], [bold]q[/bold] or [bold]Esc[/bold] to close.[/dim]"]
+    lines += [_RULE, f"[bold white]{text('help_screen.config_title')}[/bold white]", _RULE, ""]
+    lines += [f"  [{color}]{key:<18}[/{color}] {text(f'help_screen.{row}')}" for key, row in _CONFIG_KEYS]
+    lines += ["", "  " + text("help_screen.close_hint")]
     return "\n".join(lines)
 
 
@@ -138,7 +143,7 @@ class HelpScreen(ModalScreen[None]):
                 yield Static(content, id="help-content", markup=True)
 
     def on_mount(self) -> None:
-        self.query_one("#help-outer").border_title = "❓ Help & Keyboard Reference"
+        self.query_one("#help-outer").border_title = text("help_screen.border_title")
 
     def action_close(self) -> None:
         self.dismiss(None)

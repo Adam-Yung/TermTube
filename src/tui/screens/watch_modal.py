@@ -23,6 +23,7 @@ from src.plat import (
 )
 from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
 
 _DEFAULT_FORMAT = "bv+ba/b"
@@ -59,21 +60,17 @@ class WatchModal(ModalScreen[bool]):
         self._segment_cols_dur: float = 0.0
 
     def compose(self) -> ComposeResult:
-        title = self._entry.get("title") or "Unknown"
+        title = self._entry.get("title") or text("watch_modal.unknown_title")
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
         with Vertical(id="watch-dialog", classes="dialog"):
-            yield Static("📺  Now playing in mpv", id="np-header")
+            yield Static(text("watch_modal.header"), id="np-header")
             yield Static(f"[bold white]{escape_markup(title)}[/bold white]", id="np-title", markup=True)
             if channel:
                 yield Static(escape_markup(channel), id="np-channel", markup=True)
             yield Static("", id="np-progress", markup=True)
-            yield Static("Loading…", id="np-time")
+            yield Static(text("watch_modal.loading"), id="np-time")
             yield Static(
-                "[dim]space[/dim] pause  "
-                "[dim]h/l[/dim] or [dim]\\[ ][/dim] ±5s  "
-                "[dim]H/L[/dim] or [dim]{ }[/dim] ±10s  "
-                "[dim]0–9[/dim] seek%  "
-                "[dim]q[/dim] stop",
+                text("watch_modal.hint"),
                 id="np-hint",
                 markup=True,
             )
@@ -110,7 +107,7 @@ class WatchModal(ModalScreen[bool]):
                 fmt,
                 cancelled=lambda: self._stopped,
                 on_resolving=lambda: self.app.call_from_thread(
-                    self.app.notify, "Resolving stream…", timeout=5
+                    self.app.notify, text("watch_modal.resolving"), timeout=5
                 ),
             )
             if self._stopped:
@@ -121,7 +118,7 @@ class WatchModal(ModalScreen[bool]):
 
         mpv_exe = player_mod.mpv_exe()
         if not mpv_exe:
-            self._fail_launch(f"mpv not found — install with: {install_hint('mpv')}")
+            self._fail_launch(text("watch_modal.mpv_missing", hint=install_hint("mpv")))
             return
 
         input_conf = player_mod.write_input_conf()
@@ -129,7 +126,7 @@ class WatchModal(ModalScreen[bool]):
         cookie_args = config.browser_cookie_args() if config else []
         start = start_offset(self._entry, config) if config else None
         if start:
-            self.app.call_from_thread(self.app.notify, f"Resuming at {fmt_clock(start)}", timeout=3)
+            self.app.call_from_thread(self.app.notify, text("watch_modal.resuming", time=fmt_clock(start)), timeout=3)
 
         def build(stream_urls: list[str] | None) -> list[str]:
             return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args, start)
@@ -159,7 +156,7 @@ class WatchModal(ModalScreen[bool]):
         elif outcome.status == "failed":
             self.app.call_from_thread(
                 self.app.notify,
-                f"✗ Video playback failed (exit code {outcome.returncode})",
+                text("watch_modal.failed", code=outcome.returncode),
                 severity="error",
                 timeout=8,
             )
@@ -168,7 +165,9 @@ class WatchModal(ModalScreen[bool]):
             self._dismiss_from_thread(True)
             if title:
                 try:
-                    self.app.call_from_thread(self.app.notify, f"✓ Finished: {title[:50]}", timeout=4)
+                    self.app.call_from_thread(
+                        self.app.notify, text("watch_modal.finished", title=title[:50]), timeout=4
+                    )
                 except Exception:
                     pass
 
@@ -265,7 +264,7 @@ class WatchModal(ModalScreen[bool]):
                         self._ipc(["seek", seg.end, "absolute"])
                         self.app.call_from_thread(
                             self.notify,
-                            f"Skipped: {seg.category} ({skip_dur}s)",
+                            text("watch_modal.skipped", category=seg.category, seconds=skip_dur),
                             timeout=3,
                         )
                         return
@@ -276,7 +275,7 @@ class WatchModal(ModalScreen[bool]):
                     self.query_one("#np-progress", Static).update(
                         self._render_bar(pos_f, dur_f, bar_width)
                     )
-                    pause_indicator = "  ⏸ paused" if paused else ""
+                    pause_indicator = text("watch_modal.paused") if paused else ""
                     self.query_one("#np-time", Static).update(
                         f"{fmt_clock(pos_f)}  /  {fmt_clock(dur_f)}{pause_indicator}"
                     )
@@ -286,7 +285,7 @@ class WatchModal(ModalScreen[bool]):
             self.app.call_from_thread(_update_ui)
         elif self._buffering_since > 0:
             wait_s = int(time.monotonic() - self._buffering_since)
-            buf_text = f"Buffering… ({wait_s}s)" if wait_s > 0 else "Buffering…"
+            buf_text = text("watch_modal.buffering_wait" if wait_s > 0 else "watch_modal.buffering", seconds=wait_s)
             def _update_buf():
                 try:
                     self.query_one("#np-time", Static).update(buf_text)

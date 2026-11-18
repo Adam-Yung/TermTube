@@ -9,18 +9,17 @@ from textual.widgets import Input, ListItem, ListView, Static
 
 from src import history, search_history
 from src.browsers import YTDLP_SUPPORTED_BROWSERS, detect_installed_browsers, get_browser_label
+from src.strings import text as tr
 from src.tui.fmt import escape_markup
 from src.tui.screens.quality_modal import QualityModal
 from src.tui.settings_fields import FIELDS, SECTIONS, Field, Refused
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.video_list import VideoListItem
 
-_EDIT_KEYS_BLOCKED = frozenset({"cursor_down", "cursor_up", "activate", "reset_default"})
-_PLAIN_KINDS = frozenset({"bool", "choice", "text", "int"})
-_HINT = (
-    "[dim]Enter[/dim] change  ·  [dim]Space[/dim] toggle  ·  [dim]Backspace[/dim] default  ·  "
-    "[dim]Tab[/dim] next section  ·  [dim]Esc[/dim] close"
+_EDIT_KEYS_BLOCKED = frozenset(
+    {"cursor_down", "cursor_up", "next_section", "prev_section", "activate", "reset_default"}
 )
+_PLAIN_KINDS = frozenset({"bool", "choice", "text", "int"})
 
 
 class _Section(ListItem):
@@ -57,8 +56,8 @@ class SettingsModal(ModalScreen[None]):
         Binding("escape",    "close", "Close", show=True),
         Binding("j",         "cursor_down", show=False),
         Binding("k",         "cursor_up", show=False),
-        Binding("tab",       "next_section", show=False),
-        Binding("shift+tab", "prev_section", show=False),
+        Binding("tab,l,right",       "next_section", show=False),
+        Binding("shift+tab,h,left", "prev_section", show=False),
         Binding("space",     "activate", show=False),
         Binding("backspace", "reset_default", show=False),
     ]
@@ -75,12 +74,12 @@ class SettingsModal(ModalScreen[None]):
             items.append(_Section(section))
             items += [_Row(f, self._text(f)) for f in FIELDS if f.section == section]
         with Vertical(id="settings-dialog", classes="dialog"):
-            yield Static("⚙  Settings", id="settings-title", markup=True)
-            yield Static(f"Config file: {config.path}", id="settings-path", markup=False)
+            yield Static(tr("settings_modal.title"), id="settings-title", markup=True)
+            yield Static(tr("settings_modal.config_path", path=config.path), id="settings-path", markup=False)
             yield ListView(*items, id="settings-list")
             yield Input(id="settings-input")
             yield Static("", id="settings-status", markup=True)
-            yield Static(_HINT, id="settings-hint", markup=True)
+            yield Static(tr("settings_modal.hint"), id="settings-hint", markup=True)
 
     def on_mount(self) -> None:
         self.query_one("#settings-input", Input).display = False
@@ -135,19 +134,19 @@ class SettingsModal(ModalScreen[None]):
 
     def _commit(self, fld: Field, value: object) -> None:
         self.app.config.set(fld.key, value)  # type: ignore[attr-defined]
-        self._persist(fld, "Saved")
+        self._persist(fld, tr("settings_modal.saved"))
 
     def action_reset_default(self) -> None:
         row = self._list.highlighted_child
         if isinstance(row, _Row) and row.fld.kind in _PLAIN_KINDS:
             self.app.config.reset(row.fld.key)  # type: ignore[attr-defined]
-            self._persist(row.fld, "Reset to the default")
+            self._persist(row.fld, tr("settings_modal.reset"))
 
     def _persist(self, fld: Field, verb: str) -> None:
         if self.app.config.save():  # type: ignore[attr-defined]
-            self._say(f"{verb}. {fld.note}".strip(), "green")
+            self._say(f"{verb} {fld.note}".strip(), "green")
         else:
-            self._say("Could not write the config file; the change lasts until you quit.", "red")
+            self._say(tr("settings_modal.save_failed"), "red")
         if fld.key == "theme":
             self._apply_theme()
         self._refresh_rows()
@@ -176,10 +175,12 @@ class SettingsModal(ModalScreen[None]):
     def _browser_options() -> list[tuple[str, str]]:
         detected = detect_installed_browsers()
         found = {b["name"] for b in detected}
-        options = [("auto", "Auto-detect"), ("none", "None — signed out, no cookies")]
+        options = [("auto", tr("settings_modal.browser_auto")), ("none", tr("settings_modal.browser_none"))]
         options += [(b["name"], b["label"]) for b in detected]
         return options + [
-            (name, f"{get_browser_label(name)} (not found)") for name in YTDLP_SUPPORTED_BROWSERS if name not in found
+            (name, tr("settings_modal.browser_not_found", name=get_browser_label(name)))
+            for name in YTDLP_SUPPORTED_BROWSERS
+            if name not in found
         ]
 
     def _begin_edit(self, row: _Row) -> None:
@@ -188,7 +189,7 @@ class SettingsModal(ModalScreen[None]):
         field_input.value = row.fld.show(self.app.config)  # type: ignore[attr-defined]
         field_input.display = True
         field_input.focus()
-        self._say(f"{row.fld.note + '. ' if row.fld.note else ''}Enter saves, Esc cancels.")
+        self._say(f"{row.fld.note + ' ' if row.fld.note else ''}{tr('settings_modal.edit_hint')}")
 
     def _end_edit(self) -> None:
         self._editing = None
@@ -213,32 +214,32 @@ class SettingsModal(ModalScreen[None]):
             self._reload()
         elif self._armed != fld.key:
             self._armed = fld.key
-            self._say(f"{fld.label}? Press Enter again to confirm, or move away to cancel.", "yellow")
+            self._say(tr("settings_modal.confirm", label=fld.label), "yellow")
         else:
             self._armed = None
             if fld.key == "clear_cache":
                 self._clear_cache()
             elif fld.key == "clear_history":
                 history.clear()
-                self._say("Watch history cleared.", "green")
+                self._say(tr("settings_modal.history_cleared"), "green")
             elif fld.key == "clear_search_history":
                 search_history.clear()
-                self._say("Search history cleared.", "green")
+                self._say(tr("settings_modal.search_history_cleared"), "green")
 
     @work(thread=True, exclusive=True, group="settings_clear")
     def _clear_cache(self) -> None:
         removed = self.app.cache.clear_all()  # type: ignore[attr-defined]
-        self.app.call_from_thread(self._say, f"Cache cleared ({removed} files).", "green")
+        self.app.call_from_thread(self._say, tr("settings_modal.cache_cleared", count=removed), "green")
 
     def _reload(self) -> None:
         config = self.app.config  # type: ignore[attr-defined]
         error = config.reload()
         if error:
-            self._say(f"Reload failed: {error}. Keeping the settings in memory.", "red")
+            self._say(tr("settings_modal.reload_failed", error=error), "red")
             return
         self._apply_theme()
         self._refresh_rows()
-        self._say(f"Reloaded {config.path.name} from disk.", "green")
+        self._say(tr("settings_modal.reloaded", name=config.path.name), "green")
 
     def _apply_theme(self) -> None:
         theme = self.app.config.theme  # type: ignore[attr-defined]
@@ -263,7 +264,7 @@ class SettingsModal(ModalScreen[None]):
     def action_close(self) -> None:
         if self._editing is not None:
             self._end_edit()
-            self._say("Cancelled.")
+            self._say(tr("settings_modal.cancelled"))
         else:
             self.dismiss(None)
 

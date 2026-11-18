@@ -38,6 +38,7 @@ OVERRIDES = {
         "_removal_key": "PlaylistToolsMixin",
         "_delete_targets": "PlaylistToolsMixin",
         "on_key": "ListToolsMixin",
+        "action_page_prev": "LibraryRailMixin",
     },
     "ChannelScreen": {
         "_tool_actions": "ChannelScreen",

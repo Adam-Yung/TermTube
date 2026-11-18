@@ -23,7 +23,7 @@ same name, merges a video and its audio into one row, and sorts by upload date, 
 - The Library keeps a slim index (`library.json` in the cache folder: title, channel, duration, date, views, first 500 characters of the description,
   tags, paths, sizes; never the format list). Only new or changed sidecars are read again, so a large Library opens quickly and the index stays small.
 - The detail panel shows the file path (relative to the download folder) and the total size of the video and audio files.
-- `D` deletes files for good (no trash, `u` cannot undo it). On a row with both forms the bar asks `v video / a audio / b both / N cancel`
+- `D` deletes files for good (no trash, it cannot be undone). On a row with both forms the bar asks `v video / a audio / b both / N cancel`
   with each size; with one form it asks `y / N`; with marked rows (`m`/`M`) it asks once: `Delete N items (X MB)?`. There is no "entry only"
   choice: it left the media on disk as an orphan. A row whose media is missing (sidecar left over) asks `Remove "<title>"?` and deletes the sidecar. Only the media, its `.info.json` and the thumbnail and
   subtitle files with the same name are removed, only inside `video_dir` / `audio_dir`, and never through a symlink or `..`.

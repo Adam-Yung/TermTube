@@ -6,6 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import ScrollableContainer, Vertical
 from textual.widgets import Static
 
+from src.strings import text
 from src.tui.fmt import escape_markup, fmt_subscribers
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
@@ -15,12 +16,12 @@ _DESCRIPTION_CAP = 2000
 
 
 def _description(info: dict) -> str:
-    return (info.get("description", "") or "No description.")[:_DESCRIPTION_CAP]
+    return (info.get("description", "") or text("channel_info_panel.no_description"))[:_DESCRIPTION_CAP]
 
 
-def _collapse(text: str) -> tuple[str, bool]:
-    """The first lines of ``text`` (each cut at ``_LINE_CAP``) and whether anything was left out."""
-    lines = text.strip().splitlines()
+def _collapse(body: str) -> tuple[str, bool]:
+    """The first lines of ``body`` (each cut at ``_LINE_CAP``) and whether anything was left out."""
+    lines = body.strip().splitlines()
     shown = [line[:_LINE_CAP] + ("…" if len(line) > _LINE_CAP else "") for line in lines[:_COLLAPSED_LINES]]
     more = len(lines) > _COLLAPSED_LINES or any(len(line) > _LINE_CAP for line in lines[:_COLLAPSED_LINES])
     return "\n".join(shown), more
@@ -29,7 +30,8 @@ def _collapse(text: str) -> tuple[str, bool]:
 def _stats(info: dict) -> str:
     """``442 videos · Joined Mar 3, 2011``: whichever of the two the response had."""
     count = info.get("video_count")
-    parts = [f"{count:,} video{'s' if count != 1 else ''}"] if count else []
+    key = "channel_info_panel.video_one" if count == 1 else "channel_info_panel.video_many"
+    parts = [text(key, count=count)] if count else []
     if info.get("joined"):
         parts.append(info["joined"])
     return " · ".join(parts)
@@ -55,11 +57,11 @@ class ChannelInfoPanel(Vertical):
         yield Static("", id="ch-desc-hint", markup=True)
 
     def show_loading(self) -> None:
-        self.query_one("#ch-name", Static).update("Loading...")
+        self.query_one("#ch-name", Static).update(text("channel_info_panel.loading"))
         self.query_one("#ch-thumbnail", ThumbnailWidget).set_loading()
 
     def show_error(self) -> None:
-        self.query_one("#ch-name", Static).update("Could not load channel info.")
+        self.query_one("#ch-name", Static).update(text("channel_info_panel.load_error"))
 
     def set_avatar_id(self, avatar_id: str) -> None:
         self.query_one("#ch-thumbnail", ThumbnailWidget).set_video_id(avatar_id)
@@ -99,8 +101,8 @@ class ChannelInfoPanel(Vertical):
         return True
 
     def _render_description(self) -> None:
-        text = _description(self.info or {})
-        shown, more = _collapse(text)
-        self.query_one("#ch-desc", Static).update(text if self._expanded else shown)
-        hint = ("i  show less" if self._expanded else "i  show all") if more else ""
+        body = _description(self.info or {})
+        shown, more = _collapse(body)
+        self.query_one("#ch-desc", Static).update(body if self._expanded else shown)
+        hint = text("channel_info_panel.show_less" if self._expanded else "channel_info_panel.show_all") if more else ""
         self.query_one("#ch-desc-hint", Static).update(f"[dim]{hint}[/dim]" if hint else "")

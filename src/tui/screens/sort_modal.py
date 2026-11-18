@@ -7,11 +7,12 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Static
 
+from src.strings import text
 from src.tui.widgets.action_bar import THEME_COLORS
 
 CHANNEL_SORTS: list[tuple[str, str, str]] = [
-    ("date", "📅  Newest first", "d"),
-    ("views", "👁  Most viewed", "v"),
+    ("date", text("sort_modal.newest"), "d"),
+    ("views", text("sort_modal.most_viewed"), "v"),
 ]
 """Option rows: ``(key returned, label, letter shortcut)``. The row number is its position."""
 
@@ -29,12 +30,12 @@ class SortModal(ModalScreen[str | None]):
         current_sort: str = "date",
         *,
         options: list[tuple[str, str, str]] | None = None,
-        title: str = "Sort order",
+        title: str | None = None,
     ) -> None:
         super().__init__()
         self._current_sort = current_sort
         self._options = options or CHANNEL_SORTS
-        self._title = title
+        self._title = title or text("sort_modal.title")
 
     def compose(self) -> ComposeResult:
         color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
@@ -47,7 +48,7 @@ class SortModal(ModalScreen[str | None]):
                     classes="nav-row",
                     markup=True,
                 )
-            yield Static("[dim]press number or Esc[/dim]", id="sort-hint", markup=True)
+            yield Static(text("sort_modal.hint"), id="sort-hint", markup=True)
 
     def on_key(self, event: events.Key) -> None:
         for num, (key, _, letter) in enumerate(self._options, 1):

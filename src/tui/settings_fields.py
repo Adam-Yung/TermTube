@@ -9,6 +9,7 @@ from pathlib import Path
 
 from src.config import MAX_ROWS_PER_PAGE, MIN_ROWS_PER_PAGE, Config
 from src.downloads import check_template
+from src.strings import text as t
 
 SB_CATEGORIES = (
     "sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "filler", "music_offtopic", "poi_highlight",
@@ -35,7 +36,7 @@ class Field:
     def show(self, config: Config) -> str:
         value = self.read(config) if self.read else None
         if self.kind == "bool":
-            return "on" if value else "off"
+            return t("settings_fields.on") if value else t("settings_fields.off")
         if isinstance(value, list):
             return ", ".join(value)
         return "" if value is None else str(value)
@@ -45,17 +46,17 @@ def parse_dir(text: str) -> str:
     """A directory downloads can be written to: it exists and is writable, or can be created under one that is."""
     text = text.strip()
     if not text:
-        raise Refused("enter a directory")
+        raise Refused(t("settings_fields.dir_empty"))
     path = Path(text).expanduser()
     if not path.is_absolute():
-        raise Refused("use an absolute path (or start with ~)")
+        raise Refused(t("settings_fields.dir_relative"))
     probe = path
     while not probe.exists() and probe != probe.parent:
         probe = probe.parent
     if not probe.is_dir():
-        raise Refused(f"{probe} is a file, not a directory")
+        raise Refused(t("settings_fields.dir_is_file", path=probe))
     if not os.access(probe, os.W_OK | os.X_OK):
-        raise Refused(f"{probe} is not writable")
+        raise Refused(t("settings_fields.dir_not_writable", path=probe))
     return text
 
 
@@ -64,7 +65,7 @@ def parse_template(text: str) -> str:
     try:
         check_template(text)
     except RuntimeError:
-        raise Refused("use a relative path without '..' (no leading / or drive letter)") from None
+        raise Refused(t("settings_fields.template_invalid")) from None
     return text
 
 
@@ -73,9 +74,9 @@ def parse_int(low: int, high: int, unit: str = "") -> Callable[[str], int]:
         try:
             value = int(text.strip())
         except ValueError:
-            raise Refused("enter a whole number") from None
+            raise Refused(t("settings_fields.int_not_number")) from None
         if not low <= value <= high:
-            raise Refused(f"enter a number from {low} to {high}{unit}")
+            raise Refused(t("settings_fields.int_range", low=low, high=high, unit=unit))
         return value
     return parse
 
@@ -83,89 +84,90 @@ def parse_int(low: int, high: int, unit: str = "") -> Callable[[str], int]:
 def parse_categories(text: str) -> list[str]:
     cats = [c.strip() for c in text.replace(",", " ").split()]
     if not cats:
-        raise Refused("name at least one category")
+        raise Refused(t("settings_fields.categories_empty"))
     unknown = [c for c in cats if c not in SB_CATEGORIES]
     if unknown:
-        raise Refused(f"unknown: {', '.join(unknown)}. Known: {', '.join(SB_CATEGORIES)}")
+        known = ", ".join(SB_CATEGORIES)
+        raise Refused(t("settings_fields.categories_unknown", unknown=", ".join(unknown), known=known))
     return list(dict.fromkeys(cats))
 
 
 def browser_status(config: Config) -> str:
     browser = config.resolved_browser()
     if browser:
-        return f"{browser} — cookies from this browser are used"
+        return t("settings_fields.browser_in_use", browser=browser)
     if str(config.get("browser", "auto")).lower() == "none":
-        return "none — signed out, no cookies"
-    return "no supported browser found — no cookies"
+        return t("settings_fields.browser_none")
+    return t("settings_fields.browser_missing")
 
 
-SECTIONS = ("Playback", "Downloads", "Data", "Account", "Display", "Config file")
+_SECTION_IDS = ("playback", "downloads", "data", "account", "display", "config_file")
+SECTIONS = tuple(t(f"settings_fields.section_{name}") for name in _SECTION_IDS)
+PLAYBACK, DOWNLOADS, DATA, ACCOUNT, DISPLAY, CONFIG_FILE = SECTIONS
 
-THEME_OPTS = [
-    ("crimson",  "🔴  Crimson   — deep red accents (default)"),
-    ("amber",    "🟠  Amber     — warm orange"),
-    ("ocean",    "🔵  Ocean     — cool teal / cyan"),
-    ("midnight", "🟣  Midnight  — soft purple"),
-]
-QUALITY_OPTS = [
-    ("best",  "best  — highest available"),
-    ("1080",  "1080p — Full HD"),
-    ("720",   "720p  — HD"),
-    ("480",   "480p  — SD"),
-    ("360",   "360p  — low"),
-]
-THUMB_OPTS = [
-    ("auto",    "auto    — real image if supported (default)"),
-    ("symbols", "symbols — always Unicode block art"),
-]
+THEME_OPTS = [(name, t(f"settings_fields.theme_{name}")) for name in ("crimson", "amber", "ocean", "midnight")]
+QUALITY_OPTS = [(name, t(f"settings_fields.quality_{name}")) for name in ("best", "1080", "720", "480", "360")]
+THUMB_OPTS = [(name, t(f"settings_fields.thumb_{name}")) for name in ("auto", "symbols")]
+
+
+def _field(key: str, kind: str, section: str, read: Callable[[Config], object] | None = None, *,
+           parse: Callable[[str], object] | None = None, options: list[tuple[str, str]] | None = None,
+           note: bool = False) -> Field:
+    """A ``Field`` whose label (and, with ``note=True``, note) is looked up in strings.json by its key."""
+    name = key.replace(".", "_")
+    return Field(
+        key, t(f"settings_fields.field_{name}"), kind, section, read, options=options or [], parse=parse,
+        note=t(f"settings_fields.note_{name}") if note else "",
+    )
 
 
 def _ttl(name: str, label: str) -> Field:
     return Field(
-        f"cache_ttl.{name}", f"Cache TTL: {label}", "int", "Data",
-        lambda c: c.cache_ttl(name), parse=parse_int(MIN_TTL, MAX_TTL, " seconds"), note="seconds",
+        f"cache_ttl.{name}", t("settings_fields.ttl_label", name=label), "int", DATA,
+        lambda c: c.cache_ttl(name), parse=parse_int(MIN_TTL, MAX_TTL, t("settings_fields.seconds_unit")),
+        note=t("settings_fields.seconds_note"),
     )
 
 
 FIELDS: list[Field] = [
-    Field("sponsorblock.enabled", "SponsorBlock", "bool", "Playback", lambda c: c.sponsorblock_enabled),
-    Field("sponsorblock.categories", "Skip categories", "text", "Playback", lambda c: c.sponsorblock_categories,
-          parse=parse_categories, note="comma separated"),
-    Field("sponsorblock.auto_skip", "Auto-skip segments", "bool", "Playback", lambda c: c.sponsorblock_auto_skip),
-    Field("prefetch_video", "Prefetch video stream", "bool", "Playback", lambda c: c.prefetch_video_enabled),
-    Field("resume_playback", "Resume where you stopped", "bool", "Playback", lambda c: c.resume_playback_enabled,
-          note="History rows with a saved position start there"),
+    _field("sponsorblock.enabled", "bool", PLAYBACK, lambda c: c.sponsorblock_enabled),
+    _field("sponsorblock.categories", "text", PLAYBACK, lambda c: c.sponsorblock_categories,
+          parse=parse_categories, note=True),
+    _field("sponsorblock.auto_skip", "bool", PLAYBACK, lambda c: c.sponsorblock_auto_skip),
+    _field("prefetch_video", "bool", PLAYBACK, lambda c: c.prefetch_video_enabled),
+    _field("resume_playback", "bool", PLAYBACK, lambda c: c.resume_playback_enabled,
+          note=True),
 
-    Field("video_dir", "Video folder", "text", "Downloads", lambda c: c.get("video_dir"), parse=parse_dir),
-    Field("audio_dir", "Audio folder", "text", "Downloads", lambda c: c.get("audio_dir"), parse=parse_dir),
-    Field("video_format", "Video file name", "text", "Downloads", lambda c: c.video_format, parse=parse_template),
-    Field("audio_format", "Audio file name", "text", "Downloads", lambda c: c.audio_format, parse=parse_template),
-    Field("preferred_quality", "Preferred quality", "choice", "Downloads", lambda c: c.preferred_quality,
+    _field("video_dir", "text", DOWNLOADS, lambda c: c.get("video_dir"), parse=parse_dir),
+    _field("audio_dir", "text", DOWNLOADS, lambda c: c.get("audio_dir"), parse=parse_dir),
+    _field("video_format", "text", DOWNLOADS, lambda c: c.video_format, parse=parse_template),
+    _field("audio_format", "text", DOWNLOADS, lambda c: c.audio_format, parse=parse_template),
+    _field("preferred_quality", "choice", DOWNLOADS, lambda c: c.preferred_quality,
           options=QUALITY_OPTS),
 
-    Field("history", "Watch history", "bool", "Data", lambda c: c.history_enabled),
-    Field("history_max", "History size", "int", "Data", lambda c: c.history_max,
-          parse=parse_int(MIN_HISTORY, MAX_HISTORY), note="entries"),
-    Field("search_history", "Search history", "bool", "Data", lambda c: c.search_history_enabled),
-    Field("search_suggestions", "Search suggestions", "bool", "Data", lambda c: c.search_suggestions_enabled,
-          note="partial text goes to Google"),
-    _ttl("home", "Home"),
-    _ttl("search", "Search"),
-    _ttl("metadata", "Video metadata"),
-    Field("clear_cache", "Clear cache", "action", "Data"),
-    Field("clear_history", "Clear watch history", "action", "Data"),
-    Field("clear_search_history", "Clear search history", "action", "Data"),
+    _field("history", "bool", DATA, lambda c: c.history_enabled),
+    _field("history_max", "int", DATA, lambda c: c.history_max,
+          parse=parse_int(MIN_HISTORY, MAX_HISTORY), note=True),
+    _field("search_history", "bool", DATA, lambda c: c.search_history_enabled),
+    _field("search_suggestions", "bool", DATA, lambda c: c.search_suggestions_enabled,
+          note=True),
+    _ttl("home", t("settings_fields.ttl_home")),
+    _ttl("search", t("settings_fields.ttl_search")),
+    _ttl("metadata", t("settings_fields.ttl_metadata")),
+    _field("clear_cache", "action", DATA),
+    _field("clear_history", "action", DATA),
+    _field("clear_search_history", "action", DATA),
 
-    Field("browser", "Browser", "choice", "Account", lambda c: c.get("browser", "auto")),
-    Field("resolved_browser", "In use", "info", "Account", browser_status),
-    Field("cookie_prewarm", "Read browser session at startup", "bool", "Account", lambda c: c.cookie_prewarm,
-          note="warms the Home feed; never when the browser is none"),
+    _field("browser", "choice", ACCOUNT, lambda c: c.get("browser", "auto")),
+    _field("resolved_browser", "info", ACCOUNT, browser_status),
+    _field("cookie_prewarm", "bool", ACCOUNT, lambda c: c.cookie_prewarm,
+          note=True),
 
-    Field("theme", "Theme", "choice", "Display", lambda c: c.theme, options=THEME_OPTS),
-    Field("thumbnail_format", "Thumbnail format", "choice", "Display", lambda c: c.thumbnail_format,
+    _field("theme", "choice", DISPLAY, lambda c: c.theme, options=THEME_OPTS),
+    _field("thumbnail_format", "choice", DISPLAY, lambda c: c.thumbnail_format,
           options=THUMB_OPTS),
-    Field("rows_per_page", "Rows per page", "int", "Display", lambda c: c.rows_per_page,
-          parse=parse_int(MIN_ROWS_PER_PAGE, MAX_ROWS_PER_PAGE), note="applies at the next list load"),
+    _field("rows_per_page", "int", DISPLAY, lambda c: c.rows_per_page,
+          parse=parse_int(MIN_ROWS_PER_PAGE, MAX_ROWS_PER_PAGE), note=True),
 
-    Field("reload", "Reload from disk", "action", "Config file", note="re-read config.yaml after editing it by hand"),
+    _field("reload", "action", CONFIG_FILE, note=True),
 ]

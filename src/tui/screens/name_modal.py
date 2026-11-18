@@ -6,6 +6,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
+from src.strings import text
 from src.tui.fmt import escape_markup
 
 
@@ -22,8 +23,8 @@ class NameModal(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="playlist-dialog", classes="dialog"):
             yield Static(f"🎵  {escape_markup(self._title)}", id="playlist-title", markup=True)
-            yield Input(value=self._initial, placeholder="Name… (press Enter)", id="name-input")
-            yield Static("[dim]Enter[/dim] save  ·  [dim]Esc[/dim] cancel", id="playlist-hint", markup=True)
+            yield Input(value=self._initial, placeholder=text("name_modal.placeholder"), id="name-input")
+            yield Static(text("name_modal.hint"), id="playlist-hint", markup=True)
 
     def on_mount(self) -> None:
         self.query_one("#name-input", Input).focus()

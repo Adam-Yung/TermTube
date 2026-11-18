@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.strings import text
 from src.tui.screens.mixins import item_actions
 
 VIDEO = {"id": "AAAAAAAAAAA", "title": "t"}
@@ -40,7 +41,8 @@ async def test_transport_keys_say_nothing_is_playing(app):
 
 async def test_skip_with_an_empty_queue_says_so_and_skip_with_a_queue_works(app):
     async with app.run_test(size=(100, 30)) as pilot:
-        assert await hints_for(app, pilot, VIDEO, "action_audio_skip", playing=VIDEO) == ["Queue is empty."]
+        said = await hints_for(app, pilot, VIDEO, "action_audio_skip", playing=VIDEO)
+        assert said == [text("item_actions.queue_empty")]
         app.audio._queue.append(OTHER)
         with patch.object(app.audio, "skip_audio") as skip:
             await hints_for(app, pilot, VIDEO, "action_audio_skip", playing=VIDEO)
@@ -75,7 +77,7 @@ async def test_video_keys_on_channel_and_playlist_rows_say_not_a_video(app, entr
 async def test_download_is_refused_for_live_streams_and_fully_local_videos(app):
     async with app.run_test(size=(100, 30)) as pilot:
         live = await hints_for(app, pilot, {**VIDEO, "is_live": True}, "action_download")
-        assert live == ["Live stream: cannot download."]
+        assert live == [text("item_actions.live_no_download")]
         app.screen.__dict__.pop("_hint_times", None)
         both = await hints_for(app, pilot, {**VIDEO, "_local_type": "video", "_has_audio": True}, "action_download")
         assert both == ["Already downloaded as video and audio."]
@@ -106,4 +108,4 @@ async def test_channel_page_hints_for_c_and_sort_on_playlists(app):
     )
     ChannelScreen.action_channel(host)
     ChannelScreen.action_sort(host)
-    assert seen == ["Already on this channel.", "Playlists have no sort."]
+    assert seen == [text("channel_screen.already_here"), text("channel_screen.no_sort_playlists")]

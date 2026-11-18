@@ -20,6 +20,7 @@ if str(_ROOT) not in sys.path:
 
 # Managed tools win over system copies.
 from src.plat import get_deps_bin  # noqa: E402
+from src.strings import text as ui  # noqa: E402
 
 _deps_bin = get_deps_bin()
 if _deps_bin.is_dir():
@@ -40,11 +41,8 @@ def _c(code: str, text: str, *, color: bool) -> str:
 
 
 def _untrusted_dir_message(exc: PermissionError) -> str:
-    where = exc.filename or "the temporary directory"
-    return (
-        f"TermTube cannot start: {where} {exc.strerror or 'cannot be trusted'}. "
-        f"Check it with `ls -ld {where}`, then remove it or fix its owner so it is a plain directory you own."
-    )
+    where = exc.filename or ui("main.temp_dir")
+    return ui("main.untrusted_dir", where=where, reason=exc.strerror or ui("main.untrusted_reason"))
 
 
 def _print_help() -> None:
@@ -66,13 +64,13 @@ def _print_help() -> None:
     print()
     print("  " + _c("1", tl + line + tr, color=color))
     print(_banner_row(f"TermTube  {_VERSION}"))
-    print(_banner_row("YouTube TUI \u2014 yt-dlp + Textual"))
+    print(_banner_row(ui("main.tagline")))
     print("  " + _c("1", bl + line + br, color=color))
     print()
 
     prog = _c("1;32", "termtube", color=color)
     opts = _c("36", "[OPTIONS]", color=color)
-    print(f"  {_c('1', 'Usage:', color=color)}  {prog} {opts}")
+    print(f"  {_c('1', ui('main.usage'), color=color)}  {prog} {opts}")
     print()
 
     def _opt(flags: str, meta: str, desc: str) -> None:
@@ -83,20 +81,20 @@ def _print_help() -> None:
         pad = max(1, 34 - len(lhs_plain))
         print(lhs + " " * pad + desc)
 
-    print("  " + _c("1", "Options:", color=color))
-    _opt("--config",        "FILE",  "Path to config YAML")
-    _opt("--browser-help",  "",      "Show browser authentication setup")
-    _opt("--clear-cache",   "",      "Clear all cached feeds and metadata")
-    _opt("--clear-history", "",      "Erase the local watch and search history")
-    _opt("--debug",         "",      "Enable in-app debug log (Ctrl+D) + log file")
-    _opt("--level",         "LEVEL", "Log severity: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL")
-    _opt("--update",        "",      "Update yt-dlp, Deno, mpv, ffmpeg to latest, then exit")
-    _opt("--version",       "",      "Show version and exit")
-    _opt("--test",          "",      "Run the full test suite")
-    _opt("-h, --help",      "",      "Show this message and exit")
+    print("  " + _c("1", ui("main.options"), color=color))
+    _opt("--config",        "FILE",  ui("main.opt_config"))
+    _opt("--browser-help",  "",      ui("main.opt_browser_help"))
+    _opt("--clear-cache",   "",      ui("main.opt_clear_cache"))
+    _opt("--clear-history", "",      ui("main.opt_clear_history"))
+    _opt("--debug",         "",      ui("main.opt_debug"))
+    _opt("--level",         "LEVEL", ui("main.opt_level"))
+    _opt("--update",        "",      ui("main.opt_update"))
+    _opt("--version",       "",      ui("main.opt_version"))
+    _opt("--test",          "",      ui("main.opt_test"))
+    _opt("-h, --help",      "",      ui("main.opt_help"))
     print()
 
-    print("  " + _c("1", "Paths:", color=color))
+    print("  " + _c("1", ui("main.paths"), color=color))
     if sys.platform == "win32":
         appdata  = os.environ.get("APPDATA",    r"%APPDATA%")
         cfg_path = rf"{appdata}\TermTube\config.yaml"
@@ -104,10 +102,10 @@ def _print_help() -> None:
         home     = Path.home()
         cfg_path = str(home / ".config" / "TermTube" / "config.yaml")
 
-    print(f"    {_c('2', 'Config: ', color=color)}  {_c('36', cfg_path, color=color)}")
+    print(f"    {_c('2', ui('main.config_label'), color=color)}  {_c('36', cfg_path, color=color)}")
     print()
 
-    print("  " + _c("2", "Browser setup:", color=color)
+    print("  " + _c("2", ui("main.browser_setup"), color=color)
           + "  " + _c("36", "termtube --browser-help", color=color))
     print()
 
@@ -118,8 +116,8 @@ def _run_tests() -> None:
     tests_dir = project_root / "src" / "tests"
 
     if not tests_dir.exists():
-        print("\033[31mError: tests/ directory not found.\033[0m")
-        print(f"Expected at: {tests_dir}")
+        print("\033[31m" + ui("main.tests_missing") + "\033[0m")
+        print(ui("main.tests_expected", path=tests_dir))
         sys.exit(1)
 
     tmp_base = Path(tempfile.gettempdir()) / "TermTube"
@@ -128,9 +126,9 @@ def _run_tests() -> None:
     log_path = tmp_base / f"test_results_{timestamp}.log"
 
     print(f"\033[1m{'=' * 60}\033[0m")
-    print("\033[1m  TermTube Test Suite\033[0m")
+    print("\033[1m  " + ui("main.test_suite") + "\033[0m")
     print(f"\033[1m{'=' * 60}\033[0m")
-    print(f"  Log file: \033[36m{log_path}\033[0m")
+    print(ui("main.log_file", path=f"\033[36m{log_path}\033[0m"))
     print()
 
     cmd = [
@@ -149,7 +147,7 @@ def _run_tests() -> None:
             cwd=str(project_root),
         )
     except FileNotFoundError:
-        print("\033[31mError: pytest not found. Install with: pip install pytest pytest-asyncio\033[0m")
+        print("\033[31m" + ui("main.pytest_missing") + "\033[0m")
         sys.exit(1)
 
     lines: list[str] = []
@@ -168,10 +166,10 @@ def _run_tests() -> None:
     print()
     print(f"\033[1m{'=' * 60}\033[0m")
     if proc.returncode == 0:
-        print("  \033[32mAll tests passed.\033[0m")
+        print("  \033[32m" + ui("main.tests_passed") + "\033[0m")
     else:
-        print(f"  \033[31mSome tests failed (exit code {proc.returncode}).\033[0m")
-    print(f"  Results saved to: \033[36m{log_path}\033[0m")
+        print("  \033[31m" + ui("main.tests_failed", code=proc.returncode) + "\033[0m")
+    print(ui("main.results_saved", path=f"\033[36m{log_path}\033[0m"))
     print(f"\033[1m{'=' * 60}\033[0m")
 
     sys.exit(proc.returncode)
@@ -200,29 +198,29 @@ def _migrate_legacy_windows_paths() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="termtube",
-        description="TermTube — YouTube TUI powered by yt-dlp + Textual",
+        description=ui("main.description"),
         add_help=False,
     )
-    parser.add_argument("--config", metavar="FILE", help="Path to config YAML")
-    parser.add_argument("--browser-help", action="store_true", help="Show browser authentication setup")
-    parser.add_argument("--clear-cache", action="store_true", help="Clear all cached feeds and metadata")
-    parser.add_argument("--clear-history", action="store_true", help="Erase the local watch and search history")
+    parser.add_argument("--config", metavar="FILE", help=ui("main.opt_config"))
+    parser.add_argument("--browser-help", action="store_true", help=ui("main.opt_browser_help"))
+    parser.add_argument("--clear-cache", action="store_true", help=ui("main.opt_clear_cache"))
+    parser.add_argument("--clear-history", action="store_true", help=ui("main.opt_clear_history"))
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Log to the in-app debug window (Ctrl+D) and a timestamped temp file. Nothing goes to stderr.",
+        help=ui("main.arg_debug"),
     )
     parser.add_argument(
         "--level",
         metavar="LEVEL",
         default="ALL",
         choices=["ALL", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Minimum severity kept when --debug is set: ALL|DEBUG|INFO|WARNING|ERROR|CRITICAL. Default: ALL.",
+        help=ui("main.arg_level"),
     )
-    parser.add_argument("--version", action="store_true", help="Show version")
-    parser.add_argument("--update", action="store_true", help="Update yt-dlp, Deno, mpv and ffmpeg, then exit")
-    parser.add_argument("--test", action="store_true", help="Run the full test suite and save results to a log file")
-    parser.add_argument("-h", "--help", action="store_true", help="Show this message and exit")
+    parser.add_argument("--version", action="store_true", help=ui("main.opt_version"))
+    parser.add_argument("--update", action="store_true", help=ui("main.opt_update"))
+    parser.add_argument("--test", action="store_true", help=ui("main.arg_test"))
+    parser.add_argument("-h", "--help", action="store_true", help=ui("main.opt_help"))
     args = parser.parse_args()
 
     if args.help:
@@ -252,13 +250,13 @@ def main() -> None:
         from src import history, search_history
         history.clear()
         search_history.clear()
-        print("Watch and search history cleared.")
+        print(ui("main.history_cleared"))
         sys.exit(0)
 
     if args.update:
         from src.updater import self_update
         color = _supports_color()
-        print(_c("1", "TermTube -- updating...", color=color))
+        print(_c("1", ui("main.updating"), color=color))
         sys.exit(0 if self_update() else 1)
 
     from src.deps import check_dependencies
@@ -277,7 +275,7 @@ def main() -> None:
         cache = Cache({})
         logger.info("Clearing all cache")
         cache.clear_all()
-        print("Cache cleared.")
+        print(ui("main.cache_cleared"))
         sys.exit(0)
 
     # Must precede Textual: textual_image probes the terminal at import, which fails once Textual's I/O threads run.
@@ -330,7 +328,7 @@ def main() -> None:
     if args.debug:
         log_path = logger.log_file()
         if log_path:
-            print(f"Logs saved at {log_path}")
+            print(ui("main.logs_saved", path=log_path))
 
 
 if __name__ == "__main__":

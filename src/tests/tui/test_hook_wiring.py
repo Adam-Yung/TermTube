@@ -204,7 +204,7 @@ async def test_a_removal_and_its_undo_both_run_the_rail_refresh(app, monkeypatch
     async with app.run_test(size=(100, 30)) as pilot:
         screen, _panel = await seed(app, pilot, "history", 1)
         held = rows(2)
-        screen._removals = lambda: {"history": Removal(lambda t, c: t, lambda r: None, lambda: held, "row")}
+        screen._removals = lambda: {"history": Removal(lambda t, c: t, lambda r: None, lambda: held, "item")}
         screen._remove(held[:1], "")
         screen.action_undo()
         assert len(after) == 2

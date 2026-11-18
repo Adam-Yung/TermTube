@@ -6,6 +6,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
+from src.strings import text
+
 
 class YtdlpUpdateModal(ModalScreen[str]):
     """Shown on feed extraction errors. Dismisses with "update" or "skip"."""
@@ -19,20 +21,17 @@ class YtdlpUpdateModal(ModalScreen[str]):
     def compose(self) -> ComposeResult:
         with Vertical(id="ytdlp-update-dialog", classes="dialog"):
             yield Static(
-                "\u26a0  Video fetching error",
+                text("ytdlp_update_modal.title"),
                 id="ytdlp-update-title",
                 markup=True,
             )
-            body = (
-                "yt-dlp may be outdated and unable to extract video data.\n"
-                "Updating often fixes extraction errors."
-            )
+            body = text("ytdlp_update_modal.body")
             if self._error_detail:
-                body += f"\n\n[dim]{self._error_detail[:120]}[/dim]"
+                body += text("ytdlp_update_modal.detail", detail=self._error_detail[:120])
             yield Static(body, id="ytdlp-update-body", markup=True)
             yield ListView(
-                ListItem(Static("  Update yt-dlp now"), id="ytdlp-update-yes"),
-                ListItem(Static("  Skip"), id="ytdlp-update-skip"),
+                ListItem(Static(text("ytdlp_update_modal.update")), id="ytdlp-update-yes"),
+                ListItem(Static(text("ytdlp_update_modal.skip")), id="ytdlp-update-skip"),
                 id="ytdlp-update-list",
             )
 

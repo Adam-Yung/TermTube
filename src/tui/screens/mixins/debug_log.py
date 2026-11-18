@@ -6,6 +6,7 @@ import re
 from textual.widgets import RichLog
 
 from src import logger
+from src.strings import text
 
 _LEVEL_STYLES = {
     "DEBUG": "dim",
@@ -36,7 +37,7 @@ class DebugLogMixin:
             logger.register_tui_sink(self._on_log_record)
             self.set_interval(_DRAIN_INTERVAL_S, self._drain_log_queue)
             logger.info("debug log wired to TUI sink")
-            self._log(f"[green]Debug logging active[/green] — file: [dim]{logger.log_file()}[/dim]")
+            self._log(text("debug_log.active", file=logger.log_file()))
 
     def action_toggle_log(self) -> None:
         self._log_visible = not self._log_visible
@@ -46,10 +47,10 @@ class DebugLogMixin:
             return
         if not logger.is_debug():
             log.clear()
-            log.write("[yellow]Debug logging is disabled.[/yellow]")
-            log.write("[dim]Restart with [bold]termtube --debug[/bold] to enable it.[/dim]")
-            log.write("[dim]Logs go to $TMPDIR/TermTube/<timestamp>.log and are mirrored here.[/dim]")
-        self.notify("Debug log visible — Ctrl+D to hide", timeout=2)
+            log.write(text("debug_log.disabled"))
+            log.write(text("debug_log.restart_hint"))
+            log.write(text("debug_log.log_location"))
+        self.notify(text("debug_log.visible"), timeout=2)
 
     def _on_log_record(self, level: str, msg: str) -> None:
         """Logger sink, called from any thread while the logging handler lock is held: it must never block.
