@@ -16,6 +16,8 @@ _NOT_REMOVABLE = {
     "home": "Home rows cannot be removed.",
     "subscriptions": "Subscriptions cannot be removed here.",
     "search": "Search results cannot be removed.",
+    "history:wl": "Removing from Watch Later is not supported here. Open youtube.com/playlist?list=WL in a browser.",
+    "history:yt": "Removing from YouTube history is not supported here. Open youtube.com/feed/history in a browser.",
 }
 
 
@@ -34,6 +36,7 @@ class Removal:
     noun: str
     ask: Callable[[list[Entry]], tuple[str, dict[str, str]]] | None = None  # (question markup, key -> choice)
     permanent: bool = False  # files are deleted: nothing to undo
+    label: str = ""  # where a restore puts things back (default: the tab's name)
 
 
 class ListToolsMixin:
@@ -62,16 +65,27 @@ class ListToolsMixin:
     def action_mark_page(self) -> None:
         self._list().mark_page()
 
-    def action_delete(self) -> None:
-        removal = self._removals().get(self._current_tab)
-        if removal is None:
-            self._hint(_NOT_REMOVABLE.get(self._current_tab, "Nothing here can be removed."))
-            return
-        panel = self._list()
-        targets = panel.marked_entries()
+    def _removal_key(self) -> str:
+        """Which `_removals()` entry `D` and `u` act on; the current tab unless a screen widget says otherwise."""
+        return self._current_tab
+
+    def _delete_targets(self) -> list[Entry]:
+        targets = self._list().marked_entries()
         if not targets:
             entry = self._selected_entry()
             targets = [entry] if entry else []
+        return targets
+
+    def _after_removal(self) -> None:
+        """Called after a removal or an undo, for screens whose other widgets show what was removed."""
+
+    def action_delete(self) -> None:
+        key = self._removal_key()
+        removal = self._removals().get(key)
+        if removal is None:
+            self._hint(_NOT_REMOVABLE.get(key, "Nothing here can be removed."))
+            return
+        targets = self._delete_targets()
         if not targets:
             self._hint("Nothing selected.", "information")
             return
@@ -100,7 +114,7 @@ class ListToolsMixin:
             self._remove(targets, choices[event.key])
 
     def _remove(self, targets: list[Entry], choice: str) -> None:
-        tab = self._current_tab
+        tab = self._removal_key()
         removal = self._removals()[tab]
         panel = self._list()
         visible = panel.visible_ids()
@@ -109,6 +123,8 @@ class ListToolsMixin:
         neighbour = next((v for v in visible[keep_at:] if v not in gone), None) or next(
             (v for v in reversed(visible[:keep_at]) if v not in gone), None
         )
+        if not gone & set(visible):
+            neighbour = None
         removed = removal.remove(targets, choice)
         panel.replace_entries(removal.reload(), focus_id=neighbour)
         count = len(removed)
@@ -118,9 +134,10 @@ class ListToolsMixin:
             failed = len(targets) - count
             tail = f" {failed} could not be deleted." if failed else ""
             self.notify(f"Deleted {count} {noun}. The files are gone; u cannot undo this.{tail}", timeout=6)
-            return
-        self._undo = (tab, removed, time.monotonic())
-        self.notify(f"Removed {count} {noun}. Press u to undo.", timeout=4)
+        else:
+            self._undo = (tab, removed, time.monotonic())
+            self.notify(f"Removed {count} {noun}. Press u to undo.", timeout=4)
+        self._after_removal()
 
     def action_undo(self) -> None:
         if self._undo is None or time.monotonic() - self._undo[2] > _UNDO_WINDOW_S:
@@ -131,7 +148,9 @@ class ListToolsMixin:
         self._undo = None
         removal = self._removals()[tab]
         removal.restore(records)
-        if tab == self._current_tab:
+        if tab in (self._current_tab, "playlists"):
             self._list().replace_entries(removal.reload(), focus_id=records[0].get("id"))
+        self._after_removal()
         count = len(records)
-        self.notify(f"Restored {count} {removal.noun}{'' if count == 1 else 's'} to {tab.title()}.", timeout=4)
+        noun = f"{removal.noun}{'' if count == 1 else 's'}"
+        self.notify(f"Restored {count} {noun} to {removal.label or tab.title()}.", timeout=4)

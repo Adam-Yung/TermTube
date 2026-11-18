@@ -55,6 +55,8 @@ def add(entry: Entry, config=None) -> None:
 
     def apply(data: list) -> bool:
         previous = next((e for e in data if e.get("id") == vid), None)
+        if previous and not record["duration"]:
+            record["duration"] = previous.get("duration")
         record.update(
             watched_at=time.time(),
             plays=(previous.get("plays", 1) if previous else 0) + 1,
@@ -67,6 +69,43 @@ def add(entry: Entry, config=None) -> None:
         return True
 
     _store.update(apply, defer=True)
+
+
+def get(vid: str) -> Entry | None:
+    """A copy of the history record for ``vid``, or None."""
+    return _store.read(lambda data: next((dict(e) for e in data if e.get("id") == vid), None))
+
+
+def record_progress(vid: str, *, resume_s: int | None, watched: float, duration: float | None = None) -> None:
+    """Add ``watched`` seconds to a recorded video and set where to resume (None: play from the start next time).
+
+    A video with no record (history off, or removed meanwhile) is left alone. The disk write is deferred.
+    """
+    def apply(data: list) -> bool:
+        record = next((e for e in data if e.get("id") == vid), None)
+        if record is None:
+            return False
+        record["resume_s"] = resume_s
+        record["seconds"] = round((record.get("seconds") or 0) + watched, 1)
+        if duration and not record.get("duration"):
+            record["duration"] = int(duration)
+        return True
+
+    _store.update(apply, defer=True)
+
+
+def flush() -> None:
+    """Write deferred changes now (the quit path does not wait for the background timer)."""
+    _store.flush()
+
+
+def ordered(entries: list[Entry], sort: str) -> list[Entry]:
+    """``entries`` (newest first) as ``sort``: ``plays`` (then time watched) or ``time``; else unchanged. Stable."""
+    if sort == "plays":
+        return sorted(entries, key=lambda e: (e.get("plays") or 0, e.get("seconds") or 0), reverse=True)
+    if sort == "time":
+        return sorted(entries, key=lambda e: e.get("seconds") or 0, reverse=True)
+    return entries
 
 
 def remove_many(ids: list[str]) -> list[Entry]:
@@ -93,6 +132,35 @@ def restore(records: list[Entry]) -> None:
         return bool(back)
 
     _store.update(apply, defer=True)
+
+
+def import_entries(entries: list[Entry], config=None) -> int:
+    """Copy YouTube history rows into the local history. Returns how many were added.
+
+    Rows already present (by id) win and stay untouched. Imported rows carry `source="yt"` and `watched_at=None`
+    ("unknown time": YouTube's history gives no timestamps): they go after every dated row, under the "Earlier"
+    day header, and are the first to fall off the `history_max` cap.
+    """
+    limit = config.history_max if config is not None else _DEFAULT_MAX
+    added = 0
+
+    def apply(data: list) -> bool:
+        nonlocal added
+        present = {e.get("id") for e in data}
+        for entry in entries:
+            vid = entry.get("id")
+            if not vid or vid in present:
+                continue
+            present.add(vid)
+            record = slim(entry, vid)
+            record.update(watched_at=None, plays=0, seconds=0, resume_s=None, source="yt")
+            data.append(record)
+            added += 1
+        del data[limit:]
+        return bool(added)
+
+    _store.update(apply)
+    return added
 
 
 def clear() -> None:

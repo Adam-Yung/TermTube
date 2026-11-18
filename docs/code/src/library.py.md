@@ -40,3 +40,5 @@ the modal to pin in the cache.
 the form's sidecar and extras are kept. Every path is checked by `_refusal`: no `..`, inside a configured root, no symlink anywhere below the
 root; refusals land in `failed` and nothing else is touched. A path that is already gone is skipped silently. Afterwards the sidecar records
 leave the index and the list is invalidated. Files are removed outright (no trash); undo never brings them back.
+
+`kinds`, `of_kind` and `counts` define the rail collections (Videos = has a video file, Audio = has an audio file, so a merged row is in both). `attach_local(rows, library_entries)` copies the download state onto playlist rows (`_dl` = `video`/`audio`/`both`/`""` plus the `_local_*` fields playback and the detail panel read); a row whose file is missing counts as not downloaded.

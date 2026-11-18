@@ -462,6 +462,11 @@ def friendly_mpv_error(raw: str) -> str:
     return raw[:100]
 
 
+def start_args(start: float | None) -> list[str]:
+    """mpv flag that starts playback ``start`` seconds in; the one place both players add it."""
+    return [f"--start={int(start)}"] if start else []
+
+
 def audio_command(
     exe: str,
     *,
@@ -473,6 +478,7 @@ def audio_command(
     ytdl_format: str = "",
     cookie_args: list[str] | None = None,
     mpv_log: str | None = None,
+    start: float | None = None,
 ) -> list[str]:
     """Build the headless mpv command for background audio. ``mpv_log`` makes mpv write a verbose log file there.
 
@@ -495,6 +501,7 @@ def audio_command(
         cmd += [f"--title={title}", f"--force-media-title={title}"]
     if mpv_log:
         cmd += ["--msg-level=all=info", f"--log-file={mpv_log}"]
+    cmd += start_args(start)
     if stream_url:
         return cmd + ["--no-ytdl", "--", stream_url]
     cmd.append(f"--ytdl-format={ytdl_format or 'ba/b'}")

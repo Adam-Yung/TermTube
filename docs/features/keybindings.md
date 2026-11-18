@@ -18,8 +18,9 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
    **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
-   `J` `K` (move in an ordered list) and `Q` (queue view) are reserved for later phases and unbound today.
-7. `Esc` and `Backspace` go back (out of a playlist or channel; on the Search tab, to the previous search at its page and row). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
+   `Q` (queue view) is reserved for a later phase and unbound today.
+7. `Esc` and `Backspace` go back (out of the channel page; on the Search tab, to the previous search at its page and row; on the Library tab, from the list to the rail). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
+8. **The Library tab has two panes, and `Tab` moves between them.** With the rail focused `j`/`k`/`g`/`G` walk its entries, `Enter` shows one (and focuses the list), `l`/`→` returns to the list without choosing. Keys that act on a row (`v` `a` `d` `p` ...) do nothing while the rail has focus; the playlist keys (`R` `D` `P` `S` `E`) act on the playlist under the rail cursor. `D` still means "remove the thing I am on": a row in the list, a playlist in the rail.
 
 ## Map
 
@@ -39,12 +40,18 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `[` `]` `{` `}` | audio seek ∓5 s / ∓10 s | same keys, same distances |
 | `0`–`9` | audio seek to 0–90 % | seek to 0–90 % |
 | `d` `c` `p` `y` `b` | download / channel / playlist / copy URL / browser | |
-| `f` | filter the loaded list as you type, across all pages (`Enter` keeps it, `Esc` clears it); also on the channel page | |
+| `f` | filter the loaded list as you type, across all pages (`Enter` keeps it, `Esc` clears it); also on the channel page. On the Library tab it also takes tokens: `type:audio`, `dur:<10m`, `by:"name"`, `year:2024`, `pl:name`, `dl:yes` | |
 | `m` `M` | mark the row and move down / mark the page (`●`; marks survive paging, clear on a view change) | |
-| `D` `u` | remove the row or the marked rows (History only so far) after `y` / `N` / undo the last removal | |
+| `D` `u` | remove the row or the marked rows (History, Library and playlists; on the rail, the playlist under the cursor) after `y` / `N` / undo the last removal | |
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
-| `F1`–`F7` `` ` `` | jump to a tab / tab picker | |
-| `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); a hint elsewhere | |
+| `F1`–`F6` `` ` `` | jump to a tab (Help is `F6`) / tab picker | |
+| `Tab` | Library tab: move focus between the rail and the list (a hint elsewhere) | |
+| `n` `R` | Library tab: new playlist / rename the playlist under the rail cursor or the open one (a hint elsewhere) | |
+| `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |
+| `P` `S` `E` | play / shuffle / queue the open or highlighted playlist as audio (a hint elsewhere) | |
+| `Y` `I` | History tab: `Y` cycles the source (Local, YouTube history, Watch Later; the last two are read-only account lists) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
+| `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); `s` on the local History tab: recent / most watched / longest watched (a hint elsewhere) | |
+| `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
 | `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |
 | `B` | channel page: follow or unfollow the channel locally (`channels.json`, works with `browser: none`) | |
 | `F` | Subscriptions tab: the local Following list (`Enter` opens a channel, `Esc` returns); a hint on other tabs | |
@@ -68,4 +75,4 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `e` enqueue only while playing | silent no-op otherwise | starts playback when idle |
 | Channel page lacked `e`, `>`, `x`, `V` | copy of the main screen's keys, drifted | same table via `keymap.py` |
 
-Not changed: `F1`–`F7` and `` ` `` (F-keys need `fn` on macOS; the picker covers that), `d`/`c`/`y`/`p`/`b`, `/`, `r`, `,`, `?`.
+Not changed: `F1`–`F6` and `` ` `` (F-keys need `fn` on macOS; the picker covers that), `d`/`c`/`y`/`p`/`b`, `/`, `r`, `,`, `?`.

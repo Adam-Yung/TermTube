@@ -137,3 +137,17 @@ yt-dlp with the browser cookie jar. Every other call stays anonymous. No code ma
 ## 2026-11-15 — Lazy, narrowed cookies
 
 The startup cookie warmup thread is gone; the jar is extracted on the first authenticated fetch (home feed, subscription list). The 10-minute expiry is gone; the jar lives until an auth failure (`sign in`, `login required`, HTTP 401/403 in a yt-dlp error) invalidates it, followed by one retry. Extraction keeps only `youtube.com` and `google.com` cookies, in memory only. Channel videos, channel playlists and search fallbacks no longer carry cookies: they are public data, and a session that only searches, plays and browses channels must not read the browser profile. This supersedes the earlier table row that gave channel fetches cookies. Stream resolution and downloads still use none (age-gated plays therefore have no cookie path; unchanged). Cost: the first home load now waits for extraction (5 to 15 s on a cold profile) instead of overlapping it with startup.
+
+## 2026-11-17 — History feed and Watch Later become account-bound
+
+The YouTube watch history (`:ythis`, `/feed/history`) and Watch Later (`:ytwatchlater`, `playlist?list=WL`) are account data, so they go through
+the same `fetch_page_batch(auth=True)` path as Home: lazy narrowed in-memory jar, renewed once on an authentication failure. Still never sent to
+InnerTube, stream resolution, downloads or SponsorBlock. Both stay read-only (owner decision). `src/tests/unit/test_cookie_policy.py` pins the
+set of `auth=True` call sites so a new account-bound call cannot appear unnoticed. Feed ids are cached per key (`yt_history`, `yt_watchlater`,
+600 s default in `cache_ttl`).
+
+## Cookie prewarm and Refresh account (2026-11-17)
+
+This reverses "nothing is read at startup" (the warmup thread removed above), at the owner's explicit request, as a setting: `cookie_prewarm`, default true. `MainScreen` calls `cookies.prewarm(config)` through `call_after_refresh` after the first paint; it starts one daemon thread running `get_cookiejar`, only when `cookie_prewarm` is on and a browser resolves (never for `browser: none`), and never twice. Failures stay silent (debug log) because `get_cookiejar` already swallows them. The setting is a YAML key only, not a Settings row (settings_fields.py was off limits for this change).
+
+Refresh account: the empty-feed dialog has a "Refresh account (re-read browser sign-in)" choice that calls `cookies.invalidate()`, clears that feed's cached ids and reloads the view. A sign-in failure on an account call already invalidates the jar in `_extract_videos`, so `r` after a sign-in message re-reads the browser. Plain `r` on Home does not invalidate (it would cost a 5-15 s browser read every time). No Settings action was added.

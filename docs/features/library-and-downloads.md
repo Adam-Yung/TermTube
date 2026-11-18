@@ -37,3 +37,26 @@ same name, merges a video and its audio into one row, and sorts by upload date, 
 ## Related files
 
 `src/downloads.py`, `src/library.py`, `src/tui/screens/download_modal.py`, `download_picker_modal.py`; mirrors under `docs/code/`.
+
+## Playlists
+
+Local playlists live in `playlists.json` (v2: stable ids, items as slim snapshots with title, uploader, duration; see
+[src/playlist.py](../code/src/playlist.py.md)). They hold references only: removing a video from a playlist or deleting a playlist never
+deletes a downloaded file. On the Library tab (`F5`) playlists are entries of the left rail: `Tab` moves between the rail and the list, `j`/`k` walk the rail, `Enter` shows an entry
+(`+ New playlist` asks for a name), `n` new, `R` rename, `D` on a rail entry deletes the playlist (one question, `u` undoes). In a playlist: `m`/`M` mark, `D` remove from the playlist, `J`/`K` reorder, `f` filter, `P` play, `S` shuffle, `E` queue the whole playlist as audio.
+`p` on any video opens the playlist dialog: `Space` selects several playlists, `Enter` toggles them. Videos in a playlist are pinned in the
+cache so the list and its thumbnails work offline. The first run on a v1 file keeps `playlists.json.v1` beside it.
+
+## The Library tab and its rail
+
+One tab holds everything downloaded or saved. The rail on the left lists `All downloads`, `Videos` (anything with a video file), `Audio` (anything with
+an audio file; a video with a merged audio file is in both), then one entry per playlist, then `+ New playlist`. Counts sit beside each entry. Choosing an
+entry loads it through the normal feed loader, so paging, filter, marks, `D` and `u` behave as everywhere else. Leaving the tab and coming back reopens the
+last entry. Below 100 columns the rail is one line above the list (`Tab`, then `j`/`k`, `Enter`).
+
+Playlist rows are checked against the Library index when they load: `⬇ video`, `⬇ audio`, `⬇ both` or `☁` (not downloaded). Playing a downloaded row uses the
+file on disk, otherwise it streams. The detail panel lists "In playlists: A, B" for any video that is in one.
+
+Filter (`f`) in the Library tab and in playlists takes free words (title, uploader or channel, tags, description) and tokens: `type:audio|video`,
+`dur:<10m` / `dur:>20m`, `by:name` or `by:"two words"`, `year:2024`, `pl:name`, `dl:yes|no`. A malformed token is treated as a free word. Other tabs filter
+plain text only. A search across History, Library and playlists together is not built.

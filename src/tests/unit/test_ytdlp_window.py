@@ -53,3 +53,25 @@ def test_search_fallback_window_covers_skipped(fake_ydl, temp_cache, monkeypatch
 
     assert len(results) == 20
     assert fake_ydl.seen_urls == ["ytsearch40:q"]
+
+
+def test_account_feed_tolerates_malformed_flat_entries():
+    """Fields of a real `:ythis` entry are unverified offline: keep what is there, skip non-videos, never raise."""
+    from unittest.mock import MagicMock, patch
+
+    import src.ytdlp as ytdlp
+
+    rows = [
+        None, "text", 7, {}, {"id": 5}, {"id": "short"}, {"id": "abcdefghijk", "_type": "playlist"},
+        {"id": "abcdefghijl"},
+        {"id": "abcdefghijm", "title": "Full", "uploader": "Chan", "duration": 61.0, "channel": "Chan"},
+    ]
+    ydl = MagicMock()
+    ydl.__enter__.return_value = ydl
+    ydl.extract_info.return_value = {"entries": rows}
+    cache = MagicMock()
+    with patch("src.ytdlp._make_ydl", return_value=ydl) as make:
+        out = ytdlp.fetch_page_batch(ytdlp.FEED_URLS["yt_history"], MagicMock(), cache, count=10, auth=True)
+    assert [e["id"] for e in out] == ["abcdefghijl", "abcdefghijm"]
+    assert make.call_args.kwargs["auth"] is True
+    assert ydl.extract_info.call_args.args[0] == "https://www.youtube.com/feed/history"

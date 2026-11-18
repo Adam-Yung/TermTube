@@ -343,6 +343,35 @@ EmptyFeedModal, NavModal, SortModal, ChannelTabModal, VideoActionModal, Settings
 #settings-dialog { width: 60%; height: 80%; }
 #dlpick-dialog { width: 55; height: auto; max-height: 80%; }
 
+QueueModal { align: center middle; }
+
+#queue-dialog {
+    width: 70%;
+    height: auto;
+    max-height: 80%;
+    background: #1a1a1a;
+    border: solid #444444;
+    padding: 1 2;
+}
+
+#queue-title {
+    color: #ff4444;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#queue-hint {
+    color: #555555;
+    margin-top: 1;
+}
+
+#queue-list {
+    height: auto;
+    max-height: 18;
+    background: #0a0a12;
+    border: solid #2a2a2a;
+}
+
 #search-title, #download-title, #playlist-title, #quality-title, #settings-title {
     color: #ff4444;
     text-style: bold;
@@ -411,12 +440,10 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     margin-bottom: 1;
 }
 
-#theme-list, #quality-list-s, #thumb-list, #suggest-list, #browser-list {
-    height: auto;
-    max-height: 8;
+#settings-list {
+    height: 1fr;
     background: #0a0a12;
     border: solid #2a2a2a;
-    margin-bottom: 1;
 }
 
 #dlpick-list {
@@ -436,11 +463,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 }
 
 #vaction-list > ListItem,
-#theme-list > ListItem,
-#quality-list-s > ListItem,
-#thumb-list > ListItem,
-#suggest-list > ListItem,
-#browser-list > ListItem {
+#settings-list > ListItem {
     padding: 0 1;
     color: #888888;
     border-left: thick #0a0a12;
@@ -449,11 +472,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #imgwarn-list > ListItem,
 #emptyfeed-list > ListItem,
 #vaction-list > ListItem,
-#theme-list > ListItem,
-#quality-list-s > ListItem,
-#thumb-list > ListItem,
-#suggest-list > ListItem,
-#browser-list > ListItem {
+#settings-list > ListItem {
     height: 1;
 }
 
@@ -466,22 +485,14 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #imgwarn-list > ListItem > Static,
 #emptyfeed-list > ListItem > Static,
 #vaction-list > ListItem > Static,
-#theme-list > ListItem > Static,
-#quality-list-s > ListItem > Static,
-#thumb-list > ListItem > Static,
-#suggest-list > ListItem > Static,
-#browser-list > ListItem > Static {
+#settings-list > ListItem > Static {
     background: transparent;
 }
 
 #playlist-list > ListItem.-highlight,
 #quality-list > ListItem.-highlight,
 #vaction-list > ListItem.-highlight,
-#theme-list > ListItem.-highlight,
-#quality-list-s > ListItem.-highlight,
-#thumb-list > ListItem.-highlight,
-#suggest-list > ListItem.-highlight,
-#browser-list > ListItem.-highlight {
+#settings-list > ListItem.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
     color: #ffffff;
@@ -504,11 +515,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #imgwarn-list > ListItem.-highlight > Static,
 #emptyfeed-list > ListItem.-highlight > Static,
 #vaction-list > ListItem.-highlight > Static,
-#theme-list > ListItem.-highlight > Static,
-#quality-list-s > ListItem.-highlight > Static,
-#thumb-list > ListItem.-highlight > Static,
-#suggest-list > ListItem.-highlight > Static,
-#browser-list > ListItem.-highlight > Static,
+#settings-list > ListItem.-highlight > Static,
 #dlpick-list > ListItem.-highlight > Static {
     color: #ffffff;
 }
@@ -612,14 +619,29 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     margin-bottom: 1;
 }
 
-#settings-scroll {
-    height: 1fr;
-    overflow-y: auto;
+#settings-path, #settings-status {
+    color: #888888;
+    height: auto;
 }
 
-#s-theme-head, #s-quality-head, #s-thumb-head, #s-suggest-head, #s-browser-head {
+#settings-input {
     margin-top: 1;
-    margin-bottom: 0;
+}
+
+#settings-list > ListItem.settings-section {
+    border-left: thick #0a0a12;
+    color: #ff6666;
+    text-style: bold;
+    background: transparent;
+}
+
+#settings-list > ListItem.settings-section:disabled > Static {
+    color: #ff6666;
+    text-style: bold;
+}
+
+#settings-list > ListItem:disabled {
+    opacity: 1;
 }
 
 #dlpick-video-title {
@@ -650,16 +672,12 @@ App.theme-amber VideoListItem:hover { background: #141000; }
 App.theme-amber #quality-list > ListItem.-highlight,
 App.theme-amber #playlist-list > ListItem.-highlight,
 App.theme-amber #vaction-list > ListItem.-highlight,
-App.theme-amber #theme-list > ListItem.-highlight,
-App.theme-amber #quality-list-s > ListItem.-highlight,
-App.theme-amber #thumb-list > ListItem.-highlight,
-App.theme-amber #suggest-list > ListItem.-highlight,
-App.theme-amber #browser-list > ListItem.-highlight,
+App.theme-amber #settings-list > ListItem.-highlight,
 App.theme-amber #dlpick-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
 App.theme-amber #list-view, App.theme-amber #video-info { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
 App.theme-amber #search-input:focus { border: solid #e8820c; }
 App.theme-amber #list-loading-anim, App.theme-amber #search-title, App.theme-amber #download-title, App.theme-amber #quality-title, App.theme-amber #playlist-title,
-App.theme-amber #settings-title, App.theme-amber #nav-title, App.theme-amber #sort-title, App.theme-amber #ch-tab-title, App.theme-amber #dlpick-header, App.theme-amber #video-channel, App.theme-amber #ch-name,
+App.theme-amber #queue-title, App.theme-amber #settings-title, App.theme-amber #nav-title, App.theme-amber #sort-title, App.theme-amber #ch-tab-title, App.theme-amber #dlpick-header, App.theme-amber #video-channel, App.theme-amber #ch-name,
 App.theme-amber #watch-dialog #np-header { color: #e8820c; }
 App.theme-amber FooterKey .footer-key--key { color: #e8820c; background: #1a0d00; }
 App.theme-amber #help-outer, App.theme-amber #nav-dialog, App.theme-amber #sort-dialog, App.theme-amber #ch-tab-dialog { border: solid #e8820c; }
@@ -677,16 +695,12 @@ App.theme-ocean VideoListItem:hover { background: #00141c; }
 App.theme-ocean #quality-list > ListItem.-highlight,
 App.theme-ocean #playlist-list > ListItem.-highlight,
 App.theme-ocean #vaction-list > ListItem.-highlight,
-App.theme-ocean #theme-list > ListItem.-highlight,
-App.theme-ocean #quality-list-s > ListItem.-highlight,
-App.theme-ocean #thumb-list > ListItem.-highlight,
-App.theme-ocean #suggest-list > ListItem.-highlight,
-App.theme-ocean #browser-list > ListItem.-highlight,
+App.theme-ocean #settings-list > ListItem.-highlight,
 App.theme-ocean #dlpick-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
 App.theme-ocean #list-view, App.theme-ocean #video-info { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
 App.theme-ocean #search-input:focus { border: solid #0ea5e9; }
 App.theme-ocean #list-loading-anim, App.theme-ocean #search-title, App.theme-ocean #download-title, App.theme-ocean #quality-title, App.theme-ocean #playlist-title,
-App.theme-ocean #settings-title, App.theme-ocean #nav-title, App.theme-ocean #sort-title, App.theme-ocean #ch-tab-title, App.theme-ocean #dlpick-header, App.theme-ocean #video-channel, App.theme-ocean #ch-name,
+App.theme-ocean #queue-title, App.theme-ocean #settings-title, App.theme-ocean #nav-title, App.theme-ocean #sort-title, App.theme-ocean #ch-tab-title, App.theme-ocean #dlpick-header, App.theme-ocean #video-channel, App.theme-ocean #ch-name,
 App.theme-ocean #watch-dialog #np-header { color: #0ea5e9; }
 App.theme-ocean FooterKey .footer-key--key { color: #0ea5e9; background: #001622; }
 App.theme-ocean #help-outer, App.theme-ocean #nav-dialog, App.theme-ocean #sort-dialog, App.theme-ocean #ch-tab-dialog { border: solid #0ea5e9; }
@@ -704,16 +718,12 @@ App.theme-midnight VideoListItem:hover { background: #100820; }
 App.theme-midnight #quality-list > ListItem.-highlight,
 App.theme-midnight #playlist-list > ListItem.-highlight,
 App.theme-midnight #vaction-list > ListItem.-highlight,
-App.theme-midnight #theme-list > ListItem.-highlight,
-App.theme-midnight #quality-list-s > ListItem.-highlight,
-App.theme-midnight #thumb-list > ListItem.-highlight,
-App.theme-midnight #suggest-list > ListItem.-highlight,
-App.theme-midnight #browser-list > ListItem.-highlight,
+App.theme-midnight #settings-list > ListItem.-highlight,
 App.theme-midnight #dlpick-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
 App.theme-midnight #list-view, App.theme-midnight #video-info { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }
 App.theme-midnight #search-input:focus { border: solid #a855f7; }
 App.theme-midnight #list-loading-anim, App.theme-midnight #search-title, App.theme-midnight #download-title, App.theme-midnight #quality-title, App.theme-midnight #playlist-title,
-App.theme-midnight #settings-title, App.theme-midnight #nav-title, App.theme-midnight #sort-title, App.theme-midnight #ch-tab-title, App.theme-midnight #dlpick-header, App.theme-midnight #video-channel, App.theme-midnight #ch-name,
+App.theme-midnight #queue-title, App.theme-midnight #settings-title, App.theme-midnight #nav-title, App.theme-midnight #sort-title, App.theme-midnight #ch-tab-title, App.theme-midnight #dlpick-header, App.theme-midnight #video-channel, App.theme-midnight #ch-name,
 App.theme-midnight #watch-dialog #np-header { color: #a855f7; }
 App.theme-midnight FooterKey .footer-key--key { color: #a855f7; background: #0d0018; }
 App.theme-midnight #help-outer, App.theme-midnight #nav-dialog, App.theme-midnight #sort-dialog, App.theme-midnight #ch-tab-dialog { border: solid #a855f7; }
@@ -747,3 +757,17 @@ Toast.-error { border: solid #ff4444; border-left: thick #ff4444; color: #ffb3b3
 App.theme-amber Toast.-information { border-left: thick #e8820c; }
 App.theme-ocean Toast.-information { border-left: thick #0ea5e9; }
 App.theme-midnight Toast.-information { border-left: thick #a855f7; }
+
+LibraryRail {
+    width: 26;
+    height: 1fr;
+    background: #0f0f0f;
+    border-right: solid #2a2a2a;
+}
+
+LibraryRail.-narrow {
+    dock: top;
+    width: 100%;
+    height: 1;
+    border-right: none;
+}

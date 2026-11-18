@@ -20,3 +20,11 @@ Both tools need shell subprocess spawning and do not fit Textual's reactive widg
 
 `src/store.py` owns load, versioned envelope (`{"version", "data"}`), atomic 0600 write, corrupt-file `.bad` copies and locking. Playlists moved onto it
 unchanged in shape (v1); the file gains the envelope, so a build older than this one reads it as a playlist named `version`. Phase 5 migrates the data shape. Deferred (debounced) saves exist for history so the UI thread never waits on the disk; `atexit` flushes.
+
+## 2026-11-18 — Settings covers the config file; refusals explain; reset is Backspace
+
+Settings is one list of sections driven by a `Field` table (`src/tui/settings_fields.py`), not one `ListView` per setting. Typed values are validated before they are written and a bad one stays in the open field with a one-line reason; the old silent fallbacks (`theme`, `thumbnail_format`) remain only for hand-edited YAML. Name templates reuse `downloads.check_template`, the guard the download path applies, instead of a second copy.
+
+Reset to default is `Backspace` on the row, because `d` is the download key in every list. A text field keeps Backspace for itself. Destructive actions (clear cache, watch history, search history) need a second `Enter` on the same row; moving the cursor cancels. The modal has no undo for them, as with `--clear-history`.
+
+`Config.reload()` replaces every setting with defaults overlaid by the file, so a key deleted from the file reads as its default, and it mutates `cache_ttl` and `sponsorblock` in place because `Cache` holds the `cache_ttl` dict. A file that fails to parse changes nothing in memory. `rows_per_page` is latched by `VideoListPanel.clear_and_set_loading`, so a change applies at the next list load and never re-pages a list the user is looking at. `cache_ttl.subscriptions` gets no row: nothing reads it.

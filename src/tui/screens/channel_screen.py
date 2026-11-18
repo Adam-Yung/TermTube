@@ -12,6 +12,7 @@ from textual.widgets import Footer, Tab, Tabs
 from src import channel_bookmarks, channel_ref, innertube, logger
 from src.channel_pager import ChannelPager
 from src.entries import Entry, PlaylistEntry
+from src.errors import classify
 from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_breadcrumb
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
@@ -213,7 +214,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         except Exception as exc:
             logger.debug("channel content: %s", exc)
             page = None
-            call(self._show_content_error, session, str(exc))
+            call(self._show_content_error, session, classify(exc).message)
         if page is not None:
             call(self._show_first_page, session, page)
 

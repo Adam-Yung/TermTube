@@ -23,6 +23,7 @@ PLAYBACK = [
     Binding("A", "audio_quality", show=False),
     Binding("e", "audio_enqueue", show=False),
     Binding(">", "audio_skip", show=False),
+    Binding("Q", "audio_queue", show=False),
     Binding("space", "audio_pause", show=False),
     Binding("x", "audio_stop", show=False),
     Binding("left_square_bracket", "audio_seek(-5)", show=False),
@@ -41,12 +42,28 @@ ITEM_ACTIONS = [
 ]
 
 FILTER = Binding("f", "filter", show=False)
+RAIL = Binding("tab", "rail_toggle", show=False)
 
 LIST_TOOLS = [
     Binding("m", "mark", show=False),
     Binding("M", "mark_page", show=False),
     Binding("D", "delete", show=False),
     Binding("u", "undo", show=False),
+]
+
+HISTORY_KEYS = [
+    Binding("Y", "history_source", show=False),
+    Binding("I", "history_import", show=False),
+]
+
+PLAYLIST_TOOLS = [
+    Binding("n", "playlist_new", show=False),
+    Binding("R", "playlist_rename", show=False),
+    Binding("J", "playlist_move_down", show=False),
+    Binding("K", "playlist_move_up", show=False),
+    Binding("P", "playlist_play", show=False),
+    Binding("S", "playlist_shuffle", show=False),
+    Binding("E", "playlist_enqueue", show=False),
 ]
 
 SEARCH = Binding("/", "search", "Search")

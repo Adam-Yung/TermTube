@@ -30,7 +30,7 @@ def test_a_value_that_is_not_a_channel_id_is_refused(temp_channels):
 
 
 def test_a_corrupt_file_reads_as_empty_and_following_still_works(temp_channels):
-    temp_channels.write_text("{not json")
+    temp_channels.write_text("{not json", encoding="utf-8")
     channel_bookmarks._store._data = None
     assert channel_bookmarks.entries() == []
     assert channel_bookmarks.toggle(A, "Rick") is True

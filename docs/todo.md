@@ -48,15 +48,15 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4) (81c6c46)
 
 ## Phase 5. Playlists v2 and Library fusion
-- [ ] P5.1 Playlist v2 data model and migration (C1)
-- [ ] P5.2 Playlist management: rename, delete, reorder, move/copy, multi-add, play/enqueue all (B5.1)
-- [ ] P5.3 One Library tab with left rail: downloads, videos, audio, playlists (B5.3a)
-- [ ] P5.4 Search within Library/playlists, token syntax (B5.2)
+- [x] P5.1 Playlist v2 data model and migration (C1) (20816bd)
+- [x] P5.2 Playlist management: rename, delete, reorder, move/copy, multi-add, play/enqueue all (B5.1) (20816bd)
+- [x] P5.3 One Library tab with left rail: downloads, videos, audio, playlists (B5.3a) (a30fe7e)
+- [x] P5.4 Search within Library/playlists, token syntax (B5.2) (a30fe7e)
 
 ## Phase 6. YouTube history and account feeds  (milestone 3: pipeline)
-- [ ] P6.1 Cookie policy extended for the history feed (A1.6)
-- [ ] P6.2 History `Local | YouTube` sub-tab, read-only, import to local (B4)
-- [ ] P6.3 Watch Later and Liked via the same loader if the extractor shortcuts exist (B1.8)
+- [x] P6.1 Cookie policy extended for the history feed (A1.6) (5fc79b9)
+- [x] P6.2 History `Local | YouTube` sub-tab, read-only, import to local (B4) (a0d73f4)
+- [x] P6.3 Watch Later through the History source switch (`Y`); Liked has no yt-dlp shortcut (Phase 0), so it is not offered (B1.8) (8fb189c)
 
 ## Phase 7. Channel and Home paging
 - [x] P7.1 Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10)
@@ -64,15 +64,15 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [ ] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6)
 
 ## Phase 8. Settings, auth, polish  (milestone 4: pipeline)
-- [ ] P8.1 Settings sections, reload from disk, page size setting (A3)
-- [ ] P8.2 Cookie prewarm setting, refresh account, sign-in vs extraction error split (A2)
-- [ ] P8.3 Typed source errors, retry/backoff, rate-limit message (A5)
-- [ ] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6)
-- [ ] P8.5 Help screen and keymap consistency test (B6)
+- [x] P8.1 Settings sections, reload from disk, page size setting (A3) (settings search with `/` is not done: one screen of about 26 rows) (f0ddbc2, 291dca1 via merge)
+- [x] P8.2 Cookie prewarm setting, refresh account, sign-in vs extraction error split (A2) (a2e8bb2)
+- [x] P8.3 Typed source errors, retry/backoff, rate-limit message (A5) (2a5b7e1)
+- [x] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6) (9c61cab via merge)
+- [x] P8.5 Help screen and keymap consistency test (B6) (consistency test landed in P2.5; keymap, help and keybindings.md checked by it)
 
 ## Always
-- [ ] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
-- [ ] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
+- [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
+- [x] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
 
 ## Other (before this audit)
 1. **Branch protection** on `main` requiring the six pipeline jobs (owner, in GitHub settings).

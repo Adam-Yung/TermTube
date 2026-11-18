@@ -20,7 +20,8 @@ _WAVE_CHARS = "▁▂▃▄▅▆▇█"
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
     e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]add to queue[/dim]"
     skip_part = (
-        f"[bold {color}]>[/bold {color}] [dim]skip to next  ({queue_len} queued)[/dim]"
+        f"[bold {color}]>[/bold {color}] [dim]skip to next  ({queue_len} queued)[/dim]  "
+        f"[bold {color}]Q[/bold {color}] [dim]queue[/dim]"
         if queue_len > 0
         else ""
     )
@@ -141,9 +142,13 @@ class ActionBar(Widget):
         row3 = [r2("f", "Filter")]
         if getattr(self.screen, "HAS_LIST_TOOLS", False):
             row3 += [r2("m", "Mark"), r2("D", "Remove"), r2("u", "Undo")]
+        if getattr(self.screen, "HAS_HISTORY_SOURCES", False):
+            row3 += [r2("Y", "Source")]
         if getattr(self.screen, "HAS_SEARCH_FILTERS", False):
             row3 += [r2("s", "Sort"), r2("t", "Type")]
         table.add_row(*row3)
+        if getattr(self.screen, "HAS_PLAYLIST_TOOLS", False):
+            table.add_row(r2("n", "New list"), r2("R", "Rename"), r2("J K", "Move"), r2("P S E", "Play/Shuffle/Queue"))
 
         return table
 

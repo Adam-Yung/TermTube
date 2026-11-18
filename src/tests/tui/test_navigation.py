@@ -27,6 +27,16 @@ async def test_quit_key_exits(app):
         await pilot.pause(0.1)
 
 
+async def test_quit_flushes_the_deferred_history_write(app, monkeypatch):
+    flushed = []
+    monkeypatch.setattr("src.history.flush", lambda: flushed.append(True))
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause(0.3)
+        await pilot.press("q")
+        await pilot.pause(0.1)
+    assert flushed
+
+
 async def test_help_toggle(app):
     """Pressing ? should push the HelpScreen."""
     async with app.run_test(size=(100, 30)) as pilot:

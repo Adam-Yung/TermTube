@@ -88,7 +88,7 @@ The full install, update and troubleshooting guide, including how to move to ano
 
 Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History**, **Library**, **Playlists**, **Help**.
 
-- Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F7`.
+- Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F6`.
 - `Enter` opens the action menu for the highlighted video; every action also has its own key, shown in the footer and the in-app help (`?`).
 - `/` searches. `a` plays the audio in the background, `v` watches the video, `d` downloads, `c` opens the channel, `p` adds to a playlist.
 - `q` quits (stops audio; the queue is not saved).
@@ -103,7 +103,7 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `H` `L` | previous / next tab | `>` | skip to the next queued track |
 | `Enter` | action menu | `Space` | pause / resume audio |
 | `Esc` `Backspace` | back | `x` | stop audio and clear the queue |
-| `F1`..`F7`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
+| `F1`..`F6`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
 | | | `0`..`9` | seek to 0 % to 90 % |
 
 | Row actions | | App | |
@@ -125,6 +125,7 @@ The rules behind the keymap, and every key per screen, are in [docs/features/key
 optional:
 
 ```yaml
+cookie_prewarm: true     # read the browser's cookies in the background after the first paint (false: only when needed)
 browser: auto            # cookie source for Home and Subscriptions: auto | none | firefox | chrome | brave | edge | ...
 video_dir: ~/Documents/TermTube/Video
 audio_dir: ~/Documents/TermTube/Audio

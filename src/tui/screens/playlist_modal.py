@@ -17,6 +17,7 @@ class PlaylistModal(ModalScreen[None]):
     BINDINGS = [
         Binding("escape", "dismiss_modal", "Close", show=True),
         Binding("n",      "new_playlist",  "New playlist", show=True),
+        Binding("space",  "select_row",    show=False),
         Binding("j",      "cursor_down",   show=False),
         Binding("k",      "cursor_up",     show=False),
     ]
@@ -25,6 +26,7 @@ class PlaylistModal(ModalScreen[None]):
         super().__init__()
         self._entry = entry
         self._video_id = entry.get("id", "")
+        self._pending: set[str] = set()  # ids of playlists whose membership Enter will flip
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title", self._video_id)
@@ -40,7 +42,8 @@ class PlaylistModal(ModalScreen[None]):
                 id="playlist-new-input",
             )
             yield Static(
-                "[dim]Enter[/dim] toggle  ·  [dim]n[/dim] new  ·  [dim]Esc[/dim] close",
+                "[dim]Space[/dim] select  ·  [dim]Enter[/dim] toggle selected / this one  ·  [dim]n[/dim] new"
+                "  ·  [dim]Esc[/dim] close",
                 id="playlist-hint",
                 markup=True,
             )
@@ -51,59 +54,76 @@ class PlaylistModal(ModalScreen[None]):
 
     def _refresh_list(self) -> None:
         lv = self.query_one("#playlist-list", ListView)
+        index = lv.index or 0
         lv.clear()
-        names = playlist.list_names()
-        if not names:
+        playlists = playlist.list_playlists()
+        if not playlists:
             lv.append(ListItem(Static("[dim]No playlists yet — press n to create one[/dim]", markup=True)))
             return
-        for name in names:
-            in_pl = playlist.is_in_playlist(name, self._video_id)
-            check = "[#44ff44]✓[/] " if in_pl else "  "
-            count = len(playlist.get_playlist(name))
+        for pl in playlists:
+            member = any(i["id"] == self._video_id for i in pl["items"])
+            check = "[#44ff44]✓[/] " if member else "  "
+            mark = "[#ffcc00]●[/] " if pl["id"] in self._pending else "  "
+            count = len(pl["items"])
             item = ListItem(
                 Static(
-                    f"{check}[bold]{escape_markup(name)}[/bold]  [dim]{count} videos[/dim]",
+                    f"{mark}{check}[bold]{escape_markup(pl['name'])}[/bold]  "
+                    f"[dim]{count} video{'s' if count != 1 else ''}[/dim]",
                     markup=True,
                 )
             )
-            item._pl_name = name  # type: ignore[attr-defined]
+            item._pl_id = pl["id"]  # type: ignore[attr-defined]
+            item._pl_name = pl["name"]  # type: ignore[attr-defined]
+            item._pl_member = member  # type: ignore[attr-defined]
             lv.append(item)
+        lv.index = min(index, len(playlists) - 1)
+
+    def action_select_row(self) -> None:
+        """Space: select or unselect the highlighted playlist for the next Enter."""
+        item = self.query_one("#playlist-list", ListView).highlighted_child
+        pid = getattr(item, "_pl_id", None)
+        if pid is not None:
+            self._pending ^= {pid}
+            self._refresh_list()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
-        item = event.item
-        if not hasattr(item, "_pl_name"):
+        """Enter: flip membership for every selected playlist, or for the highlighted one when none is selected."""
+        rows = [i for i in self.query_one("#playlist-list", ListView).children if hasattr(i, "_pl_id")]
+        chosen = [i for i in rows if i._pl_id in self._pending] or [event.item]  # type: ignore[attr-defined]
+        if not hasattr(event.item, "_pl_id"):
             return
-        name = item._pl_name  # type: ignore[attr-defined]
-        if playlist.is_in_playlist(name, self._video_id):
-            playlist.remove_video(name, self._video_id)
-            self.app.notify(f'Removed from "{name}"')
-            if not playlist.video_playlists(self._video_id) and hasattr(self.app, "cache"):
-                self.app.cache.unpin_video(self._video_id)
-        else:
-            playlist.add_video(name, self._video_id)
-            self.app.notify(f'Added to "{name}"')
-            self._pin_video()
+        for item in chosen:
+            self._toggle(item._pl_id, item._pl_name, item._pl_member)  # type: ignore[attr-defined]
+        self._pending.clear()
+        self._sync_pins()
         self._refresh_list()
+
+    def _toggle(self, pid: str, name: str, member: bool) -> None:
+        if member:
+            playlist.remove_items(pid, [self._video_id])
+            self.app.notify(f'Removed from "{name}"')
+        else:
+            playlist.add_items(pid, [self._entry])
+            self.app.notify(f'Added to "{name}"')
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         name = event.value.strip()
         if not name:
             return
-        if not playlist.create(name):
+        created = playlist.create(name, [self._entry])
+        if created is None:
             self.app.notify(f'Playlist "{name}" already exists', severity="warning")
             return
-        playlist.add_video(name, self._video_id)
-        self._pin_video()
+        self._sync_pins()
         event.input.value = ""
         self._refresh_list()
         self.app.notify(f'Created playlist "{name}" and added video')
         self.query_one("#playlist-list", ListView).focus()
 
-    def _pin_video(self) -> None:
-        """Protect the video's cached data from eviction while it is in a playlist."""
+    def _sync_pins(self) -> None:
+        """Protect the video's cached data from eviction while it is in a playlist; release it when it is in none."""
         if hasattr(self.app, "cache"):
-            self.app.cache.pin_video(self._video_id, self._entry)
-            self.app.cache.pin_thumb(self._video_id)
+            playlist.sync_pins(self.app.cache, [self._video_id], [self._entry])
 
     def action_new_playlist(self) -> None:
         self.query_one("#playlist-new-input", Input).focus()

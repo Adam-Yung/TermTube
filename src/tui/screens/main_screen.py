@@ -18,12 +18,15 @@ from src.tui import keymap, library_delete
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
-from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
+from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin, feed_key_of
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
+from src.tui.screens.mixins.library_rail import HISTORY_SOURCES, LibraryRailMixin, tab_of
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
+from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
 from src.tui.widgets.app_header import AppHeader
 from src.tui.widgets.detail_panel import DetailPanel
+from src.tui.widgets.library_rail import LibraryRail
 from src.tui.widgets.video_list import VideoListPanel
 
 _TABS = (
@@ -32,7 +35,6 @@ _TABS = (
     ("search", "🔍 Search"),
     ("history", "🕐 History"),
     ("library", "📁 Library"),
-    ("playlists", "🎵 Playlists"),
     ("help", "📚 Help"),
 )
 _SEARCH_SORTS = [
@@ -46,7 +48,12 @@ _SEARCH_TYPES = [
     ("channel", "📺  Channels", "c"),
     ("playlist", "🎵  Playlists", "p"),
 ]
-_LOADABLE_TABS = ("home", "subscriptions", "history", "library", "playlists")
+_HISTORY_SORTS = [
+    ("recent", "🕐  Recent first", "r"),
+    ("plays", "🔁  Most watched", "m"),
+    ("time", "⏱  Longest watched", "l"),
+]
+_LOADABLE_TABS = ("home", "subscriptions", "history", "library")
 _FORCE_EXIT_AFTER_S = 2.0
 _KILL_TIMEOUT_S = 1.5
 
@@ -60,6 +67,8 @@ def _force_exit() -> None:
 
 
 class MainScreen(
+    PlaylistToolsMixin,
+    LibraryRailMixin,
     ListToolsMixin,
     ListNavMixin,
     DetailFocusMixin,
@@ -81,7 +90,10 @@ class MainScreen(
         *keymap.PLAYBACK,
         *keymap.ITEM_ACTIONS,
         keymap.FILTER,
+        keymap.RAIL,
         *keymap.LIST_TOOLS,
+        *keymap.PLAYLIST_TOOLS,
+        *keymap.HISTORY_KEYS,
         Binding("backspace,escape", "nav_back", show=False),
         Binding("grave_accent", "nav_picker", show=False),
         Binding("f1", "goto_tab('home')", show=False),
@@ -89,8 +101,7 @@ class MainScreen(
         Binding("f3", "goto_tab('search')", show=False),
         Binding("f4", "goto_tab('history')", show=False),
         Binding("f5", "goto_tab('library')", show=False),
-        Binding("f6", "goto_tab('playlists')", show=False),
-        Binding("f7", "goto_tab('help')", show=False),
+        Binding("f6", "goto_tab('help')", show=False),
         Binding("ctrl+d", "toggle_log", "Debug", show=False),
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
@@ -99,11 +110,12 @@ class MainScreen(
         *keymap.GLOBAL,
     ]
 
+    HAS_HISTORY_SOURCES = True
+
     def __init__(self) -> None:
         super().__init__()
         self._current_tab = ""
         self._search = SearchStack()
-        self._nav_stack: list[str] = []
         self._opening_search_tab = False
         self._feed_session = 0
         self._avatar_session = 0
@@ -112,22 +124,33 @@ class MainScreen(
         self._init_detail_focus()
         self._init_debug_log()
         self._init_list_tools()
+        self._init_library_rail()
+        self._history_view = "history"
+        self._history_sort = "recent"
 
     def _removals(self) -> dict[str, Removal]:
         return {
             "history": Removal(
                 remove=lambda entries, _choice: history.remove_many([e["id"] for e in entries if e.get("id")]),
                 restore=history.restore,
-                reload=history.all_entries,
+                reload=lambda: history.ordered(history.all_entries(), self._history_sort),
                 noun="video",
             ),
             "library": library_delete.removal(self.app.config),
+            "library:video": library_delete.removal(self.app.config, "video"),
+            "library:audio": library_delete.removal(self.app.config, "audio"),
+            **self._playlist_removals(),
         }
+
+    def _selected_entry(self) -> Entry | None:
+        """The highlighted row; none while the rail has focus, so row actions never act on a row the user is not on."""
+        return None if self._rail_focused() else super()._selected_entry()
 
     def compose(self) -> ComposeResult:
         yield AppHeader()
         yield Tabs(*[Tab(label, id=tab_id) for tab_id, label in _TABS], id="nav-tabs")
         with Horizontal(id="main-content"):
+            yield LibraryRail(id="library-rail")
             yield VideoListPanel(id="video-list-panel")
             yield DetailPanel(id="detail-panel")
         yield RichLog(id="debug-log", highlight=True, markup=True, max_lines=100, wrap=False)
@@ -138,11 +161,13 @@ class MainScreen(
         tabs.can_focus = False
         for tab in tabs.query(Tab):
             tab.can_focus = False
+        self._rail().display = False
         self._mount_debug_log()
         self.app.audio.log = self._log
         self._sync_player_bar()
         self.call_after_refresh(logger.stage, "first paint")
         self.call_after_refresh(self._maybe_show_image_warning)
+        self.call_after_refresh(self._prewarm_cookies)
 
     def on_unmount(self) -> None:
         if self._current_tab in FEED_TABS:
@@ -170,10 +195,25 @@ class MainScreen(
         def on_result(choice: str) -> None:
             if choice == "update":
                 self._run_ytdlp_update(reload_tab=feed_key)
+            elif choice == "refresh":
+                self._refresh_account(feed_key)
             elif choice == "settings":
                 self.app.push_screen(SettingsModal())
 
         self.app.push_screen(EmptyFeedModal(), on_result)
+
+    def _prewarm_cookies(self) -> None:
+        from src import cookies
+
+        cookies.prewarm(self.app.config)
+
+    def _refresh_account(self, feed_key: str) -> None:
+        """Forget the cookie jar (the next load re-reads the browser) and reload the feed."""
+        from src import cookies
+
+        cookies.invalidate()
+        self.app.cache.clear_feed(feed_key)
+        self._load_view(self._current_tab)
 
     def _prompt_ytdlp_update(self, feed_key: str, error_detail: str = "") -> None:
         from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal
@@ -206,7 +246,7 @@ class MainScreen(
         tab_id = event.tab.id if event.tab else None
         # Appending list items can move focus onto the tab bar, which re-activates the
         # current tab. A real switch always changes the id.
-        if not tab_id or tab_id == self._current_tab:
+        if not tab_id or tab_id == tab_of(self._current_tab):
             return
         logger.info("tab → %s", tab_id)
         self._cancel_pending_focus_and_thumb()
@@ -216,14 +256,37 @@ class MainScreen(
             elif not (self._current_tab == "search" and self._search.query):
                 self._open_search_dialog()
         elif tab_id == "help":
-            self._show_help(restore_tab=self._current_tab)
+            self._show_help(restore_tab=tab_of(self._current_tab))
         else:
             if self._current_tab in FEED_TABS:
                 self._save_feed_stash(self._current_tab)
             self._save_search_position()
-            self._current_tab = tab_id
-            self._nav_stack.clear()
-            self._load_view(tab_id)
+            self._show_rail(tab_id == "library")
+            if tab_id == "library":
+                self._select_collection(self._library_view, focus_list=False)
+            else:
+                self._current_tab = self._history_view if tab_id == "history" else tab_id
+                self._load_view(self._current_tab)
+
+    def action_history_source(self) -> None:
+        """Y: cycle the History tab's source (Local, then each YouTube account list)."""
+        if tab_of(self._current_tab) != "history":
+            self._hint("Y switches the History source (F4).", "information")
+            return
+        self._cancel_pending_focus_and_thumb()
+        sources = HISTORY_SOURCES
+        self._current_tab = self._history_view = sources[(sources.index(self._current_tab) + 1) % len(sources)]
+        self._load_view(self._current_tab)
+
+    def action_history_import(self) -> None:
+        """I: copy the loaded YouTube history rows (or the marked ones) into the local history."""
+        if self._current_tab != "history:yt":
+            self._hint("I imports YouTube history; switch to it with Y on the History tab.", "information")
+            return
+        panel = self._list()
+        rows = panel.marked_entries() or panel.visited_entries()
+        added = history.import_entries(rows, self.app.config)
+        self.notify(f"Imported {added} of {len(rows)} into local history (the rest were already there).", timeout=5)
 
     def _show_help(self, *, restore_tab: str = "") -> None:
         from src.tui.screens.help_screen import HelpScreen
@@ -249,7 +312,7 @@ class MainScreen(
         self._cycle_tab(1)
 
     def _cycle_tab(self, step: int) -> None:
-        current = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
+        current = tab_of(self._current_tab)
         order = list(_LOADABLE_TABS)
         if self._search.query:
             order.insert(2, "search")
@@ -273,23 +336,34 @@ class MainScreen(
     def action_nav_back(self) -> None:
         if self._close_filter_if_active():
             return
-        if not self._nav_stack:
-            if self._current_tab == "search" and self._search.pop():
-                self._show_search_frame()
-            return
-        previous = self._nav_stack.pop()
-        self._current_tab = previous
-        tabs = self.query_one("#nav-tabs", Tabs)
-        if previous == "search" or tabs.active == previous:
-            self._load_view(previous)  # setting an unchanged ``active`` fires nothing, so reload by hand
-        else:
-            tabs.active = previous
+        if self._current_tab == "following":
+            self._current_tab = "subscriptions"
+            self._load_view("subscriptions")
+        elif tab_of(self._current_tab) == "library":
+            if not self._rail_focused():
+                self._rail().focus()
+        elif self._current_tab == "search" and self._search.pop():
+            self._show_search_frame()
 
     def action_search(self) -> None:
         self._open_search_dialog()
 
     def action_search_sort(self) -> None:
-        self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+        if self._current_tab == "history":
+            self._pick_history_sort()
+        else:
+            self._pick_search_filter("sort", "Sort results", _SEARCH_SORTS, self._search.sort)
+
+    def _pick_history_sort(self) -> None:
+        """s on the local History tab: recent (with day headers), most watched or longest watched."""
+        from src.tui.screens.sort_modal import SortModal
+
+        def on_pick(value: str | None) -> None:
+            if value and value != self._history_sort:
+                self._history_sort = value
+                self._load_view("history")
+
+        self.app.push_screen(SortModal(self._history_sort, options=_HISTORY_SORTS, title="Sort history"), on_pick)
 
     def action_search_type(self) -> None:
         self._pick_search_filter("kind", "Result type", _SEARCH_TYPES, self._search.kind)
@@ -297,7 +371,9 @@ class MainScreen(
     def _pick_search_filter(self, field: str, title: str, options: list[tuple[str, str, str]], current: str) -> None:
         """Ask for a sort or type and reload the current search with it (Search tab only)."""
         if self._current_tab != "search" or not self._search.query:
-            self._hint("Sort and type apply to search results. Press / to search.", "information")
+            self._hint(
+                "Sort and type apply to search results (s also sorts local History). Press / to search.", "information"
+            )
             return
         from src.tui.screens.sort_modal import SortModal
 
@@ -326,7 +402,7 @@ class MainScreen(
         self._save_search_position()
         self._search.push(query)
         self._current_tab = "search"
-        self._nav_stack.clear()
+        self._show_rail(False)
         self._opening_search_tab = True
         self._show_search_frame()
 
@@ -347,7 +423,7 @@ class MainScreen(
         self._load_view("search")
 
     def _crumbs(self) -> list[str]:
-        tab = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
+        tab = tab_of(self._current_tab)
         labels = dict(_TABS)
         return [labels.get(tab, tab).split(" ", 1)[-1]]
 
@@ -356,23 +432,9 @@ class MainScreen(
         if self._current_tab != "subscriptions":
             self._hint("Open the Subscriptions tab, then press F for the channels you follow here.", "information")
             return
-        self._nav_stack.append(self._current_tab)
         self._current_tab = "following"
-        panel = self._list()
-        panel.clear_and_set_loading()
-        panel.set_breadcrumb("📌 Following (local)  ← backspace to go back")
-        self._detail().clear()
-        self._start_view("following")
-
-    def _open_playlist(self, name: str) -> None:
-        self._nav_stack.append(self._current_tab)
-        self._current_tab = f"playlist:{name}"
-        panel = self._list()
-        panel.clear_and_set_loading()
-        panel.set_breadcrumb(f"🎵 {name}  ← backspace to go back")
-        self._detail().clear()
-        self._start_view(f"playlist:{name}")
-
+        self._load_view("following")
+        self._list().set_breadcrumb("📌 Following (local)  ← backspace to go back")
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         if entry.get("_is_channel"):
@@ -385,10 +447,8 @@ class MainScreen(
         self.action_activate()
 
     def _activate_entry(self, entry: Entry) -> None:
-        if entry.get("_is_playlist") and self._current_tab == "search":
+        if entry.get("_is_playlist"):
             self._hint("Press b to open the playlist in the browser.", "information")
-        elif entry.get("_is_playlist"):
-            self._open_playlist(entry.get("_playlist_name", ""))
         elif entry.get("_is_channel"):
             self._open_channel(entry)
         else:
@@ -478,8 +538,8 @@ class MainScreen(
 
     def action_refresh(self) -> None:
         logger.info("refresh %s", self._current_tab)
-        if self._current_tab in FEED_TABS:
-            self.app.cache.clear_feed(self._current_tab)
+        if feed_key := feed_key_of(self._current_tab):
+            self.app.cache.clear_feed(feed_key)
             if self._current_tab == "home":
                 self.app.cache.clear_home_stash()
         self._load_view(self._current_tab)
@@ -498,6 +558,7 @@ class MainScreen(
         if self._current_tab in FEED_TABS:
             self._save_feed_stash(self._current_tab)
         self.app.audio.stop_audio()
+        history.flush()
         timer = threading.Timer(_FORCE_EXIT_AFTER_S, _force_exit)
         timer.daemon = True
         timer.start()

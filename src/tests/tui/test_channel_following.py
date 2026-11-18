@@ -107,19 +107,3 @@ async def test_f_elsewhere_says_to_open_subscriptions_and_an_empty_list_says_how
         await pilot.press("F")
         await settle(app, pilot)
         assert "Press B" in str(main._list().query_one("#list-breadcrumb").content)
-
-
-async def test_back_from_a_playlist_reloads_the_playlist_index(app, temp_playlists):
-    from src import playlist
-
-    playlist.create("Mine", ["abcdefghijk"])
-    async with app.run_test(size=(110, 34)) as pilot:
-        main = app.screen
-        main.action_goto_tab("playlists")
-        await settle(app, pilot)
-        main._open_playlist("Mine")
-        await settle(app, pilot)
-        assert [e["id"] for e in main._list().visited_entries()] == ["abcdefghijk"]
-        main.action_nav_back()
-        await settle(app, pilot)
-        assert [e["id"] for e in main._list().visited_entries()] == ["__playlist__Mine"]

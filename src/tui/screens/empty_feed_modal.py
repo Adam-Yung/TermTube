@@ -8,7 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 
 class EmptyFeedModal(ModalScreen[str]):
-    """Shown when a feed returns no results. Dismisses with "update", "settings" or "skip"."""
+    """Shown when a feed returns no results. Dismisses with "update", "refresh", "settings" or "skip"."""
 
     BINDINGS = [Binding("escape", "skip", "Skip", show=False)]
 
@@ -27,6 +27,7 @@ class EmptyFeedModal(ModalScreen[str]):
             )
             yield ListView(
                 ListItem(Static("  Update yt-dlp"), id="emptyfeed-update"),
+                ListItem(Static("  Refresh account (re-read browser sign-in)"), id="emptyfeed-refresh"),
                 ListItem(Static("  Open Settings"), id="emptyfeed-settings"),
                 ListItem(Static("  Skip"), id="emptyfeed-skip"),
                 id="emptyfeed-list",
@@ -39,6 +40,8 @@ class EmptyFeedModal(ModalScreen[str]):
         item_id = event.item.id or "emptyfeed-skip"
         if item_id == "emptyfeed-update":
             self.dismiss("update")
+        elif item_id == "emptyfeed-refresh":
+            self.dismiss("refresh")
         elif item_id == "emptyfeed-settings":
             self.dismiss("settings")
         else:

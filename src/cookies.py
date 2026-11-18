@@ -5,9 +5,9 @@ import threading
 from src import logger
 
 _KEPT_DOMAINS = ("youtube.com", "google.com")
-_AUTH_FAILURE_MARKERS = ("sign in", "login required", "http error 401", "http error 403")
 
 _jar = None
+_prewarmed = False
 _lock = threading.Lock()
 
 
@@ -37,8 +37,9 @@ def _narrow(jar) -> None:
 
 def is_auth_failure(exc: BaseException) -> bool:
     """True when a yt-dlp error reads like an expired or missing sign-in, so a fresh jar might help."""
-    text = str(exc).lower()
-    return any(marker in text for marker in _AUTH_FAILURE_MARKERS)
+    from src.errors import SignInRequired, classify
+
+    return isinstance(classify(exc), SignInRequired)
 
 
 def invalidate() -> None:
@@ -46,6 +47,22 @@ def invalidate() -> None:
     global _jar
     with _lock:
         _jar = None
+
+
+def prewarm(config) -> bool:
+    """Start the cookie read in a background thread so Home finds a warm jar. True when one was started.
+
+    Never when the browser is ``none`` or unresolved, when ``cookie_prewarm`` is off, or a second time.
+    """
+    global _prewarmed
+    if not config.cookie_prewarm or resolve_browser(config) is None:
+        return False
+    with _lock:
+        if _prewarmed or _jar is not None:
+            return False
+        _prewarmed = True
+    threading.Thread(target=get_cookiejar, args=(config,), daemon=True, name="cookie-prewarm").start()
+    return True
 
 
 def get_cookiejar(config):

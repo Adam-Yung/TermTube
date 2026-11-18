@@ -125,29 +125,3 @@ async def test_history_is_recorded_once_on_the_first_successful_poll(audio):
             await pilot.pause(0.1)
         assert add.call_count == 1
         assert add.call_args.args[0] == ENTRY
-
-
-THIRD = {"id": "CCCCCCCCCCC", "title": "Third"}
-
-
-async def test_play_all_replaces_the_queue_and_drops_duplicates_and_idless_rows(audio):
-    async with audio.run_test(size=(100, 30)) as pilot:
-        controller = audio.audio
-        controller._queue.append(THIRD)
-        assert controller.play_all([ENTRY, OTHER, ENTRY, {"title": "no id"}]) == 2
-        await pilot.pause()
-        assert controller.entry["id"] == ENTRY["id"] and [e["id"] for e in controller.queue] == [OTHER["id"]]
-        assert controller.play_all([]) == 0 and controller.entry["id"] == ENTRY["id"]
-
-
-async def test_enqueue_many_starts_when_idle_and_otherwise_skips_known_tracks(audio):
-    async with audio.run_test(size=(100, 30)) as pilot:
-        controller = audio.audio
-        assert controller.enqueue_many([ENTRY, OTHER]) == 2
-        await pilot.pause()
-        assert controller.entry["id"] == ENTRY["id"] and [e["id"] for e in controller.queue] == [OTHER["id"]]
-        with patch.object(audio, "notify") as notify:
-            assert controller.enqueue_many([ENTRY, OTHER, THIRD]) == 1
-        assert [e["id"] for e in controller.queue] == [OTHER["id"], THIRD["id"]]
-        assert notify.call_count == 1 and "Added 1" in notify.call_args.args[0]
-        assert controller.enqueue_many([ENTRY, OTHER, THIRD]) == 0

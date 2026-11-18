@@ -19,15 +19,14 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 | home | `_load_feed` | stash, disk cache, or `ytdlp.fetch_page_batch` |
 | subscriptions | `_load_subscriptions` | `ytdlp.fetch_subscribed_channels`; rows are channels (`_is_channel`) and the detail panel switches to channel mode |
 | search | `_load_search` | `ytdlp.fetch_search_batch` (50 per batch, `sort`/`kind` from the search frame) |
-| history | `_load_simple_list` | `history.all_entries`, split into `PAGE_SIZE` pages |
-| library | `_load_simple_list` | `library.all_entries` (filesystem only) |
-| playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py`, cached entries from `cache.get_video_raw` |
+| history | `_load_simple_list` | `history.all_entries`, split into `page_size` pages |
+| library, library:video, library:audio, playlist:`<id>` | `_load_collection` | `LibraryRailMixin._collection_entries`: `library.all_entries` filtered by kind, or `item_entries` (title from the snapshot, cache fills migrated items, download state from `library.attach_local`). A library load also pushes the rail counts. |
 
 `FEED_TABS` (cached feeds with stash and suppression) is just `home`. `PAGED_TABS` (extendable) are `home` and `search`.
 
 ## Stash and paging model (home)
 
-- Page size 20, batch size 80, first callback after 15 entries (`on_first_batch`).
+- Page size `panel.page_size` (config `rows_per_page`, default 20), batch size 80, first callback after 15 entries (`on_first_batch`).
 - **Stash**: on tab switch and quit, `_save_feed_stash` keeps one page of entries the user never saw (`all_unseen_entries`), topped up from the last visited entries so the next launch's first page is always full.
 - **Startup**: the stash is shown at once as page 1 (cursor usable immediately). Fresh entries are added from page 2, so the first screen never changes under the cursor. A stash on screen plus a fresh disk cache (`is_feed_fresh`) means no network call at all.
 - **No stash**: the first 15 entries from `fetch_page_batch` become page 1 as they arrive; the other 65 stream in as later pages from the same session. `shown_ids` keeps the tail from duplicating the first batch.
@@ -47,7 +46,7 @@ at once; the remaining pages are added after the continuation requests finish, n
 never fires the callback, so `_load_search` falls back to `_show_pages` when nothing was shown early. A fully empty result with nothing
 shown early goes through `_show_pages` too, which leaves the list on its empty state.
 
-Local lists (history, library, playlist index and view) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.
+Local lists (history, library, playlist) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.
 
 ## Filter and day headers
 
@@ -61,3 +60,6 @@ After a search load with entries, `_finish_search_load` (via `_ui`) takes the sa
 Search extension (`_fetch_next_batch`) asks for `min(SEARCH_FETCH_COUNT, MAX_SEARCH_RESULTS - seen)` more and returns nothing once 200 are shown, so Search grows by 50 as the user pages, to 200. `_load_search` and the extension pass the current frame's sort and type.
 
 `_load_following` fills the `following` view (a drill-down from Subscriptions, see `main_screen.py.md`) from `channel_bookmarks.entries()` with `evict=False`; an empty list says how to follow a channel (`B` on a channel page).
+`_load_view` sets the list's filter matcher per view (`_matcher_for`): Library collections and playlists use `library_query.rank` (tokens, `pl:` reads `playlist.membership()` once per ranking), every other view the plain `fuzzy.rank`. `_show_pages` does not pull focus into the list while the rail has it.
+
+Account views (`ACCOUNT_VIEWS` in `library_rail.py`: `history:yt`, `history:wl`) run `_load_account_feed`: no browser (`resolve_browser` is None, which reads no cookies) shows `_NEEDS_BROWSER`; otherwise the same `_load_feed` as Home (`fetch_page_batch`, `auth=True`, `feed_key` from the view, cache TTL `cache_ttl.<key>`), with no stash, rows copied with `_yt=True` (badge) and an honestly empty result showing `_EMPTY_ACCOUNT` instead of the yt-dlp update modal. A failed load goes through `_report_failure`: sign-in, rate limit and network errors show their `errors` message; the update prompt opens only for an `ExtractionFailed` on Home. Extension (`_fetch_next_batch`) goes through `feed_key_of(view)`, so these views page like Home.

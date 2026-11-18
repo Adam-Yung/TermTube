@@ -4,7 +4,7 @@ Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too
 
 ## Transport
 
-`_request` (shared by `_post_json` and `fetch_suggestions`) sends requests over a per-thread keep-alive `http.client.HTTPSConnection` (default context, so certificates are verified; no cookies or auth headers). A reused connection that the server has closed fails on first use; that one failure is retried on a fresh connection, and a failure on a fresh one returns None. A non-200 status or malformed JSON returns None without a retry. Per-thread, not shared, because `http.client` connections are not thread-safe and the workers are independent. Live check 2026-11-15: `/player` 185 ms on the first call, about 118 ms after, against 157 to 219 ms per call with `urllib` (new TLS handshake each time).
+`_request` (shared by `_post_json` and `fetch_suggestions`) sends requests over a per-thread keep-alive `http.client.HTTPSConnection` (default context, so certificates are verified; no cookies or auth headers). A reused connection that the server has closed fails on first use; that one failure is retried on a fresh connection, and a failure on a fresh one returns None. A non-200 status or malformed JSON returns None without a retry. `_post_json` itself retries once after `_RETRY_DELAY_S` (1 s, via the injectable `_sleep`) on 429, 5xx or no response; with `strict=True` (used by `search` for its first page) the second failure raises `RateLimited`/`NetworkDown`. Per-thread, not shared, because `http.client` connections are not thread-safe and the workers are independent. Live check 2026-11-15: `/player` 185 ms on the first call, about 118 ms after, against 157 to 219 ms per call with `urllib` (new TLS handshake each time).
 
 ## Invariants
 

@@ -36,10 +36,11 @@ def _token_score(token: str, text: str) -> float:
     return best
 
 
-def _entry_score(tokens: list[str], title: str, other: str) -> float:
+def score_tokens(tokens: list[str], fields: list[tuple[str, float]]) -> float:
+    """Sum over ``tokens`` of the best score in the folded ``fields`` (text, weight). 0 if a token is absent."""
     total = 0.0
     for token in tokens:
-        score = max(_token_score(token, title), _token_score(token, other) * _SECONDARY_WEIGHT)
+        score = max(_token_score(token, text) * weight for text, weight in fields)
         if score == 0.0:
             return 0.0
         total += score
@@ -58,7 +59,7 @@ def rank(entries: list[Entry], query: str) -> list[Entry]:
     for index, entry in enumerate(entries):
         title = fold(entry.get("title") or "")
         other = fold(f"{entry.get('uploader') or ''} {entry.get('channel') or ''}")
-        score = _entry_score(tokens, title, other)
+        score = score_tokens(tokens, [(title, 1.0), (other, _SECONDARY_WEIGHT)])
         if score:
             scored.append((-score, index, entry))
     scored.sort(key=lambda item: item[:2])

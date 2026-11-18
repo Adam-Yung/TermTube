@@ -88,10 +88,10 @@ async def test_a_playlist_follows_its_continuation(app, monkeypatch):
 async def test_enqueue_all_play_all_use_every_loaded_video(app, monkeypatch):
     async with app.run_test(size=(110, 34)) as pilot:
         screen, calls = await open_playlist(app, pilot, monkeypatch, [innertube.ChannelPage(vids("a", 3))])
-        app.audio.enqueue_many, app.audio.play_all = MagicMock(return_value=3), MagicMock(return_value=3)
+        app.audio.enqueue_many, app.audio.play_many = MagicMock(return_value=3), MagicMock()
         screen.action_enqueue_all()
         screen.action_play_all()
-        assert len(app.audio.enqueue_many.call_args.args[0]) == 3 and len(app.audio.play_all.call_args.args[0]) == 3
+        assert len(app.audio.enqueue_many.call_args.args[0]) == 3 and len(app.audio.play_many.call_args.args[0]) == 3
         assert len(calls) == 1
 
 
@@ -113,7 +113,7 @@ async def test_save_adds_the_videos_to_the_local_playlist_of_the_same_name(app, 
         with patch.object(app.cache, "put_video") as put:
             screen.action_save_list()
             screen.action_save_list()
-        assert playlist.get_playlist("Mix") == [e["id"] for e in vids("a", 3)]
+        assert [i["id"] for i in playlist.find_by_name("Mix")["items"]] == [e["id"] for e in vids("a", 3)]
         assert put.call_count == 6
 
 

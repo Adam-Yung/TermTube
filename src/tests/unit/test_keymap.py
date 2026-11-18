@@ -33,13 +33,15 @@ def test_motion_keys_never_play_or_stop():
 
 _DISPLAY = {
     "left_square_bracket": "[", "right_square_bracket": "]", "left_curly_bracket": "{", "right_curly_bracket": "}",
-    "comma": ",", "space": "Space", "enter": "Enter", "left": "←", "right": "→",
+    "comma": ",", "tab": "Tab", "space": "Space", "enter": "Enter", "left": "←", "right": "→",
 }
 
 
 def _keymap_keys() -> set[str]:
     lists = [keymap.LIST_NAV, keymap.PLAYBACK, keymap.ITEM_ACTIONS, keymap.LIST_TOOLS, keymap.GLOBAL,
-             keymap.SEARCH_FILTERS, keymap.CHANNEL_PAGE, keymap.SUBSCRIPTIONS, [keymap.SEARCH, keymap.FILTER]]
+             keymap.SEARCH_FILTERS, keymap.CHANNEL_PAGE, keymap.SUBSCRIPTIONS,
+             keymap.PLAYLIST_TOOLS, keymap.HISTORY_KEYS,
+             [keymap.SEARCH, keymap.FILTER, keymap.RAIL]]
     keys = {k for group in lists for b in group for k in b.key.split(",")}
     return {_DISPLAY.get(k, k) for k in keys}
 

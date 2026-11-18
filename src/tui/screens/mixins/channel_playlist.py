@@ -90,7 +90,9 @@ class ChannelPlaylistMixin:
             return
         audio = self.app.audio
         if action == "play":
-            count = audio.play_all(videos)
+            videos = list({v["id"]: v for v in videos}.values())
+            audio.play_many(videos)
+            count = len(videos)
         elif action == "enqueue":
             count = audio.enqueue_many(videos)
         else:
@@ -104,5 +106,8 @@ class ChannelPlaylistMixin:
         for video in videos:
             self.app.cache.put_video(video)
         name = source.get("_playlist_name") or source.get("title") or source["id"]
-        playlist.add_videos(name, [v["id"] for v in videos])
-        return len(videos)
+        existing = playlist.find_by_name(name)
+        if existing is None:
+            created = playlist.create(name, videos)
+            return len(created["items"]) if created else 0
+        return playlist.add_items(existing["id"], videos)

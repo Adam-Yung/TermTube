@@ -278,15 +278,19 @@ class Cache:
         except OSError:
             pass
 
-    def clear_all(self) -> None:
+    def clear_all(self) -> int:
+        """Delete cached feeds, video metadata and thumbnails (RAM copies too). Returns the number of files removed."""
         counts = []
         for directory, pattern in ((CACHE_DIR, "feed_*.json"), (VIDEO_DIR, "*.json"), (THUMB_DIR, "*.jpg")):
             files = list(directory.glob(pattern))
             for f in files:
                 f.unlink(missing_ok=True)
             counts.append(len(files))
+        with self._ram_lock:
+            self._ram_cache.clear()
         feeds, videos, thumbs = counts
         logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
+        return sum(counts)
 
     @staticmethod
     def _prune_dir(directory: Path, pattern: str, max_age_days: int | None, max_count: int) -> tuple[int, int]:
@@ -369,11 +373,8 @@ class Cache:
     def pin_all_playlist_videos(self) -> None:
         """Pin every video in any playlist (startup migration; skips already-pinned)."""
         from src import playlist
-        all_ids: set[str] = set()
-        for name in playlist.list_names():
-            all_ids.update(playlist.get_playlist(name))
         pinned = 0
-        for vid_id in all_ids:
+        for vid_id in playlist.all_video_ids():
             dest = PLAYLIST_VIDEO_DIR / f"{vid_id}.json"
             if dest.exists():
                 continue

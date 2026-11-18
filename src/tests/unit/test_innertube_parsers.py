@@ -175,6 +175,18 @@ class _FakeConn:
 
 
 @pytest.fixture
+def no_sleep(monkeypatch):
+    pauses = []
+    monkeypatch.setattr(innertube, "_sleep", pauses.append)
+    return pauses
+
+
+@pytest.fixture(autouse=True)
+def _no_real_sleep(monkeypatch):
+    monkeypatch.setattr(innertube, "_sleep", lambda s: None)
+
+
+@pytest.fixture
 def transport(monkeypatch):
     _FakeConn.instances, _FakeConn.script = [], []
     monkeypatch.setattr(innertube.http.client, "HTTPSConnection", _FakeConn)
@@ -198,14 +210,36 @@ def test_post_retries_once_on_a_stale_reused_connection(transport):
     assert len(transport.instances) == 2 and transport.instances[0].closed
 
 
-def test_post_gives_up_after_one_fresh_failure_and_on_http_errors(transport):
-    transport.script[:] = [ConnectionResetError("down")]
+def test_post_gives_up_after_one_retry_and_on_http_errors(transport, no_sleep):
+    transport.script[:] = [ConnectionResetError("down"), ConnectionResetError("down")]
     assert innertube._post_json(innertube._BROWSE_URL, {}) is None
-    assert len(transport.instances) == 1
-    transport.script[:] = [(500, b"oops")]
+    assert len(transport.instances) == 2 and no_sleep == [innertube._RETRY_DELAY_S]
+    transport.script[:] = [(404, b"gone")]
     assert innertube._post_json(innertube._BROWSE_URL, {}) is None
     transport.script[:] = [(200, b"not json")]
     assert innertube._post_json(innertube._BROWSE_URL, {}) is None
+
+
+def test_post_retries_a_429_or_5xx_once_after_a_pause(transport, no_sleep):
+    transport.script[:] = [(429, b""), (200, b'{"ok": 1}')]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) == {"ok": 1}
+    transport.script[:] = [(503, b""), (200, b'{"ok": 2}')]
+    assert innertube._post_json(innertube._BROWSE_URL, {}) == {"ok": 2}
+    assert no_sleep == [innertube._RETRY_DELAY_S] * 2
+
+
+def test_strict_post_raises_a_typed_error_after_the_retry(transport, no_sleep):
+    from src.errors import NetworkDown, RateLimited
+
+    transport.script[:] = [(429, b""), (429, b"")]
+    with pytest.raises(RateLimited):
+        innertube._post_json(innertube._BROWSE_URL, {}, strict=True)
+    transport.script[:] = [(502, b""), (500, b"")]
+    with pytest.raises(NetworkDown):
+        innertube._post_json(innertube._BROWSE_URL, {}, strict=True)
+    transport.script[:] = [(404, b"")]
+    assert innertube._post_json(innertube._BROWSE_URL, {}, strict=True) is None
+    assert len(no_sleep) == 2
 
 
 def test_post_connections_are_per_thread(transport):

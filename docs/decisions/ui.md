@@ -23,3 +23,30 @@ Typing in the search prompt asks `suggestqueries.google.com` (anonymous, no cook
 ## 2026-11-17 — Search sort and type: InnerTube `params`, filters belong to the search frame
 
 `s` and `t` on the Search tab pick sort and result type through the existing `SortModal` (now taking `options` and `title`; no second modal). The choice lives on the `SearchFrame`, so Backspace restores it with the results; a new query starts at relevance/all. The cache key is `query|sort|kind`. The request `params` blobs are protobuf: sort in field 1 (date 2, views 3), type in field 2.2 (video 1, channel 2, playlist 3). Single filters are the commonly documented values: `CAI=` date, `CAM=` views, `EgIQAQ==` video, `EgIQAg==` channel, `EgIQAw==` playlist **[verify live]**. Combined sort+type blobs (`CAISAhAB` ...) are the two messages joined, not seen working **[verify live]**. Nothing was called offline; a wrong value would return unfiltered results, not an error. Playlist rows from search do not open in the app (a remote playlist has no loader here): Enter says "press b". Result cap 200 by continuations as the user pages; an extension re-reads the earlier pages and skips them rather than keeping a cursor, because the cursor would need to survive the search stack. yt-dlp cannot filter, so it is the fallback for relevance/all only.
+
+## 2026-11-17 - Playlists v2 and management keys
+
+Playlists are addressed by stable id (`pl_xxxx`), not name, so rename and the `playlist:<id>` tab id cannot break; names are unique case-insensitively. Items are history-style slim snapshots so a row never shows a bare id; v1 items migrate with an empty title that the cache fills on first open. v1 file backed up once as `playlists.json.v1`; duplicate names that differ by case become `Name (2)`. Keys: `n` new, `R` rename, `J`/`K` move, `P`/`S`/`E` play / shuffle / queue all (lower-case `p`, `s`, `e` were taken by the playlist dialog, search sort and row enqueue). Each is declared once in `keymap.PLAYLIST_TOOLS` and says what to open when used outside the Playlists tab, as `s`/`t` do on Search. Play-all replaces the audio queue; queue-all appends and skips tracks already queued. The playlist dialog selects with `Space` and applies with `Enter` (with nothing selected `Enter` still flips the highlighted row). Names are asked in a small `NameModal`, not inline in the bar: the action bar has no text input and the dialog reuses the playlist styling.
+
+## 2026-11-17 - One Library tab with a left rail (P5.3, P5.4)
+
+The Playlists tab is gone; F-keys are `F1` Home, `F2` Subscriptions, `F3` Search, `F4` History, `F5` Library, `F6` Help (the picker is 1-6). The Library tab has a
+rail (All downloads, Videos, Audio, playlists, + New playlist). Focus: `Tab` toggles rail and list (no key changes meaning with state; `Tab` did nothing else
+on this screen). In the rail `j`/`k`/`g`/`G` move, `Enter` shows the entry and focuses the list, `l`/`Right` returns to the list without choosing. `Esc` and
+`Backspace` from the list go to the rail: nothing else used them on this tab once the playlist drill-down (`_open_playlist`, `_nav_stack`) was removed.
+`D` on a rail entry deletes that playlist (the thing under the cursor), in the list it removes the row. Row actions are inert while the rail has focus.
+`h`/`l` stay page keys: using `h` on page 1 to enter the rail would have given `h` a state-dependent meaning.
+
+Narrow terminals (under 100 columns) collapse the rail into one docked line instead of overflowing; the same keys cycle its entries.
+
+The filter hook is `VideoListPanel.set_matcher`; Library collections and playlists use `library_query.rank`, everything else keeps `fuzzy.rank`. Tokens
+that do not parse stay free text so a typo never raises. A search across History, Library and playlists together stays out of scope.
+
+## 2026-11-17 — History sources: `Y` switches, `I` imports
+
+The History tab holds sources: Local (`history`), YouTube history (`history:yt`) and Watch Later (`history:wl`), the last two read-only from the account (P6.3 chose the History tab's source switch over a separate account-feeds picker: no new tab or modal). `Y` cycles them; `[` `]` are audio seek,
+`Tab` belongs to the Library rail, and `Y` was free and reads as "YouTube". `I` imports the YouTube rows into the local history (a capital next to
+nothing else, only active on that source). F4 returns to the last source used. `D` on a YouTube source only explains it cannot remove (the owner
+made YouTube history read-only), and says to open youtube.com/feed/history instead, because `b` opens the selected video as everywhere. YouTube
+rows carry no timestamps (the flat feed gives none that were verified): no day headers, a `YT` badge. Imported rows keep `watched_at=None` and sort
+after dated ones (`docs/code/src/history.py.md`).

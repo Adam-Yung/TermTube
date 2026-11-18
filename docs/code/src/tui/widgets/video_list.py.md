@@ -1,6 +1,6 @@
 # src/tui/widgets/video_list.py
 
-The paged list. Entries live in `_pages` (page number to entries, `PAGE_SIZE` = 20); the `ListView` shows one page. Everything that fetches (`FeedLoaderMixin`, `ChannelScreen`) pushes pages in; this widget never fetches.
+The paged list. Entries live in `_pages` (page number to entries, `page_size` = `rows_per_page`, 20 by default); the `ListView` shows one page. Everything that fetches (`FeedLoaderMixin`, `ChannelScreen`) pushes pages in; this widget never fetches.
 
 ## Invariants
 
@@ -25,3 +25,9 @@ The paged list. Entries live in `_pages` (page number to entries, `PAGE_SIZE` = 
 `VideoListItem._build_markup` handles four row kinds: channel (Subscriptions), playlist, library item (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.
 
 A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of the video/audio badge.
+
+`set_matcher(fn)` swaps how the filter ranks entries (default `fuzzy.rank`); the feed loader sets it per view. Rows with `_dl` (playlist items) show a download badge: `⬇ video`, `⬇ audio`, `⬇ both` or `☁` for stream only.
+
+A row with `_yt` (account list) or `source == "yt"` (imported into local history) shows a `YT` badge after the download badges.
+
+History rows (records with `resume_s`, `plays`) add `▶ 2:05 / 10:00` (where playback resumes, over the length) and `×N` (plays, from the second) to the meta line. Both come from fields already on the row, so a list of thousands pays two dict lookups per row.
