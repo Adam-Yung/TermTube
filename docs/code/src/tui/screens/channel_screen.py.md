@@ -43,3 +43,5 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 All four tabs are composed; `_show_tabs` hides the ones the channel lacks. Until the info arrives only Videos and Playlists show. `fetch_channel_info` returns the `tabs` the channel has; `_apply_info` shows exactly those (when `videos` is among them). The yt-dlp info fallback has no `tabs`, so the default two stay. `_cycle_tab` and the backtick picker (`ChannelTabModal`) use the shown tabs only. If the open tab disappears the page falls back to Videos.
 
 `f` filters the loaded videos or playlists (`ListNavMixin.action_filter`); `Esc` clears a kept filter before it leaves the page. Marks, `D` and `u` are not bound here.
+
+`i` (`keymap.CHANNEL_PAGE`) expands or collapses the description in the info column. The handoff named `a` or Enter; `a` plays audio and Enter opens the action menu on this page, so neither can mean "expand".

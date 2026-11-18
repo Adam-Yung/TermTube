@@ -62,8 +62,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         *keymap.ITEM_ACTIONS,
         keymap.FILTER,
         Binding("escape,backspace", "go_back", "Back"),
-        Binding("s", "sort", "Sort"),
-        Binding("r", "reload", "Reload"),
+        *keymap.CHANNEL_PAGE,
         keymap.SEARCH,
         *keymap.GLOBAL,
         Binding("grave_accent", "tab_picker", show=False),
@@ -388,6 +387,10 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
                 self._start_content_load()
 
         self.app.push_screen(SortModal(current_sort=self._sort), on_pick)
+
+    def action_info(self) -> None:
+        if not self._info_panel().toggle_description():
+            self._hint("Nothing more to show.", "information")
 
     def action_reload(self) -> None:
         self._load_channel_info()

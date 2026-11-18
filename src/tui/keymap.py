@@ -60,6 +60,12 @@ GLOBAL = [
     Binding("?", "help", "Help"),
 ]
 
+CHANNEL_PAGE = [
+    Binding("s", "sort", "Sort"),
+    Binding("r", "reload", "Reload"),
+    Binding("i", "info", "Info"),
+]
+
 FOCUS_RECLAIM_KEYS = frozenset(
     {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}
 )

@@ -45,7 +45,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
 | `F1`–`F7` `` ` `` | jump to a tab / tab picker | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); a hint elsewhere | |
-| `s` `r` `Esc` | channel page only: sort / reload / back | |
+| `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |
 | `↑` `↓` `Enter` `Ctrl+D` | search prompt only: walk the earlier searches / search the highlighted one / forget it | |
 

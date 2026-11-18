@@ -112,3 +112,7 @@ Sort: the argument stays removed from InnerTube and non-date sorts go to yt-dlp 
 **[verify live]** Not recorded against YouTube: the Shorts and Live tab selectors, the `shortsLockupViewModel` parser, the `LIVE` and "N watching" badges, and the "Joined" header text. The fixtures for these are hand-written. A recorded channel response should replace them; until then a layout mismatch shows as an empty tab ("No content found."), never an error.
 
 Also: one `channel_ref.parse` replaces the string splitting of channel URLs. `ChannelScreen._channel_id` resolves an `/@handle` URL once through `innertube.resolve_channel_id` on the worker, so handle channels reach InnerTube too.
+
+## 2026-11-18 — Channel info column: description folded, `i` expands (P7.1)
+
+The description shows its first three lines; `i` expands it. The handoff proposed `a` or Enter, but `a` is audio and Enter is the action menu on the channel page (one key, one action), so the key is `i`. The video count comes from the header text ("442 videos") and the join date from a header text starting "Joined"; both are read from the `/browse` response the screen already requests, with no new request. The join date is **[verify live]**: the current layout may only carry it in the About popup, in which case the stats line shows the video count alone.

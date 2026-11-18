@@ -264,6 +264,8 @@ ChannelInfoPanel {
 
 #ch-subs { color: #888888; margin-bottom: 0; }
 #ch-url { color: #666666; margin-bottom: 1; }
+#ch-stats { color: #888888; margin-bottom: 0; }
+#ch-desc-hint { color: #666666; }
 #ch-sep { color: #333333; margin-bottom: 1; }
 
 #ch-desc-scroll {

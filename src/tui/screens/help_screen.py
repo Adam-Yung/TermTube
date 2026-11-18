@@ -62,6 +62,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("CHANNEL PAGE", [
         ("s", "Sort (date / views)"),
         ("r", "Reload"),
+        ("i", "Show all of the channel description / show less"),
         ("/ , ? q", "Search, settings, help, quit (as on the main page)"),
         ("Esc", "Back to the previous page"),
     ]),

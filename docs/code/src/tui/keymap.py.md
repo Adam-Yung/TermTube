@@ -16,5 +16,5 @@ player's keys are in `src/tui/screens/watch_modal.py`, not here.
   characters do not bind.
 - `FOCUS_RECLAIM_KEYS` is not a binding. `ListNavMixin.on_key` uses it to move focus back to the list when one of these keys arrives
   while focus sits on the tab bar, because DOM changes can leave it there. Keep it in step with `LIST_NAV`.
-- `FILTER` (`f`) is shared by both screens; `LIST_TOOLS` (`m`, `M`, `D`, `u`) is `MainScreen` only. `tests/unit/test_keymap.py` checks that every key here appears in the help screen and in `keybindings.md`.
+- `FILTER` (`f`) is shared by both screens; `LIST_TOOLS` (`m`, `M`, `D`, `u`) is `MainScreen` only; `CHANNEL_PAGE` (`s` sort, `r` reload, `i` description) is `ChannelScreen` only and, unlike the rest, shows in the footer. `tests/unit/test_keymap.py` checks that every key here appears in the help screen and in `keybindings.md`.
 - Adding a key also means the help screen, the action bar hints and the feature doc (`AGENTS.md`).
