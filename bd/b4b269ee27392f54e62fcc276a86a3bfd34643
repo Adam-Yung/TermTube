@@ -1,0 +1,41 @@
+docs/code/src/tui/keymap.py.md
+  s_2547108119c43f::t_79f4c7130ae7b6 19
+docs/code/src/tui/screens/channel_screen.py.md
+  s_2547108119c43f::t_c04de8bc5ec4ff 46-47
+docs/code/src/tui/widgets/channel_info_panel.py.md
+  s_2547108119c43f::t_c8652aa63673ec 3-5
+docs/decisions/feeds-and-paging.md
+  s_2547108119c43f::t_43a0494bdc24a5 115-118
+docs/features/keybindings.md
+  s_2547108119c43f::t_f3336158ae5bb2 48
+src/tests/tui/test_channel_info.py
+  s_2547108119c43f::t_9d7e522dff9580 1-81
+src/tests/unit/test_keymap.py
+  s_2547108119c43f::t_80e9272d1fdd4f 42
+src/tui/keymap.py
+  s_2547108119c43f::t_b23027272be3b7 63-68
+src/tui/screens/channel_screen.py
+  s_2547108119c43f::t_4c1fe5bf5810cd 65,391-394
+src/tui/screens/help_screen.py
+  s_2547108119c43f::t_4b529be46cb44c 65
+src/tui/theme.tcss
+  s_2547108119c43f::t_9eb2edeb2d8243 267-268
+src/tui/widgets/channel_info_panel.py
+  s_2547108119c43f::t_ebe740dedfaf82 12-36,44,50,55,86-87,90-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "bdb4b269ee27392f54e62fcc276a86a3bfd34643",
+  "prompts": {},
+  "sessions": {
+    "s_2547108119c43f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b817fa3-b791-4a54-9730-75fe36b48eee",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
