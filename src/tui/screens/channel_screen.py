@@ -10,10 +10,12 @@ from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
 from src import channel_ref, innertube, logger
-from src.entries import Entry, PlaylistEntry, VideoEntry
+from src.channel_pager import ChannelPager
+from src.entries import Entry, PlaylistEntry
 from src.tui import keymap
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
+from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.thumb_loader import load_thumbnail
@@ -21,7 +23,19 @@ from src.tui.widgets.channel_info_panel import ChannelInfoPanel
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
 
-_TAB_ORDER = ("ch-tab-videos", "ch-tab-playlists")
+_TAB_KINDS = {
+    "ch-tab-videos": "videos",
+    "ch-tab-shorts": "shorts",
+    "ch-tab-live": "live",
+    "ch-tab-playlists": "playlists",
+}
+_TAB_LABELS = {"videos": "Videos", "shorts": "Shorts", "live": "Live", "playlists": "Playlists"}
+_DEFAULT_TABS = ("videos", "playlists")
+_NO_SORT = {
+    "playlists": "Playlists have no sort.",
+    "shorts": "Shorts have no sort.",
+    "live": "Live streams have no sort.",
+}
 _UNSAFE_ID_CHARS = re.compile(r"[^A-Za-z0-9_\-]")
 
 
@@ -64,6 +78,10 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._content_session = 0
         self._info_avatar_session = 0
         self._content_started = False
+        self._pager = ChannelPager()
+        self._resolved_id: str | None = None
+        self._pending_show = False
+        self._shown_tabs: tuple[str, ...] = _DEFAULT_TABS
         self._init_detail_focus()
 
     def compose(self) -> ComposeResult:
@@ -71,8 +89,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             yield ChannelInfoPanel(id="ch-info-panel")
             with Vertical(id="ch-center"):
                 yield Tabs(
-                    Tab("Videos", id="ch-tab-videos"),
-                    Tab("Playlists", id="ch-tab-playlists"),
+                    *(Tab(_TAB_LABELS[kind], id=f"ch-tab-{kind}") for kind in _TAB_LABELS),
                     id="ch-tabs",
                 )
                 yield VideoListPanel(id="ch-video-list")
@@ -88,6 +105,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         tabs.can_focus = False
         for tab in tabs.query(Tab):
             tab.can_focus = False
+        self._show_tabs(_DEFAULT_TABS)
         self._load_channel_info()
         self.set_timer(0.05, self._start_content_once)
         self._sync_player_bar()
@@ -127,6 +145,9 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _apply_info(self, info: dict) -> None:
         panel = self._info_panel()
         panel.update_info(info)
+        known = tuple(kind for kind in _TAB_LABELS if kind in info.get("tabs", ()))
+        if "videos" in known:
+            self._show_tabs(known)
         url = info.get("thumbnail", "")
         if not url:
             panel.set_thumbnail_placeholder()
@@ -151,32 +172,53 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _start_content_load(self) -> None:
         self._content_started = True
         self._content_session += 1
+        self._pager.reset()
+        self._pending_show = False
         self._list().clear_and_set_loading()
-        kind = "playlists" if self._current_tab == "ch-tab-playlists" else "videos"
-        self._load_content(kind, self._sort, self._content_session)
+        self._load_content(self._tab_kind(), self._sort, self._content_session)
 
     @work(thread=True, exclusive=True, group="ch_content")
     def _load_content(self, kind: str, sort: str, session: int) -> None:
-
-        panel = self._list()
         call = self.app.call_from_thread
         try:
-            if kind == "playlists":
-                entries = self._fetch_playlists()
-            else:
-                entries = self._fetch_videos(sort)
-            if session != self._content_session:
-                return
-            if not entries:
-                call(panel.set_empty_message, "No content found.")
-                return
-            call(panel.add_entries, 1, entries)
-            call(panel.load_page, 1)
-            call(panel.finish_loading)
+            page = self._fetch_first_page(kind, sort)
         except Exception as exc:
             logger.debug("channel content: %s", exc)
-            if session == self._content_session:
-                call(panel.set_error_message, str(exc))
+            page = None
+            call(self._show_content_error, session, str(exc))
+        if page is not None:
+            call(self._show_first_page, session, page)
+
+    def _show_first_page(self, session: int, page: innertube.ChannelPage) -> None:
+        if session != self._content_session:
+            return
+        panel = self._list()
+        if not page.entries:
+            panel.set_empty_message("No content found.")
+            return
+        panel.add_entries(1, page.entries)
+        panel.load_page(1)
+        panel.finish_loading()
+        self._pager.start(len(page.entries), page.token)
+        self._maybe_prefetch()
+
+    def _show_content_error(self, session: int, message: str) -> None:
+        if session == self._content_session:
+            self._list().set_error_message(message)
+
+    def _fetch_first_page(self, kind: str, sort: str) -> innertube.ChannelPage:
+        if kind == "playlists":
+            return innertube.ChannelPage(self._fetch_playlists())
+        if kind in ("shorts", "live"):
+            return self._fetch_tab(kind)
+        return self._fetch_videos(sort)
+
+    def _fetch_tab(self, kind: str) -> innertube.ChannelPage:
+        """Shorts or Live: InnerTube only. yt-dlp has no equivalent that is worth the wait."""
+        channel_id = self._channel_id()
+        page = innertube.fetch_channel_page(channel_id, kind) if channel_id else innertube.ChannelPage([])
+        self._label(page.entries)
+        return page
 
     def _fetch_playlists(self) -> list[PlaylistEntry]:
         """InnerTube browse (fast); yt-dlp when the id is unknown or the response is empty."""
@@ -190,33 +232,120 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             logger.debug("InnerTube channel playlists empty; falling back to yt-dlp")
         return ytdlp.fetch_channel_playlists(self._channel_url, self.app.config, self.app.cache)
 
-    def _fetch_videos(self, sort: str) -> list[VideoEntry]:
-        """InnerTube for newest-first (fast); yt-dlp for other sorts or when InnerTube returns nothing."""
+    def _fetch_videos(self, sort: str) -> innertube.ChannelPage:
+        """InnerTube for newest-first (fast, with a continuation); yt-dlp for other sorts or when InnerTube is empty.
+
+        InnerTube's popular and oldest filter chips are not used (decision log 2026-11-18): the other sorts go to
+        yt-dlp, which returns one batch with no continuation.
+        """
         import src.ytdlp as ytdlp
 
         channel_id = self._channel_id()
         if channel_id and sort == "date":
-            entries = innertube.fetch_channel_videos(channel_id)
-            if entries:
-                for entry in entries:
-                    entry.setdefault("channel", self._channel_name)
-                    entry.setdefault("uploader", self._channel_name)
-                return entries
+            page = innertube.fetch_channel_page(channel_id, "videos")
+            if page.entries:
+                self._label(page.entries)
+                return page
             logger.debug("InnerTube channel videos empty; falling back to yt-dlp")
-        return ytdlp.fetch_channel_videos(self._channel_url, self.app.config, self.app.cache, sort=sort)
+        return innertube.ChannelPage(
+            ytdlp.fetch_channel_videos(self._channel_url, self.app.config, self.app.cache, sort=sort)
+        )
+
+    def _label(self, entries: list) -> None:
+        """InnerTube channel rows carry no channel name; the page knows it."""
+        for entry in entries:
+            entry.setdefault("channel", self._channel_name)
+            entry.setdefault("uploader", self._channel_name)
+
+    def _maybe_prefetch(self) -> None:
+        """Fetch the next page ahead of the user: on the second-to-last held page, never while filtering."""
+        panel = self._list()
+        if not panel.filter_active and self._pager.wants_more(panel.current_page, panel.total_pages):
+            self._extend(show=False)
+
+    def _extend(self, *, show: bool) -> None:
+        """Start the next fetch, or when one is in flight make its result show as soon as it lands."""
+        panel = self._list()
+        if self._pager.fetching:
+            if show:
+                self._pending_show = True
+                panel.show_next_page_loading()
+            return
+        if not self._pager.token or panel.filter_active:
+            return
+        token = self._pager.begin_fetch()
+        panel.set_progress(self._pager.note())
+        if show:
+            panel.show_next_page_loading()
+        self._extend_content(self._tab_kind(), token, show, self._content_session)
+
+    @work(thread=True, exclusive=True, group="ch_extend")
+    def _extend_content(self, kind: str, token: str, show: bool, session: int) -> None:
+        page = innertube.ChannelPage([])
+        try:
+            page = innertube.fetch_channel_page(self._channel_id() or "", kind, token)
+            self._label(page.entries)
+        except Exception as exc:
+            logger.debug("channel extend: %s", exc)
+        self.app.call_from_thread(self._apply_extension, session, page, show)
+
+    def _apply_extension(self, session: int, page: innertube.ChannelPage, show: bool) -> None:
+        if session != self._content_session:
+            return
+        panel = self._list()
+        entries = self._pager.finish(page.entries, page.token)
+        show = show or self._pending_show
+        self._pending_show = False
+        panel.set_progress(self._pager.note())
+        if entries:
+            FeedLoaderMixin._append_pages(panel, entries, show)
+        elif show:
+            panel.load_page(panel.total_pages, cursor="last")
+        self._maybe_prefetch()
+
+    def action_page_next(self) -> None:
+        super().action_page_next()
+        self._maybe_prefetch()
+
+    def action_goto_end(self) -> None:
+        super().action_goto_end()
+        self._maybe_prefetch()
+
+    def _on_past_last_page(self) -> None:
+        self._extend(show=True)
 
     def _channel_id(self) -> str | None:
-        """The ``UC…`` id, from the URL or from the loaded channel info."""
+        """The ``UC…`` id: from the URL, the loaded channel info, or one lookup (workers only: it blocks)."""
         known = channel_ref.channel_id(self._channel_url)
         if known:
             return known
         try:
             info = self._info_panel().info
         except Exception:
-            return None
+            info = None
         if info and channel_ref.is_channel_id(info.get("channel_id", "")):
             return info["channel_id"]
-        return None
+        if self._resolved_id is None:
+            self._resolved_id = innertube.resolve_channel_id(self._channel_url) or ""
+        return self._resolved_id or None
+
+    def _show_tabs(self, kinds: tuple[str, ...]) -> None:
+        """Show only the tabs the channel has; fall back to Videos if the open tab went away."""
+        self._shown_tabs = kinds
+        tabs = self.query_one("#ch-tabs", Tabs)
+        for kind in _TAB_LABELS:
+            if kind in kinds:
+                tabs.show(f"ch-tab-{kind}")
+            else:
+                tabs.hide(f"ch-tab-{kind}")
+        if _TAB_KINDS[self._current_tab] not in kinds:
+            tabs.active = "ch-tab-videos"
+
+    def _tab_ids(self) -> list[str]:
+        return [f"ch-tab-{kind}" for kind in _TAB_LABELS if kind in self._shown_tabs]
+
+    def _tab_kind(self) -> str:
+        return _TAB_KINDS[self._current_tab]
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
         tab_id = event.tab.id if event.tab else None
@@ -231,7 +360,8 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._cycle_tab(1)
 
     def _cycle_tab(self, step: int) -> None:
-        target = _TAB_ORDER[(_TAB_ORDER.index(self._current_tab) + step) % len(_TAB_ORDER)]
+        order = self._tab_ids()
+        target = order[(order.index(self._current_tab) + step) % len(order)]
         self.query_one("#ch-tabs", Tabs).active = target
 
     def action_tab_picker(self) -> None:
@@ -241,11 +371,12 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             if tab_id:
                 self.query_one("#ch-tabs", Tabs).active = tab_id
 
-        self.app.push_screen(ChannelTabModal(self._current_tab), on_pick)
+        shown = [(f"ch-tab-{kind}", _TAB_LABELS[kind]) for kind in _TAB_LABELS if kind in self._shown_tabs]
+        self.app.push_screen(ChannelTabModal(self._current_tab, shown), on_pick)
 
     def action_sort(self) -> None:
-        if self._current_tab == "ch-tab-playlists":
-            self._hint("Playlists have no sort.", "information")
+        if self._tab_kind() != "videos":
+            self._hint(_NO_SORT[self._tab_kind()], "information")
             return
         from src.tui.screens.sort_modal import SortModal
 

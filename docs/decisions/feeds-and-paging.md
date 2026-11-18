@@ -102,3 +102,13 @@ A running Home load was not cancelled when the user switched tabs (a thread work
 ## 2026-11-17 — Library index keyed by sidecar `(mtime, size)`; deletes are outright and path-checked
 
 The Phase 0 measurement (300 sidecars scan in 52 ms) said the index is about size and robustness, not speed, so it stores only the slim record per sidecar and re-reads a sidecar only when its `(mtime, size)` changes; paths, sizes and the video/audio merge come from the single `os.scandir` walk, so a sidecar can never point a row at another file. `safe_delete` removes files outright (owner answer, no trash, no dependency): every path must be inside a configured root with no symlink and no `..`, and only the media plus same-stem `.info.json`, images and subtitles go. `entry_only` removes the sidecar and keeps the media, because the Library lists sidecars. Thumbnails are normalised to `<stem>.jpg` next to the media (not a separate folder), since that path already survives cache pruning and is deleted with the file group.
+
+## 2026-11-18 — Channel page: continuations, Shorts and Live, no popular sort (P7.1)
+
+Videos follow InnerTube continuations with the Home model: the screen keeps the token (`ChannelPager`), fetches the next batch when the user reaches the second-to-last held page, caps the tab at 200 entries and never re-reads an earlier page. Shorts and Live are tabs on the same `fetch_channel_page`; a tab the channel lacks (no tab title in the first `/browse` response) is hidden. Channel info gains `video_count`, `joined` and `tabs` from the response the screen already requests.
+
+Sort: the argument stays removed from InnerTube and non-date sorts go to yt-dlp explicitly. Reading the popular and oldest filter chips means parsing a `chipCloudRenderer` whose continuation tokens come from the first response, and the one earlier attempt at a popular selector was unreliable; yt-dlp's `?sort=p` already works and returns one batch.
+
+**[verify live]** Not recorded against YouTube: the Shorts and Live tab selectors, the `shortsLockupViewModel` parser, the `LIVE` and "N watching" badges, and the "Joined" header text. The fixtures for these are hand-written. A recorded channel response should replace them; until then a layout mismatch shows as an empty tab ("No content found."), never an error.
+
+Also: one `channel_ref.parse` replaces the string splitting of channel URLs. `ChannelScreen._channel_id` resolves an `/@handle` URL once through `innertube.resolve_channel_id` on the worker, so handle channels reach InnerTube too.

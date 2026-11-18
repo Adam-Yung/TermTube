@@ -1,0 +1,16 @@
+{
+  "_note": "Hand-written Shorts tab. [verify live] Replace with a trimmed recording.",
+  "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [
+    {"tabRenderer": {"title": "Shorts", "selected": true, "content": {"richGridRenderer": {"contents": [
+      {"richItemRenderer": {"content": {"shortsLockupViewModel": {
+        "entityId": "shorts-shelf-item-SSSSSSSSSSS",
+        "onTap": {"innertubeCommand": {"reelWatchEndpoint": {"videoId": "SSSSSSSSSSS"}}},
+        "overlayMetadata": {"primaryText": {"content": "A short"}, "secondaryText": {"content": "12K views"}},
+        "thumbnail": {"sources": [{"url": "https://i.ytimg.com/vi/SSSSSSSSSSS/oar.jpg"}]}}}}},
+      {"richItemRenderer": {"content": {"shortsLockupViewModel": {
+        "entityId": "shorts-shelf-item-TTTTTTTTTTT",
+        "overlayMetadata": {"primaryText": {"content": "No tap command"}}}}}},
+      {"richItemRenderer": {"content": {"shortsLockupViewModel": {}}}}
+    ]}}}}
+  ]}}
+}

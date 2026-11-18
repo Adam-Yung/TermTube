@@ -9,7 +9,7 @@ import re
 import threading
 import urllib.parse
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 
 from src import logger
 from src.channel_ref import channel_id as channel_url_id
@@ -156,45 +156,67 @@ def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
     }
 
 
-# Base64 protobuf tab selector for the Videos tab, newest first.
-_CHANNEL_VIDEOS_PARAMS = "EgZ2aWRlb3PyBgQKAjoA"
+CHANNEL_TABS = ("videos", "shorts", "live", "playlists")
+# Base64 protobuf tab selectors (field 2 is the tab name, field 110 carries the tab's number). Newest first for videos.
+# shorts and live are [verify live]: built from the same pattern, not yet recorded.
+_CHANNEL_TAB_PARAMS = {
+    "videos": "EgZ2aWRlb3PyBgQKAjoA",
+    "shorts": "EgZzaG9ydHPyBgUKA5oBAA==",
+    "live": "EgdzdHJlYW1z8gYECgJ6AA==",
+    "playlists": "EglwbGF5bGlzdHPyBgQKAkIA",
+}
+
+
+class ChannelPage(NamedTuple):
+    """One /browse page of a channel tab: its entries and the token for the next page (empty on the last)."""
+
+    entries: list
+    token: str = ""
+
+
+def fetch_channel_page(channel_id: str, tab: str = "videos", token: str = "", *, timeout: int = 12) -> ChannelPage:
+    """One page of a channel tab (``CHANNEL_TABS``), or the page ``token`` points at. Empty on any failure."""
+    if token:
+        payload: dict = {"continuation": token, "context": _WEB_CONTEXT}
+    else:
+        payload = {"browseId": channel_id, "params": _CHANNEL_TAB_PARAMS[tab], "context": _WEB_CONTEXT}
+    data = _post_json(_BROWSE_URL, payload, timeout=timeout)
+    if not data:
+        return ChannelPage([])
+    try:
+        items = _browse_items(data)
+    except (KeyError, TypeError, AttributeError, IndexError) as exc:
+        logger.debug("innertube browse parse error: %s", exc)
+        return ChannelPage([])
+    parse = _TAB_PARSERS[tab]
+    entries = [e for e in map(parse, items) if e]
+    logger.debug("innertube: %d %s entries for %s", len(entries), tab, channel_id)
+    return ChannelPage(entries, _next_token(items))
 
 
 def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[VideoEntry]:
-    """Newest-first channel video entries from the /browse API (~600 ms for 30). Empty on failure."""
-    payload = {
-        "browseId": channel_id,
-        "params": _CHANNEL_VIDEOS_PARAMS,
-        "context": _WEB_CONTEXT,
-    }
+    """First page of newest-first channel videos (~600 ms for 30). Empty on failure."""
+    return fetch_channel_page(channel_id, "videos", timeout=timeout).entries
 
-    data = _post_json(_BROWSE_URL, payload, timeout=timeout)
-    if not data:
-        return []
 
-    entries: list[VideoEntry] = []
-    try:
-        tabs = (data.get("contents", {})
-                .get("twoColumnBrowseResultsRenderer", {})
-                .get("tabs", []))
+def _browse_items(data: dict) -> list[dict]:
+    """The grid items of a first /browse response (rich grid or playlist grid) or of a continuation response."""
+    actions = data.get("onResponseReceivedActions")
+    if actions:
+        return actions[0].get("appendContinuationItemsAction", {}).get("continuationItems", [])
+    tabs = data.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+    selected = next((t["tabRenderer"] for t in tabs if t.get("tabRenderer", {}).get("selected")), {})
+    content = selected.get("content", {})
+    if "richGridRenderer" in content:
+        return content["richGridRenderer"].get("contents", [])
+    sections = content.get("sectionListRenderer", {}).get("contents", [])
+    return [i for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])
+            for i in c.get("gridRenderer", {}).get("items", [])]
 
-        for tab in tabs:
-            tr = tab.get("tabRenderer", {})
-            if not tr.get("selected"):
-                continue
-            items = (tr.get("content", {})
-                     .get("richGridRenderer", {})
-                     .get("contents", []))
-            for item in items:
-                entry = _parse_channel_video_item(item)
-                if entry:
-                    entries.append(entry)
-            break
-    except (KeyError, TypeError, AttributeError) as exc:
-        logger.debug("innertube browse parse error: %s", exc)
 
-    logger.debug("innertube: fetched %d channel videos for %s", len(entries), channel_id)
-    return entries
+def _next_token(items: list[dict]) -> str:
+    return next((i["continuationItemRenderer"].get("continuationEndpoint", {}).get("continuationCommand", {})
+                 .get("token", "") for i in items if "continuationItemRenderer" in i), "")
 
 
 def _parse_channel_video_item(item: dict) -> VideoEntry | None:
@@ -222,12 +244,13 @@ def _parse_channel_video_item(item: dict) -> VideoEntry | None:
     for row in meta_rows:
         for part in row.get("metadataParts", []):
             text = part.get("text", {}).get("content", "")
-            if "view" in text.lower():
+            if "view" in text.lower() or "watching" in text.lower():
                 view_count_text = text
             elif "ago" in text.lower() or "streamed" in text.lower():
                 published_text = text
 
     duration_text = ""
+    is_live = False
     overlays = (lvm.get("contentImage", {})
                 .get("thumbnailViewModel", {})
                 .get("overlays", []))
@@ -237,7 +260,9 @@ def _parse_channel_video_item(item: dict) -> VideoEntry | None:
             for badge in tbov.get("badges", []):
                 bvm = badge.get("thumbnailBadgeViewModel", {})
                 text = bvm.get("text", "")
-                if text and ":" in text:
+                if text.upper() == "LIVE":
+                    is_live = True
+                elif text and ":" in text:
                     duration_text = text
                     break
         if duration_text:
@@ -251,7 +276,7 @@ def _parse_channel_video_item(item: dict) -> VideoEntry | None:
     if sources:
         thumbnail = sources[-1].get("url", "")
 
-    return {
+    entry: VideoEntry = {
         "id": video_id,
         "title": title,
         "view_count_text": view_count_text,
@@ -260,6 +285,32 @@ def _parse_channel_video_item(item: dict) -> VideoEntry | None:
         "view_count": _parse_view_count(view_count_text),
         "duration": _parse_duration_text(duration_text),
         "thumbnail": thumbnail,
+        "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
+        "_type": "url",
+    }
+    if is_live:
+        entry["is_live"] = True
+    return entry
+
+
+def _parse_short_item(item: dict) -> VideoEntry | None:
+    """One Shorts-tab ``shortsLockupViewModel`` item as a video entry. [verify live]"""
+    vm = item.get("richItemRenderer", {}).get("content", {}).get("shortsLockupViewModel", {})
+    command = vm.get("onTap", {}).get("innertubeCommand", {})
+    video_id = command.get("reelWatchEndpoint", {}).get("videoId") or vm.get("entityId", "").removeprefix(
+        "shorts-shelf-item-"
+    )
+    if not video_id:
+        return None
+    meta = vm.get("overlayMetadata", {})
+    views_text = meta.get("secondaryText", {}).get("content", "")
+    sources = vm.get("thumbnail", {}).get("sources", [])
+    return {
+        "id": video_id,
+        "title": meta.get("primaryText", {}).get("content", ""),
+        "view_count_text": views_text,
+        "view_count": _parse_view_count(views_text),
+        "thumbnail": sources[-1].get("url", "") if sources else "",
         "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
         "_type": "url",
     }
@@ -314,8 +365,6 @@ def _parse_int(value) -> int | None:
         return None
 
 
-# Base64 protobuf tab selector for the Playlists tab.
-_CHANNEL_PLAYLISTS_PARAMS = "EglwbGF5bGlzdHPyBgQKAkIA"
 _MAX_PLAYLIST_PAGES = 4
 _VIDEO_COUNT = re.compile(r"^[\d,]+ videos?$")
 
@@ -529,7 +578,17 @@ def fetch_channel_info(channel_url: str) -> dict | None:
         "subscriber_count": _parse_view_count(_find_text(data.get("header", {}), _SUBSCRIBERS)),
         "thumbnail": avatars[-1].get("url", "") if avatars else "",
         "uploader_url": (meta.get("vanityChannelUrl") or "").replace("http://", "https://"),
+        "video_count": _parse_view_count(_find_text(data.get("header", {}), _VIDEO_COUNT)),
+        "joined": _find_text(data.get("header", {}), _JOINED),
+        "tabs": _channel_tabs(data),
     }
+
+
+def _channel_tabs(data: dict) -> list[str]:
+    """Which of ``CHANNEL_TABS`` the channel has, from the tab titles of the first /browse response."""
+    tabs = data.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+    titles = {t.get("tabRenderer", {}).get("title", "").lower() for t in tabs}
+    return [tab for tab in CHANNEL_TABS if tab in titles]
 
 
 def _parse_playlist_item(item: dict) -> PlaylistEntry | None:
@@ -557,36 +616,26 @@ def _parse_playlist_item(item: dict) -> PlaylistEntry | None:
     }
 
 
-def _playlist_page(data: dict) -> tuple[list[PlaylistEntry], str]:
-    """Playlist entries and the next continuation token from a Playlists-tab or continuation response."""
-    actions = data.get("onResponseReceivedActions")
-    if actions:
-        items = actions[0].get("appendContinuationItemsAction", {}).get("continuationItems", [])
-    else:
-        tabs = data.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
-        selected = next((t["tabRenderer"] for t in tabs if t.get("tabRenderer", {}).get("selected")), {})
-        sections = selected.get("content", {}).get("sectionListRenderer", {}).get("contents", [])
-        items = [i for s in sections for c in s.get("itemSectionRenderer", {}).get("contents", [])
-                 for i in c.get("gridRenderer", {}).get("items", [])]
-    entries = [e for e in map(_parse_playlist_item, items) if e]
-    token = next((i["continuationItemRenderer"].get("continuationEndpoint", {}).get("continuationCommand", {})
-                  .get("token", "") for i in items if "continuationItemRenderer" in i), "")
-    return entries, token
+_JOINED = re.compile(r"^Joined\b", re.IGNORECASE)
+
+_TAB_PARSERS: dict[str, Callable[[dict], Entry | None]] = {
+    "videos": _parse_channel_video_item,
+    "shorts": _parse_short_item,
+    "live": _parse_channel_video_item,
+    "playlists": _parse_playlist_item,
+}
 
 
 def fetch_channel_playlists(channel_id: str, *, count: int = 80, timeout: int = 12) -> list[PlaylistEntry]:
     """Playlists of a channel from /browse, following continuations up to ``count``. Anonymous. Empty on failure."""
-    payload: dict = {"browseId": channel_id, "params": _CHANNEL_PLAYLISTS_PARAMS, "context": _WEB_CONTEXT}
     entries: list[PlaylistEntry] = []
+    token = ""
     for _ in range(_MAX_PLAYLIST_PAGES):
-        data = _post_json(_BROWSE_URL, payload, timeout=timeout)
-        if not data:
-            break
-        page, token = _playlist_page(data)
-        entries.extend(page)
+        page = fetch_channel_page(channel_id, "playlists", token, timeout=timeout)
+        entries.extend(page.entries)
+        token = page.token
         if len(entries) >= count or not token:
             break
-        payload = {"continuation": token, "context": _WEB_CONTEXT}
     return entries[:count]
 
 
