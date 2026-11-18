@@ -41,6 +41,7 @@ ITEM_ACTIONS = [
 ]
 
 FILTER = Binding("f", "filter", show=False)
+RAIL = Binding("tab", "rail_toggle", show=False)
 
 LIST_TOOLS = [
     Binding("m", "mark", show=False),

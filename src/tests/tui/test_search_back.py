@@ -3,8 +3,6 @@
 import pytest
 from textual.widgets import Tabs
 
-from src import playlist
-
 
 @pytest.fixture(autouse=True)
 def fake_search(monkeypatch):
@@ -62,21 +60,18 @@ async def test_backspace_on_another_tab_leaves_the_stack_alone(app, monkeypatch)
         assert screen._search.query == "beta" and screen._current_tab == "history"
 
 
-async def test_backspace_in_a_playlist_still_goes_to_the_playlist_index(app, temp_playlists):
-    pid = playlist.create("mix")["id"]
+async def test_backspace_on_the_library_goes_to_the_rail_and_keeps_the_search(app, temp_playlists):
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._show_search_results("alpha")
         await pilot.pause(0.4)
         screen._show_search_results("beta")
         await pilot.pause(0.4)
-        screen.query_one("#nav-tabs", Tabs).active = "playlists"
+        screen.query_one("#nav-tabs", Tabs).active = "library"
         await pilot.pause(0.4)
-        screen._open_playlist(pid)
-        await pilot.pause(0.3)
         await pilot.press("backspace")
-        await pilot.pause(0.4)
-        assert screen._current_tab == "playlists" and screen._search.query == "beta"
+        await pilot.pause(0.3)
+        assert screen._rail_focused() and screen._current_tab == "library" and screen._search.query == "beta"
 
 
 async def test_s_and_t_filter_the_search_and_reload_it(app, monkeypatch):
@@ -121,10 +116,10 @@ async def test_enter_on_a_search_playlist_row_says_to_press_b(app):
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._current_tab = "search"
-        with patch.object(screen, "notify") as notify, patch.object(screen, "_open_playlist") as opened:
+        with patch.object(screen, "notify") as notify:
             screen._activate_entry({"id": "PLx", "_is_playlist": True, "_playlist_name": "x"})
             await pilot.pause(0.1)
-        assert not opened.called and "press b" in notify.call_args.args[0].lower()
+        assert "press b" in notify.call_args.args[0].lower()
 
 
 def test_search_extension_asks_for_what_is_left_below_the_200_cap(monkeypatch):

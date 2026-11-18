@@ -87,7 +87,9 @@ class ListNavMixin:
 
     def on_key(self, event: Key) -> None:
         """Pull focus back to the list: DOM changes can leave it on the tab bar."""
-        if event.key not in FOCUS_RECLAIM_KEYS or isinstance(self.app.focused, FilterBar):
+        focused = self.app.focused
+        owns_keys = isinstance(focused, FilterBar) or getattr(focused, "OWNS_NAV_KEYS", False)
+        if event.key not in FOCUS_RECLAIM_KEYS or owns_keys:
             return
         try:
             panel = self._list()

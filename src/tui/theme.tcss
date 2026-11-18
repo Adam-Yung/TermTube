@@ -745,3 +745,17 @@ Toast.-error { border: solid #ff4444; border-left: thick #ff4444; color: #ffb3b3
 App.theme-amber Toast.-information { border-left: thick #e8820c; }
 App.theme-ocean Toast.-information { border-left: thick #0ea5e9; }
 App.theme-midnight Toast.-information { border-left: thick #a855f7; }
+
+LibraryRail {
+    width: 26;
+    height: 1fr;
+    background: #0f0f0f;
+    border-right: solid #2a2a2a;
+}
+
+LibraryRail.-narrow {
+    dock: top;
+    width: 100%;
+    height: 1;
+    border-right: none;
+}

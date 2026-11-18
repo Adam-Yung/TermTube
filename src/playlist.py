@@ -255,6 +255,18 @@ def video_playlists(video_id: str) -> list[str]:
     return _store.read(names)
 
 
+def membership() -> dict[str, list[str]]:
+    """{video id: names of the playlists holding it}, in one read."""
+    def build(data: dict) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for p in data["playlists"]:
+            for item in p["items"]:
+                out.setdefault(item["id"], []).append(p["name"])
+        return out
+
+    return _store.read(build)
+
+
 def all_video_ids() -> set[str]:
     return _store.read(lambda data: {i["id"] for p in data["playlists"] for i in p["items"]})
 

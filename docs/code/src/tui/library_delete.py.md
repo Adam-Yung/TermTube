@@ -8,3 +8,5 @@ The Library tab's delete handler, registered in `MainScreen._removals()` under `
 - `removal(config)` returns a `Removal` whose `remove` calls `library.safe_delete` for every target with `config.video_dir` and
   `config.audio_dir` as the roots, and returns the targets that had no failures. `permanent=True`: no undo, and the notice says the files are gone.
   `reload` returns `library.all_entries`, so the list re-pages from the index after the delete.
+
+`removal(config, kind)` is per rail collection: `reload` returns only that collection, so the list keeps showing it after a delete.

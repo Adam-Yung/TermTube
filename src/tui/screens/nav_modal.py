@@ -12,8 +12,7 @@ _PAGES = [
     ("3", "search", "🔍  Search"),
     ("4", "history", "🕐  History"),
     ("5", "library", "📁  Library"),
-    ("6", "playlists", "🎵  Playlists"),
-    ("7", "help", "📚  Help"),
+    ("6", "help", "📚  Help"),
 ]
 
 

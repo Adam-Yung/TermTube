@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src import logger
-from src.entries import LibraryEntry
+from src.entries import Entry, LibraryEntry
 from src.history import slim
 from src.plat import get_cache_dir
 from src.store import JsonStore
@@ -182,6 +182,43 @@ def invalidate_cache() -> None:
     """Force a rebuild on the next all_entries() call; the persisted index still saves the parsing."""
     with _lock:
         _cache.clear()
+
+
+_LOCAL_KEYS = ("_local_path", "_local_type", "_size", "_sidecar_path", "_has_audio", "_audio_path", "_audio_size",
+               "_audio_sidecar_path", "_thumb_path")
+
+
+def kinds(entry: Entry) -> set[str]:
+    """The forms a downloaded row exists in: ``{"video"}``, ``{"audio"}`` or both. Empty when it is not downloaded."""
+    if not entry.get("_local_type"):
+        return set()
+    return {entry["_local_type"]} | ({"audio"} if entry.get("_has_audio") else set())
+
+
+def of_kind(entries: list[LibraryEntry], kind: str) -> list[LibraryEntry]:
+    """The entries that exist as ``kind`` (`video` or `audio`); every entry for an empty ``kind``."""
+    return [e for e in entries if not kind or kind in kinds(e)]
+
+
+def counts(entries: list[LibraryEntry]) -> dict[str, int]:
+    """Entries per rail collection: all (key ``""``), video and audio."""
+    return {"": len(entries), "video": len(of_kind(entries, "video")), "audio": len(of_kind(entries, "audio"))}
+
+
+def attach_local(rows: list[Entry], library_entries: Iterable[LibraryEntry]) -> list[Entry]:
+    """Copies of ``rows`` marked with their download state: `_dl` is `video`, `audio`, `both` or `""` (stream only).
+
+    A downloaded row also gets the `_local_*` fields, so playing it and the detail panel use the file on disk.
+    """
+    by_id = {e["id"]: e for e in library_entries if not e.get("_missing_file")}
+    out = []
+    for row in rows:
+        found = by_id.get(row.get("id", ""))
+        have = kinds(found) if found else set()
+        dl = "both" if len(have) == 2 else next(iter(have), "")
+        extra = {k: found[k] for k in _LOCAL_KEYS if found and k in found} if have else {}
+        out.append({**row, **extra, "_dl": dl})
+    return out
 
 
 def _sidecar_for(media: Path) -> Path:

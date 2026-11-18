@@ -15,3 +15,5 @@ Right-hand panel: `ThumbnailWidget`, title/channel/stats/description, playlist m
 `thumbnail_cell_size` falls back to 38x20 before layout. A thumbnail rendered at that size is wrong until the first resize event corrects it.
 
 Library rows show a `#video-file` line: path relative to the download folder and total size (`library.total_size`), or `⚠ file missing`.
+
+`refresh_playlists` shows "In playlists: A, B" for any video that is in a playlist.

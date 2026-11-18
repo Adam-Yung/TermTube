@@ -22,6 +22,14 @@ PAGE_SIZE = 20
 _MAX_PAGES_IN_MEMORY = 30
 
 
+_DL_BADGES = {
+    "video": " [#6bff6b]⬇ video[/]",
+    "audio": " [#6b9eff]⬇ audio[/]",
+    "both": " [#6bff6b]⬇ both[/]",
+    "": " [dim]☁[/dim]",
+}
+
+
 def _paginate(entries: list[Entry]) -> dict[int, list[Entry]]:
     return {n + 1: entries[i:i + PAGE_SIZE] for n, i in enumerate(range(0, len(entries), PAGE_SIZE))}
 
@@ -155,6 +163,8 @@ class VideoListItem(ListItem):
             badge = " [#ff6b6b]⚠ file missing[/]"
         elif is_playlist:
             badge = " [#6b9eff]▶ PLAYLIST[/]"
+        elif "_dl" in entry:
+            badge = _DL_BADGES[entry["_dl"]]
         elif local_type == "video" and has_audio:
             badge = " [#6bff6b]↓ VIDEO+AUDIO[/]"
         elif local_type == "video":
@@ -221,6 +231,7 @@ class VideoListPanel(Widget):
         self._items_by_id: dict[str, VideoListItem] = {}
         self._marked: set[str] = set()
         self._filter: str = ""
+        self._matcher: Callable[[list[Entry], str], list[Entry]] = fuzzy.rank
         self._filtered_pages: dict[int, list[Entry]] = {}
         self._anchor_page: int = 1
         self._group_by: Callable[[Entry], str] | None = None
@@ -495,6 +506,10 @@ class VideoListPanel(Widget):
         if len(self._lv):
             self._lv.index = len(self._lv) - 1
 
+    def set_matcher(self, matcher: Callable[[list[Entry], str], list[Entry]] | None) -> None:
+        """How the filter ranks entries for the view being loaded; None restores the plain free-text match."""
+        self._matcher = matcher or fuzzy.rank
+
     def set_view_options(self, *, group_by: Callable[[Entry], str] | None = None, show_count: bool = False) -> None:
         """Day headers (`group_by` returns a row's label) and the footer item count. Reset on every view change."""
         self._group_by = group_by
@@ -576,7 +591,7 @@ class VideoListPanel(Widget):
         self.load_page(max(page, 1), focus_id=sid, focus=False)
 
     def _rebuild_filtered(self) -> None:
-        matched = fuzzy.rank(self.visited_entries(), self._filter)
+        matched = self._matcher(self.visited_entries(), self._filter)
         self._filtered_pages = _paginate(matched)
 
     def toggle_mark(self, entry: Entry) -> None:

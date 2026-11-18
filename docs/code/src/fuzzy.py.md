@@ -7,3 +7,5 @@ The list filter's matcher: a pure function, no state, no dependency. `rank(entri
 - Substring matching only, not subsequence: `abc` does not match `a-b-c`. A subsequence pass costs 10x on non-matching rows and ranks noise; revisit if users ask.
 - `casefold` makes `STRASSE` find `Straße`. 10,000 rows rank in about 10 ms (`test_ten_thousand_rows_rank_quickly` allows 50 ms).
 - Callers: `VideoListPanel._rebuild_filtered` on every keystroke and whenever pages arrive while a filter is active.
+
+`score_tokens(tokens, fields)` is the shared scorer: each token must be found in some `(folded text, weight)` field. `rank` uses it with title and uploader; `library_query` with more fields.

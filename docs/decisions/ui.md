@@ -27,3 +27,18 @@ Typing in the search prompt asks `suggestqueries.google.com` (anonymous, no cook
 ## 2026-11-17 - Playlists v2 and management keys
 
 Playlists are addressed by stable id (`pl_xxxx`), not name, so rename and the `playlist:<id>` tab id cannot break; names are unique case-insensitively. Items are history-style slim snapshots so a row never shows a bare id; v1 items migrate with an empty title that the cache fills on first open. v1 file backed up once as `playlists.json.v1`; duplicate names that differ by case become `Name (2)`. Keys: `n` new, `R` rename, `J`/`K` move, `P`/`S`/`E` play / shuffle / queue all (lower-case `p`, `s`, `e` were taken by the playlist dialog, search sort and row enqueue). Each is declared once in `keymap.PLAYLIST_TOOLS` and says what to open when used outside the Playlists tab, as `s`/`t` do on Search. Play-all replaces the audio queue; queue-all appends and skips tracks already queued. The playlist dialog selects with `Space` and applies with `Enter` (with nothing selected `Enter` still flips the highlighted row). Names are asked in a small `NameModal`, not inline in the bar: the action bar has no text input and the dialog reuses the playlist styling.
+
+## 2026-11-17 - One Library tab with a left rail (P5.3, P5.4)
+
+The Playlists tab is gone; F-keys are `F1` Home, `F2` Subscriptions, `F3` Search, `F4` History, `F5` Library, `F6` Help (the picker is 1-6). The Library tab has a
+rail (All downloads, Videos, Audio, playlists, + New playlist). Focus: `Tab` toggles rail and list (no key changes meaning with state; `Tab` did nothing else
+on this screen). In the rail `j`/`k`/`g`/`G` move, `Enter` shows the entry and focuses the list, `l`/`Right` returns to the list without choosing. `Esc` and
+`Backspace` from the list go to the rail: nothing else used them on this tab once the playlist drill-down (`_open_playlist`, `_nav_stack`) was removed.
+`D` on a rail entry deletes that playlist (the thing under the cursor), in the list it removes the row. Row actions are inert while the rail has focus.
+`h`/`l` stay page keys: using `h` on page 1 to enter the rail would have given `h` a state-dependent meaning.
+
+Narrow terminals (under 100 columns) collapse the rail into one docked line instead of overflowing; the same keys cycle its entries.
+
+The filter hook is `VideoListPanel.set_matcher`; Library collections and playlists use `library_query.rank`, everything else keeps `fuzzy.rank`. Tokens
+that do not parse stay free text so a typo never raises. A search across History, Library and playlists together stays out of scope.
+

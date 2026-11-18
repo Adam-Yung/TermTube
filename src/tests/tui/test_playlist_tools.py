@@ -1,4 +1,4 @@
-"""Playlists tab: new, rename, delete, open, remove items, reorder, play-all, modal multi-select."""
+"""Playlists in the Library rail: new, rename, delete, open, remove items, reorder, play-all, modal multi-select."""
 
 from unittest.mock import patch
 
@@ -34,9 +34,17 @@ def item_ids(pid):
 
 
 async def open_tab(app, pilot):
+    """The Library tab with the rail focused on its first playlist (the entries before it are All, Videos, Audio)."""
     await pilot.pause(0.8)
-    await pilot.press("f6")
+    await pilot.press("f5")
     await pilot.pause(0.5)
+    await pilot.press("tab", "j", "j", "j")
+
+
+async def open_playlist(app, pilot):
+    await open_tab(app, pilot)
+    await pilot.press("enter")
+    await pilot.pause(0.4)
 
 
 async def name_it(app, pilot, name):
@@ -48,25 +56,28 @@ async def name_it(app, pilot, name):
 
 async def test_n_creates_a_playlist_and_a_duplicate_is_refused(app):
     async with app.run_test(size=(110, 40)) as pilot:
-        await open_tab(app, pilot)
+        await pilot.pause(0.8)
+        await pilot.press("f5")
+        await pilot.pause(0.4)
         await pilot.press("n")
         await pilot.pause(0.2)
         await name_it(app, pilot, "Road trip")
         assert [p["name"] for p in playlist.list_playlists()] == ["Road trip"]
-        assert row_ids(app) == [f"__playlist__{playlist.list_playlists()[0]['id']}"]
+        assert app.screen._current_tab == f"playlist:{playlist.list_playlists()[0]['id']}"
+        assert app.screen._rail().highlighted.label == "Road trip"
         await pilot.press("n")
         await pilot.pause(0.2)
         await name_it(app, pilot, "road TRIP")
         assert len(playlist.list_playlists()) == 1
 
 
-async def test_n_outside_the_playlists_tab_only_hints(app):
+async def test_n_outside_the_library_tab_only_hints(app):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.pause(0.8)
         with patch.object(app.screen, "notify") as notify:
             await pilot.press("n")
             await pilot.pause(0.2)
-        assert not isinstance(app.screen, NameModal) and "Playlists tab" in notify.call_args.args[0]
+        assert not isinstance(app.screen, NameModal) and "Library tab" in notify.call_args.args[0]
 
 
 async def test_rename_from_the_index_and_from_inside(app):
@@ -76,7 +87,7 @@ async def test_rename_from_the_index_and_from_inside(app):
         await pilot.press("R")
         await pilot.pause(0.2)
         await name_it(app, pilot, "Newer")
-        assert playlist.get(pid)["name"] == "Newer"
+        assert playlist.get(pid)["name"] == "Newer" and app.screen._rail().highlighted.label == "Newer"
         await pilot.press("enter")
         await pilot.pause(0.4)
         await pilot.press("R")
@@ -103,9 +114,7 @@ async def test_delete_playlist_asks_keeps_videos_and_undo_restores(app):
 async def test_open_playlist_shows_titles_never_bare_ids_and_filters(app):
     pid = playlist.create("P", vids(*range(1, 26)))["id"]
     async with app.run_test(size=(110, 40)) as pilot:
-        await open_tab(app, pilot)
-        await pilot.press("enter")
-        await pilot.pause(0.4)
+        await open_playlist(app, pilot)
         panel = panel_of(app)
         assert app.screen._current_tab == f"playlist:{pid}" and len(row_ids(app)) == 25
         assert panel.selected_entry["title"] == "Clip 1"
@@ -121,9 +130,7 @@ async def test_migrated_item_without_title_is_filled_from_the_cache(app):
     pid = playlist.create("P", [{"id": "abc123def45"}])["id"]
     app.cache.pin_video("abc123def45", {"id": "abc123def45", "title": "From cache"})
     async with app.run_test(size=(110, 40)) as pilot:
-        await open_tab(app, pilot)
-        await pilot.press("enter")
-        await pilot.pause(0.4)
+        await open_playlist(app, pilot)
         assert panel_of(app).selected_entry["title"] == "From cache"
         assert playlist.get(pid)["items"][0]["title"] == "From cache"
 
@@ -131,9 +138,7 @@ async def test_migrated_item_without_title_is_filled_from_the_cache(app):
 async def test_D_inside_removes_marked_items_and_u_restores_in_place(app):
     pid = playlist.create("P", vids(1, 2, 3, 4))["id"]
     async with app.run_test(size=(110, 40)) as pilot:
-        await open_tab(app, pilot)
-        await pilot.press("enter")
-        await pilot.pause(0.4)
+        await open_playlist(app, pilot)
         await pilot.press("m", "j", "m", "D", "y")  # marks 1 and 3 (m moves down)
         await pilot.pause(0.3)
         assert item_ids(pid) == [v["id"] for v in vids(2, 4)]
@@ -145,9 +150,7 @@ async def test_D_inside_removes_marked_items_and_u_restores_in_place(app):
 async def test_J_and_K_move_the_item_and_stop_at_the_ends(app):
     pid = playlist.create("P", vids(1, 2, 3))["id"]
     async with app.run_test(size=(110, 40)) as pilot:
-        await open_tab(app, pilot)
-        await pilot.press("enter")
-        await pilot.pause(0.4)
+        await open_playlist(app, pilot)
         await pilot.press("K")  # first row: nowhere to go
         await pilot.pause(0.1)
         assert item_ids(pid) == [v["id"] for v in vids(1, 2, 3)]

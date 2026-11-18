@@ -24,3 +24,5 @@ The paged list. Entries live in `_pages` (page number to entries, `PAGE_SIZE` = 
 `VideoListItem._build_markup` handles four row kinds: channel (Subscriptions), playlist, library item (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.
 
 A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of the video/audio badge.
+
+`set_matcher(fn)` swaps how the filter ranks entries (default `fuzzy.rank`); the feed loader sets it per view. Rows with `_dl` (playlist items) show a download badge: `⬇ video`, `⬇ audio`, `⬇ both` or `☁` for stream only.

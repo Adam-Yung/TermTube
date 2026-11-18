@@ -10,7 +10,7 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Footer, RichLog, Tab, Tabs
 
-from src import history, logger, playlist, search_history
+from src import history, logger, search_history
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.search_stack import SearchStack
@@ -20,11 +20,13 @@ from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
+from src.tui.screens.mixins.library_rail import LibraryRailMixin, tab_of
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
 from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
 from src.tui.widgets.app_header import AppHeader
 from src.tui.widgets.detail_panel import DetailPanel
+from src.tui.widgets.library_rail import LibraryRail
 from src.tui.widgets.video_list import VideoListPanel
 
 _TABS = (
@@ -33,7 +35,6 @@ _TABS = (
     ("search", "🔍 Search"),
     ("history", "🕐 History"),
     ("library", "📁 Library"),
-    ("playlists", "🎵 Playlists"),
     ("help", "📚 Help"),
 )
 _SEARCH_SORTS = [
@@ -47,7 +48,7 @@ _SEARCH_TYPES = [
     ("channel", "📺  Channels", "c"),
     ("playlist", "🎵  Playlists", "p"),
 ]
-_LOADABLE_TABS = ("home", "subscriptions", "history", "library", "playlists")
+_LOADABLE_TABS = ("home", "subscriptions", "history", "library")
 _FORCE_EXIT_AFTER_S = 2.0
 _KILL_TIMEOUT_S = 1.5
 
@@ -62,6 +63,7 @@ def _force_exit() -> None:
 
 class MainScreen(
     PlaylistToolsMixin,
+    LibraryRailMixin,
     ListToolsMixin,
     ListNavMixin,
     DetailFocusMixin,
@@ -83,6 +85,7 @@ class MainScreen(
         *keymap.PLAYBACK,
         *keymap.ITEM_ACTIONS,
         keymap.FILTER,
+        keymap.RAIL,
         *keymap.LIST_TOOLS,
         *keymap.PLAYLIST_TOOLS,
         Binding("backspace,escape", "nav_back", show=False),
@@ -92,8 +95,7 @@ class MainScreen(
         Binding("f3", "goto_tab('search')", show=False),
         Binding("f4", "goto_tab('history')", show=False),
         Binding("f5", "goto_tab('library')", show=False),
-        Binding("f6", "goto_tab('playlists')", show=False),
-        Binding("f7", "goto_tab('help')", show=False),
+        Binding("f6", "goto_tab('help')", show=False),
         Binding("ctrl+d", "toggle_log", "Debug", show=False),
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
@@ -105,7 +107,6 @@ class MainScreen(
         super().__init__()
         self._current_tab = ""
         self._search = SearchStack()
-        self._nav_stack: list[str] = []
         self._opening_search_tab = False
         self._feed_session = 0
         self._avatar_session = 0
@@ -114,6 +115,7 @@ class MainScreen(
         self._init_detail_focus()
         self._init_debug_log()
         self._init_list_tools()
+        self._init_library_rail()
 
     def _removals(self) -> dict[str, Removal]:
         return {
@@ -124,13 +126,20 @@ class MainScreen(
                 noun="video",
             ),
             "library": library_delete.removal(self.app.config),
+            "library:video": library_delete.removal(self.app.config, "video"),
+            "library:audio": library_delete.removal(self.app.config, "audio"),
             **self._playlist_removals(),
         }
+
+    def _selected_entry(self) -> Entry | None:
+        """The highlighted row; none while the rail has focus, so row actions never act on a row the user is not on."""
+        return None if self._rail_focused() else super()._selected_entry()
 
     def compose(self) -> ComposeResult:
         yield AppHeader()
         yield Tabs(*[Tab(label, id=tab_id) for tab_id, label in _TABS], id="nav-tabs")
         with Horizontal(id="main-content"):
+            yield LibraryRail(id="library-rail")
             yield VideoListPanel(id="video-list-panel")
             yield DetailPanel(id="detail-panel")
         yield RichLog(id="debug-log", highlight=True, markup=True, max_lines=100, wrap=False)
@@ -141,6 +150,7 @@ class MainScreen(
         tabs.can_focus = False
         for tab in tabs.query(Tab):
             tab.can_focus = False
+        self._rail().display = False
         self._mount_debug_log()
         self.app.audio.log = self._log
         self._sync_player_bar()
@@ -209,7 +219,7 @@ class MainScreen(
         tab_id = event.tab.id if event.tab else None
         # Appending list items can move focus onto the tab bar, which re-activates the
         # current tab. A real switch always changes the id.
-        if not tab_id or tab_id == self._current_tab:
+        if not tab_id or tab_id == tab_of(self._current_tab):
             return
         logger.info("tab → %s", tab_id)
         self._cancel_pending_focus_and_thumb()
@@ -219,14 +229,17 @@ class MainScreen(
             elif not (self._current_tab == "search" and self._search.query):
                 self._open_search_dialog()
         elif tab_id == "help":
-            self._show_help(restore_tab=self._current_tab)
+            self._show_help(restore_tab=tab_of(self._current_tab))
         else:
             if self._current_tab in FEED_TABS:
                 self._save_feed_stash(self._current_tab)
             self._save_search_position()
-            self._current_tab = tab_id
-            self._nav_stack.clear()
-            self._load_view(tab_id)
+            self._show_rail(tab_id == "library")
+            if tab_id == "library":
+                self._select_collection(self._library_view, focus_list=False)
+            else:
+                self._current_tab = tab_id
+                self._load_view(tab_id)
 
     def _show_help(self, *, restore_tab: str = "") -> None:
         from src.tui.screens.help_screen import HelpScreen
@@ -252,7 +265,7 @@ class MainScreen(
         self._cycle_tab(1)
 
     def _cycle_tab(self, step: int) -> None:
-        current = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
+        current = tab_of(self._current_tab)
         order = list(_LOADABLE_TABS)
         if self._search.query:
             order.insert(2, "search")
@@ -276,16 +289,11 @@ class MainScreen(
     def action_nav_back(self) -> None:
         if self._close_filter_if_active():
             return
-        if not self._nav_stack:
-            if self._current_tab == "search" and self._search.pop():
-                self._show_search_frame()
-            return
-        previous = self._nav_stack.pop()
-        self._current_tab = previous
-        if previous == "search":
-            self._load_view("search")
-        else:
-            self.query_one("#nav-tabs", Tabs).active = previous
+        if tab_of(self._current_tab) == "library":
+            if not self._rail_focused():
+                self._rail().focus()
+        elif self._current_tab == "search" and self._search.pop():
+            self._show_search_frame()
 
     def action_search(self) -> None:
         self._open_search_dialog()
@@ -328,7 +336,7 @@ class MainScreen(
         self._save_search_position()
         self._search.push(query)
         self._current_tab = "search"
-        self._nav_stack.clear()
+        self._show_rail(False)
         self._opening_search_tab = True
         self._show_search_frame()
 
@@ -348,18 +356,6 @@ class MainScreen(
         tabs.active = "search"
         self._load_view("search")
 
-    def _open_playlist(self, pid: str) -> None:
-        record = playlist.get(pid)
-        if record is None:
-            return
-        self._nav_stack.append(self._current_tab)
-        self._current_tab = f"playlist:{pid}"
-        panel = self._list()
-        panel.clear_and_set_loading()
-        panel.set_breadcrumb(f"🎵 {record['name']}  ← backspace to go back")
-        self._detail().clear()
-        self._start_view(f"playlist:{pid}")
-
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         if entry.get("_is_channel"):
@@ -372,10 +368,8 @@ class MainScreen(
         self.action_activate()
 
     def _activate_entry(self, entry: Entry) -> None:
-        if entry.get("_is_playlist") and self._current_tab == "search":
+        if entry.get("_is_playlist"):
             self._hint("Press b to open the playlist in the browser.", "information")
-        elif entry.get("_is_playlist"):
-            self._open_playlist(entry.get("_playlist_id", ""))
         elif entry.get("_is_channel"):
             self._open_channel(entry)
         else:

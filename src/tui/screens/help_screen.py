@@ -17,8 +17,8 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("g / G", "First / last item of the whole list"),
         ("H / L", "Previous / next tab"),
         ("Enter", "Action menu for the row"),
-        ("Backspace / Esc", "Back (out of a playlist or channel; on Search, to the previous results)"),
-        ("F1–F7  `", "Jump to a tab / open the tab picker"),
+        ("Backspace / Esc", "Back (on Library, from the list to the rail; on Search, to the previous results)"),
+        ("F1–F6  `", "Jump to a tab / open the tab picker"),
     ]),
     ("PLAY", [
         ("v / V", "Watch video / choose quality first"),
@@ -47,12 +47,15 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("LIST TOOLS", [
         ("f", "Filter the loaded list as you type (Enter keeps it, Esc clears it)"),
         ("m / M", "Mark the row and move down / mark the whole page"),
-        ("D", "Remove the row or the marked rows from this list, after one y / N (History, Library, Playlists)"),
+        ("D", "Remove the row or the marked rows from this list, after one y / N (History, Library, playlists)"),
         ("u", "Undo the last removal (within 30 s)"),
     ]),
-    ("PLAYLISTS TAB", [
+    ("LIBRARY TAB", [
+        ("Tab", "Move between the rail (downloads, videos, audio, playlists) and the list"),
+        ("j / k  Enter", "In the rail: move / show that collection (Enter on + New playlist creates one)"),
+        ("f", "Filter with words and tokens: type:audio dur:<10m by:\"name\" year:2024 pl:name dl:yes"),
         ("n / R", "New playlist / rename the highlighted or open playlist"),
-        ("D", "Delete the playlist (videos stay on disk); inside one, remove the videos from it"),
+        ("D", "On the rail: delete the playlist (videos stay on disk); in a playlist, remove the videos from it"),
         ("J / K", "Inside a playlist: move the video down / up"),
         ("P / S / E", "Play / shuffle / queue the open or highlighted playlist as audio"),
         ("p", "In the playlist dialog: Space selects several playlists, Enter toggles them"),

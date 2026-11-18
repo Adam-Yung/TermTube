@@ -22,3 +22,5 @@ Items are slim snapshots (the same slimmer as history, `history.slim`), so a pla
 - `sync_pins(cache, ids, entries)` is the one place that keeps the cache consistent: ids still in some playlist are pinned (video JSON and
   thumbnail), the others unpinned. Callers pass the ids a change touched, after the change.
 - Deleting a playlist or an item never touches downloaded files.
+
+`membership()` returns `{video id: [playlist names]}` in one store read, for the `pl:` filter token.

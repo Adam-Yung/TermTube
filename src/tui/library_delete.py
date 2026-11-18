@@ -32,8 +32,8 @@ def ask(entries: list[Entry]) -> tuple[str, dict[str, str]]:
     return f'[bold]Delete "{title}" - {parts}?[/bold]   {keys}', choices
 
 
-def removal(config) -> Removal:
-    """Library removal: files are deleted outright, so there is nothing to undo."""
+def removal(config, kind: str = "") -> Removal:
+    """Library removal for the collection ``kind`` (`video`, `audio` or all): files are deleted outright, no undo."""
     roots = [config.video_dir, config.audio_dir]
 
     def remove(entries: list[Entry], choice: str) -> list[Entry]:
@@ -42,7 +42,7 @@ def removal(config) -> Removal:
     return Removal(
         remove=remove,
         restore=lambda _entries: None,
-        reload=lambda: library.all_entries(config.video_dir, config.audio_dir),
+        reload=lambda: library.of_kind(library.all_entries(config.video_dir, config.audio_dir), kind),
         noun="item",
         ask=ask,
         permanent=True,

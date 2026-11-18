@@ -15,3 +15,5 @@ Cursor, page and focus handling for a screen that owns one `VideoListPanel` (`Ma
 ## Focus reclaim
 
 `on_key` returns focus to the list for the keys in `keymap.FOCUS_RECLAIM_KEYS`, except while the filter bar has focus (otherwise `Enter` in the bar would also activate the row, and arrow keys would leave the field). Appending list items can move focus onto the tab bar; without this, `j`/`k` would stop moving the cursor.
+
+A focused widget with `OWNS_NAV_KEYS = True` (the Library rail) is exempt from the focus reclaim, like the filter bar.

@@ -93,8 +93,8 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 | Subscriptions | `ytdlp.fetch_subscribed_channels` | rows are channels; avatar and channel info workers per row; detail panel in channel mode |
 | Search | `ytdlp.fetch_search_batch` | 50 results at a time up to 200 (continuations as you page), `s` sort and `t` type per search; `SearchStack` (`src/search_stack.py`) holds up to 20 searches for Backspace |
 | History | `history.iter_entries` | local |
-| Library | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
-| Playlists | `playlist.py` + cached entries | index list, then one playlist (Backspace returns) |
+| Library (rail: All downloads, Videos, Audio) | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
+| Library rail: playlists | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
 | Channel page | `fetch_channel_info`, InnerTube browse or `fetch_channel_videos` | pushed `ChannelScreen` |
 
 Cursor move on a video row: `update_basic` immediately; 100 ms later the metadata worker (skipped if the entry has a description); 150 ms later the thumbnail worker.

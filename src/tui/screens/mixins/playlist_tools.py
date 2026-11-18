@@ -2,36 +2,34 @@ from __future__ import annotations
 
 import random
 
-from src import playlist
+from src import library, playlist
 from src.entries import Entry
 from src.tui.fmt import escape_markup
+from src.tui.screens.mixins.library_rail import PLAYLIST_VIEW as _PLAYLIST_TAB
+from src.tui.screens.mixins.library_rail import tab_of
 from src.tui.screens.mixins.list_tools import Removal
 from src.tui.screens.name_modal import NameModal
 
 _UNKNOWN_TITLE = "Unknown video"
-_PLAYLIST_TAB = "playlist:"
 
 
-def index_entries() -> list[Entry]:
-    """One row per playlist, for the Playlists tab."""
-    rows = []
-    for pl in playlist.list_playlists():
-        count = len(pl["items"])
-        rows.append({
-            "id": f"__playlist__{pl['id']}",
-            "title": f"🎵  {pl['name']}",
-            "uploader": f"{count} video{'s' if count != 1 else ''}",
-            "duration": None,
-            "view_count": None,
-            "_is_playlist": True,
-            "_playlist_id": pl["id"],
-            "_playlist_name": pl["name"],
-        })
-    return rows
+def playlist_row(pl: dict) -> Entry:
+    """A playlist as a row: what the delete question and the rename dialog read."""
+    count = len(pl["items"])
+    return {
+        "id": f"__playlist__{pl['id']}",
+        "title": pl["name"],
+        "uploader": f"{count} video{'s' if count != 1 else ''}",
+        "_playlist_id": pl["id"],
+        "_playlist_name": pl["name"],
+    }
 
 
-def item_entries(pid: str, cache=None) -> list[Entry]:
-    """The playlist's videos as list rows. A migrated item without a title is filled in from the cache once."""
+def item_entries(pid: str, cache=None, config=None) -> list[Entry]:
+    """The playlist's videos as list rows. A migrated item without a title is filled in from the cache once.
+
+    With ``config`` each row carries its download state from the Library index (see `library.attach_local`).
+    """
     record = playlist.get(pid)
     if record is None:
         return []
@@ -40,7 +38,10 @@ def item_entries(pid: str, cache=None) -> list[Entry]:
         found = [{**raw, "id": vid} for vid in bare if (raw := cache.get_video_raw(vid))]
         if found and playlist.refresh_items(found):
             record = playlist.get(pid) or record
-    return [{**i, "title": i.get("title") or _UNKNOWN_TITLE} for i in record["items"]]
+    rows = [{**i, "title": i.get("title") or _UNKNOWN_TITLE} for i in record["items"]]
+    if config is None:
+        return rows
+    return library.attach_local(rows, library.all_entries(config.video_dir, config.audio_dir))
 
 
 def _sync(app, ids, entries=()) -> None:
@@ -59,29 +60,36 @@ def _delete_question(targets: list[Entry]) -> tuple[str, dict[str, str]]:
 
 
 class PlaylistToolsMixin:
-    """Playlist management for the Playlists tab: new, rename, delete, reorder, play-all. Needs ListToolsMixin's screen.
+    """Playlist management on the Library tab: new, rename, delete, reorder, play-all. Needs ListToolsMixin's screen.
 
-    Written against `_current_tab`, `_list()`, `_selected_entry()` and `_hint` only, so it moves into the Library
-    rail unchanged: the rail supplies the same `playlist:<id>` / `playlists` views.
+    With the rail focused the target is the playlist under its cursor; otherwise it is the playlist the list shows.
+    Needs `LibraryRailMixin` (`_rail_focused`, `_rail_playlist`, `_select_collection`, `_collection_entries`).
     """
 
     HAS_PLAYLIST_TOOLS = True
 
     def _playlist_id(self) -> str | None:
-        """The open playlist's id, or None on any other tab."""
+        """The shown playlist's id, or None on any other view."""
         tab = self._current_tab
         return tab.removeprefix(_PLAYLIST_TAB) if tab.startswith(_PLAYLIST_TAB) else None
 
     def _target_playlist(self) -> str | None:
-        """The open playlist, or the highlighted row of the Playlists tab."""
-        pid = self._playlist_id()
-        if pid is None and self._current_tab == "playlists":
-            entry = self._selected_entry()
-            pid = entry.get("_playlist_id") if entry else None
-        return pid
+        if self._rail_focused():
+            record = self._rail_playlist()
+            return record["id"] if record else None
+        return self._playlist_id()
+
+    def _removal_key(self) -> str:
+        return "playlists" if self._rail_focused() else super()._removal_key()
+
+    def _delete_targets(self) -> list[Entry]:
+        if not self._rail_focused():
+            return super()._delete_targets()
+        record = self._rail_playlist()
+        return [playlist_row(record)] if record else []
 
     def _playlist_removals(self) -> dict[str, Removal]:
-        """`D` handlers: on the Playlists tab it deletes playlists, inside one it removes items (never files)."""
+        """`D` handlers: on the rail, delete the playlist under the cursor; in a playlist, remove items only."""
         out = {"playlists": self._playlists_removal()}
         for pl in playlist.list_playlists():
             out[_PLAYLIST_TAB + pl["id"]] = self._items_removal(pl["id"])
@@ -99,8 +107,8 @@ class PlaylistToolsMixin:
                     _sync(self.app, {i["id"] for i in rec["items"]}, [])
 
         return Removal(
-            remove=remove, restore=restore, reload=index_entries, noun="playlist",
-            ask=_delete_question, label="Playlists",
+            remove=remove, restore=restore, reload=lambda: self._collection_entries(self._current_tab),
+            noun="playlist", ask=_delete_question, label="Playlists",
         )
 
     def _items_removal(self, pid: str) -> Removal:
@@ -113,14 +121,14 @@ class PlaylistToolsMixin:
             playlist.restore_items(pid, records)
             _sync(self.app, [r["id"] for r in records], records)
 
-        def reload() -> list[Entry]:
-            return item_entries(pid, getattr(self.app, "cache", None))
-
-        return Removal(remove=remove, restore=restore, reload=reload, noun="video", label="the playlist")
+        return Removal(
+            remove=remove, restore=restore, reload=lambda: self._collection_entries(_PLAYLIST_TAB + pid),
+            noun="video", label="the playlist",
+        )
 
     def action_playlist_new(self) -> None:
-        if self._current_tab != "playlists":
-            self._hint("Open the Playlists tab (F6) to create a playlist.", "information")
+        if tab_of(self._current_tab) != "library":
+            self._hint("Open the Library tab (F5) to create a playlist.", "information")
             return
 
         def done(name: str | None) -> None:
@@ -130,7 +138,7 @@ class PlaylistToolsMixin:
             if record is None:
                 self._hint(f'Playlist "{name}" already exists.')
                 return
-            self._list().replace_entries(index_entries(), focus_id=f"__playlist__{record['id']}")
+            self._select_collection(_PLAYLIST_TAB + record["id"], focus_list=not self._rail_focused())
 
         self.app.push_screen(NameModal("New playlist"), done)
 
@@ -147,10 +155,9 @@ class PlaylistToolsMixin:
             if not playlist.rename(record["id"], name):
                 self._hint(f'Playlist "{name}" already exists.')
                 return
+            self._refresh_rail()
             if self._playlist_id() == record["id"]:
-                self._list().set_breadcrumb(f"🎵 {name}  ← backspace to go back")
-            else:
-                self._list().replace_entries(index_entries(), focus_id=f"__playlist__{record['id']}")
+                self._list().set_breadcrumb(f"🎵 {name}")
 
         self.app.push_screen(NameModal("Rename playlist", record["name"]), done)
 
@@ -173,14 +180,14 @@ class PlaylistToolsMixin:
                 self._hint("Already at the end of the playlist." if step > 0 else "Already at the top of the playlist.",
                            "information")
                 return
-            self._list().replace_entries(item_entries(pid, getattr(self.app, "cache", None)), focus_id=entry["id"])
+            self._list().replace_entries(self._collection_entries(_PLAYLIST_TAB + pid), focus_id=entry["id"])
 
     def _playlist_tracks(self) -> list[Entry]:
         pid = self._target_playlist()
         if pid is None:
-            self._hint("Open a playlist (or highlight one) first.", "information")
+            self._hint("Open a playlist (or highlight one in the rail) first.", "information")
             return []
-        tracks = item_entries(pid, getattr(self.app, "cache", None))
+        tracks = self._collection_entries(_PLAYLIST_TAB + pid)
         if not tracks:
             self._hint("This playlist is empty.", "information")
         return tracks

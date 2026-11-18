@@ -145,7 +145,8 @@ class DetailPanel(Widget):
 
     def refresh_playlists(self, vid: str) -> None:
         names = playlist.video_playlists(vid) if vid and not vid.startswith("__") else []
-        self._text("#video-playlists", "  ".join(f"[#6699cc]♪ {n}[/#6699cc]" for n in names))
+        listed = ", ".join(escape_markup(n) for n in names)
+        self._text("#video-playlists", f"[#6699cc]♪ In playlists: {listed}[/#6699cc]" if names else "")
 
     def thumbnail_cell_size(self) -> tuple[int, int]:
         """Cells available for the half-block fallback render."""

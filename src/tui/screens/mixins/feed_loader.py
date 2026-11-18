@@ -7,7 +7,7 @@ from textual import work
 from src import logger
 from src.entries import Entry
 from src.tui.fmt import fmt_day_group
-from src.tui.screens.mixins.playlist_tools import index_entries, item_entries
+from src.tui.screens.mixins.library_rail import LIBRARY_VIEWS, PLAYLIST_VIEW
 from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
 
 BATCH_FETCH_COUNT = 80
@@ -28,6 +28,17 @@ def _day_label(entry: Entry) -> str:
     return fmt_day_group(entry.get("watched_at"))
 
 
+def _library_matcher(entries: list[Entry], query: str) -> list[Entry]:
+    from src import library_query, playlist
+
+    return library_query.rank(entries, query, playlist.membership)
+
+
+def _matcher_for(view: str):
+    """The filter for a view: Library views understand `key:value` tokens, other views plain text."""
+    return _library_matcher if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW) else None
+
+
 def _pages_for(count: int) -> int:
     return -(-count // PAGE_SIZE)
 
@@ -44,6 +55,7 @@ class FeedLoaderMixin:
     def _load_view(self, view: str) -> None:
         self._log(f"[dim]Loading {view}…[/dim]")
         self._list().clear_and_set_loading()
+        self._list().set_matcher(_matcher_for(view))
         detail = self._detail()
         detail.clear()
         if view not in CHANNEL_TABS:
@@ -83,17 +95,8 @@ class FeedLoaderMixin:
                     lambda: panel.set_view_options(group_by=_day_label, show_count=True)
                 )
                 self._load_simple_list(panel, history.all_entries())
-            elif view == "library":
-                from src import library
-
-                config = self.app.config
-                self._load_simple_list(
-                    panel, list(library.all_entries(config.video_dir, config.audio_dir))
-                )
-            elif view == "playlists":
-                self._load_playlist_index(panel)
-            elif view.startswith("playlist:"):
-                self._load_playlist_videos(view.removeprefix("playlist:"), panel)
+            elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
+                self._load_collection(view, panel)
         except Exception as exc:
             msg = str(exc)
             if view in FEED_TABS and any(p in msg.lower() for p in _EXTRACTION_ERRORS):
@@ -107,7 +110,7 @@ class FeedLoaderMixin:
     def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
         call = self._ui
         call(lambda: panel.add_entries(1, entries, evict=evict))
-        call(panel.load_page, 1)
+        call(lambda: panel.load_page(1, focus=not self._rail_focused()))
         call(panel.finish_loading)
 
     def _load_feed(self, feed_key: str, panel: VideoListPanel) -> None:
@@ -293,19 +296,19 @@ class FeedLoaderMixin:
             return
         self._show_pages(panel, entries, evict=False)
 
-    def _load_playlist_index(self, panel: VideoListPanel) -> None:
-        entries = index_entries()
-        if not entries:
-            self._ui(panel.set_empty_message, "No playlists. Press n to create one, or p on a video.")
-            return
-        self._show_pages(panel, entries, evict=False)
+    def _load_collection(self, view: str, panel: VideoListPanel) -> None:
+        """A Library collection or a playlist. Library loads also refresh the rail's counts."""
+        if view.startswith(PLAYLIST_VIEW):
+            if not (entries := self._collection_entries(view)):
+                self._ui(panel.set_empty_message, "This playlist is empty. Press p on a video to add it.")
+                return
+        else:
+            from src import library
 
-    def _load_playlist_videos(self, pid: str, panel: VideoListPanel) -> None:
-        entries = item_entries(pid, self.app.cache)
-        if not entries:
-            self._ui(panel.set_empty_message, "This playlist is empty. Press p on a video to add it.")
-            return
-        self._show_pages(panel, entries, evict=False)
+            config = self.app.config
+            self._ui(self._set_library_counts, library.counts(library.all_entries(config.video_dir, config.audio_dir)))
+            entries = self._collection_entries(view)
+        self._load_simple_list(panel, entries)
 
     def _can_extend(self) -> bool:
         """Feeds grow only when the list shows the full set: a filter works on what is loaded."""

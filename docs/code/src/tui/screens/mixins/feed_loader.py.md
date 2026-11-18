@@ -20,8 +20,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 | subscriptions | `_load_subscriptions` | `ytdlp.fetch_subscribed_channels`; rows are channels (`_is_channel`) and the detail panel switches to channel mode |
 | search | `_load_search` | `ytdlp.fetch_search_batch` (50 per batch, `sort`/`kind` from the search frame) |
 | history | `_load_simple_list` | `history.all_entries`, split into `PAGE_SIZE` pages |
-| library | `_load_simple_list` | `library.all_entries` (filesystem only) |
-| playlists | `_load_playlist_index` / `_load_playlist_videos` | `playlist.py` rows built by `playlist_tools.index_entries` / `item_entries` (title from the snapshot, cache fills migrated items); was: cached entries from `cache.get_video_raw` |
+| library, library:video, library:audio, playlist:`<id>` | `_load_collection` | `LibraryRailMixin._collection_entries`: `library.all_entries` filtered by kind, or `item_entries` (title from the snapshot, cache fills migrated items, download state from `library.attach_local`). A library load also pushes the rail counts. |
 
 `FEED_TABS` (cached feeds with stash and suppression) is just `home`. `PAGED_TABS` (extendable) are `home` and `search`.
 
@@ -47,7 +46,7 @@ at once; the remaining pages are added after the continuation requests finish, n
 never fires the callback, so `_load_search` falls back to `_show_pages` when nothing was shown early. A fully empty result with nothing
 shown early goes through `_show_pages` too, which leaves the list on its empty state.
 
-Local lists (history, library, playlist index and view) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.
+Local lists (history, library, playlist) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.
 
 ## Filter and day headers
 
@@ -59,3 +58,5 @@ Local lists (history, library, playlist index and view) go through `_show_pages(
 After a search load with entries, `_finish_search_load` (via `_ui`) takes the saved page and row from the `SearchStack`, shows them if the page is held, and writes the back hint into the breadcrumb.
 
 Search extension (`_fetch_next_batch`) asks for `min(SEARCH_FETCH_COUNT, MAX_SEARCH_RESULTS - seen)` more and returns nothing once 200 are shown, so Search grows by 50 as the user pages, to 200. `_load_search` and the extension pass the current frame's sort and type.
+
+`_load_view` sets the list's filter matcher per view (`_matcher_for`): Library collections and playlists use `library_query.rank` (tokens, `pl:` reads `playlist.membership()` once per ranking), every other view the plain `fuzzy.rank`. `_show_pages` does not pull focus into the list while the rail has it.
