@@ -9,7 +9,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
-from src import innertube, logger
+from src import channel_ref, innertube, logger
 from src.entries import Entry, PlaylistEntry, VideoEntry
 from src.tui import keymap
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
@@ -207,13 +207,14 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
 
     def _channel_id(self) -> str | None:
         """The ``UC…`` id, from the URL or from the loaded channel info."""
-        if "/channel/UC" in self._channel_url:
-            return self._channel_url.split("/channel/")[1].split("/")[0].split("?")[0]
+        known = channel_ref.channel_id(self._channel_url)
+        if known:
+            return known
         try:
             info = self._info_panel().info
         except Exception:
             return None
-        if info and info.get("channel_id", "").startswith("UC"):
+        if info and channel_ref.is_channel_id(info.get("channel_id", "")):
             return info["channel_id"]
         return None
 

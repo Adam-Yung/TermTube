@@ -12,6 +12,7 @@ from collections.abc import Callable
 from typing import Any
 
 from src import logger
+from src.channel_ref import channel_id as channel_url_id
 from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
@@ -498,9 +499,9 @@ _SUBSCRIBERS = re.compile(r"^[\d.,]+\s*[KMB]?\s+subscribers?$", re.IGNORECASE)
 
 def resolve_channel_id(channel_url: str) -> str | None:
     """The ``UC…`` id for a channel URL (``/channel/UC…``, ``/@handle``, ``/user/…``, ``/c/…``)."""
-    match = re.search(r"/channel/(UC[\w-]{22})", channel_url)
-    if match:
-        return match.group(1)
+    known = channel_url_id(channel_url)
+    if known:
+        return known
     data = _post_json(_RESOLVE_URL, {"url": channel_url, "context": _WEB_CONTEXT})
     browse = ((data or {}).get("endpoint") or {}).get("browseEndpoint") or {}
     browse_id = browse.get("browseId", "")
