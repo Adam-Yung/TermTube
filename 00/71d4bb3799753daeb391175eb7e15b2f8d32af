@@ -1,0 +1,25 @@
+src/tui/settings_fields.py
+  s_6c28d43e292a51::t_0adddc6245dc24 161-162
+src/tests/tui/test_navigation.py
+  s_6c28d43e292a51::t_0adddc6245dc24 30-39
+docs/features/accounts-and-cookies.md
+  s_6c28d43e292a51::t_7cd1eacf138e40 30
+docs/todo.md
+  s_6c28d43e292a51::t_de1d802f7e37b1 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0071d4bb3799753daeb391175eb7e15b2f8d32af",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
