@@ -59,3 +59,5 @@ Local lists (history, library, playlist index and view) go through `_show_pages(
 After a search load with entries, `_finish_search_load` (via `_ui`) takes the saved page and row from the `SearchStack`, shows them if the page is held, and writes the back hint into the breadcrumb.
 
 Search extension (`_fetch_next_batch`) asks for `min(SEARCH_FETCH_COUNT, MAX_SEARCH_RESULTS - seen)` more and returns nothing once 200 are shown, so Search grows by 50 as the user pages, to 200. `_load_search` and the extension pass the current frame's sort and type.
+
+`_load_following` fills the `following` view (a drill-down from Subscriptions, see `main_screen.py.md`) from `channel_bookmarks.entries()` with `evict=False`; an empty list says how to follow a channel (`B` on a channel page).

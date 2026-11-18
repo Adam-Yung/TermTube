@@ -95,6 +95,7 @@ class MainScreen(
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
         Binding("r", "refresh", "Refresh"),
+        *keymap.SUBSCRIPTIONS,
         *keymap.GLOBAL,
     ]
 
@@ -278,10 +279,11 @@ class MainScreen(
             return
         previous = self._nav_stack.pop()
         self._current_tab = previous
-        if previous == "search":
-            self._load_view("search")
+        tabs = self.query_one("#nav-tabs", Tabs)
+        if previous == "search" or tabs.active == previous:
+            self._load_view(previous)  # setting an unchanged ``active`` fires nothing, so reload by hand
         else:
-            self.query_one("#nav-tabs", Tabs).active = previous
+            tabs.active = previous
 
     def action_search(self) -> None:
         self._open_search_dialog()
@@ -348,6 +350,19 @@ class MainScreen(
         tab = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
         labels = dict(_TABS)
         return [labels.get(tab, tab).split(" ", 1)[-1]]
+
+    def action_following(self) -> None:
+        """The local Following list, from the Subscriptions tab (it needs no account)."""
+        if self._current_tab != "subscriptions":
+            self._hint("Open the Subscriptions tab, then press F for the channels you follow here.", "information")
+            return
+        self._nav_stack.append(self._current_tab)
+        self._current_tab = "following"
+        panel = self._list()
+        panel.clear_and_set_loading()
+        panel.set_breadcrumb("📌 Following (local)  ← backspace to go back")
+        self._detail().clear()
+        self._start_view("following")
 
     def _open_playlist(self, name: str) -> None:
         self._nav_stack.append(self._current_tab)

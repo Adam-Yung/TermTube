@@ -67,7 +67,10 @@ CHANNEL_PAGE = [
     Binding("P", "play_all", show=False),
     Binding("E", "enqueue_all", show=False),
     Binding("S", "save_list", show=False),
+    Binding("B", "bookmark", show=False),
 ]
+
+SUBSCRIPTIONS = [Binding("F", "following", show=False)]
 
 FOCUS_RECLAIM_KEYS = frozenset(
     {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}

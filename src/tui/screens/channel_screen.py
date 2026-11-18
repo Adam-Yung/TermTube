@@ -9,7 +9,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
-from src import channel_ref, innertube, logger
+from src import channel_bookmarks, channel_ref, innertube, logger
 from src.channel_pager import ChannelPager
 from src.entries import Entry, PlaylistEntry
 from src.tui import keymap
@@ -432,6 +432,18 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
                 self._start_content_load()
 
         self.app.push_screen(SortModal(current_sort=self._sort), on_pick)
+
+    def action_bookmark(self) -> None:
+        channel_id = self._known_id()
+        if not channel_id:
+            self._hint("The channel is still loading.", "information")
+            return
+        info = self._info_panel().info or {}
+        name = self._display_name()
+        if channel_bookmarks.toggle(channel_id, name, info.get("thumbnail", "")):
+            self.notify(f"Following {name} (local, no account needed)", timeout=3)
+        else:
+            self.notify(f"Unfollowed {name}", timeout=3)
 
     def action_info(self) -> None:
         if not self._info_panel().toggle_description():

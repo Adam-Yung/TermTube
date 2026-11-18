@@ -89,6 +89,8 @@ class FeedLoaderMixin:
                 self._load_simple_list(
                     panel, list(library.all_entries(config.video_dir, config.audio_dir))
                 )
+            elif view == "following":
+                self._load_following(panel)
             elif view == "playlists":
                 self._load_playlist_index(panel)
             elif view.startswith("playlist:"):
@@ -248,6 +250,16 @@ class FeedLoaderMixin:
             return
         self._ui(self._detail().set_channel_mode)
         self._show_pages(panel, entries)
+
+    def _load_following(self, panel: VideoListPanel) -> None:
+        from src import channel_bookmarks
+
+        entries = channel_bookmarks.entries()
+        if not entries:
+            self._ui(panel.set_empty_message, "No channels followed here yet. Press B on a channel page.")
+            return
+        self._ui(self._detail().set_channel_mode)
+        self._show_pages(panel, entries, evict=False)
 
     def _load_search(self, panel: VideoListPanel) -> None:
         import src.ytdlp as ytdlp

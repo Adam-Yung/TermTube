@@ -140,6 +140,14 @@ def temp_playlists(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def temp_channels(tmp_path, monkeypatch):
+    """Redirect the local channel bookmarks to a temp directory."""
+    path = tmp_path / "channels.json"
+    monkeypatch.setattr("src.channel_bookmarks.CHANNELS_PATH", path)
+    return path
+
+
+@pytest.fixture
 def temp_history(tmp_path, monkeypatch):
     """Redirect history storage to temp directory."""
     hist_path = tmp_path / "history.json"
