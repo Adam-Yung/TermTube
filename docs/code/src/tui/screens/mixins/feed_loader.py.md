@@ -19,7 +19,7 @@ Two exclusive groups, both `thread=True`: `feed_loader` for `_stream_view` (tab 
 | home | `_load_feed` | stash, disk cache, or `ytdlp.fetch_page_batch` |
 | subscriptions | `_load_subscriptions` | `ytdlp.fetch_subscribed_channels`; rows are channels (`_is_channel`) and the detail panel switches to channel mode |
 | search | `_load_search` | `ytdlp.fetch_search_batch` (50 per batch, `sort`/`kind` from the search frame) |
-| history | `_load_simple_list` | `history.all_entries`, split into `page_size` pages |
+| history | `_load_simple_list` | `history.all_entries`, split into `page_size` pages; with `history: false` and nothing stored the list says that history is off |
 | library, library:video, library:audio, playlist:`<id>` | `_load_collection` | `LibraryRailMixin._collection_entries`: `library.all_entries` filtered by kind, or `item_entries` (title from the snapshot, cache fills migrated items, download state from `library.attach_local`). A library load also pushes the rail counts. |
 
 `FEED_TABS` (cached feeds with stash and suppression) is just `home`. `PAGED_TABS` (extendable) are `home` and `search`.

@@ -27,6 +27,7 @@ _NEEDS_BROWSER = (
     "This list needs a signed-in browser. The browser setting is none or no browser was found: "
     "pick one in Settings (,)."
 )
+_HISTORY_OFF = "Watch history is off, so nothing is recorded. Turn it on in Settings (,) under Data."
 _EMPTY_ACCOUNT = {
     "yt_history": "Nothing here. Is watch history paused on this account?",
     "yt_watchlater": "Nothing here. Is Watch Later empty?",
@@ -117,7 +118,11 @@ class FeedLoaderMixin:
                 self._ui(
                     lambda: panel.set_view_options(group_by=_day_label if recent else None, show_count=True)
                 )
-                self._load_simple_list(panel, history.ordered(history.all_entries(), self._history_sort))
+                entries = history.ordered(history.all_entries(), self._history_sort)
+                if not entries and not self.app.config.history_enabled:
+                    self._ui(panel.set_empty_message, _HISTORY_OFF)
+                    return
+                self._load_simple_list(panel, entries)
             elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
                 self._load_collection(view, panel)
         except Exception as exc:

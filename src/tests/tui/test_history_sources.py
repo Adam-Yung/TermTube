@@ -195,3 +195,16 @@ async def test_watch_later_is_the_third_source_and_read_only(app, signed_in, fet
         await pilot.press("Y")
         await pilot.pause(0.3)
         assert screen._current_tab == "history"
+
+
+async def test_history_off_says_so_when_nothing_is_stored(app, fetched):
+    app.config.set("history", False)
+    shown = []
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        panel = panel_of(app)
+        panel.set_empty_message = shown.append
+        screen._current_tab = "history"
+        screen._load_view("history")
+        await pilot.pause(0.5)
+        assert shown and "history is off" in shown[-1]
