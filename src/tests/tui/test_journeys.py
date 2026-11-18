@@ -353,7 +353,11 @@ async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(a
         assert shown(app) == order
         await pilot.press("J")
         assert [i["id"] for i in playlist.get(record["id"])["items"]] == order[::-1]
-        await pilot.press("D", "y")
+        asked = len(questions)
+        await pilot.press("D")
+        await until(pilot, lambda: len(questions) > asked)
+        await pilot.press("y")
+        await until(pilot, lambda: len(playlist.get(record["id"])["items"]) == 1)
         await settle(app, pilot)
         assert len(playlist.get(record["id"])["items"]) == 1
         await pilot.press("u")
@@ -372,7 +376,11 @@ async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(a
         screen._rail().focus()
         screen._select_collection(pview, focus_list=False)
         await settle(app, pilot)
-        await pilot.press("D", "y")
+        asked = len(questions)
+        await pilot.press("D")
+        await until(pilot, lambda: len(questions) > asked)
+        await pilot.press("y")
+        await until(pilot, lambda: playlist.get(record["id"]) is None)
         await settle(app, pilot)
         assert playlist.get(record["id"]) is None
         assert (videos / "v1.mp4").exists() and (videos / "v2.mp4").exists()  # a playlist delete never touches files
