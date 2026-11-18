@@ -4,7 +4,7 @@ Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too
 
 ## Transport
 
-`_post_json` sends requests over a per-thread keep-alive `http.client.HTTPSConnection` (default context, so certificates are verified; no cookies or auth headers). A reused connection that the server has closed fails on first use; that one failure is retried on a fresh connection, and a failure on a fresh one returns None. A non-200 status or malformed JSON returns None without a retry. Per-thread, not shared, because `http.client` connections are not thread-safe and the workers are independent. Live check 2026-11-15: `/player` 185 ms on the first call, about 118 ms after, against 157 to 219 ms per call with `urllib` (new TLS handshake each time).
+`_request` (shared by `_post_json` and `fetch_suggestions`) sends requests over a per-thread keep-alive `http.client.HTTPSConnection` (default context, so certificates are verified; no cookies or auth headers). A reused connection that the server has closed fails on first use; that one failure is retried on a fresh connection, and a failure on a fresh one returns None. A non-200 status or malformed JSON returns None without a retry. Per-thread, not shared, because `http.client` connections are not thread-safe and the workers are independent. Live check 2026-11-15: `/player` 185 ms on the first call, about 118 ms after, against 157 to 219 ms per call with `urllib` (new TLS handshake each time).
 
 ## Invariants
 
@@ -44,3 +44,7 @@ trimmed recordings in `src/tests/fixtures/innertube_*.json` (recorded 2026-11-15
 (`_is_playlist`, `_playlist_name`, `title`, `thumbnail`) plus `id`, `url`, `webpage_url` and `playlist_count` (from the "N videos" overlay
 badge). The thumbnail is the first video's, from `collectionThumbnailViewModel`. Fixtures: `innertube_playlists.json` (first page, trimmed to
 3 items and the continuation token) and `innertube_playlists_more.json` (continuation page), recorded 2026-11-15 from Google Developers.
+
+## Search suggestions
+
+`fetch_suggestions(query)` GETs `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=<query>` through `_request` (same verified-TLS connection helper; only `User-Agent` and `Accept` headers, no cookies, no account). Timeout 2 s, body read capped at 16 KB (a longer reply is cut, fails to parse and the connection is dropped). `parse_suggestions` reads `[query, [suggestion, ...]]` and returns `[]` for anything else; every failure returns `[]`. Used only by `SearchModal`.

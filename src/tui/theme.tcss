@@ -404,7 +404,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     margin-bottom: 1;
 }
 
-#theme-list, #quality-list-s, #thumb-list, #browser-list {
+#theme-list, #quality-list-s, #thumb-list, #suggest-list, #browser-list {
     height: auto;
     max-height: 8;
     background: #0a0a12;
@@ -432,6 +432,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #theme-list > ListItem,
 #quality-list-s > ListItem,
 #thumb-list > ListItem,
+#suggest-list > ListItem,
 #browser-list > ListItem {
     padding: 0 1;
     color: #888888;
@@ -444,6 +445,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #theme-list > ListItem,
 #quality-list-s > ListItem,
 #thumb-list > ListItem,
+#suggest-list > ListItem,
 #browser-list > ListItem {
     height: 1;
 }
@@ -460,6 +462,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #theme-list > ListItem > Static,
 #quality-list-s > ListItem > Static,
 #thumb-list > ListItem > Static,
+#suggest-list > ListItem > Static,
 #browser-list > ListItem > Static {
     background: transparent;
 }
@@ -470,6 +473,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #theme-list > ListItem.-highlight,
 #quality-list-s > ListItem.-highlight,
 #thumb-list > ListItem.-highlight,
+#suggest-list > ListItem.-highlight,
 #browser-list > ListItem.-highlight {
     background: #1e0a0a;
     border-left: thick #ff4444;
@@ -496,6 +500,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
 #theme-list > ListItem.-highlight > Static,
 #quality-list-s > ListItem.-highlight > Static,
 #thumb-list > ListItem.-highlight > Static,
+#suggest-list > ListItem.-highlight > Static,
 #browser-list > ListItem.-highlight > Static,
 #dlpick-list > ListItem.-highlight > Static {
     color: #ffffff;
@@ -605,7 +610,7 @@ ProgressBar .bar--bar, ProgressBar .bar--complete {
     overflow-y: auto;
 }
 
-#s-theme-head, #s-quality-head, #s-thumb-head, #s-browser-head {
+#s-theme-head, #s-quality-head, #s-thumb-head, #s-suggest-head, #s-browser-head {
     margin-top: 1;
     margin-bottom: 0;
 }
@@ -641,6 +646,7 @@ App.theme-amber #vaction-list > ListItem.-highlight,
 App.theme-amber #theme-list > ListItem.-highlight,
 App.theme-amber #quality-list-s > ListItem.-highlight,
 App.theme-amber #thumb-list > ListItem.-highlight,
+App.theme-amber #suggest-list > ListItem.-highlight,
 App.theme-amber #browser-list > ListItem.-highlight,
 App.theme-amber #dlpick-list > ListItem.-highlight { background: #1a0e00; border-left: thick #e8820c; }
 App.theme-amber #list-view, App.theme-amber #video-info { scrollbar-color: #e8820c; scrollbar-color-hover: #ffb84d; }
@@ -667,6 +673,7 @@ App.theme-ocean #vaction-list > ListItem.-highlight,
 App.theme-ocean #theme-list > ListItem.-highlight,
 App.theme-ocean #quality-list-s > ListItem.-highlight,
 App.theme-ocean #thumb-list > ListItem.-highlight,
+App.theme-ocean #suggest-list > ListItem.-highlight,
 App.theme-ocean #browser-list > ListItem.-highlight,
 App.theme-ocean #dlpick-list > ListItem.-highlight { background: #001525; border-left: thick #0ea5e9; }
 App.theme-ocean #list-view, App.theme-ocean #video-info { scrollbar-color: #0ea5e9; scrollbar-color-hover: #38bdf8; }
@@ -693,6 +700,7 @@ App.theme-midnight #vaction-list > ListItem.-highlight,
 App.theme-midnight #theme-list > ListItem.-highlight,
 App.theme-midnight #quality-list-s > ListItem.-highlight,
 App.theme-midnight #thumb-list > ListItem.-highlight,
+App.theme-midnight #suggest-list > ListItem.-highlight,
 App.theme-midnight #browser-list > ListItem.-highlight,
 App.theme-midnight #dlpick-list > ListItem.-highlight { background: #130a22; border-left: thick #a855f7; }
 App.theme-midnight #list-view, App.theme-midnight #video-info { scrollbar-color: #a855f7; scrollbar-color-hover: #c084fc; }

@@ -38,7 +38,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P3.0 A running Home load no longer lands in the next tab (session guard on every loader push) (0154870)
 - [x] P3.1 Search stack with page and cursor restore (B3.1) (4b8be39)
 - [x] P3.2 Persistent search history in the modal (B3.2) (ea91c0c)
-- [ ] P3.3 Suggestions as you type, on by default, opt-out setting (B3.3)
+- [x] P3.3 Suggestions as you type, on by default, opt-out setting (B3.3) (HASH)
 - [ ] P3.4 Type/sort filters, more than 50 results (B3.4, B3.5)
 
 ## Phase 4. Library index and delete  (milestone 2: pipeline)

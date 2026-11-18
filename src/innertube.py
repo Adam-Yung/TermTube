@@ -54,36 +54,51 @@ def _drop_connection(host: str) -> None:
         conn.close()
 
 
-def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
-    """POST JSON over a per-thread keep-alive connection; the parsed response, or None on any error.
+def _request(
+    method: str, host: str, path: str, *, body: bytes | None, headers: dict, timeout: int, max_bytes: int | None = None
+) -> tuple[int, bytes] | None:
+    """One HTTPS request over a per-thread keep-alive connection: ``(status, body)``, or None on any error.
 
     A reused connection the server has closed fails on first use; that one failure is retried on a fresh connection.
+    A body longer than ``max_bytes`` is cut there and the connection dropped (the rest is never read).
     """
-    parts = urllib.parse.urlsplit(url)
-    path = f"{parts.path}?{parts.query}" if parts.query else parts.path
-    body = json.dumps(payload).encode()
-    endpoint = parts.path.rsplit("/", 1)[-1]
+    endpoint = path.split("?", 1)[0].rsplit("/", 1)[-1]
     for attempt in range(2):
-        conn, reused = _connection(parts.netloc, timeout)
+        conn, reused = _connection(host, timeout)
         try:
-            conn.request("POST", path, body=body, headers=_HEADERS)
+            conn.request(method, path, body=body, headers=headers)
             resp = conn.getresponse()
-            data, status = resp.read(), resp.status
+            data = resp.read() if max_bytes is None else resp.read(max_bytes)
+            status = resp.status
         except (http.client.HTTPException, OSError) as exc:
-            _drop_connection(parts.netloc)
+            _drop_connection(host)
             if attempt == 0 and reused:
                 continue
-            logger.debug("innertube POST failed (%s): %s", endpoint, exc)
+            logger.debug("%s %s failed: %s", method, endpoint, exc)
             return None
-        if status != 200:
-            logger.debug("innertube POST %s: HTTP %s", endpoint, status)
-            return None
-        try:
-            return json.loads(data)
-        except json.JSONDecodeError as exc:
-            logger.debug("innertube POST %s: bad JSON: %s", endpoint, exc)
-            return None
+        if max_bytes is not None and len(data) >= max_bytes:
+            _drop_connection(host)
+        return status, data
     return None
+
+
+def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
+    """POST JSON; the parsed response, or None on any error."""
+    parts = urllib.parse.urlsplit(url)
+    path = f"{parts.path}?{parts.query}" if parts.query else parts.path
+    reply = _request("POST", parts.netloc, path, body=json.dumps(payload).encode(), headers=_HEADERS, timeout=timeout)
+    if reply is None:
+        return None
+    status, data = reply
+    endpoint = parts.path.rsplit("/", 1)[-1]
+    if status != 200:
+        logger.debug("innertube POST %s: HTTP %s", endpoint, status)
+        return None
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError as exc:
+        logger.debug("innertube POST %s: bad JSON: %s", endpoint, exc)
+        return None
 
 
 def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
@@ -501,3 +516,32 @@ def fetch_channel_playlists(channel_id: str, *, count: int = 80, timeout: int = 
             break
         payload = {"continuation": token, "context": _WEB_CONTEXT}
     return entries[:count]
+
+
+_SUGGEST_HOST = "suggestqueries.google.com"
+_SUGGEST_MAX_BYTES = 16 * 1024
+_SUGGEST_TIMEOUT = 2
+_SUGGEST_HEADERS = {"User-Agent": _HEADERS["User-Agent"], "Accept": "application/json"}
+
+
+def parse_suggestions(raw: bytes | str) -> list[str]:
+    """Suggestion strings from a suggest reply ``[query, [suggestion, ...], ...]``; empty for anything else."""
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    items = data[1] if isinstance(data, list) and len(data) > 1 and isinstance(data[1], list) else []
+    return [s.strip() for s in items if isinstance(s, str) and s.strip()]
+
+
+def fetch_suggestions(query: str, *, timeout: int = _SUGGEST_TIMEOUT) -> list[str]:
+    """YouTube search suggestions for ``query`` from Google's anonymous suggest endpoint.
+
+    Sends the partial text only: no cookies, no account, certificate-verified TLS. Empty on any failure.
+    """
+    path = "/complete/search?" + urllib.parse.urlencode({"client": "firefox", "ds": "yt", "q": query})
+    reply = _request("GET", _SUGGEST_HOST, path, body=None, headers=_SUGGEST_HEADERS,
+                     timeout=timeout, max_bytes=_SUGGEST_MAX_BYTES)
+    if reply is None or reply[0] != 200:
+        return []
+    return parse_suggestions(reply[1])

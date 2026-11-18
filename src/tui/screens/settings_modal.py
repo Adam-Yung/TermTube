@@ -30,6 +30,11 @@ _THUMB_OPTS = [
     ("symbols", "symbols — always Unicode block art"),
 ]
 
+_SUGGEST_OPTS = [
+    ("on",  "on  — suggestions while typing (default)"),
+    ("off", "off — never send partial text"),
+]
+
 
 class _ChoiceItem(ListItem):
     def __init__(self, value: str, label: str) -> None:
@@ -42,7 +47,7 @@ class _ChoiceItem(ListItem):
 
 
 class SettingsModal(ModalScreen[None]):
-    """Settings screen: theme, quality, thumbnail format, browser."""
+    """Settings screen: theme, quality, thumbnail format, search suggestions, browser."""
 
     BINDINGS = [
         Binding("escape", "close", "Close", show=True),
@@ -65,6 +70,11 @@ class SettingsModal(ModalScreen[None]):
                 yield ListView(id="quality-list-s")
                 yield Static("[bold #ff6666]Thumbnail Format[/bold #ff6666]", id="s-thumb-head", markup=True)
                 yield ListView(id="thumb-list")
+                yield Static("[bold #ff6666]Search suggestions[/bold #ff6666]", id="s-suggest-head", markup=True)
+                yield Static(
+                    "[dim]While typing, the partial text is sent to Google.[/dim]", id="s-suggest-note", markup=True
+                )
+                yield ListView(id="suggest-list")
                 yield Static("[bold #ff6666]Browser[/bold #ff6666]", id="s-browser-head", markup=True)
                 yield Static("", id="s-browser-status", markup=True)
                 yield ListView(id="browser-list")
@@ -79,6 +89,7 @@ class SettingsModal(ModalScreen[None]):
         self._refresh_list("theme-list", _THEMES, config.theme)
         self._refresh_list("quality-list-s", _QUALITY_OPTS, config.preferred_quality)
         self._refresh_list("thumb-list", _THUMB_OPTS, config.thumbnail_format)
+        self._refresh_list("suggest-list", _SUGGEST_OPTS, "on" if config.search_suggestions_enabled else "off")
         self.query_one("#theme-list", ListView).focus()
 
         cur_browser = config.get("browser", "auto")
@@ -119,6 +130,10 @@ class SettingsModal(ModalScreen[None]):
         elif lv_id == "thumb-list":
             config.set("thumbnail_format", event.item.value)
             self._refresh_list("thumb-list", _THUMB_OPTS, event.item.value)
+
+        elif lv_id == "suggest-list":
+            config.set("search_suggestions", event.item.value == "on")
+            self._refresh_list("suggest-list", _SUGGEST_OPTS, event.item.value)
 
         elif lv_id == "browser-list":
             config.set("browser", event.item.value)
@@ -163,7 +178,7 @@ class SettingsModal(ModalScreen[None]):
             pass
 
     def action_next_section(self) -> None:
-        lists = ["theme-list", "quality-list-s", "thumb-list", "browser-list"]
+        lists = ["theme-list", "quality-list-s", "thumb-list", "suggest-list", "browser-list"]
         for i, lid in enumerate(lists):
             lv = self.query_one(f"#{lid}", ListView)
             if lv.has_focus:

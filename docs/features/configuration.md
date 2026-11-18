@@ -34,6 +34,7 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `cache_ttl.metadata` | `86400` | seconds cached video metadata stays valid |
 | `history` | `true` | `false` records nothing in the local watch history (existing history stays until `--clear-history`); only a literal `false` turns it off |
 | `search_history` | `true` | `false` stops recording searches and hides the history rows in the search prompt (existing queries stay until `--clear-history`); only a literal `false` turns it off |
+| `search_suggestions` | `true` | `false` stops asking Google for search suggestions while you type (the partial text is sent to `suggestqueries.google.com`, anonymously); only a literal `false` turns it off. Settings modal has the toggle |
 | `history_max` | `500` | most entries kept in the local history; clamped to 50..5000, a non-integer reads as 500 |
 | `prefetch_video` | `false` | also pre-resolve a video stream URL when focusing a row (audio is always prefetched); no UI |
 

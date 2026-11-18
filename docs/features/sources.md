@@ -31,3 +31,7 @@ Notes:
 
 Code: `docs/code/src/innertube.py.md`, `ytdlp.py.md`, `streams.py.md`, `cache.py.md`. Decisions: `docs/decisions/feeds-and-paging.md`,
 `cookies-and-auth.md`, `playback.md`.
+
+## Search suggestions
+
+While typing in the search prompt (2 or more characters, after a 250 ms pause) the partial text is sent to `suggestqueries.google.com` (anonymous, no cookies, 2 s timeout, 16 KB cap) and the answers are listed under the local history matches. This is the only request made before a search is submitted. `search_suggestions: false` (or the Settings toggle) stops it. Failures show nothing.

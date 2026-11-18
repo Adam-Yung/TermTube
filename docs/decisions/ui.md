@@ -15,3 +15,7 @@ Filter (`f`), marks (`m`/`M`), remove (`D`) and undo (`u`) are implemented once,
 ## 2026-11-17 — Search stack: rows by id, breadcrumb shows depth
 
 The Search tab keeps a stack of up to 20 searches (`src/search_stack.py`). A frame stores the page and the id of the highlighted row, not its index, so the restore survives re-paging. Backspace/Esc pops only when the tab-level `_nav_stack` (playlist back) is empty, so the other meanings are unchanged. The breadcrumb reads `‹ N searches · Backspace: back to “prev”` instead of the plan's `‹ 2 of 5 ›`: a pure stack has no forward half, so "n of m" would always read n of n.
+
+## 2026-11-17 — Search suggestions on by default, opt-out
+
+Typing in the search prompt asks `suggestqueries.google.com` (anonymous, no cookies, no account headers, verified TLS) for suggestions after a 250 ms pause, 2 or more characters. **Privacy:** the partial text reaches Google before the user submits anything, which no other part of the app does. The owner chose on-by-default (plan question E3) with an opt-out: `search_suggestions: false` or the Settings toggle, which carries a one-line note saying so. Mitigations: nothing but the text and a generic User-Agent is sent, one request per pause (an answer for older text is dropped), 2 s timeout, 16 KB cap, errors silent. Rejected: opt-in (nobody would find it), a local-only index (no new queries).

@@ -16,6 +16,7 @@ def mock_all_externals(tmp_path, monkeypatch):
     monkeypatch.setattr("src.cache.PLAYLIST_THUMB_DIR", tmp_path / "playlist_thumbs")
     monkeypatch.setattr("src.cache._SUPPRESSED_PATH", tmp_path / "suppressed.json")
     monkeypatch.setattr("src.search_history.SEARCH_HISTORY_PATH", tmp_path / "search_history.json")
+    monkeypatch.setattr("src.innertube.fetch_suggestions", lambda query, **_: [])
     (tmp_path / "videos").mkdir(exist_ok=True)
     (tmp_path / "thumbs").mkdir(exist_ok=True)
     (tmp_path / "playlist_videos").mkdir(exist_ok=True)

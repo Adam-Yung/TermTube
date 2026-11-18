@@ -40,6 +40,7 @@ DEFAULT_CONFIG: dict = {
     "history": True,
     "history_max": 500,
     "search_history": True,
+    "search_suggestions": True,
 }
 
 
@@ -125,6 +126,11 @@ class Config:
     @property
     def search_history_enabled(self) -> bool:
         return self._data.get("search_history") is not False
+
+    @property
+    def search_suggestions_enabled(self) -> bool:
+        """On unless a literal ``false``: partial search text goes to Google while typing, so this is the opt-out."""
+        return self._data.get("search_suggestions") is not False
 
     @property
     def history_max(self) -> int:
