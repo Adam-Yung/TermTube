@@ -5,7 +5,7 @@ TermTube asks the cheapest source that can answer, and falls back one step when 
 
 | Data | Source | Account | Fallback | Cached |
 |---|---|---|---|---|
-| **YouTube history** (History tab, `Y`) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
+| **YouTube history** (History tab, `Y`) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out, or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
 | **Watch Later** (History tab, `Y`) | yt-dlp, `youtube.com/playlist?list=WL` | cookies (browser) | a message | id list 10 min (`cache_ttl.yt_watchlater`); read-only, same loader as Home |
 | **Home feed** | yt-dlp, flat listing of `youtube.com` | cookies (browser) | none (an empty feed explains itself) | id list 1 h (`cache_ttl.home`) plus a one-page stash for instant start |
 | **Subscription list** | yt-dlp, `feed/channels` | cookies | none | about 1 h |
@@ -37,3 +37,7 @@ Code: `docs/code/src/innertube.py.md`, `ytdlp.py.md`, `streams.py.md`, `cache.py
 ## Search suggestions
 
 While typing in the search prompt (2 or more characters, after a 250 ms pause) the partial text is sent to `suggestqueries.google.com` (anonymous, no cookies, 2 s timeout, 16 KB cap) and the answers are listed under the local history matches. This is the only request made before a search is submitted. `search_suggestions: false` (or the Settings toggle) stops it. Failures show nothing.
+
+## Failures
+
+A failed fetch is a typed error (`src/errors.py`), not an empty list; an honestly empty feed still shows the empty-feed dialog (Home) or "Nothing here" (account sources). The list shows `⚠ Network error · r to retry`, `⚠ YouTube is rate limiting this IP · try again in a minute`, or the sign-in message (Settings `,`, then `r`); only a real extraction failure on Home opens the yt-dlp update prompt. InnerTube retries once after about 1 s on 429, 5xx or a failed connection; search then falls back to yt-dlp. The debug log pane says which source answered (`cache`, `innertube`, `yt-dlp`). Local tabs (History, Library, playlists) never touch the network.

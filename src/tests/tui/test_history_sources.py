@@ -110,7 +110,7 @@ async def test_empty_result_has_a_specific_message(app, signed_in, monkeypatch):
         panel_of(app).set_empty_message = shown.append
         screen._load_view("history:yt")
         await pilot.pause(0.5)
-        assert shown and shown[0].startswith("Nothing came back.")
+        assert shown and shown[0].startswith("Nothing here.")
 
 
 async def test_sign_in_failure_shows_the_sign_in_message_not_the_update_prompt(app, signed_in, monkeypatch):

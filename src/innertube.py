@@ -7,12 +7,14 @@ import http.client
 import json
 import re
 import threading
+import time
 import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
 from src import logger
 from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
+from src.errors import NetworkDown, RateLimited, SourceError
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 _BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
@@ -83,15 +85,24 @@ def _request(
     return None
 
 
-def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
-    """POST JSON; the parsed response, or None on any error."""
+_RETRY_DELAY_S = 1.0
+_sleep = time.sleep
+"""Pause before the one retry; tests replace it."""
+
+
+def _post_once(url: str, payload: dict, timeout: int) -> dict | None:
+    """One POST: the parsed reply, None for a final failure; raises ``RateLimited``/``NetworkDown`` when retryable."""
     parts = urllib.parse.urlsplit(url)
     path = f"{parts.path}?{parts.query}" if parts.query else parts.path
     reply = _request("POST", parts.netloc, path, body=json.dumps(payload).encode(), headers=_HEADERS, timeout=timeout)
-    if reply is None:
-        return None
-    status, data = reply
     endpoint = parts.path.rsplit("/", 1)[-1]
+    if reply is None:
+        raise NetworkDown(f"innertube POST {endpoint}: no response")
+    status, data = reply
+    if status == 429:
+        raise RateLimited(f"innertube POST {endpoint}: HTTP 429")
+    if status >= 500:
+        raise NetworkDown(f"innertube POST {endpoint}: HTTP {status}")
     if status != 200:
         logger.debug("innertube POST %s: HTTP %s", endpoint, status)
         return None
@@ -100,6 +111,24 @@ def _post_json(url: str, payload: dict, *, timeout: int = 8) -> dict | None:
     except json.JSONDecodeError as exc:
         logger.debug("innertube POST %s: bad JSON: %s", endpoint, exc)
         return None
+
+
+def _post_json(url: str, payload: dict, *, timeout: int = 8, strict: bool = False) -> dict | None:
+    """POST JSON; the parsed response, or None on any error.
+
+    A 429, a 5xx or a failed connection is retried once after ``_RETRY_DELAY_S``. With ``strict`` the second
+    failure raises ``RateLimited``/``NetworkDown`` instead of returning None.
+    """
+    for attempt in range(2):
+        try:
+            return _post_once(url, payload, timeout)
+        except SourceError as exc:
+            logger.debug("%s%s", exc.detail, " (retrying)" if attempt == 0 else "")
+            if attempt == 0:
+                _sleep(_RETRY_DELAY_S)
+            elif strict:
+                raise
+    return None
 
 
 def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
@@ -446,7 +475,8 @@ def search(
     kind: str = "all",
 ) -> list[Entry]:
     """Results for ``query`` through InnerTube ``/search``: videos, and with ``kind`` ``all``/``channel``/``playlist``
-    channel and playlist rows. ``sort`` is ``relevance``/``date``/``views``. Anonymous. Empty on any failure.
+    channel and playlist rows. ``sort`` is ``relevance``/``date``/``views``. Anonymous. Empty on a bad reply; a failed
+    first page (after one retry) raises ``RateLimited``/``NetworkDown``.
 
     Follows continuation tokens until ``count`` entries are collected or ``_MAX_SEARCH_PAGES`` pages are read.
     ``on_first_batch`` receives the first page's entries as soon as that page arrives.
@@ -458,7 +488,7 @@ def search(
     results: list[Entry] = []
     seen = set(skip_ids)
     for _ in range(_MAX_SEARCH_PAGES):
-        data = _post_json(_SEARCH_URL, payload)
+        data = _post_json(_SEARCH_URL, payload, strict=not results)
         if not data:
             break
         if "contents" in data:

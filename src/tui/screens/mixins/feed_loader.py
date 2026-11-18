@@ -5,8 +5,9 @@ import threading
 from textual import work
 
 from src import logger
-from src.cookies import is_auth_failure, resolve_browser
+from src.cookies import resolve_browser
 from src.entries import Entry
+from src.errors import ExtractionFailed, SourceError, classify
 from src.tui.fmt import fmt_day_group
 from src.tui.screens.mixins.library_rail import ACCOUNT_VIEWS, LIBRARY_VIEWS, PLAYLIST_VIEW
 from src.tui.widgets.video_list import VideoListPanel
@@ -26,14 +27,11 @@ _NEEDS_BROWSER = (
     "This list needs a signed-in browser. The browser setting is none or no browser was found: "
     "pick one in Settings (,)."
 )
-_SIGN_IN = "YouTube asked for a sign-in. Sign in to YouTube in the browser TermTube reads (Settings ,), then press r."
 _EMPTY_ACCOUNT = {
-    "yt_history": "Nothing came back. Is watch history paused on this account, or is the browser signed out?",
-    "yt_watchlater": "Nothing came back. Is Watch Later empty, or is the browser signed out?",
+    "yt_history": "Nothing here. Is watch history paused on this account?",
+    "yt_watchlater": "Nothing here. Is Watch Later empty?",
 }
 _ACCOUNT_TITLES = {"yt_history": "YouTube history", "yt_watchlater": "Watch Later"}
-
-_EXTRACTION_ERRORS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
 
 
 def _day_label(entry: Entry) -> str:
@@ -122,16 +120,22 @@ class FeedLoaderMixin:
             elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
                 self._load_collection(view, panel)
         except Exception as exc:
-            msg = str(exc)
-            if view in ACCOUNT_VIEWS and is_auth_failure(exc):
-                self._ui(panel.set_error_message, f"⚠ {_SIGN_IN}")
-            elif view in FEED_TABS and any(p in msg.lower() for p in _EXTRACTION_ERRORS):
-                self._ui(self._prompt_ytdlp_update, view, msg)
-            else:
-                self._ui(panel.set_error_message, f"⚠ {msg}")
-            self._ui(self._log, f"[red]Error in {view}: {msg}[/red]")
+            self._report_failure(view, panel, exc)
         finally:
             self._worker_end()
+
+    def _report_failure(self, view: str, panel: VideoListPanel, exc: Exception) -> None:
+        """Show the typed message for a failed load; the update prompt only for a real extraction failure."""
+        msg = str(exc)
+        err = classify(exc)
+        if isinstance(err, ExtractionFailed):
+            if isinstance(exc, SourceError) and view in FEED_TABS:
+                self._ui(self._prompt_ytdlp_update, view, msg)
+            else:
+                self._ui(panel.set_error_message, f"⚠ {err.message if isinstance(exc, SourceError) else msg}")
+        else:
+            self._ui(panel.set_error_message, f"⚠ {err.message}")
+        self._ui(self._log, f"[red]Error in {view}: {msg}[/red]")
 
     def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
         call = self._ui

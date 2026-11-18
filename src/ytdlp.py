@@ -13,8 +13,9 @@ import yt_dlp
 
 from src import innertube, logger
 from src.cache import Cache
-from src.cookies import get_cookiejar, invalidate, is_auth_failure
+from src.cookies import get_cookiejar, invalidate
 from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
+from src.errors import SignInRequired, SourceError, classify
 from src.plat import get_deps_bin
 
 
@@ -145,6 +146,8 @@ def _extract_videos(
 ) -> tuple[list[VideoEntry], list[str]]:
     """Extract playable video entries from ``url``, caching each. Retries once on an empty result.
 
+    A failed extraction raises a typed ``SourceError`` (``errors.classify``); an honestly empty feed returns ``[]``.
+
     The extractor window is ``count + len(skip_ids)``: skipped ids still occupy rows of the feed.
     Returns ``(entries, ids)``. ``on_first_batch`` fires once, when ``first_batch_size`` entries exist.
     """
@@ -153,8 +156,10 @@ def _extract_videos(
     all_ids: list[str] = []
 
     cancel = new_cancel_event()
+    failure: SourceError | None = None
     try:
         for attempt in range(_MAX_RETRIES + 1):
+            failure = None
             results = []
             all_ids = []
             try:
@@ -179,7 +184,8 @@ def _extract_videos(
                             on_first_batch = None
             except yt_dlp.utils.DownloadError as exc:
                 logger.debug("extract %s error: %s", url, exc)
-                if auth and is_auth_failure(exc):
+                failure = classify(exc)
+                if auth and isinstance(failure, SignInRequired):
                     invalidate()
 
             if results or attempt >= _MAX_RETRIES:
@@ -188,6 +194,9 @@ def _extract_videos(
             time.sleep(_RETRY_DELAY_S)
     finally:
         release_cancel_event(cancel)
+    if failure and not results:
+        raise failure
+    logger.debug("source: yt-dlp (%d entries)", len(results))
     return results, all_ids
 
 
@@ -212,6 +221,7 @@ def fetch_page_batch(
     if feed_key:
         cached = _cached_entries(cache, feed_key, skip_ids, count, _MIN_FEED_COUNT)
         if cached is not None:
+            logger.debug("source: cache (%d entries for %s)", len(cached), feed_key)
             return cached
 
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
@@ -261,15 +271,25 @@ def fetch_search_batch(
     cache_key = _search_cache_key(query, sort, kind)
     cached = _cached_entries(cache, cache_key, skip_ids, MAX_SEARCH_RESULTS, _MIN_SEARCH_COUNT)
     if cached is not None:
+        logger.debug("source: cache (%d search results)", len(cached))
         return cached
 
-    results = innertube.search(
-        query, count=count, skip_ids=skip_ids, on_first_batch=on_first_batch, sort=sort, kind=kind
-    )
+    plain = sort == "relevance" and kind == "all"
+    try:
+        results = innertube.search(
+            query, count=count, skip_ids=skip_ids, on_first_batch=on_first_batch, sort=sort, kind=kind
+        )
+    except SourceError as exc:
+        if not plain:
+            raise
+        logger.debug("InnerTube search failed (%s); falling back to yt-dlp", exc.detail)
+        results = []
     all_ids = [e["id"] for e in results]
     for entry in results:
         cache.put_video(entry)
-    if not results and sort == "relevance" and kind == "all":
+    if results:
+        logger.debug("source: innertube (%d search results)", len(results))
+    if not results and plain:
         logger.debug("InnerTube search empty for %r; falling back to yt-dlp", query)
         results, all_ids = _extract_videos(
             f"ytsearch{count + len(skip_ids)}:{query}", config, cache, count=count, skip_ids=skip_ids,
@@ -351,7 +371,11 @@ def fetch_channel_videos(
     """Video entries from a channel. ``sort`` is ``date`` or ``views``."""
     url = _normalise_channel_url(channel_url) + ("/videos?sort=p" if sort == "views" else "/videos")
     logger.debug("fetch_channel_videos: url=%s sort=%s", url, sort)
-    return fetch_page_batch(url, config, cache, count=count)
+    try:
+        return fetch_page_batch(url, config, cache, count=count)
+    except SourceError as exc:
+        logger.debug("fetch_channel_videos: %s", exc.detail)
+        return []
 
 
 def fetch_channel_playlists(
@@ -406,15 +430,20 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[ChannelEntry]:
     opts['socket_timeout'] = 60
 
     results: list[ChannelEntry] = []
+    failure: SourceError | None = None
     for attempt in range(2):
         try:
             results = _list_subscribed_channels(opts, config, cache)
+            failure = None
             break
         except yt_dlp.utils.DownloadError as exc:
             logger.debug("fetch_subscribed_channels error: %s", exc)
-            if attempt or not is_auth_failure(exc):
+            failure = classify(exc)
+            if attempt or not isinstance(failure, SignInRequired):
                 break
             invalidate()
+    if failure and not results:
+        raise failure
 
     if results:
         cache.put_feed(cache_key, [e["id"] for e in results])

@@ -5,7 +5,6 @@ import threading
 from src import logger
 
 _KEPT_DOMAINS = ("youtube.com", "google.com")
-_AUTH_FAILURE_MARKERS = ("sign in", "login required", "http error 401", "http error 403")
 
 _jar = None
 _lock = threading.Lock()
@@ -37,8 +36,9 @@ def _narrow(jar) -> None:
 
 def is_auth_failure(exc: BaseException) -> bool:
     """True when a yt-dlp error reads like an expired or missing sign-in, so a fresh jar might help."""
-    text = str(exc).lower()
-    return any(marker in text for marker in _AUTH_FAILURE_MARKERS)
+    from src.errors import SignInRequired, classify
+
+    return isinstance(classify(exc), SignInRequired)
 
 
 def invalidate() -> None:
