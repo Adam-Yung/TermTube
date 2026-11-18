@@ -43,9 +43,9 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P3.5 Search modal debounce tests made deterministic (Windows runner flake) (ed5fe0a)
 
 ## Phase 4. Library index and delete  (milestone 2: pipeline)
-- [x] P4.1 Library index with incremental refresh (C3, A4.3) (HASH)
-- [x] P4.2 `library.safe_delete`, delete with confirmation, multi-select (A1.4, B5.5) (HASH)
-- [x] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4) (HASH)
+- [x] P4.1 Library index with incremental refresh (C3, A4.3) (81c6c46)
+- [x] P4.2 `library.safe_delete`, delete with confirmation, multi-select (A1.4, B5.5) (81c6c46)
+- [x] P4.3 Thumbnail and info caching for downloaded items, pin on download, missing-file handling (B5.4) (81c6c46)
 
 ## Phase 5. Playlists v2 and Library fusion
 - [ ] P5.1 Playlist v2 data model and migration (C1)
