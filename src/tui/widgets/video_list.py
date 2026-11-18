@@ -171,6 +171,8 @@ class VideoListItem(ListItem):
             badge = " [#6bff6b]↓ VIDEO[/]"
         elif local_type == "audio":
             badge = " [#6b9eff]↓ AUDIO[/]"
+        elif entry.get("_yt") or entry.get("source") == "yt":
+            badge = " [#ff8c6b]YT[/]"
         else:
             badge = ""
 

@@ -16,6 +16,7 @@ _NOT_REMOVABLE = {
     "home": "Home rows cannot be removed.",
     "subscriptions": "Subscriptions cannot be removed here.",
     "search": "Search results cannot be removed.",
+    "history:yt": "Removing from YouTube history is not supported here. Open youtube.com/feed/history in a browser.",
 }
 
 

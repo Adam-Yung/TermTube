@@ -60,6 +60,10 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("P / S / E", "Play / shuffle / queue the open or highlighted playlist as audio"),
         ("p", "In the playlist dialog: Space selects several playlists, Enter toggles them"),
     ]),
+    ("HISTORY TAB", [
+        ("Y", "Switch the source: Local, or YouTube (account watch history, read-only, needs a signed-in browser)"),
+        ("I", "On the YouTube source: copy the rows (or the marked ones) into local history; rows already there stay"),
+    ]),
     ("APP", [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
         ("s / t", "Search tab: sort (relevance / date / views) / type (all / video / channel / playlist)"),

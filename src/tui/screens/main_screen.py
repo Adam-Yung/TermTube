@@ -18,9 +18,9 @@ from src.tui import keymap, library_delete
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
-from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
+from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin, feed_key_of
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
-from src.tui.screens.mixins.library_rail import LibraryRailMixin, tab_of
+from src.tui.screens.mixins.library_rail import HISTORY_SOURCES, LibraryRailMixin, tab_of
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
 from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
@@ -88,6 +88,7 @@ class MainScreen(
         keymap.RAIL,
         *keymap.LIST_TOOLS,
         *keymap.PLAYLIST_TOOLS,
+        *keymap.HISTORY_KEYS,
         Binding("backspace,escape", "nav_back", show=False),
         Binding("grave_accent", "nav_picker", show=False),
         Binding("f1", "goto_tab('home')", show=False),
@@ -103,6 +104,8 @@ class MainScreen(
         *keymap.GLOBAL,
     ]
 
+    HAS_HISTORY_SOURCES = True
+
     def __init__(self) -> None:
         super().__init__()
         self._current_tab = ""
@@ -116,6 +119,7 @@ class MainScreen(
         self._init_debug_log()
         self._init_list_tools()
         self._init_library_rail()
+        self._history_view = "history"
 
     def _removals(self) -> dict[str, Removal]:
         return {
@@ -238,8 +242,28 @@ class MainScreen(
             if tab_id == "library":
                 self._select_collection(self._library_view, focus_list=False)
             else:
-                self._current_tab = tab_id
-                self._load_view(tab_id)
+                self._current_tab = self._history_view if tab_id == "history" else tab_id
+                self._load_view(self._current_tab)
+
+    def action_history_source(self) -> None:
+        """Y: cycle the History tab's source (Local, then each YouTube account list)."""
+        if tab_of(self._current_tab) != "history":
+            self._hint("Y switches the History source (F4).", "information")
+            return
+        self._cancel_pending_focus_and_thumb()
+        sources = HISTORY_SOURCES
+        self._current_tab = self._history_view = sources[(sources.index(self._current_tab) + 1) % len(sources)]
+        self._load_view(self._current_tab)
+
+    def action_history_import(self) -> None:
+        """I: copy the loaded YouTube history rows (or the marked ones) into the local history."""
+        if self._current_tab != "history:yt":
+            self._hint("I imports YouTube history; switch to it with Y on the History tab.", "information")
+            return
+        panel = self._list()
+        rows = panel.marked_entries() or panel.visited_entries()
+        added = history.import_entries(rows, self.app.config)
+        self.notify(f"Imported {added} of {len(rows)} into local history (the rest were already there).", timeout=5)
 
     def _show_help(self, *, restore_tab: str = "") -> None:
         from src.tui.screens.help_screen import HelpScreen
@@ -459,8 +483,8 @@ class MainScreen(
 
     def action_refresh(self) -> None:
         logger.info("refresh %s", self._current_tab)
-        if self._current_tab in FEED_TABS:
-            self.app.cache.clear_feed(self._current_tab)
+        if feed_key := feed_key_of(self._current_tab):
+            self.app.cache.clear_feed(feed_key)
             if self._current_tab == "home":
                 self.app.cache.clear_home_stash()
         self._load_view(self._current_tab)

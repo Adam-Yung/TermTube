@@ -95,6 +95,35 @@ def restore(records: list[Entry]) -> None:
     _store.update(apply, defer=True)
 
 
+def import_entries(entries: list[Entry], config=None) -> int:
+    """Copy YouTube history rows into the local history. Returns how many were added.
+
+    Rows already present (by id) win and stay untouched. Imported rows carry `source="yt"` and `watched_at=None`
+    ("unknown time": YouTube's history gives no timestamps): they go after every dated row, under the "Earlier"
+    day header, and are the first to fall off the `history_max` cap.
+    """
+    limit = config.history_max if config is not None else _DEFAULT_MAX
+    added = 0
+
+    def apply(data: list) -> bool:
+        nonlocal added
+        present = {e.get("id") for e in data}
+        for entry in entries:
+            vid = entry.get("id")
+            if not vid or vid in present:
+                continue
+            present.add(vid)
+            record = slim(entry, vid)
+            record.update(watched_at=None, plays=0, seconds=0, resume_s=None, source="yt")
+            data.append(record)
+            added += 1
+        del data[limit:]
+        return bool(added)
+
+    _store.update(apply)
+    return added
+
+
 def clear() -> None:
     """Forget the whole history and write the empty file at once."""
     _store.update(lambda data: data.clear() or True)

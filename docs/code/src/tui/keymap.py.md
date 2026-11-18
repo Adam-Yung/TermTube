@@ -18,3 +18,4 @@ player's keys are in `src/tui/screens/watch_modal.py`, not here.
   while focus sits on the tab bar, because DOM changes can leave it there. Keep it in step with `LIST_NAV`.
 - `FILTER` (`f`) is shared by both screens; `LIST_TOOLS` (`m`, `M`, `D`, `u`) is `MainScreen` only. `tests/unit/test_keymap.py` checks that every key here appears in the help screen and in `keybindings.md`.
 - Adding a key also means the help screen, the action bar hints and the feature doc (`AGENTS.md`).
+- `HISTORY_KEYS` (`Y` cycle the History source, `I` import YouTube rows into local history) is `MainScreen` only; both only hint outside the History tab / YouTube source.

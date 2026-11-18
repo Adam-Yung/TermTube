@@ -12,3 +12,4 @@ The Library tab's rail logic, split from `MainScreen`. The rail picks which coll
 - `_after_removal` recounts and, when the shown playlist is gone, falls back to All downloads without taking focus from the rail.
 - Narrow terminals: `on_resize` collapses the rail to a docked one-line selector below `NARROW_BELOW` columns (same keys: `Tab`, `j`/`k`, `Enter`).
 - `_collection_entries(view)` is called from loader threads too: it only reads the Library index and `playlists.json`.
+- `ACCOUNT_VIEWS` maps account-backed History sources (`history:yt`) to their feed keys and `HISTORY_SOURCES` lists every source of the History tab (`history` is Local); `tab_of` maps them all to `history`, so the tab bar stays on History. `MainScreen._history_view` remembers the source across tab switches.

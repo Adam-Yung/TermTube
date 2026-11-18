@@ -50,6 +50,11 @@ LIST_TOOLS = [
     Binding("u", "undo", show=False),
 ]
 
+HISTORY_KEYS = [
+    Binding("Y", "history_source", show=False),
+    Binding("I", "history_import", show=False),
+]
+
 PLAYLIST_TOOLS = [
     Binding("n", "playlist_new", show=False),
     Binding("R", "playlist_rename", show=False),

@@ -16,3 +16,5 @@ Local watch history: videos played through this TUI, not the Google account's hi
 - Entry ids fall back to `webpage_url_basename`; an entry with neither is ignored.
 
 `slim(entry, vid, keys=_KEPT)` is public: the Library index reuses it with a longer key list, so a row played from the Library is stored as slim as any other.
+
+`import_entries(entries, config)` copies YouTube history rows into the store: ids already present are skipped (local rows win), new ones become slim records with `source="yt"`, `plays` 0 and `watched_at=None`. `None` is the "unknown time" sentinel: they are appended after every dated row (so `restore`'s sort keeps them last), show under the "Earlier" day header, and are the first to fall off the `history_max` cap.

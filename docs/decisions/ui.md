@@ -42,3 +42,11 @@ Narrow terminals (under 100 columns) collapse the rail into one docked line inst
 The filter hook is `VideoListPanel.set_matcher`; Library collections and playlists use `library_query.rank`, everything else keeps `fuzzy.rank`. Tokens
 that do not parse stay free text so a typo never raises. A search across History, Library and playlists together stays out of scope.
 
+## 2026-11-17 — History sources: `Y` switches, `I` imports
+
+The History tab holds sources: Local (`history`) and YouTube (`history:yt`, read-only, from the account). `Y` cycles them; `[` `]` are audio seek,
+`Tab` belongs to the Library rail, and `Y` was free and reads as "YouTube". `I` imports the YouTube rows into the local history (a capital next to
+nothing else, only active on that source). F4 returns to the last source used. `D` on a YouTube source only explains it cannot remove (the owner
+made YouTube history read-only), and says to open youtube.com/feed/history instead, because `b` opens the selected video as everywhere. YouTube
+rows carry no timestamps (the flat feed gives none that were verified): no day headers, a `YT` badge. Imported rows keep `watched_at=None` and sort
+after dated ones (`docs/code/src/history.py.md`).

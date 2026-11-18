@@ -93,7 +93,8 @@ _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
 
 def _is_playable_video(entry: VideoEntry) -> bool:
-    if not _VIDEO_ID_RE.match(entry.get("id", "")):
+    """A flat entry with an 11-character video id (anything else, including a malformed row, is skipped)."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("id"), str) or not _VIDEO_ID_RE.match(entry["id"]):
         return False
     return entry.get("_type", "video") not in ("playlist", "channel")
 
@@ -164,7 +165,7 @@ def _extract_videos(
                     for entry in (info.get('entries') or []):
                         if cancel.is_set() or len(results) >= count:
                             break
-                        if entry is None or not _is_playable_video(entry):
+                        if not _is_playable_video(entry):
                             continue
                         _normalise_entry(entry)
                         vid = entry.get("id", "")

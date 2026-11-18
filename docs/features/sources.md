@@ -5,6 +5,7 @@ TermTube asks the cheapest source that can answer, and falls back one step when 
 
 | Data | Source | Account | Fallback | Cached |
 |---|---|---|---|---|
+| **YouTube history** (History tab, `Y`) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
 | **Home feed** | yt-dlp, flat listing of `youtube.com` | cookies (browser) | none (an empty feed explains itself) | id list 1 h (`cache_ttl.home`) plus a one-page stash for instant start |
 | **Subscription list** | yt-dlp, `feed/channels` | cookies | none | about 1 h |
 | **Search** | InnerTube `/search`; first page after one request, first 50 results, then 50 more each time you page, up to 200; `s` sort (relevance / date / views) and `t` type (all / video / channel / playlist) via the request `params` | no | yt-dlp `ytsearchN:` (plain search only) | by query, sort and type, 30 min |

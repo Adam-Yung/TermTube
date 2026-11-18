@@ -7,6 +7,9 @@ from src.tui.widgets.video_list import FilterBar
 
 LIBRARY_VIEWS = ("library", "library:video", "library:audio")
 PLAYLIST_VIEW = "playlist:"
+ACCOUNT_VIEWS = {"history:yt": "yt_history"}
+"""History-tab sources read from the account (read-only), each with its feed key."""
+HISTORY_SOURCES = ("history", *ACCOUNT_VIEWS)
 NARROW_BELOW = 100
 _COLLECTIONS = (
     ("library", "All downloads", ""),
@@ -16,8 +19,10 @@ _COLLECTIONS = (
 
 
 def tab_of(view: str) -> str:
-    """The tab a view belongs to: every Library collection and playlist lives on the `library` tab."""
-    return "library" if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW) else view
+    """The tab a view belongs to: Library collections and playlists live on `library`, History sources on `history`."""
+    if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
+        return "library"
+    return "history" if view in HISTORY_SOURCES else view
 
 
 class LibraryRailMixin:

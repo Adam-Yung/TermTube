@@ -5,9 +5,10 @@ import threading
 from textual import work
 
 from src import logger
+from src.cookies import is_auth_failure, resolve_browser
 from src.entries import Entry
 from src.tui.fmt import fmt_day_group
-from src.tui.screens.mixins.library_rail import LIBRARY_VIEWS, PLAYLIST_VIEW
+from src.tui.screens.mixins.library_rail import ACCOUNT_VIEWS, LIBRARY_VIEWS, PLAYLIST_VIEW
 from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
 
 BATCH_FETCH_COUNT = 80
@@ -15,11 +16,18 @@ FIRST_BATCH_COUNT = 15
 SEARCH_FETCH_COUNT = 50
 
 FEED_TABS = ("home",)
-PAGED_TABS = ("home", "search")
+PAGED_TABS = ("home", "search", *ACCOUNT_VIEWS)
 CHANNEL_TABS = ("subscriptions",)
 
 _loading = threading.local()
 """Per loader thread: the ``_feed_session`` its view started under (read by ``_ui``)."""
+
+_NEEDS_BROWSER = (
+    "This list needs a signed-in browser. The browser setting is none or no browser was found: "
+    "pick one in Settings (,)."
+)
+_SIGN_IN = "YouTube asked for a sign-in. Sign in to YouTube in the browser TermTube reads (Settings ,), then press r."
+_EMPTY_ACCOUNT = "Nothing came back. Is watch history paused on this account, or is the browser signed out?"
 
 _EXTRACTION_ERRORS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
 
@@ -37,6 +45,16 @@ def _library_matcher(entries: list[Entry], query: str) -> list[Entry]:
 def _matcher_for(view: str):
     """The filter for a view: Library views understand `key:value` tokens, other views plain text."""
     return _library_matcher if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW) else None
+
+
+def feed_key_of(view: str) -> str | None:
+    """The yt-dlp feed key of a view backed by a feed (Home, an account source), else None."""
+    return ACCOUNT_VIEWS.get(view) or (view if view in FEED_TABS else None)
+
+
+def _tag_yt(entries: list[Entry]) -> list[Entry]:
+    """Copies of account rows marked `_yt` (they show the YT badge); the cached originals stay untouched."""
+    return [{**e, "_yt": True} for e in entries]
 
 
 def _pages_for(count: int) -> int:
@@ -84,6 +102,8 @@ class FeedLoaderMixin:
         try:
             if view in FEED_TABS:
                 self._load_feed(view, panel)
+            elif view in ACCOUNT_VIEWS:
+                self._load_account_feed(view, panel)
             elif view in CHANNEL_TABS:
                 self._load_subscriptions(panel)
             elif view == "search":
@@ -99,7 +119,9 @@ class FeedLoaderMixin:
                 self._load_collection(view, panel)
         except Exception as exc:
             msg = str(exc)
-            if view in FEED_TABS and any(p in msg.lower() for p in _EXTRACTION_ERRORS):
+            if view in ACCOUNT_VIEWS and is_auth_failure(exc):
+                self._ui(panel.set_error_message, f"⚠ {_SIGN_IN}")
+            elif view in FEED_TABS and any(p in msg.lower() for p in _EXTRACTION_ERRORS):
                 self._ui(self._prompt_ytdlp_update, view, msg)
             else:
                 self._ui(panel.set_error_message, f"⚠ {msg}")
@@ -113,6 +135,13 @@ class FeedLoaderMixin:
         call(lambda: panel.load_page(1, focus=not self._rail_focused()))
         call(panel.finish_loading)
 
+    def _load_account_feed(self, view: str, panel: VideoListPanel) -> None:
+        """A read-only History source from the account: needs a browser, else the same loader as Home."""
+        if resolve_browser(self.app.config) is None:
+            self._ui(panel.set_empty_message, _NEEDS_BROWSER)
+            return
+        self._load_feed(ACCOUNT_VIEWS[view], panel)
+
     def _load_feed(self, feed_key: str, panel: VideoListPanel) -> None:
         """Show the stash instantly, then either serve the disk cache or fetch from yt-dlp.
 
@@ -124,7 +153,11 @@ class FeedLoaderMixin:
         cache = self.app.cache
         call = self._ui
 
+        account = feed_key in ACCOUNT_VIEWS.values()
+
         def visible(entries: list[Entry]) -> list[Entry]:
+            if account:
+                return _tag_yt(entries)
             if feed_key != "home":
                 return entries
             return [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
@@ -170,7 +203,10 @@ class FeedLoaderMixin:
             )
         )
         if not fetched and not stash:
-            call(self._show_empty_feed_modal, feed_key)
+            if account:
+                call(panel.set_empty_message, _EMPTY_ACCOUNT)
+            else:
+                call(self._show_empty_feed_modal, feed_key)
             return
 
         if pages_used:
@@ -348,11 +384,13 @@ class FeedLoaderMixin:
 
         config, cache, tab = self.app.config, self.app.cache, self._current_tab
         skip = panel.seen_ids
-        if tab in FEED_TABS:
+        if feed_key := feed_key_of(tab):
             entries = ytdlp.fetch_page_batch(
-                ytdlp.FEED_URLS[tab], config, cache,
+                ytdlp.FEED_URLS[feed_key], config, cache,
                 skip_ids=skip, count=BATCH_FETCH_COUNT, feed_key=None, auth=True,
             )
+            if tab in ACCOUNT_VIEWS:
+                return _tag_yt(entries)
             if tab == "home":
                 entries = [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
             return entries

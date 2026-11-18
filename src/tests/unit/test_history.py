@@ -143,3 +143,26 @@ class TestPersistence:
         history.add({"id": "AAAAAAAAAAA", "title": "t"})
         store.flush_all()
         assert [e["id"] for e in history.all_entries()] == ["AAAAAAAAAAA"]
+
+
+def test_import_entries_adds_new_rows_after_dated_ones_and_keeps_existing(temp_history):
+    history.add({"id": "dated000001", "title": "Mine", "uploader": "A"})
+    added = history.import_entries(
+        [
+            {"id": "dated000001", "title": "Theirs"},
+            {"id": "yt000000001", "title": "T", "uploader": "U", "duration": 90},
+            {"title": "no id"},
+        ]
+    )
+    assert added == 1
+    rows = history.all_entries()
+    assert [r["id"] for r in rows] == ["dated000001", "yt000000001"]
+    assert rows[0]["title"] == "Mine" and rows[0]["source"] == "local"
+    assert rows[1]["source"] == "yt" and rows[1]["watched_at"] is None and rows[1]["duration"] == 90
+    assert history.import_entries([{"id": "yt000000001"}]) == 0
+
+
+def test_a_new_watch_goes_before_imported_rows(temp_history):
+    history.import_entries([{"id": "yt000000001", "title": "T"}])
+    history.add({"id": "new00000001", "title": "N"})
+    assert [r["id"] for r in history.all_entries()] == ["new00000001", "yt000000001"]
