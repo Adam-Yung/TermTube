@@ -50,8 +50,8 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 ## Phase 5. Playlists v2 and Library fusion
 - [x] P5.1 Playlist v2 data model and migration (C1) (20816bd)
 - [x] P5.2 Playlist management: rename, delete, reorder, move/copy, multi-add, play/enqueue all (B5.1) (20816bd)
-- [x] P5.3 One Library tab with left rail: downloads, videos, audio, playlists (B5.3a)
-- [x] P5.4 Search within Library/playlists, token syntax (B5.2)
+- [x] P5.3 One Library tab with left rail: downloads, videos, audio, playlists (B5.3a) (a30fe7e)
+- [x] P5.4 Search within Library/playlists, token syntax (B5.2) (a30fe7e)
 
 ## Phase 6. YouTube history and account feeds  (milestone 3: pipeline)
 - [ ] P6.1 Cookie policy extended for the history feed (A1.6)
