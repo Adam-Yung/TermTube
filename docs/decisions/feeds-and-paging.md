@@ -116,3 +116,7 @@ Also: one `channel_ref.parse` replaces the string splitting of channel URLs. `Ch
 ## 2026-11-18 — Channel info column: description folded, `i` expands (P7.1)
 
 The description shows its first three lines; `i` expands it. The handoff proposed `a` or Enter, but `a` is audio and Enter is the action menu on the channel page (one key, one action), so the key is `i`. The video count comes from the header text ("442 videos") and the join date from a header text starting "Joined"; both are read from the `/browse` response the screen already requests, with no new request. The join date is **[verify live]**: the current layout may only carry it in the About popup, in which case the stats line shows the video count alone.
+
+## 2026-11-18 — Channel back stack is the screen stack (P7.1)
+
+No second stack: a channel opened from a channel is another `ChannelScreen` pushed on the first, so `Esc` returns to its origin for free. What was missing was context, so each page shows a breadcrumb (`Home › A › B › Videos`) built from a `trail` passed at construction. `c` on the channel page now opens a row that belongs to a different channel (rows in another channel's playlist, once P7.2 lists them); rows with no channel id still count as this channel.

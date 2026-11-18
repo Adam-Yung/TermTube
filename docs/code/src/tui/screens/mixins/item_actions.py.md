@@ -18,3 +18,4 @@ Actions on the highlighted row: watch, audio, download, channel, playlist, copy 
 Video playback (`WatchModal`) suspends the app and runs mpv in the foreground (`docs/decisions/playback.md`); it does not go through `app.audio`.
 
 `_playable_entry` refuses a Library row flagged `_missing_file` with a hint to press `D`.
+- `_open_channel` passes `_crumbs()` (the breadcrumb trail of the screen it was opened from; empty by default) to `ChannelScreen`. `MainScreen` returns its tab label, `ChannelScreen` its own trail plus its channel name. `ChannelScreen` hides "channel" only for rows of its own channel.

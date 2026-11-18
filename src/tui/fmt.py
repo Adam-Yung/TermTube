@@ -35,6 +35,14 @@ def fmt_views(n: int | None) -> str:
     return f"{n} views"
 
 
+def fmt_breadcrumb(parts: list[str], max_len: int = 70) -> str:
+    """``Home › Chan › Playlists``. Too long: the first part, ``…`` and the last two remain."""
+    text = " › ".join(parts)
+    if len(text) > max_len and len(parts) > 3:
+        text = " › ".join([parts[0], "…", *parts[-2:]])
+    return text if len(text) <= max_len else "…" + text[-(max_len - 1):]
+
+
 def fmt_subscribers(n: int | None) -> str:
     """Format a subscriber count compactly (e.g. 1.2M, 340K); the caller adds the noun."""
     if not n:

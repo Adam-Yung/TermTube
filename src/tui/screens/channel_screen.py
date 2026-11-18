@@ -13,6 +13,7 @@ from src import channel_ref, innertube, logger
 from src.channel_pager import ChannelPager
 from src.entries import Entry, PlaylistEntry
 from src.tui import keymap
+from src.tui.fmt import escape_markup, fmt_breadcrumb
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
@@ -68,8 +69,9 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         Binding("grave_accent", "tab_picker", show=False),
     ]
 
-    def __init__(self, channel_url: str, channel_name: str = "") -> None:
+    def __init__(self, channel_url: str, channel_name: str = "", trail: list[str] | None = None) -> None:
         super().__init__()
+        self._trail = list(trail or [])
         self._channel_url = channel_url
         self._channel_name = channel_name
         self._current_tab = "ch-tab-videos"
@@ -113,10 +115,32 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         return self.query_one("#ch-info-panel", ChannelInfoPanel)
 
     def _hidden_menu_actions(self, entry: Entry) -> set[str]:
-        return super()._hidden_menu_actions(entry) | {"channel"}
+        hidden = super()._hidden_menu_actions(entry)
+        return hidden if self._is_other_channel(entry) else hidden | {"channel"}
+
+    def _is_other_channel(self, entry: Entry) -> bool:
+        """True for a row that names a different channel than this page (a video in a playlist of another channel)."""
+        own = self._known_id()
+        theirs = entry.get("channel_id") or channel_ref.channel_id(entry.get("channel_url", ""))
+        return bool(theirs and own and theirs != own)
 
     def action_channel(self) -> None:
-        self._hint("Already on this channel.", "information")
+        entry = self._selected_entry()
+        if entry and self._is_other_channel(entry):
+            self._open_channel(entry)
+        else:
+            self._hint("Already on this channel.", "information")
+
+    def _crumbs(self) -> list[str]:
+        return [*self._trail, self._display_name()]
+
+    def _display_name(self) -> str:
+        info = self._info_panel().info or {}
+        return info.get("channel") or self._channel_name or "Channel"
+
+    def _show_breadcrumb(self) -> None:
+        tab = _TAB_LABELS[self._tab_kind()]
+        self._list().set_breadcrumb(escape_markup(fmt_breadcrumb([*self._crumbs(), tab])) + "  ← esc to go back")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._focus_video(message.entry)
@@ -144,6 +168,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _apply_info(self, info: dict) -> None:
         panel = self._info_panel()
         panel.update_info(info)
+        self._show_breadcrumb()
         known = tuple(kind for kind in _TAB_LABELS if kind in info.get("tabs", ()))
         if "videos" in known:
             self._show_tabs(known)
@@ -174,6 +199,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._pager.reset()
         self._pending_show = False
         self._list().clear_and_set_loading()
+        self._show_breadcrumb()
         self._load_content(self._tab_kind(), self._sort, self._content_session)
 
     @work(thread=True, exclusive=True, group="ch_content")
@@ -313,8 +339,8 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
     def _on_past_last_page(self) -> None:
         self._extend(show=True)
 
-    def _channel_id(self) -> str | None:
-        """The ``UC…`` id: from the URL, the loaded channel info, or one lookup (workers only: it blocks)."""
+    def _known_id(self) -> str | None:
+        """The id without a lookup: from the URL or the loaded info. Safe on the UI thread."""
         known = channel_ref.channel_id(self._channel_url)
         if known:
             return known
@@ -324,6 +350,13 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
             info = None
         if info and channel_ref.is_channel_id(info.get("channel_id", "")):
             return info["channel_id"]
+        return self._resolved_id or None
+
+    def _channel_id(self) -> str | None:
+        """The ``UC…`` id: from the URL, the loaded channel info, or one lookup (workers only: it blocks)."""
+        known = self._known_id()
+        if known:
+            return known
         if self._resolved_id is None:
             self._resolved_id = innertube.resolve_channel_id(self._channel_url) or ""
         return self._resolved_id or None

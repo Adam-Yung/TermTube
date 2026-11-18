@@ -344,6 +344,11 @@ class MainScreen(
         tabs.active = "search"
         self._load_view("search")
 
+    def _crumbs(self) -> list[str]:
+        tab = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
+        labels = dict(_TABS)
+        return [labels.get(tab, tab).split(" ", 1)[-1]]
+
     def _open_playlist(self, name: str) -> None:
         self._nav_stack.append(self._current_tab)
         self._current_tab = f"playlist:{name}"

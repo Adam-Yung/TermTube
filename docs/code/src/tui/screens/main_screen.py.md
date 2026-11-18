@@ -35,3 +35,5 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 - `s` / `t` (`action_search_sort`, `action_search_type`) open the shared `SortModal` with the search sort or type options and write the choice to the current `SearchFrame` (`set_filter`), then `_show_search_frame` reloads (own cache entry per sort and type). Off the Search tab they only hint. Enter on a playlist row of a Search result hints "Press b to open the playlist in the browser" (`b` opens the page); channel rows open the channel page as on Subscriptions.
 
 `_removals()` registers History and Library (`library_delete.removal(config)`).
+
+`_crumbs()` returns the current tab's label without its emoji (a playlist drill-down counts as Playlists); a channel page opened from here starts its breadcrumb with it.

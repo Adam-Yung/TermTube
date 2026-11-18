@@ -246,7 +246,11 @@ class ItemActionsMixin:
             self.notify("No channel URL found.", severity="warning")
             return
         name = entry.get("uploader") or entry.get("channel") or "Channel"
-        self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name))
+        self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name, trail=self._crumbs()))
+
+    def _crumbs(self) -> list[str]:
+        """Where this screen sits, for the breadcrumb of a channel page opened from here."""
+        return []
 
     def action_playlist(self) -> None:
         entry = self._playable_entry()

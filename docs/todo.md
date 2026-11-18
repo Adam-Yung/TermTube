@@ -59,7 +59,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [ ] P6.3 Watch Later and Liked via the same loader if the extractor shortcuts exist (B1.8)
 
 ## Phase 7. Channel and Home paging
-- [ ] P7.1 Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10). Done: continuations, Shorts/Live, sort decision, URL helper. Open: info column (description, join date, count), breadcrumb back stack.
+- [x] P7.1 Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10)
 - [ ] P7.2 Channel playlist opens as a list, enqueue all, local channel bookmarks (B2.6-2.8)
 - [ ] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6)
 
