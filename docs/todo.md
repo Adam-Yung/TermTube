@@ -29,9 +29,9 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 ## Phase 2. Shared foundation, History  (milestone 1: pipeline)
 - [x] P2.1 `src/store.py` JsonStore (C4); history and playlists use it, search history and channel bookmarks will (4aaf971)
 - [x] P2.2 Slim history v2 + migration, write off the UI thread, `history: off`, `--clear-history` (C2, A4.2, A1.5) (7963f50)
-- [x] P2.3 List tools in the shared list engine: filter `f`, mark `m`/`M`, context `D`, undo `u` (B7); own fuzzy scorer (COMMIT_A)
-- [x] P2.4 History: delete, filter, day groups, settings for cap (B4.1-3, B4.6) (COMMIT_A; the cap setting `history_max` came with P2.2)
-- [x] P2.5 Keymap, help, action bar, `keybindings.md` for all new keys; keymap/help/doc consistency test (COMMIT_A)
+- [x] P2.3 List tools in the shared list engine: filter `f`, mark `m`/`M`, context `D`, undo `u` (B7); own fuzzy scorer (5459cda)
+- [x] P2.4 History: delete, filter, day groups, settings for cap (B4.1-3, B4.6) (5459cda; the cap setting `history_max` came with P2.2)
+- [x] P2.5 Keymap, help, action bar, `keybindings.md` for all new keys; keymap/help/doc consistency test (5459cda)
 
 ## Phase 3. Search
 - [ ] P3.1 Search stack with page and cursor restore (B3.1)
