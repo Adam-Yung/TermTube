@@ -71,8 +71,8 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P8.5 Help screen and keymap consistency test (B6) (consistency test landed in P2.5; keymap, help and keybindings.md checked by it)
 
 ## Always
-- [ ] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
-- [ ] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
+- [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
+- [x] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
 
 ## Other (before this audit)
 1. **Branch protection** on `main` requiring the six pipeline jobs (owner, in GitHub settings).
