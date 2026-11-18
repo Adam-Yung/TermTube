@@ -1,0 +1,89 @@
+src/progress.py
+  s_6c28d43e292a51::t_793d56e20753bb 1-79
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_793d56e20753bb 51-55,128,135,348-362,370-372,544
+docs/code/src/config.py.md
+  s_6c28d43e292a51::t_fae1e5509d4f07 25
+docs/code/src/player.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 90-91
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 31-32
+src/config.py
+  s_6c28d43e292a51::t_793d56e20753bb 46,196-199
+  s_6c28d43e292a51::t_7971b24c12ad12 200
+src/tests/tui/test_queue.py
+  s_6c28d43e292a51::t_793d56e20753bb 1-254
+docs/code/src/history.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 10,21-22
+docs/features/configuration.md
+  s_6c28d43e292a51::t_793d56e20753bb 39,46
+docs/features/playback.md
+  s_6c28d43e292a51::t_793d56e20753bb 5,11-14,26-32,39
+docs/status.md
+  s_6c28d43e292a51::t_793d56e20753bb 11
+src/player.py
+  s_6c28d43e292a51::t_793d56e20753bb 465-469,481,504
+docs/decisions/playback.md
+  s_6c28d43e292a51::t_793d56e20753bb 95-104
+docs/code/src/tui/theme.tcss.md
+  s_6c28d43e292a51::t_793d56e20753bb 12-13
+src/history.py
+  s_6c28d43e292a51::t_793d56e20753bb 58-59,74-108
+  s_6c28d43e292a51::t_2beb6b3bd73dd3 109-110
+docs/code/src/progress.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 1-17
+src/tui/screens/queue_modal.py
+  s_6c28d43e292a51::t_793d56e20753bb 1-151
+src/tui/settings_fields.py
+  s_6c28d43e292a51::t_793d56e20753bb 136-137
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_793d56e20753bb 28,70
+docs/code/src/tui/screens/watch_modal.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 33-36
+docs/code/src/tui/screens/queue_modal.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 1-9
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_793d56e20753bb 22,24,73,126,134,149,163-198,224-228,230,375-377,395,435,484,486-487
+src/tui/screens/watch_modal.py
+  s_6c28d43e292a51::t_793d56e20753bb 24,56,130-132,135,149,154-155,189,200,252-253
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_793d56e20753bb 18,196-200
+src/tests/unit/test_progress.py
+  s_6c28d43e292a51::t_793d56e20753bb 1-168
+src/tests/tui/test_list_tools.py
+  s_6c28d43e292a51::t_793d56e20753bb 361-411
+docs/code/src/tui/audio_controller.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 53-58
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_793d56e20753bb 116,118,120
+src/tui/keymap.py
+  s_6c28d43e292a51::t_793d56e20753bb 26
+src/tui/widgets/action_bar.py
+  s_6c28d43e292a51::t_793d56e20753bb 23-24
+docs/todo.md
+  s_6c28d43e292a51::t_fae1e5509d4f07 70
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_793d56e20753bb 42-45
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_793d56e20753bb 9,176-184,207
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_793d56e20753bb 53-54
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_793d56e20753bb 344-372,678,701,724
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c409466b44b0484eb6c6852fd6adbe93ec49b5a3",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
