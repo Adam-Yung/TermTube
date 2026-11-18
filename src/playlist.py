@@ -103,14 +103,6 @@ def get(pid: str) -> dict | None:
     return _store.read(lambda data: copy.deepcopy(_find(data, pid)))
 
 
-def find_by_name(name: str) -> dict | None:
-    key = name.strip().casefold()
-    def found(data: dict) -> dict | None:
-        return copy.deepcopy(next((p for p in data["playlists"] if p["name"].casefold() == key), None))
-
-    return _store.read(found)
-
-
 def create(name: str, entries: Iterable[Entry] | None = None) -> dict | None:
     """Create a playlist holding ``entries``. None, changing nothing, if the name is empty or exists (any case)."""
     name = name.strip()
@@ -223,28 +215,6 @@ def move_item(pid: str, video_id: str, to: int) -> bool:
         return True
 
     return bool(_mutate(pid, apply))
-
-
-def transfer(src: str, dst: str, video_ids: Iterable[str], *, move: bool = False) -> int:
-    """Copy (or with ``move`` move) videos from playlist ``src`` to ``dst``. Returns how many reached ``dst``."""
-    wanted = list(video_ids)
-
-    def apply(data: dict) -> int:
-        a, b = _find(data, src), _find(data, dst)
-        if a is None or b is None or a is b:
-            return 0
-        have = {i["id"] for i in b["items"]}
-        picked = [i for i in a["items"] if i["id"] in set(wanted)]
-        fresh = [copy.deepcopy(i) for i in picked if i["id"] not in have]
-        b["items"].extend(fresh)
-        if move:
-            a["items"] = [i for i in a["items"] if i not in picked]
-        now = int(time.time())
-        if fresh or (move and picked):
-            a["updated"] = b["updated"] = now
-        return len(picked) if move else len(fresh)
-
-    return _store.update(apply)
 
 
 def video_playlists(video_id: str) -> list[str]:

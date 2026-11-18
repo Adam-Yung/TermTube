@@ -37,10 +37,6 @@ class SearchStack:
     def kind(self) -> str:
         return self._frames[-1].kind if self._frames else KINDS[0]
 
-    @property
-    def depth(self) -> int:
-        return len(self._frames)
-
     def push(self, query: str) -> SearchFrame:
         """Make ``query`` the current search. The same query as the current one pushes nothing."""
         if self._frames and self._frames[-1].query == query:

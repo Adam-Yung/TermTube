@@ -73,14 +73,6 @@ class TestItems:
         assert playlist.move_item(pid, "vid0", 2) is False and playlist.move_item(pid, "nope", 0) is False
         assert ids(pid) == ["vid1", "vid2", "vid0"]
 
-    def test_transfer_copy_and_move(self, temp_playlists):
-        a = playlist.create("A", [vid(1), vid(2)])["id"]
-        b = playlist.create("B", [vid(2)])["id"]
-        assert playlist.transfer(a, b, ["vid1", "vid2"]) == 1
-        assert ids(a) == ["vid1", "vid2"] and ids(b) == ["vid2", "vid1"]
-        assert playlist.transfer(a, b, ["vid1"], move=True) == 1
-        assert ids(a) == ["vid2"] and playlist.transfer(a, a, ["vid2"]) == 0
-
     def test_membership_and_all_ids(self, temp_playlists):
         playlist.create("A", [vid(1), vid(2)])
         playlist.create("B", [vid(2)])

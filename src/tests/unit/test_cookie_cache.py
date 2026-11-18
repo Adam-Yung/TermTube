@@ -221,12 +221,6 @@ class TestNarrowAndInvalidate:
             assert mod.get_cookiejar(MagicMock()) is not first
         assert extract.call_count == 2
 
-    def test_auth_failure_detection(self):
-        import src.cookies as mod
-        assert mod.is_auth_failure(Exception("Sign in to confirm you're not a bot"))
-        assert mod.is_auth_failure(Exception("HTTP Error 403: Forbidden"))
-        assert not mod.is_auth_failure(Exception("Video unavailable"))
-
 
 class _FakeYDL:
     """Stands in for yt_dlp.YoutubeDL; ``script`` items are raised if exceptions, else returned as the info dict."""

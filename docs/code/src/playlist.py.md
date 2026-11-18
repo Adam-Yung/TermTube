@@ -17,7 +17,6 @@ Items are slim snapshots (the same slimmer as history, `history.slim`), so a pla
 - `add_items` appends new ids and *refreshes* known ones (fills empty snapshot fields only; richer data never overwrites a title).
 - `remove_items` returns the removed items with their old index in `_pos`; `restore_items` puts them back there (clamped) and strips `_pos`.
 - `move_item(pid, vid, to)` is False, changing nothing, when `to` is out of range or the video is absent.
-- `transfer(src, dst, ids, move=...)` copies or moves between playlists; videos already in `dst` are not duplicated.
 - `delete` returns the record so `restore` can bring it back (undo); `restore` refuses when the id or name is taken again.
 - `sync_pins(cache, ids, entries)` is the one place that keeps the cache consistent: ids still in some playlist are pinned (video JSON and
   thumbnail), the others unpinned. Callers pass the ids a change touched, after the change.

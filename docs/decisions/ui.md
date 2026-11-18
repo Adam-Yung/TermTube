@@ -50,3 +50,7 @@ nothing else, only active on that source). F4 returns to the last source used. `
 made YouTube history read-only), and says to open youtube.com/feed/history instead, because `b` opens the selected video as everywhere. YouTube
 rows carry no timestamps (the flat feed gives none that were verified): no day headers, a `YT` badge. Imported rows keep `watched_at=None` and sort
 after dated ones (`docs/code/src/history.py.md`).
+
+## 2026-11-17 — `playlist.transfer` removed
+
+It had no UI and duplicated what the keys already do: `p` adds the selected video to other playlists and `D` removes it from the current one. A move is those two steps.

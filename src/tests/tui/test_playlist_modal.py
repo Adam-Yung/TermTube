@@ -5,6 +5,11 @@ from textual.widgets import Input
 from src import playlist
 from src.tui.screens.playlist_modal import PlaylistModal
 
+
+def by_name(name):
+    return next(p for p in playlist.list_playlists() if p["name"] == name)
+
+
 ENTRY = {"id": "abc123def45", "title": "A video", "uploader": "Chan", "formats": [{"format_id": "18"}]}
 
 
@@ -19,7 +24,7 @@ async def test_new_name_that_exists_is_rejected(app, temp_playlists):
         field.value = "Mix"
         await field.action_submit()
         await pilot.pause(0.1)
-        assert [i["id"] for i in playlist.find_by_name("Mix")["items"]] == ["old00000001"]
+        assert [i["id"] for i in by_name("Mix")["items"]] == ["old00000001"]
         assert notes == [('Playlist "Mix" already exists', "warning")]
 
 
@@ -31,7 +36,7 @@ async def test_adding_pins_the_entry_without_fat_fields(app, temp_playlists):
         field.value = "Fresh"
         await field.action_submit()
         await pilot.pause(0.1)
-        assert [i["id"] for i in playlist.find_by_name("Fresh")["items"]] == ["abc123def45"]
+        assert [i["id"] for i in by_name("Fresh")["items"]] == ["abc123def45"]
         pinned = app.cache.get_video_raw("abc123def45")
         assert pinned["title"] == "A video"
         assert "formats" not in pinned

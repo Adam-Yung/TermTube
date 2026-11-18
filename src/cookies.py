@@ -35,13 +35,6 @@ def _narrow(jar) -> None:
         jar.clear(cookie.domain, cookie.path, cookie.name)
 
 
-def is_auth_failure(exc: BaseException) -> bool:
-    """True when a yt-dlp error reads like an expired or missing sign-in, so a fresh jar might help."""
-    from src.errors import SignInRequired, classify
-
-    return isinstance(classify(exc), SignInRequired)
-
-
 def invalidate() -> None:
     """Forget the jar; the next ``get_cookiejar`` call re-reads the browser."""
     global _jar
