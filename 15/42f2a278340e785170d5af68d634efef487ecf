@@ -1,0 +1,60 @@
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_2c6cb76e478aff 359-361
+src/tui/app.py
+  s_6c28d43e292a51::t_9c222929b862dc 73
+  s_6c28d43e292a51::t_4ae13d93813dc3 72,74-85
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 11
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_8bc6601ea5ad08 170-173
+  s_6c28d43e292a51::t_ff94b502df79fc 6
+  s_6c28d43e292a51::t_456be92b20c706 163-169,174,185,187,231,344
+src/feed_cursor.py
+  s_6c28d43e292a51::t_456be92b20c706 101-102
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_8c5b21d9d51715 6
+  s_6c28d43e292a51::t_03054ba98b45d7 115-118
+  s_6c28d43e292a51::t_9fd922ad0839f7 102
+  s_6c28d43e292a51::t_9c222929b862dc 78-79
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_9fd922ad0839f7 98-103
+docs/code/src/feed_cursor.py.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 6
+src/tests/tui/test_races.py
+  s_6c28d43e292a51::t_456be92b20c706 228-229
+  s_6c28d43e292a51::t_9c222929b862dc 16-19,67-68
+  s_6c28d43e292a51::t_15172eeb18fdb0 3,127-138,140-142,145-146
+  s_6c28d43e292a51::t_25d3619fb76689 301-302,344
+  s_6c28d43e292a51::t_8bc6601ea5ad08 253-254
+  s_6c28d43e292a51::t_cff8c10b8bec20 9
+  s_6c28d43e292a51::t_cf511d9bbe3ba3 1-2,4-8,10-15,20-66,69-124,139,143-144,147-149,151-154,157-158,163-165
+  s_6c28d43e292a51::t_ab88f9fb716511 125-126
+  s_6c28d43e292a51::t_59bb283b2a5ae6 150,155-156,159-162,166-168
+  s_6c28d43e292a51::t_af6a3df10284b0 169-227,230-252,255-300,303-343,345-350
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 26
+docs/code/src/tui/screens/mixins/list_tools.py.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 13
+docs/code/src/tui/app.py.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 31-32
+docs/decisions/concurrency.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 61-63
+docs/todo.md
+  s_6c28d43e292a51::t_c5b9ddf1f8c4d3 104-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1542f2a278340e785170d5af68d634efef487ecf",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
