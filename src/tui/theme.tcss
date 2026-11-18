@@ -350,6 +350,11 @@ EmptyFeedModal, NavModal, SortModal, ChannelTabModal, VideoActionModal, Settings
     margin-top: 1;
 }
 
+#search-suggestions {
+    height: auto;
+    margin-top: 1;
+}
+
 #search-input {
     background: #0d0d0d;
     border: solid #444444;

@@ -63,3 +63,8 @@ def rank(entries: list[Entry], query: str) -> list[Entry]:
             scored.append((-score, index, entry))
     scored.sort(key=lambda item: item[:2])
     return [entry for _, _, entry in scored]
+
+
+def rank_strings(texts: list[str], query: str) -> list[str]:
+    """`rank` for plain strings: those matching every token of `query`, best first."""
+    return [e["title"] for e in rank([{"title": t} for t in texts], query)]

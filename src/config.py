@@ -39,6 +39,7 @@ DEFAULT_CONFIG: dict = {
     "prefetch_video": False,
     "history": True,
     "history_max": 500,
+    "search_history": True,
 }
 
 
@@ -120,6 +121,10 @@ class Config:
     def history_enabled(self) -> bool:
         """False only for a literal ``false``: a typo must not silently stop recording."""
         return self._data.get("history") is not False
+
+    @property
+    def search_history_enabled(self) -> bool:
+        return self._data.get("search_history") is not False
 
     @property
     def history_max(self) -> int:

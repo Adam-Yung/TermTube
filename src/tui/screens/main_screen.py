@@ -10,7 +10,7 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Footer, RichLog, Tab, Tabs
 
-from src import history, logger
+from src import history, logger, search_history
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.search_stack import SearchStack
@@ -277,6 +277,7 @@ class MainScreen(
         def on_result(query: str | None) -> None:
             # On cancel do not touch ``tabs.active``: re-activating the current tab reloads its list.
             if query:
+                search_history.add(query, self.app.config)
                 self._show_search_results(query)
 
         self.app.push_screen(SearchModal(), on_result)

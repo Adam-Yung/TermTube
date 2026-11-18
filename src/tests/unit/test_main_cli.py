@@ -4,16 +4,18 @@ import sys
 
 import pytest
 
-from src import history, main
+from src import history, main, search_history
 
 
-def test_clear_history_erases_and_exits_zero(temp_history, monkeypatch, capsys):
+def test_clear_history_erases_and_exits_zero(temp_history, temp_search_history, monkeypatch, capsys):
     history.add({"id": "a"})
+    search_history.add("cats")
     monkeypatch.setattr(sys, "argv", ["termtube", "--clear-history"])
     with pytest.raises(SystemExit) as exit_info:
         main.main()
     assert exit_info.value.code == 0
     assert history.all_entries() == []
+    assert search_history.all_queries() == []
     assert "cleared" in capsys.readouterr().out
 
 

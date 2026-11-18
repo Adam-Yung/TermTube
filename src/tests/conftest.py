@@ -117,6 +117,14 @@ def temp_config(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def temp_search_history(tmp_path, monkeypatch):
+    """Redirect search history storage to temp directory."""
+    path = tmp_path / "search_history.json"
+    monkeypatch.setattr("src.search_history.SEARCH_HISTORY_PATH", path)
+    return path
+
+
+@pytest.fixture
 def temp_playlists(tmp_path, monkeypatch):
     """Redirect playlist storage to temp directory."""
     pl_path = tmp_path / "playlists.json"

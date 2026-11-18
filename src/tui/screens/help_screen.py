@@ -51,7 +51,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("u", "Undo the last removal (within 30 s)"),
     ]),
     ("APP", [
-        ("/", "Search"),
+        ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
         ("r", "Refresh the current feed (clears its cache)"),
         (",", "Settings"),
         ("?", "This screen"),
