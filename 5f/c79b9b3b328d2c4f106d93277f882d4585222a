@@ -1,0 +1,34 @@
+docs/features/sources.md
+  s_6c28d43e292a51::t_b8372d01206dc8 25
+docs/decisions/cookies-and-auth.md
+  s_6c28d43e292a51::t_bb8c2d0bde6fbc 140-147
+src/ytdlp.py
+  s_6c28d43e292a51::t_959a1d0a418bd0 88-89,208
+src/config.py
+  s_6c28d43e292a51::t_959a1d0a418bd0 27-28
+docs/features/accounts-and-cookies.md
+  s_6c28d43e292a51::t_bb8c2d0bde6fbc 3,11,23,30,34
+docs/todo.md
+  s_6c28d43e292a51::t_bb8c2d0bde6fbc 57
+src/tests/unit/test_cookie_policy.py
+  s_6c28d43e292a51::t_416086ac2c4172 8
+  s_6c28d43e292a51::t_c5f6846262eb4f 1-7,9-42
+docs/code/src/ytdlp.py.md
+  s_6c28d43e292a51::t_bb8c2d0bde6fbc 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "5fc79b9b3b328d2c4f106d93277f882d4585222a",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
