@@ -1,0 +1,42 @@
+docs/decisions/logging.md
+  s_6c123df676c2bf::t_34a2f8d74ebb2f 26-28
+src/tests/unit/test_rotation.py
+  s_6c123df676c2bf::t_a671c1d3987ba9 1-5,7,10,17-24,27,29-38,40-41,43-50,52,54-72,74-75
+  s_6c123df676c2bf::t_452e30dc4b317b 6,8-9,11-16,73
+  s_6c123df676c2bf::t_03725c69530454 25-26,28,39,42,51,53
+src/plat.py
+  s_6c123df676c2bf::t_06890207d15336 56,58
+  s_6c123df676c2bf::t_133ef04bc59543 55,57,59-79
+docs/code/src/plat.py.md
+  s_6c123df676c2bf::t_aaf0989a60176f 10
+docs/code/src/logger.py.md
+  s_6c123df676c2bf::t_34a2f8d74ebb2f 22
+src/sponsorblock.py
+  s_6c123df676c2bf::t_133ef04bc59543 17,110-113
+  s_6c123df676c2bf::t_614ea5c4f05cef 114-115
+src/cache.py
+  s_6c123df676c2bf::t_133ef04bc59543 14,307,312,317,320,322-323
+  s_6c123df676c2bf::t_06890207d15336 321
+  s_6c123df676c2bf::t_6091c92ddbed8a 324
+src/logger.py
+  s_6c123df676c2bf::t_c294cc4d04f26c 51
+  s_6c123df676c2bf::t_92e2858a6b161c 10,17,50,52,116-119
+docs/code/src/sponsorblock.py.md
+  s_6c123df676c2bf::t_34a2f8d74ebb2f 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e3f4b2b8c545a27aaba71a802f349241fdc4b343",
+  "prompts": {},
+  "sessions": {
+    "s_6c123df676c2bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d045acf7-1161-4d48-830e-8312c37cf56b",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
