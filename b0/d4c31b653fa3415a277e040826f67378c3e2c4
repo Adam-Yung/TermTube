@@ -1,0 +1,81 @@
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 22,29
+docs/decisions/config.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 23-30
+src/tests/tui/test_list_tools.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 346-360
+src/tests/tui/test_settings.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 1-314
+src/tests/unit/test_cache.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 274-286
+src/tests/unit/test_settings_fields.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 1-73
+docs/code/src/cache.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 23
+src/downloads.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 76-77,81-85
+docs/features/configuration.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 11,29,31,38-39,45-46
+src/tui/screens/settings_modal.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 3,6,8,10,12-14,18-41,44-47,51-54,57-63,68-69,72-76,79-83,86-125,127-148,150-160,162-176,178-182,185-191,193-196,198-209,211-226,228-231,233-241,243-247,264-268,271,274,277-288
+src/tests/tui/test_search_modal.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 162,164,168-170,174
+docs/status.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 11
+src/cache.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 281-282,289-290,293
+src/tui/screens/mixins/detail_focus.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 131
+src/config.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 5,17-18,45,55,58,62-63,65,68-79,81-102,105,109-115,177-188,204-208,214-216,222-223,226-227,233-235,238-252
+docs/code/src/downloads.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 15
+scripts/check-dead-code.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 20
+docs/code/src/tui/screens/quality_modal.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 4-5
+docs/features/accounts-and-cookies.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 25
+src/tui/settings_fields.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 1-167
+docs/code/src/config.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 17-18,22-23,25-27
+docs/code/scripts/check-dead-code.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 8
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 3
+docs/code/src/tui/screens/settings_modal.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 3,5-12,14
+docs/todo.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 67
+src/tests/unit/test_config.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 4,170-292
+docs/code/src/tui/settings_fields.py.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 1-14
+src/tui/screens/quality_modal.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 23-27,35-42,44-46,50,61-62,64-65
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 16,33-34,202,229,275-278,410-411,483-486,530,604
+docs/glossary.md
+  s_6c28d43e292a51::t_ca1addbaad3ed1 6
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_ca1addbaad3ed1 12,64-65,191,277-278,281-282,325
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_ca1addbaad3ed1 412-413,435,444,457,464,487,591-593,596,598-613,644,667,690
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "b0d4c31b653fa3415a277e040826f67378c3e2c4",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
