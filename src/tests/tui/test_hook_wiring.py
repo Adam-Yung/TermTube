@@ -38,6 +38,13 @@ def spy(monkeypatch, cls, name, *, through=False):
 def rows(n, prefix="seed"):
     return [{"id": f"{prefix}{i:06d}"[:11], "title": f"{prefix}{i}"} for i in range(n)]
 
+async def reach_page(pilot, panel, page):
+    """Wait (bounded, on state) until the panel shows ``page``; a slow runner may lag a fixed pause."""
+    for _ in range(100):
+        if panel.current_page == page:
+            return
+        await pilot.pause(0.05)
+
 
 async def seed(app, pilot, tab, pages):
     screen = app.screen
@@ -64,11 +71,11 @@ async def test_home_asks_for_more_on_the_second_to_last_page_and_past_the_end(ap
     async with app.run_test(size=(100, 30)) as pilot:
         screen, panel = await seed(app, pilot, "home", 3)
         screen.action_page_next()
-        await pilot.pause(0.1)
+        await reach_page(pilot, panel, 2)
         assert panel.current_page == 2 and calls == [((), {"show": False})]
         screen.action_page_next()
         screen.action_page_next()
-        await pilot.pause(0.1)
+        await reach_page(pilot, panel, 3)
         assert panel.current_page == 3 and calls[-1] == ((), {"show": True})
 
 
@@ -77,10 +84,10 @@ async def test_search_asks_for_more_only_on_its_last_page(app, monkeypatch):
     async with app.run_test(size=(100, 30)) as pilot:
         screen, panel = await seed(app, pilot, "search", 3)
         screen.action_page_next()
-        await pilot.pause(0.1)
+        await reach_page(pilot, panel, 2)
         assert panel.current_page == 2 and calls == []
         screen.action_page_next()
-        await pilot.pause(0.1)
+        await reach_page(pilot, panel, 3)
         assert panel.current_page == 3 and calls == [((), {"show": False})]
 
 
@@ -92,6 +99,7 @@ async def test_tabs_that_hold_everything_never_ask_for_more(app, monkeypatch, ta
         for _ in range(3):
             screen.action_page_next()
         screen.action_goto_end()
+        await reach_page(pilot, panel, 2)
         await pilot.pause(0.1)
         assert panel.current_page == 2 and calls == []
 
