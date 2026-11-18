@@ -1,0 +1,69 @@
+src/tui/widgets/action_bar.py
+  s_6c28d43e292a51::t_ee85bbf3644398 161
+  s_6c28d43e292a51::t_4a2c55e958cbeb 10,77-79,180,353,367
+  s_6c28d43e292a51::t_d37581fc7c5fba 18,25,110,153,158-160,183,259
+docs/code/src/tui/layout.py.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 1-3
+docs/code/src/tui/app.py.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 4
+docs/code/src/tui/widgets/action_bar.py.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 13
+docs/status.md
+  s_6c28d43e292a51::t_ee688c2c256d0d 8
+docs/todo.md
+  s_6c28d43e292a51::t_ee688c2c256d0d 83-84,86
+docs/code/src/tui/widgets/detail_panel.py.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 13-14
+src/tui/screens/mixins/library_rail.py
+  s_6c28d43e292a51::t_154a13ebadaec4 5
+docs/code/src/tui/theme.tcss.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 9-10
+src/tests/tui/test_screen_layout_audit.py
+  s_6c28d43e292a51::t_8bc38434a3a324 48-49,79-80,173-174
+  s_6c28d43e292a51::t_510d6122168c1d 98-99
+  s_6c28d43e292a51::t_a842017af3e0e6 1-47,50-78,81-97,100-172,175-190
+src/tui/widgets/detail_panel.py
+  s_6c28d43e292a51::t_ab7f971e38ae71 192
+  s_6c28d43e292a51::t_50f8bb63f71817 191,193,195-199,203,205
+  s_6c28d43e292a51::t_4a2c55e958cbeb 19,200-202,217,223
+  s_6c28d43e292a51::t_15df58d9cb8685 194
+src/tui/app.py
+  s_6c28d43e292a51::t_a50a381b094878 17
+  s_6c28d43e292a51::t_154a13ebadaec4 28
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_b265b2f2f9a5dd 123-125
+  s_6c28d43e292a51::t_a50a381b094878 48-51,68-69,131-132,304-315,773
+src/tests/tui/layout_harness.py
+  s_6c28d43e292a51::t_80a3c75926a57d 159,203-205
+  s_6c28d43e292a51::t_bb01e2e1c5c2eb 216
+  s_6c28d43e292a51::t_1c8918066503d2 213-215
+  s_6c28d43e292a51::t_bd49947527dd65 10,154-158,160-202,206-212,217-234
+  s_6c28d43e292a51::t_56aaf8e515b350 235
+docs/code/src/tui/widgets/library_rail.py.md
+  s_6c28d43e292a51::t_2e84ce15d06c87 5
+src/tests/tui/test_library_rail.py
+  s_6c28d43e292a51::t_df862471267593 301
+src/tui/widgets/library_rail.py
+  s_6c28d43e292a51::t_4e272d0390e3f5 138-140
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_ee688c2c256d0d 69-78
+src/tui/layout.py
+  s_6c28d43e292a51::t_bb01e2e1c5c2eb 4,7
+  s_6c28d43e292a51::t_154a13ebadaec4 1-3,5-6,8-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e6c53788bfb8f75b3eda2c2953c0fd68776bc3ab",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
