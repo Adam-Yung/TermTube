@@ -64,7 +64,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [ ] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6)
 
 ## Phase 8. Settings, auth, polish  (milestone 4: pipeline)
-- [ ] P8.1 Settings sections, reload from disk, page size setting (A3)
+- [x] P8.1 Settings sections, reload from disk, page size setting (A3) (settings search with `/` is not done: one screen of about 26 rows)
 - [ ] P8.2 Cookie prewarm setting, refresh account, sign-in vs extraction error split (A2)
 - [ ] P8.3 Typed source errors, retry/backoff, rate-limit message (A5)
 - [ ] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6)

@@ -271,3 +271,16 @@ class TestSuppression:
     def test_suppress_video_immediately(self, temp_cache):
         temp_cache.suppress_video("imm")
         assert temp_cache.is_suppressed("imm")
+
+
+class TestClearAll:
+    def test_removes_files_and_the_ram_copy_and_counts_them(self, temp_cache):
+        from src.cache import CACHE_DIR, THUMB_DIR, VIDEO_DIR
+
+        (CACHE_DIR / "feed_home.json").write_text("[]", encoding="utf-8")
+        (VIDEO_DIR / "vid1.json").write_text(json.dumps({"id": "vid1", "_cached_at": time.time()}), encoding="utf-8")
+        (THUMB_DIR / "vid1.jpg").write_bytes(b"x")
+        assert temp_cache.get_video("vid1") is not None
+        assert temp_cache.clear_all() == 3
+        assert temp_cache.get_video("vid1") is None
+        assert temp_cache.clear_all() == 0

@@ -14,7 +14,8 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
 - Typed properties validate: unknown `theme` falls back to `crimson`, unknown `thumbnail_format` to `auto`, a non-list
   `sponsorblock.categories` to the default list. Raw access (`config["x"]`, `config.get`) does not validate.
 - `cookies_file` from old configs is dropped on load. Auth now uses a browser only (see `docs/decisions/cookies-and-auth.md`).
-- Callers change a setting with `config.set(key, value)` (memory only) and persist with `save()`; nothing outside this module touches `_data`. The settings modal and the thumbnail warning dialog do this.
+- Callers change a setting with `config.set(key, value)` (memory only) and persist with `save()`, which returns False when nothing was written; nothing outside this module touches `_data`. `set`, `get` and `reset` take dotted keys for the two nested sections (`sponsorblock.enabled`, `cache_ttl.home`). The settings modal and the thumbnail warning dialog do this.
+- `reload()` re-reads the file: it returns None and replaces every setting (defaults overlaid by the file, so a key deleted from the file reads as its default), or returns a one-line reason and leaves memory alone (unreadable file, YAML error, a file that is not a mapping, a missing file). `cache_ttl` and `sponsorblock` are updated in place, never rebound: `Cache` holds the same `cache_ttl` dict.
 
 ## Keys
 

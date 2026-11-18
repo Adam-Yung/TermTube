@@ -158,21 +158,19 @@ async def test_a_suggestion_can_be_picked_with_the_arrows(modal_app, monkeypatch
 
 
 async def test_settings_toggle_turns_suggestions_off_and_back_on(app):
-    from textual.widgets import ListView
-
     from src.tui.screens.settings_modal import SettingsModal
+    from src.tui.settings_fields import FIELDS
 
+    index = next(i for i, f in enumerate(FIELDS) if f.key == "search_suggestions")
     async with app.run_test(size=(100, 40)) as pilot:
         app.push_screen(SettingsModal())
         await pilot.pause(0.3)
-        lv = app.screen.query_one("#suggest-list", ListView)
-        lv.focus()
-        await pilot.pause(0.1)
-        lv.index = 1
+        lv = app.screen.query_one("#settings-list")
+        row = next(r for r in lv.children if getattr(r, "fld", None) is FIELDS[index])
+        lv.index = list(lv.children).index(row)
         await pilot.press("enter")
         await pilot.pause(0.1)
         assert not app.config.search_suggestions_enabled
-        lv.index = 0
-        await pilot.press("enter")
+        await pilot.press("space")
         await pilot.pause(0.1)
         assert app.config.search_suggestions_enabled

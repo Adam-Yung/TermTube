@@ -8,8 +8,7 @@ One YAML file, created with defaults on first run. Nothing ships in the repo.
 | Windows | `%APPDATA%\TermTube\config.yaml` |
 | Elsewhere | `termtube --config FILE` |
 
-History (`history.json`) and local playlists (`playlists.json`) sit next to it. In the app, Settings (`,`) edits theme, quality, thumbnail format and
-browser; each choice is saved at once (there is no Save button). Unknown keys in the file are preserved on save. Edit the file freely while the app is closed.
+History (`history.json`) and local playlists (`playlists.json`) sit next to it. In the app, Settings (`,`) edits nearly every key below, in sections (Playback, Downloads, Data, Account, Display); the file path is shown at the top, and "Reload from disk" re-reads the file after a hand edit (a parse error is reported and the settings in memory stay). A refused value (unwritable directory, a name template with `..`, a number out of range) shows its reason instead of being saved; `Backspace` resets a row to its default. Each choice is saved at once (there is no Save button). Unknown keys in the file are preserved on save. Edit the file freely while the app is closed, or reload it from Settings.
 
 ## Keys
 
@@ -27,16 +26,16 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 | `thumbnail_warning_dismissed` | `false` | set by the "no image support" dialog's "Never show again" |
 | `sponsorblock.enabled` | `true` | fetch skip segments for playback |
 | `sponsorblock.auto_skip` | `true` | seek past a segment automatically |
-| `sponsorblock.categories` | `[sponsor, selfpromo]` | SponsorBlock categories to skip (a non-list reads as the default) |
+| `sponsorblock.categories` | `[sponsor, selfpromo]` | SponsorBlock categories to skip (a non-list reads as the default); values: sponsor, selfpromo, interaction, intro, outro, preview, filler, music_offtopic, poi_highlight |
 | `cache_ttl.home` | `3600` | seconds a cached Home feed stays fresh |
-| `cache_ttl.subscriptions` | `3600` | reserved for a subscription video feed (the Subscriptions tab lists channels, cached with the 1 h default) |
+| `cache_ttl.subscriptions` | `3600` | reserved for a subscription video feed (the Subscriptions tab lists channels, cached with the 1 h default); no Settings row until something reads it |
 | `cache_ttl.search` | `1800` | seconds a cached search stays fresh |
 | `cache_ttl.metadata` | `86400` | seconds cached video metadata stays valid |
 | `history` | `true` | `false` records nothing in the local watch history (existing history stays until `--clear-history`); only a literal `false` turns it off |
 | `search_history` | `true` | `false` stops recording searches and hides the history rows in the search prompt (existing queries stay until `--clear-history`); only a literal `false` turns it off |
 | `search_suggestions` | `true` | `false` stops asking Google for search suggestions while you type (the partial text is sent to `suggestqueries.google.com`, anonymously); only a literal `false` turns it off. Settings modal has the toggle |
 | `history_max` | `500` | most entries kept in the local history; clamped to 50..5000, a non-integer reads as 500 |
-| `prefetch_video` | `false` | also pre-resolve a video stream URL when focusing a row (audio is always prefetched); only a literal `true` turns it on; no UI |
+| `prefetch_video` | `false` | also pre-resolve a video stream URL when focusing a row (audio is always prefetched); only a literal `true` turns it on. Settings has the toggle |
 | `rows_per_page` | `20` | entries per list page, clamped to 10..50 (a non-integer reads as 20). Applies at the next list load: switch tab, search again or refresh |
 
 `cache_ttl` and `sponsorblock` merge one level deep: setting one sub-key keeps the other defaults.
@@ -44,7 +43,7 @@ browser; each choice is saved at once (there is no Save button). Unknown keys in
 ## Rules
 
 - Typed accessors validate (`theme`, `thumbnail_format`, `insecure_thumbnails`, `sponsorblock.categories`, `history`, `history_max`, `rows_per_page`, `prefetch_video`); raw `config["x"]` / `config.get` do not.
-- Code changes a setting with `config.set(key, value)` and persists it with `config.save()`; nothing outside `src/config.py` touches `_data`.
+- Code changes a setting with `config.set(key, value)` (dotted keys such as `cache_ttl.home` work) and persists it with `config.save()`, which returns False when nothing was written; `config.reload()` re-reads the file. Nothing outside `src/config.py` touches `_data`.
 - Tests construct `Config(path=<tmp file>)`; the default path is the real user config.
 - `termtube --clear-cache` removes cached feeds and metadata; it never touches config, history or playlists.
 - `termtube --clear-history` erases the local watch history and the search history file contents at once and exits; nothing else changes.

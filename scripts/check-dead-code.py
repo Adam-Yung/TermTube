@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
-CONVENTION = re.compile(r"^(on_|_on_|action_|watch_|validate_|compute_|render|compose|emit$|main$|__)")
+CONVENTION = re.compile(r"^(on_|_on_|action_|check_action$|watch_|validate_|compute_|render|compose|emit$|main$|__)")
 IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 

@@ -1,6 +1,7 @@
 """Tests for src/config.py — configuration management."""
 
 
+import pytest
 import yaml
 
 
@@ -208,3 +209,84 @@ class TestResolvedBrowser:
 
         monkeypatch.setattr("src.browsers.detect_installed_browsers", lambda: [])
         assert Config(path=str(tmp_path / "config.yaml")).resolved_browser() is None
+
+
+class TestReloadResetAndDottedKeys:
+    def test_dotted_set_get_and_reset(self, tmp_path):
+        from src.config import Config
+
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        cfg.set("sponsorblock.enabled", False)
+        cfg.set("cache_ttl.home", 120)
+        assert cfg.sponsorblock_enabled is False and cfg.get("cache_ttl.home") == 120 and cfg.cache_ttl("home") == 120
+        cfg.reset("sponsorblock.enabled")
+        cfg.reset("cache_ttl.home")
+        assert cfg.sponsorblock_enabled is True and cfg.cache_ttl("home") == 3600
+        cfg.set("history_max", 80)
+        cfg.reset("history_max")
+        assert cfg.history_max == 500
+
+    def test_reset_copies_a_list_default(self, tmp_path):
+        from src.config import DEFAULT_CONFIG, Config
+
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        cfg.reset("sponsorblock.categories")
+        cfg.sponsorblock_categories.append("intro")
+        assert DEFAULT_CONFIG["sponsorblock"]["categories"] == ["sponsor", "selfpromo"]
+
+    def test_reload_replaces_settings_and_keeps_the_ttl_dict_identity(self, tmp_path):
+        from src.config import Config
+
+        path = tmp_path / "config.yaml"
+        cfg = Config(path=str(path))
+        ttl = cfg.get("cache_ttl")
+        cfg.set("theme", "amber")
+        path.write_text(yaml.dump({"theme": "ocean", "extra": 1, "cache_ttl": {"home": 5}}), encoding="utf-8")
+        assert cfg.reload() is None
+        assert cfg.theme == "ocean" and cfg.get("extra") == 1
+        assert cfg.get("cache_ttl") is ttl and ttl["home"] == 5 and ttl["search"] == 1800
+
+    def test_reload_drops_a_key_removed_from_the_file(self, tmp_path):
+        from src.config import Config
+
+        path = tmp_path / "config.yaml"
+        cfg = Config(path=str(path))
+        cfg.set("theme", "amber")
+        path.write_text("{}\n", encoding="utf-8")
+        assert cfg.reload() is None and cfg.theme == "crimson"
+
+    @pytest.mark.parametrize("text", ["theme: [unclosed\n  - : :", "- a\n- b\n"])
+    def test_a_bad_file_is_reported_and_memory_is_kept(self, tmp_path, text):
+        from src.config import Config
+
+        path = tmp_path / "config.yaml"
+        cfg = Config(path=str(path))
+        cfg.set("theme", "amber")
+        path.write_text(text, encoding="utf-8")
+        error = cfg.reload()
+        assert error and "\n" not in error
+        assert cfg.theme == "amber"
+
+    def test_reload_of_a_missing_file_is_an_error(self, tmp_path):
+        from src.config import Config
+
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        cfg.path.unlink()
+        assert cfg.reload() == "the file does not exist"
+
+    def test_save_reports_failure(self, tmp_path):
+        from src.config import Config
+
+        path = tmp_path / "config.yaml"
+        cfg = Config(path=str(path))
+        assert cfg.save() is True
+        path.write_text("a: [unclosed", encoding="utf-8")
+        assert cfg.save() is False
+
+    def test_a_non_dict_section_keeps_the_defaults(self, tmp_path):
+        from src.config import Config
+
+        path = tmp_path / "config.yaml"
+        path.write_text(yaml.dump({"cache_ttl": 5, "sponsorblock": "x"}), encoding="utf-8")
+        cfg = Config(path=str(path))
+        assert cfg.cache_ttl("home") == 3600 and cfg.sponsorblock_enabled is True
