@@ -474,7 +474,7 @@ class VideoListPanel(Widget):
         self._update_page_indicator()
 
     def set_breadcrumb(self, text: str) -> None:
-        self._breadcrumb.update(f"[dim]{text}[/dim]")
+        self._breadcrumb.update(f"[dim]{escape_markup(text)}[/dim]")
 
     def _show_message(self, markup: str) -> None:
         """Replace the list with a wrapping message (empty list, failed load): the one-line breadcrumb would cut it."""

@@ -152,7 +152,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         parts = [*self._crumbs(), _TAB_LABELS[self._tab_kind()]]
         if self._playlist:
             parts.append(self._playlist.get("_playlist_name") or self._playlist.get("title", "Playlist"))
-        self._list().set_breadcrumb(escape_markup(fmt_breadcrumb(parts)) + "  ← esc to go back")
+        self._list().set_breadcrumb(fmt_breadcrumb(parts) + "  ← esc to go back")
 
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._focus_video(message.entry)

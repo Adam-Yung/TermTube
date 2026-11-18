@@ -102,3 +102,6 @@ The panel listed all 21 tools of every tab (7 rows at 100x30). The screen now an
 
 ## 2026-11-18 — `escape_markup` handles backslashes; every user text in a notice or log is escaped
 A text ending in a backslash (or with one before `[`) escaped the closing tag that followed it: the tag showed as text and the style ran on (`[/y] \` in an error). Markup cannot spell a literal backslash there, so `escape_markup` puts a zero-width space after it. Notices and log lines that embed titles, playlist or channel names, URLs or error text (audio, download modal, playlist modal, channel follow, feed loader) now go through it too. `test_loader_errors.py` injects every typed error and a raw exception into each list loader.
+
+## 2026-11-18 — `set_breadcrumb` takes plain text and escapes it
+Search queries and playlist names went into the breadcrumb markup unescaped (`[/x]` in a query or a playlist name raised `MarkupError` on render). `VideoListPanel.set_breadcrumb` now escapes its argument; the channel screen no longer escapes first. `test_scale_edge.py` holds the 5000-row budget test (ranking 5000 rows is about 10 ms, so no cache of haystacks is needed), the odd-name playlist cases, garbage filter queries and hostile text in rows, notices, breadcrumbs and the detail panel.

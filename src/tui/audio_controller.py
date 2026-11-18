@@ -253,7 +253,7 @@ class AudioController:
         self._segments = []
         self._segment_idx = 0
         self._progress = None
-        self.log(f"[dim]Audio start: {entry.get('title', '')[:60]}[/dim]")
+        self.log(f"[dim]Audio start: {escape_markup(entry.get('title', '')[:60])}[/dim]")
         queue_len = len(self._queue)
         self._broadcast(lambda: AudioTrackChanged(entry, queue_len))
         threading.Thread(
@@ -440,7 +440,7 @@ class AudioController:
         if session != self._session:
             return
         title = entry.get("title", "")
-        self.log(f"[dim]Audio finished: {title[:60]}[/dim]")
+        self.log(f"[dim]Audio finished: {escape_markup(title[:60])}[/dim]")
         self._finish_progress(completed=True)
         self._reset_playback()
         if self._queue:
