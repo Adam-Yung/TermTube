@@ -1,0 +1,54 @@
+src/tests/tui/test_channel_following.py
+  s_6c28d43e292a51::t_ab6f8c4639f1b4 113
+src/tui/keymap.py
+  s_6c28d43e292a51::t_0b84d34a8a3fe4 154,162
+src/tests/tui/test_focus_after_modal.py
+  s_6c28d43e292a51::t_95c77288258253 1-42
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_13449e1dd35b01 255,261,270,366-367,447,469,476-477,480-485,488
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_ab6f8c4639f1b4 81-86
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_677463d89973ea 37-38
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_677463d89973ea 83-90
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_2a3a1379372a39 36-40,138,421,423,439
+docs/status.md
+  s_6c28d43e292a51::t_677463d89973ea 8
+src/tests/tui/test_actions_panel.py
+  s_6c28d43e292a51::t_9fa89f4ebc1c8f 30
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_9d2b73b6b04494 120,122
+src/tui/screens/playlist_modal.py
+  s_6c28d43e292a51::t_9d2b73b6b04494 115
+src/tests/tui/test_playlist_modal.py
+  s_6c28d43e292a51::t_9d2b73b6b04494 28
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_0b84d34a8a3fe4 158-159
+src/tests/tui/test_layout_audit.py
+  s_6c28d43e292a51::t_4e76c75db67fa5 23,63,75-76
+src/tests/tui/test_screen_layout_audit.py
+  s_6c28d43e292a51::t_9fa89f4ebc1c8f 111-116,132
+src/tests/unit/test_help_matches_keymap.py
+  s_6c28d43e292a51::t_3449b8840fd75e 1-22,25-30
+  s_6c28d43e292a51::t_7f3ca9b6d4a9f6 23-24
+docs/todo.md
+  s_6c28d43e292a51::t_677463d89973ea 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "44ac4d7b85ddf38bbe88e91cda925d491505ec14",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
