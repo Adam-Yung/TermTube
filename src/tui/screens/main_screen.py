@@ -107,6 +107,7 @@ class MainScreen(
         *keymap.SEARCH_FILTERS,
         Binding("r", "refresh", "Refresh"),
         *keymap.SUBSCRIPTIONS,
+        *keymap.HOME,
         *keymap.GLOBAL,
     ]
 
@@ -427,6 +428,15 @@ class MainScreen(
         tab = tab_of(self._current_tab)
         labels = dict(_TABS)
         return [labels.get(tab, tab).split(" ", 1)[-1]]
+
+    def action_show_played(self) -> None:
+        """Home: show or hide the videos already played (the footer counts the hidden ones)."""
+        if self._current_tab != "home":
+            self._hint("Open the Home tab, then press Z to show or hide videos you already played.", "information")
+            return
+        self._show_played = not self._show_played
+        self._load_view("home")
+        self.notify("Showing played videos" if self._show_played else "Hiding played videos", timeout=2)
 
     def action_following(self) -> None:
         """The local Following list, from the Subscriptions tab (it needs no account)."""

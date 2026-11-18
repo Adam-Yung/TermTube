@@ -146,3 +146,7 @@ Prefetch moved to the second-to-last held page for feeds (`_on_page_shown`); one
 ## 2026-11-18 — Home revalidates a stale cache in the background (P7.3)
 
 A Home cache older than `cache_ttl.home_revalidate` (600 s) and younger than `cache_ttl.home` (3600 s) is still shown at once, then read again behind the rows (cursor, 80 rows, cache rewritten). Rows held on screen never change; the footer says `↑ N new · r to refresh` and `r` reloads from the refreshed cache. This is not the deprecated 2026-04-25 design (a parallel fetch on every cache hit that swapped the list): it runs only past the young window, once per load, on the loader's own thread, and its cursor is the one later extensions continue. Failures are silent (logged). No Settings row; the key is in `config.json` only.
+
+## 2026-11-18 — `Z` toggles the played videos on Home (P7.3)
+
+Home has always dropped videos already played (suppression). The footer now counts them (`18 hidden`) and `Z` (free: no binding in `keymap.py`, `BINDINGS` or `on_key`) shows them (`played shown`) and hides them again; it reloads the view, is Home only and a hint elsewhere, the per-tab-key pattern of `F` and `Y`. The count is per load and per extension (a set of ids, so a video seen twice counts once). The plan's `Z` was kept.

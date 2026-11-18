@@ -246,6 +246,8 @@ class VideoListPanel(Widget):
         self._show_count: bool = False
         self._progress: str = ""
         self._notice: str = ""
+        self._hidden = 0
+        self._played_shown = False
         self._lv: ListView
         self._filter_bar: FilterBar
         self._anim: LoadingIndicator
@@ -429,6 +431,8 @@ class VideoListPanel(Widget):
         self._show_count = False
         self._progress = ""
         self._notice = ""
+        self._hidden = 0
+        self._played_shown = False
         self._reset_filter()
         self._current_page = 0
         self._max_visited_page = 0
@@ -653,11 +657,20 @@ class VideoListPanel(Widget):
             parts.append(f"{total} videos")
         if self._marked:
             parts.append(f"{len(self._marked)} marked")
+        if self._played_shown:
+            parts.append("played shown")
+        elif self._hidden:
+            parts.append(f"{self._hidden} hidden")
         if self._notice:
             parts.append(self._notice)
         if self._progress:
             parts.append(self._progress)
         return "  ·  ".join(parts)
+
+    def set_hidden(self, count: int, *, showing: bool = False) -> None:
+        """Footer count of rows kept out of the list (Home hides played videos); ``showing`` says they are shown."""
+        self._hidden, self._played_shown = count, showing
+        self._update_page_indicator()
 
     def set_notice(self, text: str) -> None:
         """A standing footer note that is not about work in flight (``↑ 4 new · r to refresh``); empty clears it."""

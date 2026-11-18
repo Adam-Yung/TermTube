@@ -69,6 +69,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
         ("s / t", "Search tab: sort / type; s on local History: recent, most or longest watched"),
         ("r", "Refresh the current feed (clears its cache)"),
+        ("Z", "Home tab: show or hide the videos you already played (the footer counts the hidden ones)"),
         ("F", "Subscriptions tab: the channels you follow locally (Esc returns)"),
         (",", "Settings"),
         ("?", "This screen"),

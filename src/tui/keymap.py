@@ -87,6 +87,8 @@ CHANNEL_PAGE = [
     Binding("B", "bookmark", show=False),
 ]
 
+HOME = [Binding("Z", "show_played", show=False)]
+
 SUBSCRIPTIONS = [Binding("F", "following", show=False)]
 
 FOCUS_RECLAIM_KEYS = frozenset(

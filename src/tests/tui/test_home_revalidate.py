@@ -106,3 +106,30 @@ def test_revalidate_threshold_setting_is_validated(tmp_path):
     assert cfg.cache_ttl("home_revalidate") == 600
     cfg._data["cache_ttl"]["home_revalidate"] = 30
     assert cfg.cache_ttl("home_revalidate") == 30
+
+
+async def test_played_videos_are_counted_and_z_toggles_them(app, monkeypatch):
+    cached = _seed_cache(app, 60)
+    for e in cached[:4]:
+        app.cache.suppress_video(e["id"])
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause(0.6)
+        screen, panel = app.screen, app.screen._list()
+        assert "4 hidden" in panel._status_note()
+        assert panel.loaded_count == 26 and not panel.seen_ids & {e["id"] for e in cached[:4]}
+        screen.action_show_played()
+        await pilot.pause(0.6)
+        assert panel.loaded_count == 30 and "played shown" in panel._status_note()
+        assert "hidden" not in panel._status_note()
+        screen.action_show_played()
+        await pilot.pause(0.6)
+        assert panel.loaded_count == 26 and "4 hidden" in panel._status_note()
+
+
+async def test_z_off_the_home_tab_is_only_a_hint(app):
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause(0.4)
+        screen = app.screen
+        screen._current_tab = "history"
+        screen.action_show_played()
+        assert screen._show_played is False

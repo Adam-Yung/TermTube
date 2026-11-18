@@ -54,6 +54,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
 | `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |
 | `B` | channel page: follow or unfollow the channel locally (`channels.json`, works with `browser: none`) | |
+| `Z` | Home tab: show or hide the videos already played (the footer says `N hidden`, or `played shown`); a hint on other tabs | |
 | `F` | Subscriptions tab: the local Following list (`Enter` opens a channel, `Esc` returns); a hint on other tabs | |
 | `P` `E` `S` | channel page, inside a playlist (`Enter` on a playlist row opens it): play all / add all to the queue / save as a local playlist | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |

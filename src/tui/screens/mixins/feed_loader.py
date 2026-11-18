@@ -77,6 +77,8 @@ class FeedLoaderMixin:
     _feed_cursor = None
     _extending_session: int | None = None
     _pending_show = False
+    _show_played = False
+    _hidden_ids: set[str] = set()
 
     def _load_view(self, view: str) -> None:
         self._log(f"[dim]Loading {view}…[/dim]")
@@ -179,12 +181,16 @@ class FeedLoaderMixin:
 
         account = feed_key in ACCOUNT_VIEWS.values()
 
+        hidden: set[str] = set()
+        if feed_key == "home":
+            self._ui(self._reset_hidden, hidden)
+
         def visible(entries: list[Entry]) -> list[Entry]:
             if account:
                 return _tag_yt(entries)
             if feed_key != "home":
                 return entries
-            return [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
+            return self._hide_played(entries, hidden)
 
         age = cache.feed_age(feed_key) if feed_key == "home" else None
         stale = age is not None and age > self.app.config.cache_ttl("home_revalidate")
@@ -259,6 +265,20 @@ class FeedLoaderMixin:
             cache.prune_video_cache_fifo(100)
         except Exception as exc:
             logger.debug("video cache prune: %s", exc)
+
+    def _reset_hidden(self, hidden: set[str]) -> None:
+        self._hidden_ids = hidden
+        self._list().set_hidden(0, showing=self._show_played)
+
+    def _hide_played(self, entries: list[Entry], hidden: set[str]) -> list[Entry]:
+        """Home without the videos already played (unless Z shows them); counts the hidden ones in the footer."""
+        if self._show_played:
+            return entries
+        suppressed = self.app.cache.is_suppressed
+        kept = [e for e in entries if not suppressed(e.get("id", ""))]
+        hidden.update(e.get("id", "") for e in entries if suppressed(e.get("id", "")))
+        self._ui(lambda: self._list().set_hidden(len(hidden)))
+        return kept
 
     def _revalidate(self, feed_key: str, panel: VideoListPanel, visible) -> None:
         """Stale-while-revalidate: read the feed again behind the cached rows and only announce what is new.
@@ -504,7 +524,7 @@ class FeedLoaderMixin:
                 if tab in ACCOUNT_VIEWS:
                     got = _tag_yt(got)
                 elif tab == "home":
-                    got = [e for e in got if not cache.is_suppressed(e.get("id", ""))]
+                    got = self._hide_played(got, self._hidden_ids)
                 out += got
                 if out or cursor.exhausted or cursor.closed:
                     break

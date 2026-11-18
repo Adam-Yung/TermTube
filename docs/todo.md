@@ -61,7 +61,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 ## Phase 7. Channel and Home paging
 - [x] P7.1 Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10)
 - [x] P7.2 Channel playlist opens as a list, enqueue all, local channel bookmarks (B2.6-2.8)
-- [ ] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6)
+- [x] P7.3 Home paging: live iterator or window fix, prefetch earlier, progress text, stale-while-revalidate, hidden-count toggle (B1.2-1.6) (5aca658 cursor, prefetch, progress; 928c5a8 revalidate; `Z` toggle in the commit that adds `show_played`; the live generator is `[verify live]`)
 
 ## Phase 8. Settings, auth, polish  (milestone 4: pipeline)
 - [x] P8.1 Settings sections, reload from disk, page size setting (A3) (settings search with `/` is not done: one screen of about 26 rows) (f0ddbc2, 291dca1 via merge)
