@@ -53,3 +53,7 @@ Local lists (history, library, playlist index and view) go through `_show_pages(
 
 - `_can_extend` is false while a filter is active: a filter works on what is loaded, and extending would re-page the shown set under the cursor. `_append_pages` uses `panel.next_page_number` (pages of the full set), not `total_pages` (pages of what is shown).
 - The `history` load sets `panel.set_view_options(group_by=_day_label, show_count=True)` before the pages arrive; `clear_and_set_loading` resets it on every view change.
+
+## Search position restore
+
+After a search load with entries, `_finish_search_load` (via `_ui`) takes the saved page and row from the `SearchStack`, shows them if the page is held, and writes the back hint into the breadcrumb.

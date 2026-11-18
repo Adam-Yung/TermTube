@@ -11,3 +11,7 @@ Textual's default toast is a blue-grey slab with green, orange and magenta bars,
 ## 2026-11-17 — List tools live in the shared list engine
 
 Filter (`f`), marks (`m`/`M`), remove (`D`) and undo (`u`) are implemented once, in `VideoListPanel` plus `ListToolsMixin`, not per tab. A tab opts in to `D` by declaring a `Removal` in `MainScreen._removals()`; History is the first. Choices: the filter is substring-with-ranking over title and uploader/channel (own scorer, `src/fuzzy.py`, no dependency) and applies to every loaded page; the remove question is one inline line in the action bar where `y` confirms and any other key cancels without acting; undo keeps one removal for 30 s and covers entries only. History day headers are display-only rows inside the `ListView` (never in the page data), so paging and counts are unchanged; they are hidden while a filter is active. Keys `f m M D u` were free in every screen and modal; `J` `K` `Q` stay unbound until their phases.
+
+## 2026-11-17 — Search stack: rows by id, breadcrumb shows depth
+
+The Search tab keeps a stack of up to 20 searches (`src/search_stack.py`). A frame stores the page and the id of the highlighted row, not its index, so the restore survives re-paging. Backspace/Esc pops only when the tab-level `_nav_stack` (playlist back) is empty, so the other meanings are unchanged. The breadcrumb reads `‹ N searches · Backspace: back to “prev”` instead of the plan's `‹ 2 of 5 ›`: a pure stack has no forward half, so "n of m" would always read n of n.

@@ -17,7 +17,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("g / G", "First / last item of the whole list"),
         ("H / L", "Previous / next tab"),
         ("Enter", "Action menu for the row"),
-        ("Backspace / Esc", "Back (out of a playlist or channel)"),
+        ("Backspace / Esc", "Back (out of a playlist or channel; on Search, to the previous results)"),
         ("F1–F7  `", "Jump to a tab / open the tab picker"),
     ]),
     ("PLAY", [

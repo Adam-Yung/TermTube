@@ -34,7 +34,7 @@ def _pages_for(count: int) -> int:
 class FeedLoaderMixin:
     """Loads each tab's entries into the ``VideoListPanel`` and keeps paging ahead of the user.
 
-    Needs ``_current_tab``, ``_search_query``, ``_feed_session``, ``_log``, ``_worker_start`` and
+    Needs ``_current_tab``, ``_search`` (a ``SearchStack``), ``_feed_session``, ``_log``, ``_worker_start`` and
     ``_worker_end`` from the screen, plus ``_show_empty_feed_modal`` and ``_prompt_ytdlp_update``.
     Tab loads run in the exclusive ``feed_loader`` group and paging in ``feed_extend``, so neither cancels
     the other; ``_feed_session`` makes any result (load or paging) from before a view change a no-op.
@@ -252,7 +252,7 @@ class FeedLoaderMixin:
     def _load_search(self, panel: VideoListPanel) -> None:
         import src.ytdlp as ytdlp
 
-        if not self._search_query:
+        if not self._search.query:
             self._ui(panel.set_empty_message, "Press / to search")
             return
         call = self._ui
@@ -265,16 +265,25 @@ class FeedLoaderMixin:
             call(panel.finish_loading)
 
         entries = ytdlp.fetch_search_batch(
-            self._search_query, self.app.config, self.app.cache,
+            self._search.query, self.app.config, self.app.cache,
             count=SEARCH_FETCH_COUNT, on_first_batch=on_first_batch,
         )
         if not shown:
             self._show_pages(panel, entries)
-            return
-        shown_ids = {e.get("id") for e in shown}
-        rest = [e for e in entries if e.get("id") not in shown_ids]
-        if rest:
-            call(panel.add_entries, 1 + _pages_for(len(shown)), rest)
+        else:
+            shown_ids = {e.get("id") for e in shown}
+            rest = [e for e in entries if e.get("id") not in shown_ids]
+            if rest:
+                call(panel.add_entries, 1 + _pages_for(len(shown)), rest)
+        if entries:
+            call(self._finish_search_load, panel)
+
+    def _finish_search_load(self, panel: VideoListPanel) -> None:
+        """Back to the page and row the user left this search on (when they are held), and the back hint."""
+        page, focus_id = self._search.take_position()
+        if page > 1 or focus_id:
+            panel.load_page(page, focus_id=focus_id)
+        panel.set_breadcrumb(self._search.breadcrumb())
 
     def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry]) -> None:
         if not entries:
@@ -362,9 +371,9 @@ class FeedLoaderMixin:
             if tab == "home":
                 entries = [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
             return entries
-        if tab == "search" and self._search_query:
+        if tab == "search" and self._search.query:
             return ytdlp.fetch_search_batch(
-                self._search_query, config, cache, skip_ids=skip, count=SEARCH_FETCH_COUNT
+                self._search.query, config, cache, skip_ids=skip, count=SEARCH_FETCH_COUNT
             )
         return []
 

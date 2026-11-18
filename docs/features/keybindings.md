@@ -19,7 +19,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
    `J` `K` (move in an ordered list) and `Q` (queue view) are reserved for later phases and unbound today.
-7. `Esc` and `Backspace` go back. `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
+7. `Esc` and `Backspace` go back (out of a playlist or channel; on the Search tab, to the previous search at its page and row). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
 
 ## Map
 

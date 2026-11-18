@@ -30,3 +30,4 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 ## List tools
 
 `ListToolsMixin` comes first in the MRO so its `on_key` can swallow keys while a remove question is open. `_removals()` is the per-tab table of remove handlers (History only). `action_nav_back` clears a kept filter before it pops `_nav_stack`.
+- `_search` is a `SearchStack`. `_show_search_results` saves the page and row of the results being left (`_save_search_position`, also when switching tabs), pushes the query and shows it through `_show_search_frame`. `action_nav_back` pops it only when `_nav_stack` is empty and the Search tab is current, so playlist and channel "back" keep priority. The saved position is applied once by `FeedLoaderMixin._finish_search_load` after the (cached) results load.

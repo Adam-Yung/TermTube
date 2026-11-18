@@ -13,6 +13,7 @@ from textual.widgets import Footer, RichLog, Tab, Tabs
 from src import history, logger
 from src.entries import Entry
 from src.plat import ProcessRegistry
+from src.search_stack import SearchStack
 from src.tui import keymap
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.debug_log import DebugLogMixin
@@ -86,7 +87,7 @@ class MainScreen(
     def __init__(self) -> None:
         super().__init__()
         self._current_tab = ""
-        self._search_query = ""
+        self._search = SearchStack()
         self._nav_stack: list[str] = []
         self._opening_search_tab = False
         self._feed_session = 0
@@ -196,13 +197,14 @@ class MainScreen(
         if tab_id == "search":
             if self._opening_search_tab:
                 self._opening_search_tab = False
-            elif not (self._current_tab == "search" and self._search_query):
+            elif not (self._current_tab == "search" and self._search.query):
                 self._open_search_dialog()
         elif tab_id == "help":
             self._show_help(restore_tab=self._current_tab)
         else:
             if self._current_tab in FEED_TABS:
                 self._save_feed_stash(self._current_tab)
+            self._save_search_position()
             self._current_tab = tab_id
             self._nav_stack.clear()
             self._load_view(tab_id)
@@ -233,13 +235,13 @@ class MainScreen(
     def _cycle_tab(self, step: int) -> None:
         current = "playlists" if self._current_tab.startswith("playlist:") else self._current_tab
         order = list(_LOADABLE_TABS)
-        if self._search_query:
+        if self._search.query:
             order.insert(2, "search")
         if current not in order:
             return
         target = order[(order.index(current) + step) % len(order)]
         if target == "search":
-            self._show_search_results(self._search_query)
+            self._show_search_results(self._search.query)
         else:
             self.action_goto_tab(target)
 
@@ -253,7 +255,11 @@ class MainScreen(
         self.app.push_screen(NavModal(), on_pick)
 
     def action_nav_back(self) -> None:
-        if self._close_filter_if_active() or not self._nav_stack:
+        if self._close_filter_if_active():
+            return
+        if not self._nav_stack:
+            if self._current_tab == "search" and self._search.pop():
+                self._show_search_frame()
             return
         previous = self._nav_stack.pop()
         self._current_tab = previous
@@ -279,14 +285,26 @@ class MainScreen(
         logger.info("search %r", query)
         if self._current_tab in FEED_TABS:
             self._save_feed_stash(self._current_tab)
-        tabs = self.query_one("#nav-tabs", Tabs)
-        self._search_query = query
+        self._save_search_position()
+        self._search.push(query)
         self._current_tab = "search"
         self._nav_stack.clear()
+        self._opening_search_tab = True
+        self._show_search_frame()
+
+    def _save_search_position(self) -> None:
+        """Remember the page and row of the results being left, so coming back lands there."""
+        if self._current_tab != "search" or not self._search.query:
+            return
+        row = self._list().selected_entry
+        self._search.save_position(self._list().current_page, row.get("id") if row else None)
+
+    def _show_search_frame(self) -> None:
+        """Show the current search on the Search tab (its results come from the cache when they are fresh)."""
+        tabs = self.query_one("#nav-tabs", Tabs)
         for tab in tabs.query(Tab):
             if tab.id == "search":
-                tab.label = f"🔍 {query[:20]}"
-        self._opening_search_tab = True
+                tab.label = f"🔍 {self._search.query[:20]}"
         tabs.active = "search"
         self._load_view("search")
 
