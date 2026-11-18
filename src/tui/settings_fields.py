@@ -158,6 +158,8 @@ FIELDS: list[Field] = [
 
     Field("browser", "Browser", "choice", "Account", lambda c: c.get("browser", "auto")),
     Field("resolved_browser", "In use", "info", "Account", browser_status),
+    Field("cookie_prewarm", "Read browser session at startup", "bool", "Account", lambda c: c.cookie_prewarm,
+          note="warms the Home feed; never when the browser is none"),
 
     Field("theme", "Theme", "choice", "Display", lambda c: c.theme, options=THEME_OPTS),
     Field("thumbnail_format", "Thumbnail format", "choice", "Display", lambda c: c.thumbnail_format,

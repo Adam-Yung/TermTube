@@ -68,7 +68,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P8.2 Cookie prewarm setting, refresh account, sign-in vs extraction error split (A2) (a2e8bb2)
 - [x] P8.3 Typed source errors, retry/backoff, rate-limit message (A5) (2a5b7e1)
 - [x] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6) (9c61cab via merge)
-- [ ] P8.5 Help screen and keymap consistency test (B6)
+- [x] P8.5 Help screen and keymap consistency test (B6) (consistency test landed in P2.5; keymap, help and keybindings.md checked by it)
 
 ## Always
 - [ ] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
