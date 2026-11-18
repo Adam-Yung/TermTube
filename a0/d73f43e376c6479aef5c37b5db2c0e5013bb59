@@ -1,0 +1,75 @@
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_6005401d95ef32 52
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_bd83118256f646 45-52
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_17eecd76e937c0 29-30
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_6005401d95ef32 63,65-66
+  s_6c28d43e292a51::t_93dff3cd78eb7c 64
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_42208512319a5e 11,19,25,28-31,50-59,105-106,122-124,138-144,156-157,159-160,206-209,387,389,392-393
+  s_6c28d43e292a51::t_93dff3cd78eb7c 8,26-27
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_bd83118256f646 63-64
+src/tui/widgets/action_bar.py
+  s_6c28d43e292a51::t_6005401d95ef32 144-145
+src/tests/unit/test_history.py
+  s_6c28d43e292a51::t_734d5ac8fb7ab4 146-150,156-168
+  s_6c28d43e292a51::t_93dff3cd78eb7c 151-155
+src/ytdlp.py
+  s_6c28d43e292a51::t_734d5ac8fb7ab4 96-97,168
+docs/code/src/tui/screens/mixins/library_rail.py.md
+  s_6c28d43e292a51::t_bd83118256f646 15
+src/tui/screens/mixins/library_rail.py
+  s_6c28d43e292a51::t_1b84b922cbd762 10-12,22-25
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_77cbb969251bda 19
+docs/code/src/history.py.md
+  s_6c28d43e292a51::t_bd83118256f646 19-20
+docs/code/src/tui/keymap.py.md
+  s_6c28d43e292a51::t_bd83118256f646 21
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_6005401d95ef32 107-108
+  s_6c28d43e292a51::t_77cbb969251bda 122,245-266,486-487
+  s_6c28d43e292a51::t_f42f84f1a35863 21,23,91
+docs/features/sources.md
+  s_6c28d43e292a51::t_bd83118256f646 8
+src/tui/keymap.py
+  s_6c28d43e292a51::t_77cbb969251bda 54-57
+  s_6c28d43e292a51::t_f42f84f1a35863 53
+src/history.py
+  s_6c28d43e292a51::t_1b84b922cbd762 98-115,119-126
+  s_6c28d43e292a51::t_93dff3cd78eb7c 116-118
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_1b84b922cbd762 174-175
+src/tests/unit/test_keymap.py
+  s_6c28d43e292a51::t_93dff3cd78eb7c 42-43
+src/tests/tui/test_history_sources.py
+  s_6c28d43e292a51::t_9f36a75ddf2afb 1-38,44-76,78-79,82-96,98-164
+  s_6c28d43e292a51::t_cbd62289bc42e0 39-43,77,97
+  s_6c28d43e292a51::t_5949aa6b610e49 80-81,165-172
+docs/status.md
+  s_6c28d43e292a51::t_bd83118256f646 14-15
+src/tests/unit/test_ytdlp_window.py
+  s_6c28d43e292a51::t_734d5ac8fb7ab4 56-58,60-77
+  s_6c28d43e292a51::t_93dff3cd78eb7c 59
+docs/todo.md
+  s_6c28d43e292a51::t_9cd8d27794ef49 57-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a0d73f43e376c6479aef5c37b5db2c0e5013bb59",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
