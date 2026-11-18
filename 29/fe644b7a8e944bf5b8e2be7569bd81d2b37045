@@ -1,0 +1,55 @@
+docs/code/src/innertube.py.md
+  s_6c28d43e292a51::t_af9df3a65b0c26 46-47
+docs/code/src/playlist.py.md
+  s_6c28d43e292a51::t_0fd25a28c39b3c 13
+docs/code/src/tui/audio_controller.py.md
+  s_6c28d43e292a51::t_6bc51ab05d9463 3
+docs/code/src/tui/screens/channel_screen.py.md
+  s_6c28d43e292a51::t_cd307751dfa876 49-52
+docs/code/src/tui/screens/mixins/channel_playlist.py.md
+  s_6c28d43e292a51::t_265b4f5f90b386 1-14
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_2a882f2d2bd3d1 123-126
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_dc2f4b04cbd8ca 49
+docs/todo.md
+  s_6c28d43e292a51::t_5edf2ce2822fb5 63
+src/innertube.py
+  s_6c28d43e292a51::t_1cca63d09f3c71 183-195,205,225-229,634-664
+src/playlist.py
+  s_6c28d43e292a51::t_9d8355bd60df8b 64-74
+src/tests/fixtures/innertube_playlist_videos.json
+  s_6c28d43e292a51::t_f2510558e3e9c8 1-20
+src/tests/tui/test_audio_controller.py
+  s_6c28d43e292a51::t_6ba89582dbedf9 128-153
+src/tests/tui/test_channel_playlist.py
+  s_6c28d43e292a51::t_4ecf587f8157ab 1-127
+src/tests/unit/test_innertube_parsers.py
+  s_6c28d43e292a51::t_cf0fc6c7b5cad3 302-322
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_aca714e7be0aca 125-152
+src/tui/keymap.py
+  s_6c28d43e292a51::t_1082e6a4de82f6 67-69
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_007c3259c39898 18,51,143-146,206,238-239,310,316-320,390-392,396,445
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_3eaeb4d4c63686 66-67
+src/tui/screens/mixins/channel_playlist.py
+  s_6c28d43e292a51::t_f996fae6c39e15 1-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "29fe644b7a8e944bf5b8e2be7569bd81d2b37045",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
