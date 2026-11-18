@@ -1,0 +1,36 @@
+src/tui/screens/download_modal.py
+  s_6c28d43e292a51::t_b35f304d6aa324 186
+  s_6c28d43e292a51::t_85fd37cb74c16b 13,180-185,187-189,199-200
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_f2fc6bd162979c 37-40,67,203-206
+  s_6c28d43e292a51::t_01e17c12c3ac0f 207
+docs/code/src/tui/screens/download_modal.py.md
+  s_6c28d43e292a51::t_1c7f68d75d43c8 13
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_f2fc6bd162979c 213
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_1c7f68d75d43c8 10
+docs/code/src/tui/audio_controller.py.md
+  s_6c28d43e292a51::t_1c7f68d75d43c8 22
+src/tests/tui/test_unmount_hygiene.py
+  s_6c28d43e292a51::t_0512582ba98ddc 1-18
+src/tests/tui/test_download_modal.py
+  s_6c28d43e292a51::t_b35f304d6aa324 74
+  s_6c28d43e292a51::t_85fd37cb74c16b 57-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1248337450a5ec70c9288e34536927aff94c0ff1",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
