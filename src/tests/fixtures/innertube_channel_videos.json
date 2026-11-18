@@ -1,0 +1,23 @@
+{
+  "_note": "Hand-written from the documented /browse shape, not recorded. [verify live] Replace with a trimmed recording of any channel's Videos tab.",
+  "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [
+    {"tabRenderer": {"title": "Home", "selected": false}},
+    {"tabRenderer": {"title": "Videos", "selected": true, "content": {"richGridRenderer": {"contents": [
+      {"richItemRenderer": {"content": {"lockupViewModel": {
+        "contentId": "AAAAAAAAAAA",
+        "contentImage": {"thumbnailViewModel": {
+          "image": {"sources": [{"url": "https://i.ytimg.com/vi/AAAAAAAAAAA/s.jpg"}, {"url": "https://i.ytimg.com/vi/AAAAAAAAAAA/hq.jpg"}]},
+          "overlays": [{"thumbnailBottomOverlayViewModel": {"badges": [{"thumbnailBadgeViewModel": {"text": "3:45"}}]}}]}},
+        "metadata": {"lockupMetadataViewModel": {"title": {"content": "First video"}, "metadata": {"contentMetadataViewModel": {
+          "metadataRows": [{"metadataParts": [{"text": {"content": "1.2M views"}}, {"text": {"content": "2 days ago"}}]}]}}}}}}}},
+      {"richItemRenderer": {"content": {"lockupViewModel": {
+        "contentId": "BBBBBBBBBBB",
+        "contentImage": {"thumbnailViewModel": {
+          "image": {"sources": [{"url": "https://i.ytimg.com/vi/BBBBBBBBBBB/hq.jpg"}]},
+          "overlays": [{"thumbnailBottomOverlayViewModel": {"badges": [{"thumbnailBadgeViewModel": {"text": "LIVE"}}]}}]}},
+        "metadata": {"lockupMetadataViewModel": {"title": {"content": "Live now"}, "metadata": {"contentMetadataViewModel": {
+          "metadataRows": [{"metadataParts": [{"text": {"content": "532 watching"}}]}]}}}}}}}},
+      {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "TOKEN-PAGE-2"}}}}
+    ]}}}}
+  ]}}
+}

@@ -101,7 +101,8 @@ async def test_channel_page_hints_for_c_and_sort_on_playlists(app):
 
     seen = []
     host = SimpleNamespace(
-        _hint=lambda message, severity="warning": seen.append(message), _current_tab="ch-tab-playlists"
+        _hint=lambda message, severity="warning": seen.append(message), _tab_kind=lambda: "playlists",
+        _selected_entry=lambda: None,
     )
     ChannelScreen.action_channel(host)
     ChannelScreen.action_sort(host)

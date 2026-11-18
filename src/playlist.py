@@ -103,6 +103,15 @@ def get(pid: str) -> dict | None:
     return _store.read(lambda data: copy.deepcopy(_find(data, pid)))
 
 
+def find_by_name(name: str) -> dict | None:
+    key = name.strip().casefold()
+
+    def found(data: dict) -> dict | None:
+        return copy.deepcopy(next((p for p in data["playlists"] if p["name"].casefold() == key), None))
+
+    return _store.read(found)
+
+
 def create(name: str, entries: Iterable[Entry] | None = None) -> dict | None:
     """Create a playlist holding ``entries``. None, changing nothing, if the name is empty or exists (any case)."""
     name = name.strip()

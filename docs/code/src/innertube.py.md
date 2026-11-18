@@ -1,6 +1,6 @@
 # src/innertube.py
 
-Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's Videos tab (~600 ms for about 30 entries) and Playlists tab. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
+Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's tabs (Videos about 600 ms for 30 entries, Shorts, Live, Playlists) with continuation pages. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
 
 ## Transport
 
@@ -16,7 +16,7 @@ Stdlib-only client for two YouTube InnerTube endpoints, used where yt-dlp is too
 ## Limits
 
 - Parsing follows YouTube's current `lockupViewModel` layout; a layout change yields an empty list rather than an error.
-- `_CHANNEL_VIDEOS_PARAMS` is a base64 protobuf tab selector for newest-first. A popular-sort variant was not reliable, so `fetch_channel_videos` has no sort argument; the channel screen sends other sorts to yt-dlp.
+- The Videos selector is newest-first. A popular-sort variant was not reliable, so no function here takes a sort; the channel screen sends other sorts to yt-dlp.
 - View counts parse from localized English text ("1.2M views"); other languages parse to None. The request pins `hl: en`.
 
 ## Search and channel info (optimization plan step 2)
@@ -34,11 +34,20 @@ The avatar is the largest size in `avatar.thumbnails` (900 px).
 Both return empty/None on any failure; `ytdlp.fetch_search_batch` and `ytdlp.fetch_channel_info` then fall back to yt-dlp. Parser tests use
 trimmed recordings in `src/tests/fixtures/innertube_*.json` (recorded 2026-11-15); refresh them when a parser breaks.
 
+## Channel tabs and pages
+
+`fetch_channel_page(channel_id, tab, token)` is the one /browse reader for the channel tabs (`CHANNEL_TABS`: videos, shorts, live, playlists). The first request sends `browseId` plus the tab's `_CHANNEL_TAB_PARAMS` selector (a base64 protobuf holding the tab name); every later request sends only `{"continuation": token}`. `_browse_items` reads the rich grid (videos, shorts, live) or the playlist grid from a first response, or `onResponseReceivedActions[0].appendContinuationItemsAction` from a continuation. `_next_token` takes the trailing `continuationItemRenderer`. The result is a `ChannelPage(entries, token)`; every failure is an empty page with no token. The channel screen keeps the token and asks for the next page itself (`src/channel_pager.py`); `fetch_channel_videos` (first page of Videos) remains for `scripts/canary-live.py` and `scripts/bench-sources.py`.
+
+- **[verify live]** The `shorts` and `live` selectors follow the pattern of the recorded `videos` and `playlists` ones but were not recorded themselves, and the Shorts parser (`shortsLockupViewModel`: `onTap...reelWatchEndpoint.videoId`, `overlayMetadata.primaryText` and `secondaryText`, `thumbnail.sources`) and the live badge (`LIVE`, "N watching") are written from the documented shape. Fixtures `innertube_channel_videos*.json` and `innertube_channel_shorts.json` are hand-written, not recorded. Replace them with trimmed recordings and run `scripts/canary-live.py`.
+- Live rows set `is_live`. A Live-tab row for a finished stream carries "Streamed N days ago" in `published_text`.
+- `fetch_channel_info` also returns `video_count` (the "442 videos" header text), `joined` (a header text starting "Joined"; **[verify live]**: the current layout may only show it in the About popup, a separate request this app does not make, so it can be empty) and `tabs` (which of `CHANNEL_TABS` have a tab title in the first response; the screen hides the rest).
+- Popular and oldest sorts (the filter chips in the rich grid header) are not read: see the 2026-11-18 entry in `docs/decisions/feeds-and-paging.md`.
+
+`fetch_playlist_page(playlist_id, token)` is the same shape for a playlist: `browseId` is `VL` plus the id, items are `playlistVideoListRenderer.contents` (`_browse_items` finds them), each `playlistVideoRenderer` becomes a video entry with the uploader and `channel_id` from `shortBylineText`. Rows without a `videoId` (deleted or private videos) are dropped. **[verify live]**: written from the documented shape.
+
 ## Channel playlists
 
-`fetch_channel_playlists` posts `/browse` with `_CHANNEL_PLAYLISTS_PARAMS` (the Playlists tab) and follows the grid's trailing
-`continuationItemRenderer` token (`{"continuation": token}`, items under `onResponseReceivedActions[0].appendContinuationItemsAction`) up to
-`count` (80) or `_MAX_PLAYLIST_PAGES`. Live check 2026-11-15: 80 playlists in 1.0 s over 3 requests. Only `lockupViewModel` items with
+`fetch_channel_playlists` calls `fetch_channel_page(..., "playlists")` and follows the grid's continuation up to `count` (80) or `_MAX_PLAYLIST_PAGES`. Live check 2026-11-15: 80 playlists in 1.0 s over 3 requests. Only `lockupViewModel` items with
 `contentType` `LOCKUP_CONTENT_TYPE_PLAYLIST` are kept. Entries carry the keys the list row and `MainScreen._activate_entry` use
 (`_is_playlist`, `_playlist_name`, `title`, `thumbnail`) plus `id`, `url`, `webpage_url` and `playlist_count` (from the "N videos" overlay
 badge). The thumbnail is the first video's, from `collectionThumbnailViewModel`. Fixtures: `innertube_playlists.json` (first page, trimmed to

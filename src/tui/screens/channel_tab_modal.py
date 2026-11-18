@@ -8,34 +8,38 @@ from textual.widgets import Static
 
 from src.tui.widgets.action_bar import THEME_COLORS
 
-_TABS = [
-    ("1", "ch-tab-videos", "📼  Videos"),
-    ("2", "ch-tab-playlists", "🎵  Playlists"),
-]
+_ICONS = {"videos": "📼", "shorts": "📱", "live": "🔴", "playlists": "🎵"}
+_DEFAULT_TABS = [("ch-tab-videos", "Videos"), ("ch-tab-playlists", "Playlists")]
 
 
 class ChannelTabModal(ModalScreen[str | None]):
-    """Popup tab picker for the channel screen. Returns tab id or None."""
+    """Popup tab picker for the channel screen: ``tabs`` are the ``(tab id, label)`` pairs the channel has.
+
+    Returns the tab id or None.
+    """
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
         Binding("q", "cancel", "Cancel", show=False),
-        Binding("1,v", "pick('ch-tab-videos')", show=False),
-        Binding("2,p", "pick('ch-tab-playlists')", show=False),
+        *[Binding(str(n), f"pick_nth({n})", show=False) for n in range(1, 5)],
+        Binding("v", "pick('ch-tab-videos')", show=False),
+        Binding("p", "pick('ch-tab-playlists')", show=False),
     ]
 
-    def __init__(self, current_tab: str = "ch-tab-videos") -> None:
+    def __init__(self, current_tab: str = "ch-tab-videos", tabs: list[tuple[str, str]] | None = None) -> None:
         super().__init__()
         self._current_tab = current_tab
+        self._tabs = tabs or _DEFAULT_TABS
 
     def compose(self) -> ComposeResult:
         color = THEME_COLORS.get(self.app.config.theme, "#ff6666")
         with Vertical(id="ch-tab-dialog"):
             yield Static("Go to…", id="ch-tab-title", markup=True)
-            for num, tab_id, label in _TABS:
+            for num, (tab_id, label) in enumerate(self._tabs, start=1):
                 marker = " ✓" if tab_id == self._current_tab else ""
+                icon = _ICONS.get(tab_id.removeprefix("ch-tab-"), "")
                 yield Static(
-                    f"[{color}]{num}[/{color}]  {label}[dim]{marker}[/dim]",
+                    f"[{color}]{num}[/{color}]  {icon}  {label}[dim]{marker}[/dim]",
                     classes="nav-row",
                     markup=True,
                 )
@@ -45,4 +49,9 @@ class ChannelTabModal(ModalScreen[str | None]):
         self.dismiss(None)
 
     def action_pick(self, tab_id: str) -> None:
-        self.dismiss(tab_id)
+        if any(tab_id == offered for offered, _ in self._tabs):
+            self.dismiss(tab_id)
+
+    def action_pick_nth(self, n: int) -> None:
+        if n <= len(self._tabs):
+            self.dismiss(self._tabs[n - 1][0])

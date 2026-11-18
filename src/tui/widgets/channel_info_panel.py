@@ -9,6 +9,31 @@ from textual.widgets import Static
 from src.tui.fmt import escape_markup, fmt_subscribers
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
+_COLLAPSED_LINES = 3
+_LINE_CAP = 120
+_DESCRIPTION_CAP = 2000
+
+
+def _description(info: dict) -> str:
+    return (info.get("description", "") or "No description.")[:_DESCRIPTION_CAP]
+
+
+def _collapse(text: str) -> tuple[str, bool]:
+    """The first lines of ``text`` (each cut at ``_LINE_CAP``) and whether anything was left out."""
+    lines = text.strip().splitlines()
+    shown = [line[:_LINE_CAP] + ("…" if len(line) > _LINE_CAP else "") for line in lines[:_COLLAPSED_LINES]]
+    more = len(lines) > _COLLAPSED_LINES or any(len(line) > _LINE_CAP for line in lines[:_COLLAPSED_LINES])
+    return "\n".join(shown), more
+
+
+def _stats(info: dict) -> str:
+    """``442 videos · Joined Mar 3, 2011``: whichever of the two the response had."""
+    count = info.get("video_count")
+    parts = [f"{count:,} video{'s' if count != 1 else ''}"] if count else []
+    if info.get("joined"):
+        parts.append(info["joined"])
+    return " · ".join(parts)
+
 
 class ChannelInfoPanel(Vertical):
     """Channel screen, left column. ``info`` is the last dict passed to ``update_info``."""
@@ -16,15 +41,18 @@ class ChannelInfoPanel(Vertical):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.info: dict | None = None
+        self._expanded = False
 
     def compose(self) -> ComposeResult:
         yield ThumbnailWidget(id="ch-thumbnail")
         yield Static("", id="ch-name", markup=True)
         yield Static("", id="ch-subs", markup=True)
+        yield Static("", id="ch-stats", markup=True)
         yield Static("", id="ch-url", markup=True)
         yield Static("", id="ch-sep", markup=False)
         with ScrollableContainer(id="ch-desc-scroll"):
             yield Static("", id="ch-desc", markup=False)
+        yield Static("", id="ch-desc-hint", markup=True)
 
     def show_loading(self) -> None:
         self.query_one("#ch-name", Static).update("Loading...")
@@ -55,6 +83,24 @@ class ChannelInfoPanel(Vertical):
         url = info.get("channel_url", "") or info.get("uploader_url", "")
         self.query_one("#ch-name", Static).update(f"[bold white]{escape_markup(name)}[/bold white]")
         self.query_one("#ch-subs", Static).update(f"[dim]{subs}[/dim]" if subs else "")
+        stats = _stats(info)
+        self.query_one("#ch-stats", Static).update(f"[dim]{escape_markup(stats)}[/dim]" if stats else "")
         self.query_one("#ch-url", Static).update(f"[dim]{url[:50]}[/dim]" if url else "")
         self.query_one("#ch-sep", Static).update("─" * 24)
-        self.query_one("#ch-desc", Static).update((info.get("description", "") or "No description.")[:2000])
+        self._expanded = False
+        self._render_description()
+
+    def toggle_description(self) -> bool:
+        """Expand or collapse the description. False when there is nothing more to show."""
+        if self.info is None or not _collapse(_description(self.info))[1]:
+            return False
+        self._expanded = not self._expanded
+        self._render_description()
+        return True
+
+    def _render_description(self) -> None:
+        text = _description(self.info or {})
+        shown, more = _collapse(text)
+        self.query_one("#ch-desc", Static).update(text if self._expanded else shown)
+        hint = ("i  show less" if self._expanded else "i  show all") if more else ""
+        self.query_one("#ch-desc-hint", Static).update(f"[dim]{hint}[/dim]" if hint else "")

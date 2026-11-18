@@ -52,7 +52,10 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `Y` `I` | History tab: `Y` cycles the source (Local, YouTube history, Watch Later; the last two are read-only account lists) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); `s` on the local History tab: recent / most watched / longest watched (a hint elsewhere) | |
 | `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
-| `s` `r` `Esc` | channel page only: sort / reload / back | |
+| `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |
+| `B` | channel page: follow or unfollow the channel locally (`channels.json`, works with `browser: none`) | |
+| `F` | Subscriptions tab: the local Following list (`Enter` opens a channel, `Esc` returns); a hint on other tabs | |
+| `P` `E` `S` | channel page, inside a playlist (`Enter` on a playlist row opens it): play all / add all to the queue / save as a local playlist | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |
 | `↑` `↓` `Enter` `Ctrl+D` | search prompt only: walk the earlier searches / search the highlighted one / forget it | |
 

@@ -22,6 +22,8 @@ def tab_of(view: str) -> str:
     """The tab a view belongs to: Library collections and playlists live on `library`, History sources on `history`."""
     if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
         return "library"
+    if view == "following":
+        return "subscriptions"
     return "history" if view in HISTORY_SOURCES else view
 
 

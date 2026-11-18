@@ -106,3 +106,29 @@ The Phase 0 measurement (300 sidecars scan in 52 ms) said the index is about siz
 ## 2026-11-17 — Library delete drops the "entry only" choice
 
 "Entry only" deleted the sidecar and kept the media, so the file vanished from the Library (which lists sidecars) but stayed on disk as an orphan. The choices are now video / audio / both. A row flagged `_missing_file` (sidecar without media) keeps its single "remove entry", which deletes the sidecar.
+
+## 2026-11-18 — Channel page: continuations, Shorts and Live, no popular sort (P7.1)
+
+Videos follow InnerTube continuations with the Home model: the screen keeps the token (`ChannelPager`), fetches the next batch when the user reaches the second-to-last held page, caps the tab at 200 entries and never re-reads an earlier page. Shorts and Live are tabs on the same `fetch_channel_page`; a tab the channel lacks (no tab title in the first `/browse` response) is hidden. Channel info gains `video_count`, `joined` and `tabs` from the response the screen already requests.
+
+Sort: the argument stays removed from InnerTube and non-date sorts go to yt-dlp explicitly. Reading the popular and oldest filter chips means parsing a `chipCloudRenderer` whose continuation tokens come from the first response, and the one earlier attempt at a popular selector was unreliable; yt-dlp's `?sort=p` already works and returns one batch.
+
+**[verify live]** Not recorded against YouTube: the Shorts and Live tab selectors, the `shortsLockupViewModel` parser, the `LIVE` and "N watching" badges, and the "Joined" header text. The fixtures for these are hand-written. A recorded channel response should replace them; until then a layout mismatch shows as an empty tab ("No content found."), never an error.
+
+Also: one `channel_ref.parse` replaces the string splitting of channel URLs. `ChannelScreen._channel_id` resolves an `/@handle` URL once through `innertube.resolve_channel_id` on the worker, so handle channels reach InnerTube too.
+
+## 2026-11-18 — Channel info column: description folded, `i` expands (P7.1)
+
+The description shows its first three lines; `i` expands it. The handoff proposed `a` or Enter, but `a` is audio and Enter is the action menu on the channel page (one key, one action), so the key is `i`. The video count comes from the header text ("442 videos") and the join date from a header text starting "Joined"; both are read from the `/browse` response the screen already requests, with no new request. The join date is **[verify live]**: the current layout may only carry it in the About popup, in which case the stats line shows the video count alone.
+
+## 2026-11-18 — Channel back stack is the screen stack (P7.1)
+
+No second stack: a channel opened from a channel is another `ChannelScreen` pushed on the first, so `Esc` returns to its origin for free. What was missing was context, so each page shows a breadcrumb (`Home › A › B › Videos`) built from a `trail` passed at construction. `c` on the channel page now opens a row that belongs to a different channel (rows in another channel's playlist, once P7.2 lists them); rows with no channel id still count as this channel.
+
+## 2026-11-18 — Channel playlists open inside the channel page (P7.2)
+
+Enter on a playlist row opens its videos in the same list (InnerTube `VL<id>` browse with continuations, yt-dlp when empty); `Esc` returns to the Playlists tab. No new screen: the list, pager, filter and breadcrumb are the channel page's. Bulk keys `P` play all, `E` enqueue all, `S` save as a local playlist. `E` was free (the single-track key is lower-case `e`); `P` and `S` were free. Play all replaces the queue, enqueue all skips known tracks, both through new `AudioController` methods so the queue rules live in one place. Save keeps the channel playlist's name; saving into an existing local playlist of that name only adds the missing ids. **[verify live]**: the playlist page parser and its fixture are hand-written.
+
+## 2026-11-18 — Local channel bookmarks and the Following view (P7.2)
+
+`channels.json` (`JsonStore`) holds `{id, name, avatar, added}`; `B` on the channel page toggles it. The view is `F` on the Subscriptions tab, a drill-down from that tab like a playlist (Backspace returns), so it needs no new tab and works with `browser: none`. The existing Subscriptions behaviour is unchanged, as the owner decided. Keys: `B` and `F` were free; `F` is shift-`f` (filter) only by letter, the filter is not offered on that key. While wiring the back path the playlist drill-down turned out to leave its rows on screen after Backspace (an unchanged `Tabs.active` fires nothing); `action_nav_back` now reloads in that case, for playlists and Following alike.

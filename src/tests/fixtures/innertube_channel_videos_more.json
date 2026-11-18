@@ -1,0 +1,8 @@
+{
+  "_note": "Hand-written continuation page. [verify live]",
+  "onResponseReceivedActions": [{"appendContinuationItemsAction": {"continuationItems": [
+    {"richItemRenderer": {"content": {"lockupViewModel": {
+      "contentId": "CCCCCCCCCCC",
+      "metadata": {"lockupMetadataViewModel": {"title": {"content": "Third video"}}}}}}}
+  ]}}]
+}

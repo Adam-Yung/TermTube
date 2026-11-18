@@ -12,3 +12,5 @@ join non-empty parts without checks.
 - `fmt_subscribers` returns the bare number (`1.2M`, `340K`); the caller appends the noun.
 
 `fmt_size(n)` formats bytes (`812 B`, `1.4 KB`, `120 MB`).
+
+`fmt_breadcrumb(parts, max_len=70)` joins crumbs with ` › `. Past `max_len` with more than three parts it keeps the first, `…` and the last two; a single over-long text is cut from the left.

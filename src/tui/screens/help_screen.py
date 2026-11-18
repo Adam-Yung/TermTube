@@ -69,6 +69,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("/", "Search  (↑↓ earlier searches, Ctrl+D forgets one)"),
         ("s / t", "Search tab: sort / type; s on local History: recent, most or longest watched"),
         ("r", "Refresh the current feed (clears its cache)"),
+        ("F", "Subscriptions tab: the channels you follow locally (Esc returns)"),
         (",", "Settings"),
         ("?", "This screen"),
         ("Ctrl+D", "Debug log panel"),
@@ -77,6 +78,10 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ("CHANNEL PAGE", [
         ("s", "Sort (date / views)"),
         ("r", "Reload"),
+        ("i", "Show all of the channel description / show less"),
+        ("Enter", "On a playlist row: open its videos (Esc returns to the list)"),
+        ("B", "Follow or unfollow this channel locally (kept in channels.json, no account needed)"),
+        ("P E S", "Open playlist: play all / add all to the queue / save as a local playlist"),
         ("/ , ? q", "Search, settings, help, quit (as on the main page)"),
         ("Esc", "Back to the previous page"),
     ]),

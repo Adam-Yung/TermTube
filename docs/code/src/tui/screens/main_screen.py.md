@@ -43,3 +43,9 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 ## History sort
 
 `s` is `search_sort`: on the Search tab it picks a result order, on the local History tab (`_current_tab == "history"`, not the YouTube lists) it opens `SortModal` with `_HISTORY_SORTS` (recent, most watched, longest watched), elsewhere it is a hint. The choice lives in `_history_sort` for the session and is applied where the view loads (`FeedLoaderMixin._stream_view`): `recent` keeps the day headers, the other two drop them because the order no longer follows time. The History `Removal.reload` applies the same order, so removing or undoing a row does not reshuffle a sorted list. `action_quit_app` calls `history.flush()` after stopping audio: the force-exit timer ends in `os._exit`, which skips `atexit`.
+
+`_crumbs()` returns the current tab's label without its emoji (a playlist drill-down counts as Playlists); a channel page opened from here starts its breadcrumb with it.
+
+**Following (local).** `F` on the Subscriptions tab (`action_following`, `keymap.SUBSCRIPTIONS`) opens the locally followed channels as a drill-down like a playlist: the tab goes on `_nav_stack`, `_current_tab` becomes `following`, and `FeedLoaderMixin._load_following` fills the list from `channel_bookmarks`. Enter opens the channel as on Subscriptions. Elsewhere `F` says to open Subscriptions first.
+
+`action_nav_back` reloads the view it returns to when that tab is already the active one. Setting an unchanged `Tabs.active` fires no event, so before this fix Backspace out of a playlist (and out of Following) left the drill-down's rows on screen.

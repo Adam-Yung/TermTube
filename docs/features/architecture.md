@@ -104,7 +104,7 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 | History | `history.iter_entries` (Local), `playlist?list=WL` (Watch Later), `:ythis` through the Home loader (YouTube); `Y` cycles | Local is read off disk; the other two are read-only and need cookies |
 | Library (rail: All downloads, Videos, Audio) | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
 | Library rail: playlists (`playlists.json`) | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
-| Channel page | `fetch_channel_info`, InnerTube browse or `fetch_channel_videos` | pushed `ChannelScreen` |
+| Channel page | `fetch_channel_info`, `innertube.fetch_channel_page` (token kept in `ChannelPager`) or yt-dlp | pushed `ChannelScreen` |
 
 Cursor move on a video row: `update_basic` immediately; 100 ms later the metadata worker (skipped if the entry has a description); 150 ms later the thumbnail worker.
 

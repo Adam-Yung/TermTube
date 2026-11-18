@@ -39,7 +39,8 @@ _DISPLAY = {
 
 def _keymap_keys() -> set[str]:
     lists = [keymap.LIST_NAV, keymap.PLAYBACK, keymap.ITEM_ACTIONS, keymap.LIST_TOOLS, keymap.GLOBAL,
-             keymap.SEARCH_FILTERS, keymap.PLAYLIST_TOOLS, keymap.HISTORY_KEYS,
+             keymap.SEARCH_FILTERS, keymap.CHANNEL_PAGE, keymap.SUBSCRIPTIONS,
+             keymap.PLAYLIST_TOOLS, keymap.HISTORY_KEYS,
              [keymap.SEARCH, keymap.FILTER, keymap.RAIL]]
     keys = {k for group in lists for b in group for k in b.key.split(",")}
     return {_DISPLAY.get(k, k) for k in keys}

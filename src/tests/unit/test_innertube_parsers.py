@@ -268,13 +268,89 @@ def test_channel_screen_videos_use_innertube_then_ytdlp(monkeypatch):
     host = SimpleNamespace(
         _channel_id=lambda: "UCx", _channel_url="u", _channel_name="Chan", app=SimpleNamespace(config=None, cache=None)
     )
-    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: [{"id": "AAAAAAAAAAA"}])
+    host._label = lambda entries: ChannelScreen._label(host, entries)
+    page_one = innertube.ChannelPage([{"id": "AAAAAAAAAAA"}], "T")
+    monkeypatch.setattr(innertube, "fetch_channel_page", lambda cid, tab: page_one)
     monkeypatch.setattr(ytdlp, "fetch_channel_videos", lambda *a, **k: pytest.fail("yt-dlp must not run"))
-    rows = ChannelScreen._fetch_videos(host, "date")
-    assert rows == [{"id": "AAAAAAAAAAA", "channel": "Chan", "uploader": "Chan"}]
+    page = ChannelScreen._fetch_videos(host, "date")
+    assert page.entries == [{"id": "AAAAAAAAAAA", "channel": "Chan", "uploader": "Chan"}] and page.token == "T"
 
-    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: [])
+    monkeypatch.setattr(innertube, "fetch_channel_page", lambda cid, tab: innertube.ChannelPage([]))
     monkeypatch.setattr(ytdlp, "fetch_channel_videos", lambda *a, **k: [{"id": "fallbackvid"}])
-    assert ChannelScreen._fetch_videos(host, "date") == [{"id": "fallbackvid"}]
-    monkeypatch.setattr(innertube, "fetch_channel_videos", lambda cid: pytest.fail("other sorts use yt-dlp"))
-    assert ChannelScreen._fetch_videos(host, "views") == [{"id": "fallbackvid"}]
+    assert ChannelScreen._fetch_videos(host, "date") == innertube.ChannelPage([{"id": "fallbackvid"}])
+    monkeypatch.setattr(innertube, "fetch_channel_page", lambda *a: pytest.fail("other sorts use yt-dlp"))
+    assert ChannelScreen._fetch_videos(host, "views").entries == [{"id": "fallbackvid"}]
+
+
+def test_channel_videos_page_parses_rows_and_returns_the_continuation_token():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_channel_videos.json")) as post:
+        page = innertube.fetch_channel_page("UCx", "videos")
+    assert post.call_args.args[1]["params"] == innertube._CHANNEL_TAB_PARAMS["videos"]
+    first, live = page.entries
+    assert page.token == "TOKEN-PAGE-2"
+    assert first["id"] == "AAAAAAAAAAA" and first["title"] == "First video" and first["duration"] == 225
+    assert first["view_count"] == 1_200_000 and first["published_text"] == "2 days ago" and not first.get("is_live")
+    assert live["is_live"] and live["view_count_text"] == "532 watching" and live["duration"] is None
+
+
+def test_channel_continuation_page_sends_only_the_token_and_ends_without_one():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_channel_videos_more.json")) as post:
+        page = innertube.fetch_channel_page("UCx", "videos", "TOKEN-PAGE-2")
+    payload = post.call_args.args[1]
+    assert payload["continuation"] == "TOKEN-PAGE-2" and "browseId" not in payload and "params" not in payload
+    assert [e["id"] for e in page.entries] == ["CCCCCCCCCCC"] and page.token == ""
+
+
+def test_channel_page_survives_failure_and_an_unexpected_shape():
+    with patch.object(innertube, "_post_json", return_value=None):
+        assert innertube.fetch_channel_page("UCx") == innertube.ChannelPage([])
+    with patch.object(innertube, "_post_json", return_value={"contents": []}):
+        assert innertube.fetch_channel_page("UCx") == innertube.ChannelPage([])
+    with patch.object(innertube, "_post_json", return_value={"onResponseReceivedActions": [{}]}):
+        assert innertube.fetch_channel_page("UCx", token="t") == innertube.ChannelPage([])
+
+
+def test_channel_shorts_page_reads_the_video_id_from_the_tap_or_the_entity_id():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_channel_shorts.json")) as post:
+        page = innertube.fetch_channel_page("UCx", "shorts")
+    assert post.call_args.args[1]["params"] == innertube._CHANNEL_TAB_PARAMS["shorts"]
+    assert [e["id"] for e in page.entries] == ["SSSSSSSSSSS", "TTTTTTTTTTT"]
+    short = page.entries[0]
+    assert short["title"] == "A short" and short["view_count"] == 12_000 and short["thumbnail"].startswith("https://")
+    assert short["webpage_url"].endswith("watch?v=SSSSSSSSSSS")
+
+
+def test_channel_info_carries_video_count_join_date_and_the_tabs_the_channel_has():
+    browse = load("innertube_channel.json")
+    url = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+    with patch.object(innertube, "_post_json", return_value=browse):
+        info = innertube.fetch_channel_info(url)
+    assert info["video_count"] == 442 and info["joined"] == "" and info["tabs"] == []
+
+    browse = {**browse, "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [
+        {"tabRenderer": {"title": title}} for title in ("Home", "Videos", "Live", "Playlists", "Community")]}}}
+    browse["header"] = {"x": [{"text": "Joined Mar 3, 2011"}, {"content": "Joined Mar 3, 2011"}]}
+    with patch.object(innertube, "_post_json", return_value=browse):
+        info = innertube.fetch_channel_info(url)
+    assert info["tabs"] == ["videos", "live", "playlists"]
+
+
+def test_playlist_page_parses_videos_with_their_channel_and_returns_the_token():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos.json")) as post:
+        page = innertube.fetch_playlist_page("PLabc")
+    assert post.call_args.args[1]["browseId"] == "VLPLabc"
+    first, second = page.entries
+    assert page.token == "PL-TOKEN"
+    assert first["id"] == "PPPPPPPPPPP" and first["title"] == "First track" and first["duration"] == 245
+    assert first["uploader"] == "Other Channel" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
+    assert first["channel_url"].endswith(first["channel_id"]) and first["thumbnail"].endswith("hq.jpg")
+    assert second["id"] == "QQQQQQQQQQQ" and "channel_id" not in second
+
+
+def test_playlist_continuation_sends_only_the_token_and_failure_is_empty():
+    more = load("innertube_channel_videos_more.json")
+    with patch.object(innertube, "_post_json", return_value=more) as post:
+        innertube.fetch_playlist_page("PLabc", "TOK")
+    assert post.call_args.args[1]["continuation"] == "TOK" and "browseId" not in post.call_args.args[1]
+    with patch.object(innertube, "_post_json", return_value=None):
+        assert innertube.fetch_playlist_page("PLabc") == innertube.ChannelPage([])

@@ -106,6 +106,7 @@ class MainScreen(
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
         Binding("r", "refresh", "Refresh"),
+        *keymap.SUBSCRIPTIONS,
         *keymap.GLOBAL,
     ]
 
@@ -335,7 +336,10 @@ class MainScreen(
     def action_nav_back(self) -> None:
         if self._close_filter_if_active():
             return
-        if tab_of(self._current_tab) == "library":
+        if self._current_tab == "following":
+            self._current_tab = "subscriptions"
+            self._load_view("subscriptions")
+        elif tab_of(self._current_tab) == "library":
             if not self._rail_focused():
                 self._rail().focus()
         elif self._current_tab == "search" and self._search.pop():
@@ -418,6 +422,19 @@ class MainScreen(
         tabs.active = "search"
         self._load_view("search")
 
+    def _crumbs(self) -> list[str]:
+        tab = tab_of(self._current_tab)
+        labels = dict(_TABS)
+        return [labels.get(tab, tab).split(" ", 1)[-1]]
+
+    def action_following(self) -> None:
+        """The local Following list, from the Subscriptions tab (it needs no account)."""
+        if self._current_tab != "subscriptions":
+            self._hint("Open the Subscriptions tab, then press F for the channels you follow here.", "information")
+            return
+        self._current_tab = "following"
+        self._load_view("following")
+        self._list().set_breadcrumb("📌 Following (local)  ← backspace to go back")
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         if entry.get("_is_channel"):
