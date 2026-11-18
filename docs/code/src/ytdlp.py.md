@@ -8,7 +8,7 @@ Cookies are a property of the call, not of the process.
 
 | Call | Cookies | Why |
 |---|---|---|
-| `fetch_page_batch(auth=True)` (home feed), `fetch_subscribed_channels` | yes, via `_make_ydl(auth=True)` | Account-bound: empty or generic without them. |
+| `fetch_page_batch(auth=True)` for the account feeds `FEED_URLS`: `home`, `yt_history` (`/feed/history`), `yt_watchlater` (`playlist?list=WL`); `fetch_subscribed_channels` | yes, via `_make_ydl(auth=True)` | Account-bound: empty or generic without them. Five feeds in all; `src/tests/unit/test_cookie_policy.py` lists the `auth=True` call sites so a new one cannot appear unnoticed. |
 | `fetch_page_batch` (default, channel videos), `fetch_search_batch`, `fetch_channel_playlists`, `fetch_channel_info` | no | Public data; keeps a search-and-browse session from reading the browser profile. |
 | `resolve_stream_url` (`src/streams.py`), `download_*` (`src/downloads.py`) | no | Authenticated requests made YouTube return the degraded "tv downgraded player" response: 5 formats (storyboards plus one 360p HLS) instead of 37+ direct HTTPS formats. |
 | `warmup` | no | Only loads extractors. |

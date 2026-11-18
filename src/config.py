@@ -24,6 +24,8 @@ DEFAULT_CONFIG: dict = {
     "cache_ttl": {
         "home": 3600,
         "subscriptions": 3600,
+        "yt_history": 600,
+        "yt_watchlater": 600,
         "search": 1800,
         "metadata": 86400,
     },

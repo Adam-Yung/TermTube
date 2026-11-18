@@ -85,6 +85,8 @@ MAX_SEARCH_RESULTS = 200
 FEED_URLS = {
     "home":          "https://www.youtube.com/",
     "subscriptions": "https://www.youtube.com/feed/subscriptions",
+    "yt_history":    "https://www.youtube.com/feed/history",
+    "yt_watchlater": "https://www.youtube.com/playlist?list=WL",
 }
 
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
@@ -203,7 +205,7 @@ def fetch_page_batch(
     """Up to ``count`` video entries from ``url`` minus ``skip_ids``; cache-first when ``feed_key`` is set.
 
     Blocking; run in a worker thread. ``on_first_batch`` gets the first ``first_batch_size`` entries early.
-    ``auth`` sends the browser's cookies (home feed only).
+    ``auth`` sends the browser's cookies (account feeds only: Home, YouTube history, Watch Later).
     """
     skip_ids = skip_ids or set()
     if feed_key:

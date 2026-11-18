@@ -54,7 +54,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P5.4 Search within Library/playlists, token syntax (B5.2) (a30fe7e)
 
 ## Phase 6. YouTube history and account feeds  (milestone 3: pipeline)
-- [ ] P6.1 Cookie policy extended for the history feed (A1.6)
+- [x] P6.1 Cookie policy extended for the history feed (A1.6)
 - [ ] P6.2 History `Local | YouTube` sub-tab, read-only, import to local (B4)
 - [ ] P6.3 Watch Later and Liked via the same loader if the extractor shortcuts exist (B1.8)
 

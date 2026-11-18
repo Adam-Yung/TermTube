@@ -22,7 +22,7 @@ Notes:
 
 - **Why not yt-dlp for everything?** It starts a Python extractor and a JavaScript solver per call: about 3 s for a stream URL, 3 to 14 times
   slower than InnerTube for what InnerTube can serve (`docs/guides/benchmarks.md`).
-- **Why no account on InnerTube?** The web API never receives your cookies; only two yt-dlp calls do ([accounts-and-cookies.md](accounts-and-cookies.md)).
+- **Why no account on InnerTube?** The web API never receives your cookies; only the yt-dlp calls for the account feeds (Home, subscriptions, YouTube history, Watch Later) do ([accounts-and-cookies.md](accounts-and-cookies.md)).
 - **No RSS.** YouTube's channel feed endpoint (`feeds/videos.xml`) answered 404 for every channel, URL form and user agent from two networks
   in November 2026, so it is not used. The channel page needs nothing it provided.
 - **InnerTube is undocumented.** A response shape can change without notice; parsers are small, tested on recorded fixtures, and every call falls
