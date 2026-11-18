@@ -1,0 +1,67 @@
+src/tui/screens/ytdlp_update_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 20
+src/tests/tui/test_layout_audit.py
+  s_6c28d43e292a51::t_38b6c6add93ed7 1-82
+src/tui/screens/settings_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 77
+src/tui/screens/name_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 23
+src/tui/screens/playlist_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 33,39
+src/tui/screens/search_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 42
+src/tui/screens/nav_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 29
+docs/code/src/tui/screens/name_modal.py.md
+  s_6c28d43e292a51::t_ba45e18a024fba 4
+src/tests/tui/layout_harness.py
+  s_6c28d43e292a51::t_6945a351cff2bb 46-50
+  s_6c28d43e292a51::t_b3a77e1049093f 1-45,51-111,115-153
+  s_6c28d43e292a51::t_0cdc512c15fd28 112-114
+src/tui/screens/quality_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 49,51
+src/tui/screens/download_picker_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 46,52
+src/tui/screens/watch_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 64
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_c07494b0e01a20 408,412-413
+  s_6c28d43e292a51::t_646f486cac19bd 131
+  s_6c28d43e292a51::t_4dae11e133460f 426-427,453-454,469,483,499-500,515
+  s_6c28d43e292a51::t_08a3cf69686015 298-299,303-323,330-331,347,349,351,353,414,555,561,567
+  s_6c28d43e292a51::t_4a0300359da215 415
+docs/code/src/tui/screens/help_screen.py.md
+  s_6c28d43e292a51::t_ba45e18a024fba 9
+src/tui/screens/empty_feed_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 16
+src/tui/screens/queue_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 53,55
+docs/code/src/tui/theme.tcss.md
+  s_6c28d43e292a51::t_ba45e18a024fba 6-7,9,14
+src/tui/screens/sort_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 41
+src/tui/screens/download_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 40
+src/tui/screens/image_warning_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 16
+src/tui/screens/channel_tab_modal.py
+  s_6c28d43e292a51::t_939b0bbeda82cd 36
+src/tui/screens/video_action_modal.py
+  s_6c28d43e292a51::t_e0c1a651b37ba8 60,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1ea9b37a634a9869ec501588e4fb2f2cb225ebae",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
