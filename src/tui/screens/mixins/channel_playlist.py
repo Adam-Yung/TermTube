@@ -5,6 +5,7 @@ from textual import work
 from src import innertube, logger, playlist
 from src.channel_pager import MAX_ENTRIES
 from src.entries import Entry, PlaylistEntry, VideoEntry
+from src.errors import classify
 
 _BULK_NOUN = {"play": "Playing", "enqueue": "Queued", "save": "Saved"}
 
@@ -79,6 +80,8 @@ class ChannelPlaylistMixin:
                     break
         except Exception as exc:
             logger.debug("gather playlist: %s", exc)
+            self.app.call_from_thread(self._hint, classify(exc).message, "error")
+            return
         self.app.call_from_thread(self._run_bulk, action, source, entries[:MAX_ENTRIES], session)
 
     def _run_bulk(self, action: str, source: PlaylistEntry, entries: list[Entry], session: int) -> None:

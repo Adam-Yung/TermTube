@@ -452,9 +452,9 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         info = self._info_panel().info or {}
         name = self._display_name()
         if channel_bookmarks.toggle(channel_id, name, info.get("thumbnail", "")):
-            self.notify(f"Following {name} (local, no account needed)", timeout=3)
+            self.notify(f"Following {escape_markup(name)} (local, no account needed)", timeout=3)
         else:
-            self.notify(f"Unfollowed {name}", timeout=3)
+            self.notify(f"Unfollowed {escape_markup(name)}", timeout=3)
 
     def action_info(self) -> None:
         if not self._info_panel().toggle_description():

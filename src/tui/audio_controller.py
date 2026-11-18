@@ -11,6 +11,7 @@ from textual.timer import Timer
 
 from src import history, logger, player, streams
 from src.entries import Entry
+from src.errors import SourceError
 from src.plat import (
     IS_WINDOWS,
     ProcessRegistry,
@@ -21,7 +22,7 @@ from src.plat import (
 )
 from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
-from src.tui.fmt import fmt_clock
+from src.tui.fmt import escape_markup, fmt_clock
 from src.tui.messages import AudioQueueChanged, AudioSegmentsLoaded, AudioTrackChanged, PlayerStateUpdated
 from src.tui.screens.mixins.item_actions import watch_url
 
@@ -126,7 +127,7 @@ class AudioController:
             self._app.notify("Already in the queue.", timeout=2)
         else:
             self._queue.append(entry)
-            self._app.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)
+            self._app.notify(f"Added to queue: {escape_markup(entry.get('title', 'video')[:40])}", timeout=3)
             self._queue_changed()
 
     def play_many(self, entries: list[Entry]) -> None:
@@ -291,7 +292,8 @@ class AudioController:
             self._launch(entry, session, ytdl_format)
         except Exception as exc:
             logger.exception("audio launch worker crashed")
-            self._launch_failed(session, f"Audio failed to start: {exc}")
+            message = exc.message if isinstance(exc, SourceError) else f"Audio failed to start: {exc}"
+            self._launch_failed(session, message)
 
     def _launch(self, entry: Entry, session: int, ytdl_format: str) -> None:
         if self._stale(session):
@@ -354,16 +356,16 @@ class AudioController:
                 self._segment_idx = 0
                 self._broadcast(lambda: AudioSegmentsLoaded(segments))
 
-        return fetch_segments_async(
-            vid,
-            config.sponsorblock_categories,
-            lambda segments: self._app.call_from_thread(apply, segments),
-        )
+        def deliver(segments: list[Segment]) -> None:
+            if self._app.is_running:  # the fetch can outlive the app: a closed loop would leave a coroutine unawaited
+                self._app.call_from_thread(apply, segments)
+
+        return fetch_segments_async(vid, config.sponsorblock_categories, deliver)
 
     def _launch_failed(self, session: int, message: str) -> None:
         self._clear_pending(session)
-        self._app.call_from_thread(self.log, f"[red]Error: {message}[/red]")
-        self._app.call_from_thread(self._app.notify, message, severity="error")
+        self._app.call_from_thread(self.log, f"[red]Error: {escape_markup(message)}[/red]")
+        self._app.call_from_thread(self._app.notify, escape_markup(message), severity="error")
         self._app.call_from_thread(self._stop_if_current, session)
 
     def _play_with_retries(
@@ -445,12 +447,12 @@ class AudioController:
         self._reset_playback()
         if self._queue:
             if title:
-                self._app.notify(f"✓ {title[:40]}", timeout=3)
+                self._app.notify(f"✓ {escape_markup(title[:40])}", timeout=3)
             self._advance_queue()
         else:
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
             if title:
-                self._app.notify(f"✓ Finished: {title[:50]}", timeout=4)
+                self._app.notify(f"✓ Finished: {escape_markup(title[:50])}", timeout=4)
 
     def _on_failed(self, entry: Entry, returncode: int | None, stderr: str, session: int) -> None:
         if session != self._session:
@@ -459,8 +461,9 @@ class AudioController:
         self._reset_playback()
         first_line = next((ln.strip() for ln in stderr.splitlines() if ln.strip()), "")
         detail = player.friendly_mpv_error(first_line) if first_line else f"exit code {returncode}"
-        self.log(f"[red]Audio failed: {title[:50]} — {detail}[/red]")
-        self._app.notify(f"✗ Audio failed: {title[:40]} ({detail[:80]})", severity="error", timeout=8)
+        self.log(f"[red]Audio failed: {escape_markup(title[:50])} — {escape_markup(detail)}[/red]")
+        shown = f"✗ Audio failed: {title[:40]} ({detail[:80]})"
+        self._app.notify(escape_markup(shown), severity="error", timeout=8)
         if not self._advance_queue():
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
 

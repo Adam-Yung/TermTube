@@ -57,3 +57,9 @@ async def test_watch_modal_hint_shows_plain_brackets(app):
         title = plain(str(modal.query_one("#np-title").content))
         app.pop_screen()
     assert "[ ] ±5s" in hint and "\\" not in hint and title == "T [x]"
+
+
+@pytest.mark.parametrize("text", ["ends with a backslash \\", "a\\[b] c", "\\\\", "[/y] \\"])
+def test_a_backslash_never_swallows_the_next_tag(text):
+    out = plain(f"[bold]{escape_markup(text)}[/bold] tail")
+    assert out.replace("​", "") == f"{text} tail"

@@ -8,6 +8,7 @@ from src.entries import Entry
 from src.plat import clipboard_copy
 from src.progress import is_live
 from src.tui import keymap
+from src.tui.fmt import escape_markup
 
 _HINT_REPEAT_S = 2.0
 _PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
@@ -249,7 +250,7 @@ class ItemActionsMixin:
 
         def on_done(success: bool | None) -> None:
             if success:
-                self.notify(f"✓ Downloaded {kind}: {title[:40]}", timeout=5)
+                self.notify(f"✓ Downloaded {kind}: {escape_markup(title[:40])}", timeout=5)
             else:
                 self.notify(
                     "✗ Download failed or cancelled", severity="warning", timeout=4
@@ -296,7 +297,7 @@ class ItemActionsMixin:
         elif clipboard_copy(url):
             self.notify("URL copied to clipboard")
         else:
-            self.notify(f"URL: {url}", timeout=10)
+            self.notify(f"URL: {escape_markup(url)}", timeout=10)
 
     def action_browser(self) -> None:
         url = _page_url(self._selected_entry())

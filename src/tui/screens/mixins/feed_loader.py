@@ -8,7 +8,7 @@ from src import logger
 from src.cookies import resolve_browser
 from src.entries import Entry
 from src.errors import ExtractionFailed, SourceError, classify
-from src.tui.fmt import fmt_day_group
+from src.tui.fmt import escape_markup, fmt_day_group
 from src.tui.screens.mixins.library_rail import ACCOUNT_VIEWS, LIBRARY_VIEWS, PLAYLIST_VIEW
 from src.tui.widgets.video_list import VideoListPanel
 
@@ -157,7 +157,7 @@ class FeedLoaderMixin:
                 self._ui(panel.set_error_message, f"⚠ {err.message if isinstance(exc, SourceError) else msg}")
         else:
             self._ui(panel.set_error_message, f"⚠ {err.message}")
-        self._ui(self._log, f"[red]Error in {view}: {msg}[/red]")
+        self._ui(self._log, f"[red]Error in {view}: {escape_markup(msg)}[/red]")
 
     def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
         call = self._ui
@@ -334,10 +334,10 @@ class FeedLoaderMixin:
         config = self.app.config
 
         def run() -> None:
-            import src.ytdlp as ytdlp
+            from src import streams
 
             try:
-                ytdlp.prefetch_stream_url(vid, config)
+                streams.prefetch_stream_url(vid, config)
             except Exception as exc:
                 logger.debug("eager prefetch %s: %s", vid, exc)
 

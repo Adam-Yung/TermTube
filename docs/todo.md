@@ -100,7 +100,8 @@ Left for part B (screens, rail, bars):
 - [x] A raw exception text with markup (`[youtube] id: ... [/x]`) crashed the list message; escaped and cut (video_list)
 - [x] `--debug` log redaction of URL queries, cookies, tokens, Authorization (`logger.redact`)
 - [x] Damaged-file matrix for all five stores (truncated, wrong type, future version, scalar)
-- [ ] Not covered (time budget): per-loader injection matrix for every SourceError, race scenarios of item 3, 5000-row paging budget, playlist name collision after strip. Single-writer assumption is documented in `docs/decisions/concurrency.md`; no cross-process lock exists.
+- [x] Per-loader injection matrix (`test_loader_errors.py`): Home, Subscriptions, both account History sources, Search, Library, local History, channel videos/playlists/shorts/live/playlist open, detail fetch, stream resolve, download, suggestions. Found: `escape_markup` let a trailing backslash swallow the next closing tag; unescaped error text in the debug log, audio notices, download modal, playlist and follow notices; stream prefetch called a removed `ytdlp.prefetch_stream_url` (silently dead); a failed playlist gather acted on a partial list; the SponsorBlock thread called `call_from_thread` on a closed app (the unawaited-coroutine `RuntimeWarning`; `test_channel_following.py` now errors on it)
+- [ ] Not covered (time budget): race scenarios, 5000-row paging budget, playlist name collision after strip, journeys. Single-writer assumption is documented in `docs/decisions/concurrency.md`; no cross-process lock exists.
 
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)

@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import datetime
+import re
+
+_BACKSLASH_BEFORE_BRACKET = re.compile(r"\\(?=\[|\Z)")
 
 
 def escape_markup(text: str) -> str:
-    """Make ``text`` safe to embed in Rich/Textual markup. Titles and descriptions often contain ``[...]``."""
-    return text.replace("[", "\\[")
+    """Make ``text`` safe to embed in Rich/Textual markup. Titles and descriptions often contain ``[...]``.
+
+    A backslash right before a bracket (or at the end, where the template's next tag follows) would escape that
+    bracket and swallow the tag, and markup cannot spell a literal one there: a zero-width space keeps them apart.
+    """
+    return _BACKSLASH_BEFORE_BRACKET.sub(lambda m: "\\\u200b", text).replace("[", "\\[")
 
 
 def fmt_clock(secs: int | float) -> str:

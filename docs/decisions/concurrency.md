@@ -55,3 +55,6 @@ Playlist create/add and other synchronous `JsonStore.update` calls re-raised `OS
 crashed the app with a traceback. Now every failed write logs, keeps the change in memory, stays dirty (retried by the next write and at
 exit), and tells the user once per failing streak through `store.set_failure_hook` (the app's `_store_save_failed`, thread-aware). Single-writer
 assumption: there is no cross-process lock; a second TermTube running at once can overwrite the first's file (last writer wins).
+
+## 2026-11-18 — A thread that outlives the app never calls `call_from_thread` on it
+The SponsorBlock fetch thread delivered its segments with `call_from_thread` after the app (a test, or a quit) had closed its loop: `RuntimeError: Event loop is closed` in the thread and an unawaited `run_callback` coroutine (the `RuntimeWarning` seen in `test_channel_following`). The delivery now checks `app.is_running` first. `test_channel_following.py` fails on any `RuntimeWarning`. The stream prefetch called `ytdlp.prefetch_stream_url`, which no longer existed (it is in `streams`); the broad `except` in the worker hid it, so nothing was ever prefetched. A gather of a channel playlist that fails now says so instead of acting on a partial list.

@@ -8,6 +8,9 @@ from textual.worker import WorkerCancelled
 from src import channel_bookmarks
 from src.tui.screens.channel_screen import ChannelScreen
 
+# A thread calling call_from_thread on a closed app left a coroutine unawaited (fixed in the audio controller).
+pytestmark = pytest.mark.filterwarnings("error::RuntimeWarning")
+
 A = "UCuAXFkgsw1L7xaCfnd5JJOw"
 URL = f"https://www.youtube.com/channel/{A}"
 

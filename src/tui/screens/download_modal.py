@@ -206,7 +206,7 @@ class DownloadModal(ModalScreen[bool]):
                 )
                 msg = error_msg or "yt-dlp returned an error -- check network or browser auth."
                 self.query_one("#download-status", Static).update(
-                    f"[red]{msg[:80]}[/red]"
+                    f"[red]{escape_markup(msg[:80])}[/red]"
                 )
                 self.query_one("#download-hint", Static).update(
                     "[dim]Press Esc to close[/dim]"

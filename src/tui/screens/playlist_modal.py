@@ -101,10 +101,10 @@ class PlaylistModal(ModalScreen[None]):
     def _toggle(self, pid: str, name: str, member: bool) -> None:
         if member:
             playlist.remove_items(pid, [self._video_id])
-            self.app.notify(f'Removed from "{name}"')
+            self.app.notify(f'Removed from "{escape_markup(name)}"')
         else:
             playlist.add_items(pid, [self._entry])
-            self.app.notify(f'Added to "{name}"')
+            self.app.notify(f'Added to "{escape_markup(name)}"')
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         name = event.value.strip()
@@ -112,12 +112,12 @@ class PlaylistModal(ModalScreen[None]):
             return
         created = playlist.create(name, [self._entry])
         if created is None:
-            self.app.notify(f'Playlist "{name}" already exists.', severity="warning")
+            self.app.notify(f'Playlist "{escape_markup(name)}" already exists.', severity="warning")
             return
         self._sync_pins()
         event.input.value = ""
         self._refresh_list()
-        self.app.notify(f'Created playlist "{name}" and added video')
+        self.app.notify(f'Created playlist "{escape_markup(name)}" and added video')
         self.query_one("#playlist-list", ListView).focus()
 
     def _sync_pins(self) -> None:

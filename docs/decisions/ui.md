@@ -99,3 +99,6 @@ The panel listed all 21 tools of every tab (7 rows at 100x30). The screen now an
 
 ## 2026-11-18 — List messages escape their text; debug logs are redacted
 `VideoListPanel.set_error_message` / `set_empty_message` put text into markup. A raw exception text from yt-dlp (`[youtube] id: ...`, `[/x]`) raised `MarkupError` in the worker. They now escape (errors also cut at 400 characters). The `--debug` log passes every record through `logger.redact` so signed URLs and credentials never reach the file or the debug window.
+
+## 2026-11-18 — `escape_markup` handles backslashes; every user text in a notice or log is escaped
+A text ending in a backslash (or with one before `[`) escaped the closing tag that followed it: the tag showed as text and the style ran on (`[/y] \` in an error). Markup cannot spell a literal backslash there, so `escape_markup` puts a zero-width space after it. Notices and log lines that embed titles, playlist or channel names, URLs or error text (audio, download modal, playlist modal, channel follow, feed loader) now go through it too. `test_loader_errors.py` injects every typed error and a raw exception into each list loader.

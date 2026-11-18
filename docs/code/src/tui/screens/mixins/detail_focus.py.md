@@ -29,7 +29,7 @@ The counters are bumped twice per row on purpose: once on cursor move (cancel ev
 | Group | Worker | Notes |
 |---|---|---|
 | `focus` | `_detail_worker` | InnerTube metadata (`innertube.fetch_video_details`), merged into the entry, written to the cache, pushed to the list row and the panel. Skipped when the entry already has a description. Also starts the stream prefetch. |
-| `stream_prefetch` | `_prefetch_stream_worker` | Resolves the stream URL (and the `bv+ba/b` URL if `prefetch_video`) so the first play is fast. A newer prefetch replaces an older one. |
+| `stream_prefetch` | `_prefetch_stream_worker` | Resolves the stream URL (`streams.prefetch_stream_url`; it called a removed `ytdlp` name and failed silently until 2026-11-18) (and the `bv+ba/b` URL if `prefetch_video`) so the first play is fast. A newer prefetch replaces an older one. |
 | `thumb` | `_thumb_worker` | `thumb_loader.load_thumbnail`, entry-based (local sidecar, cache, then network). |
 
 `_worker_start`/`_worker_end` are hooks; `MainScreen` implements them to drive the header spinner. `ChannelScreen` does not show a spinner.

@@ -107,6 +107,28 @@ async def test_bulk_fetches_the_rest_when_only_the_first_pages_are_loaded(app, m
         assert len(app.audio.enqueue_many.call_args.args[0]) == 25
 
 
+async def test_a_gather_that_fails_part_way_enqueues_nothing_and_says_why(app, monkeypatch):
+    from src.errors import NetworkDown
+
+    first = innertube.ChannelPage(vids("a", 20), "T1")
+    async with app.run_test(size=(110, 34)) as pilot:
+        screen, calls = await open_playlist(app, pilot, monkeypatch, [first])
+
+        def fail(playlist_id, token="", **_):
+            if token:
+                raise NetworkDown("x")
+            return first
+
+        monkeypatch.setattr(innertube, "fetch_playlist_page", fail)
+        app.audio.enqueue_many = MagicMock(return_value=0)
+        hints = []
+        monkeypatch.setattr(ChannelScreen, "_hint", lambda self, msg, severity="warning": hints.append(msg))
+        screen._pager.token, screen._pager.fetching = "T1", False
+        screen.action_enqueue_all()
+        await settle(app, pilot)
+        assert not app.audio.enqueue_many.called and hints == ["Network error · r to retry"]
+
+
 async def test_save_adds_the_videos_to_the_local_playlist_of_the_same_name(app, monkeypatch, temp_playlists):
     async with app.run_test(size=(110, 34)) as pilot:
         screen, _ = await open_playlist(app, pilot, monkeypatch, [innertube.ChannelPage(vids("a", 3))])
