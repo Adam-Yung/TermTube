@@ -85,5 +85,8 @@ async def test_the_breadcrumb_uses_the_channel_name_from_the_info_and_names_the_
         screen._show_breadcrumb()
         assert "Home › Real Name [x] › Videos" in crumb(screen).replace("\\[", "[")
         screen.query_one("#ch-tabs").active = "ch-tab-playlists"
-        await pilot.pause()
+        for _ in range(100):
+            if "Playlists" in crumb(screen):
+                break
+            await pilot.pause()
         assert crumb(screen).count("Playlists") == 1

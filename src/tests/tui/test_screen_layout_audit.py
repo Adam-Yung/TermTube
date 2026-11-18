@@ -7,7 +7,7 @@ from textual.widgets import Tabs
 
 from src import channel_bookmarks, history, playlist
 from src.innertube import ChannelPage
-from src.tests.tui.layout_harness import MAIN_SIZES, ScreenScenario, audit_screen_scenario
+from src.tests.tui.layout_harness import MAIN_SIZES, ScreenScenario, audit_screen_scenario, settle
 from src.tui.screens.channel_screen import ChannelScreen
 
 LONG = "A rather long video title that goes on and on to test how a list row copes with a narrow column"
@@ -164,7 +164,7 @@ def _channel_scenario(name, tab=None, *, expand=False, entries=None):
         )
         if tab:
             screen.query_one("#ch-tabs", Tabs).active = tab
-            await pilot.pause(0.3)
+            await settle(pilot, lambda: [] if screen._current_tab == tab else ["tab"])
         screen._show_first_page(screen._content_session, ChannelPage(entries or _entries(30)))
         if expand:
             await pilot.press("i")
@@ -190,7 +190,7 @@ async def test_channel_screen_layout(main_app, scenario, monkeypatch):
         monkeypatch.setattr(ChannelScreen, name, lambda self: None)
     async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
         main_app.push_screen(ChannelScreen(CHANNEL_URL, "Chan"))
-        await pilot.pause(0.4)
+        await settle(pilot, lambda: [] if isinstance(main_app.screen, ChannelScreen) else ["not pushed"])
         problems = await audit_screen_scenario(
             main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
         )

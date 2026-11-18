@@ -221,6 +221,17 @@ def _inside_x(inner, outer) -> bool:
     return inner.x >= outer.x and inner.right <= outer.right
 
 
+async def settle(pilot, problems_fn, tries: int = 100) -> list[str]:
+    """Pause until ``problems_fn()`` is empty (a layout pass can lag a resize), ``tries`` times at most."""
+    found = problems_fn()
+    for _ in range(tries):
+        if not found:
+            break
+        await pilot.pause()
+        found = problems_fn()
+    return found
+
+
 async def audit_screen_scenario(
     app: App, pilot, scenario: ScreenScenario, sizes: list[tuple[int, int]], **rules
 ) -> list[str]:
@@ -230,6 +241,6 @@ async def audit_screen_scenario(
     out: list[str] = []
     for width, height in sizes:
         await pilot.resize_terminal(width, height)
-        await pilot.pause(0.2)
-        out += [f"{scenario.name} {width}x{height}: {p}" for p in audit_main(app.screen, **rules)]
+        problems = await settle(pilot, lambda: audit_main(app.screen, **rules))
+        out += [f"{scenario.name} {width}x{height}: {p}" for p in problems]
     return out
