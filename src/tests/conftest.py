@@ -77,6 +77,14 @@ def isolated_library_index(tmp_path_factory, monkeypatch):
     monkeypatch.setattr("src.library._index._data", None)
 
 
+@pytest.fixture(autouse=True)
+def isolated_sponsorblock_cache(tmp_path_factory, monkeypatch):
+    """SponsorBlock segment cache and TLS preference live in the cache dir; no test may touch the real ones."""
+    root = tmp_path_factory.mktemp("sbcache")
+    monkeypatch.setattr("src.sponsorblock._CACHE_DIR", root / "sb")
+    monkeypatch.setattr("src.sponsorblock._SSL_PREF_PATH", root / "ssl_pref")
+
+
 @pytest.fixture
 def sample_entries():
     """List of realistic video entry dicts."""
