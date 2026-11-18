@@ -1,0 +1,42 @@
+docs/code/src/tui/screens/mixins/library_rail.py.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 15
+src/tui/screens/mixins/library_rail.py
+  s_6c28d43e292a51::t_15064647bcdcda 10
+docs/todo.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 59
+docs/status.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 14
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 64
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_15064647bcdcda 19
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_15064647bcdcda 30-34,147-149,213
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 52
+src/tests/tui/test_history_sources.py
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 67
+  s_6c28d43e292a51::t_15064647bcdcda 174-195
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 47
+docs/features/sources.md
+  s_6c28d43e292a51::t_c0d6e15b79ec8e 9
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_3631d349ac30b2 64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8fb189c834856d231298ea08dba0d1b4fc8a49c1",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
