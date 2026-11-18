@@ -1,0 +1,34 @@
+src/tui/library_delete.py
+  s_6c28d43e292a51::t_b28dd4f870a22f 23,27-28
+src/library.py
+  s_6c28d43e292a51::t_b28dd4f870a22f 352,358,372,374,376,382,388,392,395,398
+docs/features/library-and-downloads.md
+  s_6c28d43e292a51::t_c7d54b7d5290e2 27-28
+  s_6c28d43e292a51::t_3c11e7423eed36 26
+src/tests/unit/test_library.py
+  s_6c28d43e292a51::t_3c11e7423eed36 208,210-212
+docs/code/src/library.py.md
+  s_6c28d43e292a51::t_3c11e7423eed36 37,39
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_c7d54b7d5290e2 105-108
+docs/code/src/tui/library_delete.py.md
+  s_6c28d43e292a51::t_3c11e7423eed36 6-7
+src/tests/tui/test_library_delete.py
+  s_6c28d43e292a51::t_3c11e7423eed36 59,99,109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c1b507767e378661f70d8842228e398bb46e8101",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
