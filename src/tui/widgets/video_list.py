@@ -252,11 +252,13 @@ class VideoListPanel(Widget):
         self._filter_bar: FilterBar
         self._anim: LoadingIndicator
         self._breadcrumb: Static
+        self._message: Static
         self._page_indicator: PageIndicator
 
     def compose(self) -> ComposeResult:
         yield Static("", id="list-breadcrumb", markup=True)
         yield LoadingIndicator(id="list-loading-anim")
+        yield Static("", id="list-message", markup=True)
         yield ListView(id="list-view")
         yield FilterBar(placeholder="Filter…  Enter keeps it, Esc clears", id="list-filter")
         yield PageIndicator(id="list-page-indicator")
@@ -265,6 +267,7 @@ class VideoListPanel(Widget):
         self._lv = self.query_one("#list-view", ListView)
         self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
         self._breadcrumb = self.query_one("#list-breadcrumb", Static)
+        self._message = self.query_one("#list-message", Static)
         self._filter_bar = self.query_one("#list-filter", FilterBar)
         self._page_indicator = self.query_one("#list-page-indicator", PageIndicator)
         self._lv.focus()
@@ -360,6 +363,8 @@ class VideoListPanel(Widget):
             self._max_visited_page = page_num
 
         self._is_loading = False
+        self._message.display = False
+        self._lv.display = True
         rows = self._render_rows(entries)
 
         if self._anim.display:
@@ -439,6 +444,7 @@ class VideoListPanel(Widget):
         self._is_loading = True
 
         self._anim.display = True
+        self._message.display = False
         self._lv.display = False
         self._lv.clear()
 
@@ -460,23 +466,26 @@ class VideoListPanel(Widget):
         self._items_by_id.clear()
         self._lv.clear()
         self._anim.display = True
+        self._message.display = False
         self._lv.display = False
         self._update_page_indicator()
 
     def set_breadcrumb(self, text: str) -> None:
         self._breadcrumb.update(f"[dim]{text}[/dim]")
 
-    def set_empty_message(self, msg: str) -> None:
+    def _show_message(self, markup: str) -> None:
+        """Replace the list with a wrapping message (empty list, failed load): the one-line breadcrumb would cut it."""
         self._is_loading = False
         self._anim.display = False
-        self._lv.display = True
-        self._breadcrumb.update(f"[dim]{msg}[/dim]")
+        self._lv.display = False
+        self._message.update(markup)
+        self._message.display = True
+
+    def set_empty_message(self, msg: str) -> None:
+        self._show_message(f"[dim]{msg}[/dim]")
 
     def set_error_message(self, msg: str) -> None:
-        self._is_loading = False
-        self._anim.display = False
-        self._lv.display = True
-        self._breadcrumb.update(f"[#ff4444]{msg}[/#ff4444]")
+        self._show_message(f"[#ff4444]{msg}[/#ff4444]")
 
     def update_entry_by_id(self, vid_id: str, entry: Entry) -> None:
         """Replace an entry (held page and visible row) with its enriched version."""

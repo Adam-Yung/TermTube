@@ -27,7 +27,7 @@ async def test_history_adds_marks_removal_and_source(main_app):  # noqa: F811
     async with main_app.run_test(size=(120, 40)) as pilot:
         await open_tab(main_app, pilot, "history")
         got = keys(main_app.screen)
-        assert {"m", "D", "Y"} <= got and not got & {"Z", "s", "t", "n"}
+        assert {"m", "D", "Y", "s"} <= got and not got & {"Z", "t", "n"}
 
 
 async def test_search_adds_sort_and_type(main_app):  # noqa: F811

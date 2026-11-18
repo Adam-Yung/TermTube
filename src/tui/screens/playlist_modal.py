@@ -112,7 +112,7 @@ class PlaylistModal(ModalScreen[None]):
             return
         created = playlist.create(name, [self._entry])
         if created is None:
-            self.app.notify(f'Playlist "{name}" already exists', severity="warning")
+            self.app.notify(f'Playlist "{name}" already exists.', severity="warning")
             return
         self._sync_pins()
         event.input.value = ""

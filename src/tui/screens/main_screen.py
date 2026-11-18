@@ -155,6 +155,8 @@ class MainScreen(
             tools.add("undo")
         tools |= {"history": {"history_source"}, "home": {"show_played"}, "subscriptions": {"following"},
                   "search": {"search_sort", "search_type"}}.get(tab if tab == "history" else view, set())
+        if view == "history":
+            tools.add("search_sort")
         if tab == "library":
             tools.add("playlist_new")
         if playlist_shown:

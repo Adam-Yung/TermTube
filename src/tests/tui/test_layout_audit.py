@@ -20,6 +20,7 @@ from src.tui.screens.search_modal import SearchModal
 from src.tui.screens.settings_modal import SettingsModal
 from src.tui.screens.sort_modal import SortModal
 from src.tui.screens.video_action_modal import VideoActionModal
+from src.tui.screens.watch_modal import WatchModal
 from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal
 
 VIDEO = {
@@ -59,6 +60,7 @@ SCENARIOS = [
     Scenario("ytdlp-update", lambda app: YtdlpUpdateModal("ERROR: " + "x" * 200)),
     Scenario("image-warning", lambda app: ImageWarningModal()),
     Scenario("download", lambda app: DownloadModal(VIDEO["id"], VIDEO)),
+    Scenario("watch", lambda app: WatchModal(VIDEO), dialog="#watch-dialog"),
     Scenario("help", lambda app: HelpScreen(), dialog="#help-outer"),
 ]
 
@@ -70,6 +72,8 @@ def quiet(app, temp_playlists, monkeypatch):
     monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
     monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a, **k: None)
     monkeypatch.setattr(DownloadModal, "_start_download", lambda self: None)
+    monkeypatch.setattr(WatchModal, "_launch_video", lambda self: None)
+    monkeypatch.setattr(WatchModal, "_poll_mpv", lambda self: None)
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     return app
 

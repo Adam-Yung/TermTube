@@ -117,9 +117,9 @@ class AudioController:
             return
         entry_id = entry.get("id")
         if entry_id and entry_id == (self._entry or {}).get("id"):
-            self._app.notify("Already playing this track", timeout=2)
+            self._app.notify("Already playing this track.", timeout=2)
         elif entry_id and any(e.get("id") == entry_id for e in self._queue):
-            self._app.notify("Already in queue", timeout=2)
+            self._app.notify("Already in the queue.", timeout=2)
         else:
             self._queue.append(entry)
             self._app.notify(f"Added to queue: {entry.get('title', 'video')[:40]}", timeout=3)

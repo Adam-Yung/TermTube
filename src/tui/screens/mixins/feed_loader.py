@@ -33,6 +33,11 @@ _EMPTY_ACCOUNT = {
     "yt_history": "Nothing here. Is watch history paused on this account?",
     "yt_watchlater": "Nothing here. Is Watch Later empty?",
 }
+_EMPTY_LIBRARY = {
+    "library": "No downloads yet. Press d on a video to download it.",
+    "library:video": "No video downloads yet. Press d on a video to download it.",
+    "library:audio": "No audio downloads yet. Press d on a video, then choose audio.",
+}
 _ACCOUNT_TITLES = {"yt_history": "YouTube history", "yt_watchlater": "Watch Later"}
 
 
@@ -130,7 +135,7 @@ class FeedLoaderMixin:
                 if not entries and not self.app.config.history_enabled:
                     self._ui(panel.set_empty_message, _HISTORY_OFF)
                     return
-                self._load_simple_list(panel, entries)
+                self._load_simple_list(panel, entries, "Nothing watched yet. Videos you watch appear here.")
             elif view == "following":
                 self._load_following(panel)
             elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
@@ -413,9 +418,9 @@ class FeedLoaderMixin:
             panel.load_page(page, focus_id=focus_id)
         panel.set_breadcrumb(self._search.breadcrumb())
 
-    def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry]) -> None:
+    def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry], empty: str) -> None:
         if not entries:
-            self._ui(panel.set_empty_message, "No items")
+            self._ui(panel.set_empty_message, empty)
             return
         self._show_pages(panel, entries, evict=False)
 
@@ -431,7 +436,7 @@ class FeedLoaderMixin:
             config = self.app.config
             self._ui(self._set_library_counts, library.counts(library.all_entries(config.video_dir, config.audio_dir)))
             entries = self._collection_entries(view)
-        self._load_simple_list(panel, entries)
+        self._load_simple_list(panel, entries, _EMPTY_LIBRARY.get(view, _EMPTY_LIBRARY["library"]))
 
     def _open_cursor(self, feed_key: str):
         """A lazy listing of the feed for this view (it opens on the first ``take``). None if the view changed."""

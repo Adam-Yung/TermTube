@@ -84,7 +84,7 @@ Left for part B (screens, rail, bars):
 - [x] The Library rail takes width from the list: part of the video row is off screen (rail 24, list `9fr`, detail `11fr`)
 - [x] Actions panel lists every tool of every tab on the main screen (21 entries, 7 rows at 100x30); show only the current tab's tools and re-render on tab and rail focus change (`panel_hints`)
 - [x] At 80x24 the detail panel leaves 2 rows for the video info; decide a minimum size or a compact layout (info keeps 6 rows, thumbnail hides first)
-- [ ] `WatchModal` is not in the harness (it needs mpv); check its box by hand
+- [x] `WatchModal` is in the harness (mpv launch and poll stubbed); its box fits at all five sizes, no fix needed
 
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)

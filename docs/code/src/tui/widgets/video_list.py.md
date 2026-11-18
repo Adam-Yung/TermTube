@@ -34,3 +34,5 @@ A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of th
 A row with `_yt` (account list) or `source == "yt"` (imported into local history) shows a `YT` badge after the download badges.
 
 History rows (records with `resume_s`, `plays`) add `▶ 2:05 / 10:00` (where playback resumes, over the length) and `×N` (plays, from the second) to the meta line. Both come from fields already on the row, so a list of thousands pays two dict lookups per row.
+
+`set_empty_message` and `set_error_message` hide the list and show `#list-message`, a wrapping Static, so a long message (or the multi-line "Feed loading failed" notice) is not cut to the breadcrumb's single line. `load_page`, `clear_and_set_loading` and `show_next_page_loading` hide it again.

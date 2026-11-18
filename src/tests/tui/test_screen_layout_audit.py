@@ -108,6 +108,12 @@ async def _playlist(app, pilot):
     await pilot.pause(0.6)
 
 
+async def _empty_following(app, pilot):
+    await _tab(app, pilot, "subscriptions")
+    app.screen.action_following()
+    await pilot.pause(0.6)
+
+
 async def _many_playlists(app, pilot):
     for i in range(40):
         playlist.create(f"Another playlist number {i}", _entries(2))
@@ -123,6 +129,7 @@ MAIN_SCENARIOS = [
     ScreenScenario("home", _home),
     _tab_scenario("subscriptions", "subscriptions"),
     ScreenScenario("following", _following),
+    ScreenScenario("following-empty", _empty_following),
     ScreenScenario("search", _search),
     _tab_scenario("history", "history"),
     ScreenScenario("history-source", _history_source),

@@ -110,4 +110,4 @@ async def test_f_elsewhere_says_to_open_subscriptions_and_an_empty_list_says_how
         await settle(app, pilot)
         await pilot.press("F")
         await settle(app, pilot)
-        assert "Press B" in str(main._list().query_one("#list-breadcrumb").content)
+        assert "Press B" in str(main._list().query_one("#list-message").content)

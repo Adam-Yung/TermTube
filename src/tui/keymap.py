@@ -151,7 +151,7 @@ PANEL_TOOLS = [
     PanelTool(("search_type",), "Type"),
     PanelTool(("show_played",), "Played"),
     PanelTool(("following",), "Following"),
-    PanelTool(("playlist_new",), "New list"),
+    PanelTool(("playlist_new",), "New playlist"),
     PanelTool(("playlist_rename",), "Rename"),
     PanelTool(("playlist_move_down", "playlist_move_up"), "Move"),
     PanelTool(("playlist_play",), "Play"),
@@ -159,7 +159,7 @@ PANEL_TOOLS = [
     PanelTool(("playlist_enqueue",), "Queue"),
     PanelTool(("play_all",), "Play all"),
     PanelTool(("enqueue_all",), "Queue all"),
-    PanelTool(("save_list",), "Save list"),
+    PanelTool(("save_list",), "Save playlist"),
     PanelTool(("bookmark",), "Follow"),
 ]
 

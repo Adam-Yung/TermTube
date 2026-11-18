@@ -78,6 +78,12 @@ VideoListPanel {
     display: none;
 }
 
+#list-message {
+    height: 1fr;
+    padding: 1 2;
+    display: none;
+}
+
 #list-view {
     height: 1fr;
     background: #0f0f0f;
