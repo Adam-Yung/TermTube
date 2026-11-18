@@ -10,7 +10,7 @@ The bottom-right box of the detail panel. It is either the shortcut grid (action
 - `set_segments` overlays SponsorBlock ranges in green. The per-column map is cached by (width, duration) and rebuilt when either changes or segments are replaced.
 - Theme colours come from `app.config.theme` and fall back to crimson when the app has no config (isolated widget tests). `THEME_COLORS` is shared with `video_list.py`. Call `refresh_theme` after a theme change; Rich markup is baked into the Static widgets.
 - The grid (`_action_entries`) takes the row actions and their keys from `keymap.ROW_ACTIONS` / `keymap.key_of`, the tools from the screen's `HAS_*` flags. It never lists a key the Footer already shows (`/` search, `r` refresh, `,` settings, `?` help, `q` quit): `tests/tui/test_row_actions.py` fails if it does. The key hints in `_update_np_keys` still repeat the keymap by hand (`docs/features/keybindings.md`).
-- `_render_actions` picks the column count that fits the panel width (up to 5) and raises the panel height to the rows needed, on every resize, so no entry is cut off.
+- `render_actions` picks the column count that fits the panel width (up to 5) and sets the panel height to the rows needed, at most 5 grid rows and what the detail panel can spare after `MIN_INFO_ROWS`. Entries that do not fit end in a `…` cell. It posts `HeightChanged` so the detail panel re-splits its height.
 
 ## Limits
 

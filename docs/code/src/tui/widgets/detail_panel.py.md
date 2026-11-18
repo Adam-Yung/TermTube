@@ -10,6 +10,8 @@ Right-hand panel: `ThumbnailWidget`, title/channel/stats/description, playlist m
 - `set_channel_mode` (Subscriptions tab) hides the action bar and reuses the same Statics for channel name, subscriber/video counts, URL and description. `set_video_mode` restores it. `FeedLoaderMixin._load_view` resets to video mode on every tab except Subscriptions.
 - `on_resize` (debounced 150 ms) and `on_screen_resume` post `RerenderRequested`. The screen re-renders the thumbnail at the new cell size (`DetailFocusMixin.on_detail_panel_rerender_requested`). The half-block fallback needs this; textual-image scales itself.
 
+- `fit` splits the height: video info keeps `MIN_INFO_ROWS` first, then the Actions panel, and the thumbnail gets what is left (at most 25 rows and half the panel); under `MIN_THUMB_ROWS` it is hidden. It runs on resize, on `ActionBar.HeightChanged` and when the bar is shown or hidden. At 80x24 with the one-line rail the thumbnail is hidden.
+
 ## Limits
 
 `thumbnail_cell_size` falls back to 38x20 before layout. A thumbnail rendered at that size is wrong until the first resize event corrects it.

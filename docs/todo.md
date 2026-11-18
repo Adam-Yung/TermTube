@@ -80,10 +80,10 @@ Part A (modals, menu, Actions panel). Harness: `src/tests/tui/layout_harness.py`
 - [x] Enter menu hides rows that do not apply (missing file, live, already downloaded) (ae09dae)
 - [x] Thumbnail area capped at half the detail panel (the Actions panel was below the screen at 30 rows) (ae09dae)
 Left for part B (screens, rail, bars):
-- [ ] Main screen and channel screen scenarios in the harness (header, tabs, rail, list, detail panel, footer) at the four sizes
-- [ ] The Library rail takes width from the list: part of the video row is off screen
+- [x] Main screen and channel screen scenarios in the harness (header, tabs, rail, list, detail panel, footer) at the four sizes (`test_screen_layout_audit.py`)
+- [x] The Library rail takes width from the list: part of the video row is off screen (rail 24, list `9fr`, detail `11fr`)
 - [ ] Actions panel lists every tool of every tab on the main screen (21 entries, 7 rows at 100x30); show only the current tab's tools and re-render on tab and rail focus change
-- [ ] At 80x24 the detail panel leaves 2 rows for the video info; decide a minimum size or a compact layout
+- [x] At 80x24 the detail panel leaves 2 rows for the video info; decide a minimum size or a compact layout (info keeps 6 rows, thumbnail hides first)
 - [ ] `WatchModal` is not in the harness (it needs mpv); check its box by hand
 
 ## Always

@@ -16,6 +16,7 @@ from textual.widgets import Static
 from src import library, playlist
 from src.entries import Entry
 from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_size, fmt_subscribers, fmt_views
+from src.tui.layout import MAX_THUMB_ROWS, MIN_INFO_ROWS, MIN_THUMB_ROWS
 from src.tui.widgets.action_bar import ActionBar
 from src.tui.widgets.thumbnail_widget import ThumbnailWidget
 
@@ -187,7 +188,21 @@ class DetailPanel(Widget):
         if self._last_entry:
             self.post_message(self.RerenderRequested(self._last_entry))
 
+    def fit(self) -> None:
+        """Split the height: video info first, then the Actions panel; the thumbnail gets the rest, hidden if short."""
+        bar = self.action_bar
+        bar_rows = int(bar.styles.height.value) + bar.styles.margin.height if bar.display and bar.styles.height else 0
+        area = self.query_one("#thumbnail-area")
+        rows = min(MAX_THUMB_ROWS, self.size.height // 2, self.size.height - bar_rows - MIN_INFO_ROWS)
+        area.display = rows >= MIN_THUMB_ROWS
+        if area.display:
+            area.styles.height = rows
+
+    def on_action_bar_height_changed(self) -> None:
+        self.fit()
+
     def on_resize(self, event: Resize) -> None:
+        self.action_bar.render_actions()
         if not self._last_entry:
             return
         if self._resize_timer:
@@ -199,11 +214,13 @@ class DetailPanel(Widget):
     def set_channel_mode(self) -> None:
         """Subscriptions tab: hide the action bar; the panel shows channel info."""
         self.action_bar.display = False
+        self.fit()
         for wid in ("#video-stats", "#video-file", "#video-playlists"):
             self._text(wid, "")
 
     def set_video_mode(self) -> None:
         self.action_bar.display = True
+        self.fit()
 
     def update_channel_entry(self, entry: Entry) -> None:
         self._current_id = entry.get("id", "")

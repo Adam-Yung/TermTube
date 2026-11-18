@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from src import library, playlist
 from src.entries import Entry
+from src.tui.layout import NARROW_BELOW
 from src.tui.widgets.library_rail import NEW_PLAYLIST, LibraryRail, RailItem
 from src.tui.widgets.video_list import FilterBar
 
@@ -10,7 +11,6 @@ PLAYLIST_VIEW = "playlist:"
 ACCOUNT_VIEWS = {"history:yt": "yt_history", "history:wl": "yt_watchlater"}
 """History-tab sources read from the account (read-only), each with its feed key."""
 HISTORY_SOURCES = ("history", *ACCOUNT_VIEWS)
-NARROW_BELOW = 100
 _COLLECTIONS = (
     ("library", "All downloads", ""),
     ("library:video", "Videos", "video"),

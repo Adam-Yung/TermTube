@@ -7,7 +7,7 @@ A scenario list is plain data, so new screens are added by appending a ``Scenari
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from textual.app import App
@@ -150,4 +150,86 @@ async def audit_scenario(app: App, pilot, scenario: Scenario, sizes: list[tuple[
         out += [f"{scenario.name} {width}x{height}: {p}" for p in audit_screen(app.screen, dialog=scenario.dialog)]
     app.pop_screen()
     await pilot.pause(0.1)
+    return out
+
+
+MAIN_SIZES = [(80, 24), (100, 30), (120, 40), (160, 50)]
+MIN_LIST_WIDTH = 40  # a row shows a title, a badge and the key fields: below this it wraps into noise
+MIN_DETAIL_WIDTH = 28
+MIN_ROW_TEXT = 28  # cells for the title line of a row
+MIN_INFO_ROWS = 6  # title, channel, stats, and a little description: the detail panel's reason to exist
+
+
+@dataclass(frozen=True)
+class ScreenScenario:
+    """A main or channel screen state. ``setup`` drives the running app into it once, at the first size."""
+
+    name: str
+    setup: Callable[[App, object], Awaitable[None]]
+
+
+def _stacked(screen: Screen, ids: list[str]) -> list[str]:
+    """The named full-width bars must follow each other top to bottom without overlapping."""
+    found = [(i, screen.query_one(i).region) for i in ids if screen.query(i)]
+    return [
+        f"{a} {ra} overlaps {b} {rb}"
+        for (a, ra), (b, rb) in zip(found, found[1:], strict=False)
+        if ra.bottom > rb.y and rb.area and ra.area
+    ]
+
+
+def audit_main(screen: Screen, *, list_id: str, detail_id: str, rail: bool = False) -> list[str]:
+    """Rules for a screen made of bars, a list column and a detail column (``docs/decisions/ui.md``, 2026-11-18)."""
+    problems = audit_screen(screen, dialog=None)
+    area = screen.region
+    problems += _stacked(screen, ["AppHeader", "#nav-tabs", "#main-content", "Footer"])
+    footer = screen.query_one("Footer").region
+    if footer.bottom != area.bottom or not footer.area:
+        problems.append(f"footer {footer} is not the last row of the screen {area}")
+    panel = screen.query_one(list_id)
+    if panel.region.width < MIN_LIST_WIDTH:
+        problems.append(f"list is {panel.region.width} wide, minimum {MIN_LIST_WIDTH}")
+    detail = screen.query_one(detail_id)
+    if detail.display and detail.region.width < MIN_DETAIL_WIDTH:
+        problems.append(f"detail panel is {detail.region.width} wide, minimum {MIN_DETAIL_WIDTH}")
+    if detail.display and detail.region.height >= 1:
+        info = detail.query_one("#video-info")
+        if info.display and info.region.height < MIN_INFO_ROWS:
+            problems.append(f"detail info has {info.region.height} rows, minimum {MIN_INFO_ROWS}")
+    lv = panel.query_one("ListView")
+    for item in lv.children:
+        if item.display and item.region.height and not _inside_x(item.region, lv.region):
+            problems.append(f"row {item.region} not inside the list {lv.region}")
+        text = item.query("Static")
+        if item.display and item.region.height and text and text.first().content_region.width < MIN_ROW_TEXT:
+            problems.append(f"row text has {text.first().content_region.width} cells, minimum {MIN_ROW_TEXT}")
+    indicator = panel.query_one("PageIndicator")
+    if indicator.render().cell_len > indicator.region.width:
+        problems.append(f"page indicator '{indicator.render().plain}' wider than its {indicator.region.width} cells")
+    if rail:
+        rail_widget = screen.query_one("#library-rail")
+        if rail_widget.display and rail_widget.region.width < 12:
+            problems.append(f"rail is {rail_widget.region.width} wide")
+        if rail_widget.display:
+            for line in rail_widget.render().split("\n"):
+                if line.cell_len > rail_widget.content_region.width:
+                    problems.append(f"rail line '{line.plain}' is wider than {rail_widget.content_region.width} cells")
+    return problems
+
+
+def _inside_x(inner, outer) -> bool:
+    return inner.x >= outer.x and inner.right <= outer.right
+
+
+async def audit_screen_scenario(
+    app: App, pilot, scenario: ScreenScenario, sizes: list[tuple[int, int]], **rules
+) -> list[str]:
+    """Drive the app into ``scenario``, audit the current screen at every size, return ``"name WxH: problem"`` lines."""
+    await pilot.resize_terminal(*sizes[-1])
+    await scenario.setup(app, pilot)
+    out: list[str] = []
+    for width, height in sizes:
+        await pilot.resize_terminal(width, height)
+        await pilot.pause(0.2)
+        out += [f"{scenario.name} {width}x{height}: {p}" for p in audit_main(app.screen, **rules)]
     return out

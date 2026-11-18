@@ -45,6 +45,10 @@ Tab {
     color: #555555;
 }
 
+Screen.-narrow Tab {
+    padding: 0 1;
+}
+
 Tab.-active {
     color: #ff6666;
     background: #1e1e1e;
@@ -61,7 +65,8 @@ Tab:hover {
 }
 
 VideoListPanel {
-    width: 45%;
+    width: 9fr;
+    min-width: 40;
     border-right: solid #2a2a2a;
     background: #0f0f0f;
 }
@@ -115,20 +120,21 @@ VideoListItem > Static {
 }
 
 #list-breadcrumb {
-    height: auto;
-    max-height: 1;
+    height: 1;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
     color: #6699cc;
     padding: 0 1;
 }
 
 DetailPanel {
-    width: 55%;
+    width: 11fr;
+    min-width: 30;
     background: #0a0a0a;
 }
 
 #thumbnail-area {
     height: 25;
-    max-height: 50%;
     background: #050505;
     border-bottom: solid #2a2a2a;
     align: center middle;
@@ -293,6 +299,18 @@ ChannelInfoPanel {
 #ch-detail-panel {
     width: 33%;
     background: #0a0a0a;
+}
+
+Screen.-narrow ChannelInfoPanel {
+    display: none;
+}
+
+Screen.-narrow #ch-center {
+    width: 55%;
+}
+
+Screen.-narrow #ch-detail-panel {
+    width: 45%;
 }
 
 /* Every modal is centered; every dialog box shares .dialog: sizes to its content, never taller or wider than 90% of the screen, scrolls inside when it must. */
@@ -752,7 +770,7 @@ App.theme-ocean Toast.-information { border-left: thick #0ea5e9; }
 App.theme-midnight Toast.-information { border-left: thick #a855f7; }
 
 LibraryRail {
-    width: 26;
+    width: 24;
     height: 1fr;
     background: #0f0f0f;
     border-right: solid #2a2a2a;

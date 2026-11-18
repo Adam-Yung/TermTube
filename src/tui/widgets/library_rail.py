@@ -135,8 +135,9 @@ class LibraryRail(Widget, can_focus=True):
             item = self.highlighted
             if item is None:
                 return Text("")
-            line = self._line(item, width - 4, cursor=False, accent=accent)
-            return Text("◂ ") + line + Text(f"▸ {self._cursor + 1}/{len(self._items)}", style="dim")
+            position = f"▸ {self._cursor + 1}/{len(self._items)}"
+            line = self._line(item, width - 2 - len(position), cursor=False, accent=accent)
+            return Text("◂ ") + line + Text(position, style="dim")
         start = self._window_start()
         rows = self._items[start : start + max(self.size.height, 1)]
         out = Text()

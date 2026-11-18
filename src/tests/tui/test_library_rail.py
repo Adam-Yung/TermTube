@@ -298,4 +298,4 @@ async def test_narrow_terminal_collapses_the_rail_to_one_line(app, lib):
 async def test_wide_terminal_shows_the_full_rail(app, lib):
     async with app.run_test(size=(120, 30)) as pilot:
         await open_library(app, pilot)
-        assert not app.screen._rail().narrow and app.screen._rail().size.width == 25
+        assert not app.screen._rail().narrow and app.screen._rail().size.width == 23

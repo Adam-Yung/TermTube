@@ -66,3 +66,13 @@ The owner found modals off-center (the new-playlist prompt), a list-heavy dialog
 - **The Actions panel never repeats the footer.** `/` search, `r` refresh, `,` settings, `?` help and `q` quit are footer keys and are not in the panel (a test compares them). The panel picks its column count from its width and grows to the rows it needs.
 - `#thumbnail-area` is at most half the detail panel so the info and the panel fit on a 30-row terminal.
 
+
+## 2026-11-18 — Main-screen layout rules (UI audit, part B)
+
+The owner found part of the Library list pushed off screen next to the new rail. Cause: the rail was 26 cells and the list and detail panel were `45%` and `55%` of the whole row, so the three summed to more than the screen and the detail panel fell off the right edge (100x30, 120x40, 160x50). `src/tests/tui/test_screen_layout_audit.py` now opens every tab, every History source, every Library collection, the playlist view, the Following view and the channel page (Videos, Playlists, Shorts, Live, expanded description) at 80x24, 100x30, 120x40 and 160x50 with fake data.
+
+- **Widths are fractions of what is left.** Rail `24`, list `9fr` (min 40), detail panel `11fr` (min 30). Under 100 columns the rail collapses to the one-line selector, so the list never drops below 40 cells at any size.
+- **Breakpoints, not Python checks.** `App.HORIZONTAL_BREAKPOINTS` (`src/tui/layout.py`) puts `-narrow` / `-wide` on every screen; the stylesheet keys on it. Under 100 columns tabs use `padding: 0 1` (all six fit 80 columns; at `0 3` Library and Help were off screen) and the channel page hides its info column (22% of 80 columns left 17 cells; the list and detail panel get 55% / 45%). Judgment call for the owner: the channel info (subscribers, description) is not reachable under 100 columns.
+- **Detail panel vertical budget.** Video info keeps 6 rows first (it showed 2 at 80x24). Then the Actions panel (at most 5 grid rows, ending in a `…` cell when entries do not fit). The thumbnail gets what is left, at most 25 rows and half the panel, and is hidden under 6 rows. At 80x24 with the one-line rail it is hidden.
+- **Breadcrumbs are one line** with an ellipsis (the Following and YouTube-history breadcrumbs wrapped to two lines and were cut).
+- **The one-line rail fits its width**: its `▸ i/n` position was 3 cells too wide and cut.

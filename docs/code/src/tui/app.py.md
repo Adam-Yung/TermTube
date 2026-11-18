@@ -1,7 +1,7 @@
 # src/tui/app.py
 
 `TermTubeApp`: the Textual app root. It holds `config` and `cache` for every widget, applies the theme class, pushes `MainScreen`, and
-owns startup warmup and shutdown cleanup. Everything else lives in screens and mixins (`docs/features/architecture.md`).
+owns startup warmup and shutdown cleanup. It sets `HORIZONTAL_BREAKPOINTS` from `layout.py` so screens carry `-narrow` / `-wide`. Everything else lives in screens and mixins (`docs/features/architecture.md`).
 
 ## Startup (`on_mount`)
 

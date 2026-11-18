@@ -7,6 +7,7 @@ import time
 
 from rich.table import Table
 from textual.app import ComposeResult
+from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Static
 
@@ -14,12 +15,14 @@ from src.entries import Entry
 from src.sponsorblock import Segment
 from src.tui import keymap
 from src.tui.fmt import escape_markup, fmt_clock
+from src.tui.layout import MIN_INFO_ROWS
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
 _COLUMNS = 5
 _GAP = 3  # cells between columns
 _GRID_INDENT = 2  # the left margin of #ab-actions
 _CHROME = 3  # border top and bottom, and the margin above the grid
+_MAX_ROWS = 5  # grid rows; more entries end in a "…" cell
 
 
 def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
@@ -71,6 +74,9 @@ class ActionBar(Widget):
     #ab-prompt     { margin-top: 1; margin-left: 2; color: #ffffff; }
     """
 
+    class HeightChanged(Message):
+        """The panel grew or shrank (rows, mode): the detail panel re-splits its height."""
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._pos: float = 0.0
@@ -101,7 +107,7 @@ class ActionBar(Widget):
 
     def on_mount(self) -> None:
         self.border_title = "Actions"
-        self._render_actions()
+        self.render_actions()
         self.query_one("#ab-prompt").display = False
         self._update_np_keys()
         self._set_mode_actions()
@@ -144,11 +150,15 @@ class ActionBar(Widget):
                 return cols
         return 1
 
-    def _render_actions(self) -> None:
+    def render_actions(self) -> None:
         """Lay the grid out for the current width and grow the panel to the rows it needs, so no entry is cut off."""
         entries = self._action_entries()
         width = max(self.content_size.width - _GRID_INDENT, 1)
         cols = self._column_count(entries, width) if self.size.width else _COLUMNS
+        room = self.parent.size.height - MIN_INFO_ROWS - _CHROME if self.parent else _MAX_ROWS
+        fit = cols * max(1, min(_MAX_ROWS, room))
+        if len(entries) > fit:
+            entries = [*entries[: fit - 1], ("…", "")]
         color = self._get_theme_color()
         table = Table.grid(padding=(0, _GAP))
         for _ in range(cols):
@@ -167,9 +177,10 @@ class ActionBar(Widget):
         actions.update(table)
         if actions.display:
             self.styles.height = self._actions_height
+            self.post_message(self.HeightChanged())
 
     def on_resize(self) -> None:
-        self._render_actions()
+        self.render_actions()
 
     def _build_segment_cols(self, width: int, dur: float) -> list[bool]:
         """Mark the columns that fall inside a SponsorBlock segment."""
@@ -245,7 +256,7 @@ class ActionBar(Widget):
 
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
-        self._render_actions()
+        self.render_actions()
         self._update_np_keys()
         if self._playing:
             self._refresh_player()
@@ -339,6 +350,7 @@ class ActionBar(Widget):
 
     def _set_mode_actions(self) -> None:
         self.styles.height = self._actions_height
+        self.post_message(self.HeightChanged())
         self.border_title = "Actions"
         self.query_one("#ab-actions").display = True
         self.query_one("#np-title-line").display = False
@@ -352,6 +364,7 @@ class ActionBar(Widget):
 
     def _set_mode_player(self) -> None:
         self.styles.height = self._HEIGHT_PLAYER
+        self.post_message(self.HeightChanged())
         self.border_title = "Now Playing"
         self.query_one("#ab-actions").display = False
         self.query_one("#np-title-line").display = True

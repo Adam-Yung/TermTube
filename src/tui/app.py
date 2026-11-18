@@ -14,6 +14,7 @@ from src.cache import Cache
 from src.config import Config
 from src.tui.audio_controller import AudioController
 from src.tui.fmt import escape_markup
+from src.tui.layout import HORIZONTAL_BREAKPOINTS
 
 _HOUSEKEEPING_DELAY_S = 60.0
 
@@ -24,6 +25,7 @@ class TermTubeApp(App):
     TITLE = "TermTube"
     CSS_PATH = Path(__file__).parent / "theme.tcss"
     ENABLE_COMMAND_PALETTE = False
+    HORIZONTAL_BREAKPOINTS = HORIZONTAL_BREAKPOINTS
 
     def __init__(self, config: Config) -> None:
         super().__init__()
