@@ -56,7 +56,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 ## Phase 6. YouTube history and account feeds  (milestone 3: pipeline)
 - [x] P6.1 Cookie policy extended for the history feed (A1.6) (5fc79b9)
 - [x] P6.2 History `Local | YouTube` sub-tab, read-only, import to local (B4)
-- [ ] P6.3 Watch Later and Liked via the same loader if the extractor shortcuts exist (B1.8)
+- [x] P6.3 Watch Later through the History source switch (`Y`); Liked has no yt-dlp shortcut (Phase 0), so it is not offered (B1.8)
 
 ## Phase 7. Channel and Home paging
 - [ ] P7.1 (DELEGATED to owner-run agent, branch audit-channel, see plans/2026-11-18-channel-page-HANDOFF.md) Channel continuations, Shorts/Live tabs, sort, description, back stack (B2.1-2.3, 2.5, 2.9, 2.10)

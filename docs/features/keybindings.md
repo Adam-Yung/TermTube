@@ -49,7 +49,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `n` `R` | Library tab: new playlist / rename the playlist under the rail cursor or the open one (a hint elsewhere) | |
 | `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |
 | `P` `S` `E` | play / shuffle / queue the open or highlighted playlist as audio (a hint elsewhere) | |
-| `Y` `I` | History tab: `Y` cycles the source (Local, YouTube; read-only account list) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
+| `Y` `I` | History tab: `Y` cycles the source (Local, YouTube history, Watch Later; the last two are read-only account lists) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); a hint elsewhere | |
 | `s` `r` `Esc` | channel page only: sort / reload / back | |
 | `/` `,` `?` `q` | work on the channel page too: `/` and `q` leave it first (search results and quit belong to the main screen) | |

@@ -64,6 +64,7 @@ async def test_y_cycles_local_and_youtube_and_the_tab_remembers_it(app, signed_i
         await pilot.pause(0.3)
         assert screen._current_tab == "history:yt"
         await pilot.press("Y")
+        await pilot.press("Y")
         await pilot.pause(0.3)
         assert screen._current_tab == "history"
 
@@ -170,3 +171,25 @@ def test_yt_badge_on_account_rows_and_imported_rows_only():
 
     assert "YT" in markup({"_yt": True}) and "YT" in markup({"source": "yt"})
     assert "YT" not in markup({"source": "local"})
+
+
+async def test_watch_later_is_the_third_source_and_read_only(app, signed_in, fetched):
+    hints = []
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        screen._hint = lambda msg, *a: hints.append(msg)
+        screen.action_goto_tab("history")
+        await pilot.pause(0.3)
+        await pilot.press("Y")
+        await pilot.press("Y")
+        await pilot.pause(0.5)
+        assert screen._current_tab == "history:wl"
+        calls = [c for c in fetched if c[1]["feed_key"] == "yt_watchlater"]
+        assert calls and calls[0][0] == "https://www.youtube.com/playlist?list=WL" and calls[0][1]["auth"] is True
+        assert all(i.entry["_yt"] for i in items(panel_of(app)))
+        await pilot.press("D")
+        await pilot.press("I")
+        assert "Watch Later" in hints[0] and len(hints) == 2 and not history.all_entries()
+        await pilot.press("Y")
+        await pilot.pause(0.3)
+        assert screen._current_tab == "history"

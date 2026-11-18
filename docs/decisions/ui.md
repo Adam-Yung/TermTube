@@ -44,7 +44,7 @@ that do not parse stay free text so a typo never raises. A search across History
 
 ## 2026-11-17 — History sources: `Y` switches, `I` imports
 
-The History tab holds sources: Local (`history`) and YouTube (`history:yt`, read-only, from the account). `Y` cycles them; `[` `]` are audio seek,
+The History tab holds sources: Local (`history`), YouTube history (`history:yt`) and Watch Later (`history:wl`), the last two read-only from the account (P6.3 chose the History tab's source switch over a separate account-feeds picker: no new tab or modal). `Y` cycles them; `[` `]` are audio seek,
 `Tab` belongs to the Library rail, and `Y` was free and reads as "YouTube". `I` imports the YouTube rows into the local history (a capital next to
 nothing else, only active on that source). F4 returns to the last source used. `D` on a YouTube source only explains it cannot remove (the owner
 made YouTube history read-only), and says to open youtube.com/feed/history instead, because `b` opens the selected video as everywhere. YouTube

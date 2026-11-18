@@ -27,7 +27,11 @@ _NEEDS_BROWSER = (
     "pick one in Settings (,)."
 )
 _SIGN_IN = "YouTube asked for a sign-in. Sign in to YouTube in the browser TermTube reads (Settings ,), then press r."
-_EMPTY_ACCOUNT = "Nothing came back. Is watch history paused on this account, or is the browser signed out?"
+_EMPTY_ACCOUNT = {
+    "yt_history": "Nothing came back. Is watch history paused on this account, or is the browser signed out?",
+    "yt_watchlater": "Nothing came back. Is Watch Later empty, or is the browser signed out?",
+}
+_ACCOUNT_TITLES = {"yt_history": "YouTube history", "yt_watchlater": "Watch Later"}
 
 _EXTRACTION_ERRORS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
 
@@ -140,7 +144,9 @@ class FeedLoaderMixin:
         if resolve_browser(self.app.config) is None:
             self._ui(panel.set_empty_message, _NEEDS_BROWSER)
             return
-        self._load_feed(ACCOUNT_VIEWS[view], panel)
+        feed_key = ACCOUNT_VIEWS[view]
+        self._ui(panel.set_breadcrumb, f"{_ACCOUNT_TITLES[feed_key]} (read-only; Y switches source)")
+        self._load_feed(feed_key, panel)
 
     def _load_feed(self, feed_key: str, panel: VideoListPanel) -> None:
         """Show the stash instantly, then either serve the disk cache or fetch from yt-dlp.
@@ -204,7 +210,7 @@ class FeedLoaderMixin:
         )
         if not fetched and not stash:
             if account:
-                call(panel.set_empty_message, _EMPTY_ACCOUNT)
+                call(panel.set_empty_message, _EMPTY_ACCOUNT[feed_key])
             else:
                 call(self._show_empty_feed_modal, feed_key)
             return

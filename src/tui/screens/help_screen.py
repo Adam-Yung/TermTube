@@ -61,7 +61,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("p", "In the playlist dialog: Space selects several playlists, Enter toggles them"),
     ]),
     ("HISTORY TAB", [
-        ("Y", "Switch the source: Local, or YouTube (account watch history, read-only, needs a signed-in browser)"),
+        ("Y", "Switch the source: Local, YouTube history, Watch Later (last two: read-only, need a browser)"),
         ("I", "On the YouTube source: copy the rows (or the marked ones) into local history; rows already there stay"),
     ]),
     ("APP", [
