@@ -166,3 +166,45 @@ def test_removed_thumbnail_formats_read_back_as_auto(tmp_path):
     assert Config(path=str(path)).thumbnail_format == "auto"
     path.write_text("thumbnail_format: symbols\n", encoding="utf-8")
     assert Config(path=str(path)).thumbnail_format == "symbols"
+
+
+class TestRowsPerPage:
+    def test_default_and_clamp(self, tmp_path):
+        from src.config import Config
+
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        assert cfg.rows_per_page == 20
+        for raw, want in ((5, 10), (99, 50), (35, 35), ("30", 20), (True, 20), (None, 20)):
+            cfg.set("rows_per_page", raw)
+            assert cfg.rows_per_page == want
+
+
+class TestPrefetchVideo:
+    def test_only_a_literal_true_enables_it(self, tmp_path):
+        from src.config import Config
+
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        assert cfg.prefetch_video_enabled is False
+        for raw, want in ((True, True), ("true", False), (1, False), (False, False)):
+            cfg.set("prefetch_video", raw)
+            assert cfg.prefetch_video_enabled is want
+
+
+class TestResolvedBrowser:
+    def test_none_and_named_and_auto(self, tmp_path, monkeypatch):
+        from src.config import Config
+
+        monkeypatch.setattr("src.browsers.detect_installed_browsers", lambda: [{"name": "firefox", "label": "Firefox"}])
+        cfg = Config(path=str(tmp_path / "config.yaml"))
+        assert cfg.resolved_browser() == "firefox"
+        cfg.set("browser", "chrome")
+        assert cfg.resolved_browser() == "chrome"
+        assert cfg.browser_cookie_args() == ["--cookies-from-browser", "chrome"]
+        cfg.set("browser", "none")
+        assert cfg.resolved_browser() is None and cfg.browser_cookie_args() == []
+
+    def test_auto_with_nothing_installed(self, tmp_path, monkeypatch):
+        from src.config import Config
+
+        monkeypatch.setattr("src.browsers.detect_installed_browsers", lambda: [])
+        assert Config(path=str(tmp_path / "config.yaml")).resolved_browser() is None

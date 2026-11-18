@@ -13,6 +13,7 @@ _DEFAULT_CONFIG_PATH = get_config_dir() / "config.yaml"
 _THEMES = ("crimson", "amber", "ocean", "midnight")
 _THUMBNAIL_FORMATS = ("auto", "symbols")
 _DEFAULT_SB_CATEGORIES = ["sponsor", "selfpromo"]
+MIN_ROWS_PER_PAGE, DEFAULT_ROWS_PER_PAGE, MAX_ROWS_PER_PAGE = 10, 20, 50
 
 DEFAULT_CONFIG: dict = {
     "browser": "auto",
@@ -37,6 +38,7 @@ DEFAULT_CONFIG: dict = {
         "categories": list(_DEFAULT_SB_CATEGORIES),
     },
     "prefetch_video": False,
+    "rows_per_page": DEFAULT_ROWS_PER_PAGE,
     "history": True,
     "history_max": 500,
     "search_history": True,
@@ -66,18 +68,21 @@ class Config:
         self._data.update(loaded)
         self._data.pop("cookies_file", None)
 
-    def browser_cookie_args(self) -> list[str]:
-        """Return yt-dlp cookie flags for mpv passthrough (empty when browser is none)."""
+    def resolved_browser(self) -> str | None:
+        """The browser whose cookies are used (``auto`` = first detected); None for ``none`` or nothing found."""
         browser = self.get("browser", "auto")
         if not browser or browser.lower() == "none":
-            return []
+            return None
         from src.browsers import detect_installed_browsers, is_auto_browser
         if is_auto_browser(browser):
             detected = detect_installed_browsers()
-            browser = detected[0]["name"] if detected else None
-        if browser:
-            return ["--cookies-from-browser", browser]
-        return []
+            return detected[0]["name"] if detected else None
+        return browser
+
+    def browser_cookie_args(self) -> list[str]:
+        """Return yt-dlp cookie flags for mpv passthrough (empty when no browser resolves)."""
+        browser = self.resolved_browser()
+        return ["--cookies-from-browser", browser] if browser else []
 
     @property
     def browser(self) -> str:
@@ -138,6 +143,18 @@ class Config:
         if isinstance(value, bool) or not isinstance(value, int):
             return 500
         return min(5000, max(50, value))
+
+    @property
+    def rows_per_page(self) -> int:
+        value = self._data.get("rows_per_page")
+        if isinstance(value, bool) or not isinstance(value, int):
+            return DEFAULT_ROWS_PER_PAGE
+        return min(MAX_ROWS_PER_PAGE, max(MIN_ROWS_PER_PAGE, value))
+
+    @property
+    def prefetch_video_enabled(self) -> bool:
+        """True only for a literal ``true``; it costs a second stream resolve per focused row."""
+        return self._data.get("prefetch_video") is True
 
     @property
     def sponsorblock_enabled(self) -> bool:

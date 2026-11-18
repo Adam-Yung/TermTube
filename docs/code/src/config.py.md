@@ -18,10 +18,12 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
 
 ## Keys
 
-`thumbnail_format` values: `auto` and `symbols`. Neither selects a renderer today: textual-image is used whenever it is installed and usable, else PIL half-block art (`docs/code/src/tui/widgets/thumbnail_widget.py.md`). Old configs with `sixel` or `ascii` read back as `auto`. `prefetch_video` is read with `config.get` in
-`src/tui/screens/mixins/detail_focus.py` and has no UI. `thumbnail_warning_dismissed` is set by the thumbnail warning dialog.
+`thumbnail_format` values: `auto` and `symbols`. Neither selects a renderer today: textual-image is used whenever it is installed and usable, else PIL half-block art (`docs/code/src/tui/widgets/thumbnail_widget.py.md`). Old configs with `sixel` or `ascii` read back as `auto`. `prefetch_video` is read through `prefetch_video_enabled` in
+`src/tui/screens/mixins/detail_focus.py`. `thumbnail_warning_dismissed` is set by the thumbnail warning dialog.
 
-`browser_cookie_args()` turns `browser` into `--cookies-from-browser <name>` for mpv's yt-dlp hook. `auto` picks the first detected
+`resolved_browser()` names the browser whose cookies are used (`auto` = first detected, None for `none` or nothing found). `rows_per_page` is an int clamped to 10..50 (anything else reads as 20); `VideoListPanel` latches it in `clear_and_set_loading`, so a change applies from the next list load. `prefetch_video_enabled` is true only for a literal `true`.
+
+`browser_cookie_args()` turns `resolved_browser()` into `--cookies-from-browser <name>` for mpv's yt-dlp hook. `auto` picks the first detected
 browser. `none` returns no flags.
 
 ## Known limits

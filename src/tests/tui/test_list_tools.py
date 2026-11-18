@@ -343,3 +343,18 @@ async def test_channel_page_gets_the_filter_but_not_the_list_tools(app, temp_his
         await pilot.press("escape")
         await pilot.pause(0.2)
         assert not isinstance(app.screen, ChannelScreen)
+
+
+async def test_rows_per_page_sets_the_page_size_at_the_next_list_load(app, seeded):
+    app.config.set("rows_per_page", 10)
+    async with app.run_test(size=(110, 40)) as pilot:
+        await open_history(app, pilot)
+        panel = panel_of(app)
+        assert panel.page_size == 10 and len(rows(panel)) == 10 and panel.total_pages == 5
+        app.config.set("rows_per_page", 50)
+        assert panel.page_size == 10
+        await pilot.press("f1")
+        await pilot.pause(0.3)
+        await pilot.press("f4")
+        await pilot.pause(0.6)
+        assert panel.page_size == 50 and panel.total_pages == 1

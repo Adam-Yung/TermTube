@@ -73,11 +73,16 @@ def _make_postprocessor_hook(
     return hook
 
 
-def _outtmpl(directory: Path, template: str) -> str:
-    """``directory`` joined with a config filename template; RuntimeError if the template could leave it."""
+def check_template(template: str) -> None:
+    """RuntimeError if a filename template could leave its directory (absolute, drive, or a ``..`` part)."""
     parts = re.split(r"[\\/]", template)
     if not template or template[0] in "\\/" or PureWindowsPath(template).drive or ".." in parts:
         raise RuntimeError(f"Unsafe download template {template!r}: use a relative path without '..'")
+
+
+def _outtmpl(directory: Path, template: str) -> str:
+    """``directory`` joined with a config filename template; RuntimeError if the template could leave it."""
+    check_template(template)
     return str(directory / template)
 
 

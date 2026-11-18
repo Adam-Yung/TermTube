@@ -1,6 +1,6 @@
 # src/tui/widgets/video_list.py
 
-The paged list. Entries live in `_pages` (page number to entries, `PAGE_SIZE` = 20); the `ListView` shows one page. Everything that fetches (`FeedLoaderMixin`, `ChannelScreen`) pushes pages in; this widget never fetches.
+The paged list. Entries live in `_pages` (page number to entries, `page_size` = `rows_per_page`, 20 by default); the `ListView` shows one page. Everything that fetches (`FeedLoaderMixin`, `ChannelScreen`) pushes pages in; this widget never fetches.
 
 ## Invariants
 

@@ -8,7 +8,7 @@ from src import logger
 from src.entries import Entry
 from src.tui.fmt import fmt_day_group
 from src.tui.screens.mixins.playlist_tools import index_entries, item_entries
-from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
+from src.tui.widgets.video_list import VideoListPanel
 
 BATCH_FETCH_COUNT = 80
 FIRST_BATCH_COUNT = 15
@@ -28,8 +28,8 @@ def _day_label(entry: Entry) -> str:
     return fmt_day_group(entry.get("watched_at"))
 
 
-def _pages_for(count: int) -> int:
-    return -(-count // PAGE_SIZE)
+def _pages_for(count: int, page_size: int) -> int:
+    return -(-count // page_size)
 
 
 class FeedLoaderMixin:
@@ -146,7 +146,7 @@ class FeedLoaderMixin:
             if not batch:
                 return
             shown_ids.update(e["id"] for e in batch if e.get("id"))
-            pages_used = _pages_for(len(batch))
+            pages_used = _pages_for(len(batch), panel.page_size)
             call(panel.add_entries, first_page, batch)
             if not stash:
                 call(panel.load_page, 1)
@@ -229,11 +229,12 @@ class FeedLoaderMixin:
         try:
             panel = self._list()
             entries = panel.all_unseen_entries()
-            if len(entries) < PAGE_SIZE:
+            size = panel.page_size
+            if len(entries) < size:
                 have = {e.get("id") for e in entries}
                 visited = [e for e in panel.visited_entries() if e.get("id") not in have]
-                entries += visited[-(PAGE_SIZE - len(entries)):]
-            stash = entries[:PAGE_SIZE]
+                entries += visited[-(size - len(entries)):]
+            stash = entries[:size]
             if stash:
                 self.app.cache.put_home_stash(stash)
                 logger.debug("stash: saved %d entries", len(stash))
@@ -276,7 +277,7 @@ class FeedLoaderMixin:
             shown_ids = {e.get("id") for e in shown}
             rest = [e for e in entries if e.get("id") not in shown_ids]
             if rest:
-                call(panel.add_entries, 1 + _pages_for(len(shown)), rest)
+                call(panel.add_entries, 1 + _pages_for(len(shown), panel.page_size), rest)
         if entries:
             call(self._finish_search_load, panel)
 
