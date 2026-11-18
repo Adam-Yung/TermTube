@@ -1,0 +1,57 @@
+src/tui/screens/settings_modal.py
+  s_6c28d43e292a51::t_b9628eb1c78bb6 33-37,50,73,77,92,134-136
+  s_6c28d43e292a51::t_3d1cd744a1af7e 181
+  s_6c28d43e292a51::t_0c436531b8d9bc 74-76
+  s_6c28d43e292a51::t_855972110e3775 137
+src/tests/unit/test_suggestions.py
+  s_6c28d43e292a51::t_9b6ca9ca155f0f 1-17,21-63
+  s_6c28d43e292a51::t_70fef507559dfa 18-20
+docs/features/sources.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 34-37
+src/tests/tui/conftest.py
+  s_6c28d43e292a51::t_ef306e7a91a882 19
+src/config.py
+  s_6c28d43e292a51::t_06294e24cb24be 43,130-133
+  s_6c28d43e292a51::t_c9df12de9e070e 134
+docs/code/src/tui/screens/settings_modal.py.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 8-9
+src/innertube.py
+  s_6c28d43e292a51::t_c179807c5a59cd 71-72
+  s_6c28d43e292a51::t_06294e24cb24be 57-60,63,65,67,69,74,77,79-81,85-103,519-547
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_3ccf989f298946 407,435,448,465,476,503,649,676,703
+  s_6c28d43e292a51::t_fb7c0cc7a8c6ab 613
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 18-21
+docs/code/src/tui/screens/search_modal.py.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 6
+docs/status.md
+  s_6c28d43e292a51::t_70fef507559dfa 11
+src/tests/tui/test_search_modal.py
+  s_6c28d43e292a51::t_a4c35ce8312e8e 151-171
+  s_6c28d43e292a51::t_9b6ca9ca155f0f 82-150
+src/tui/screens/search_modal.py
+  s_6c28d43e292a51::t_ef306e7a91a882 10,13-14,21-22,34-35,38-39,58,87-95,98-126,128,130-132
+docs/code/src/innertube.py.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 7,47-50
+docs/features/configuration.md
+  s_6c28d43e292a51::t_741779ed8ee4d3 37
+docs/todo.md
+  s_6c28d43e292a51::t_70fef507559dfa 41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0b8647c66f349c241733d338e2d78c591b440d3f",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
