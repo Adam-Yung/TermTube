@@ -125,6 +125,7 @@ The rules behind the keymap, and every key per screen, are in [docs/features/key
 optional:
 
 ```yaml
+cookie_prewarm: true     # read the browser's cookies in the background after the first paint (false: only when needed)
 browser: auto            # cookie source for Home and Subscriptions: auto | none | firefox | chrome | brave | edge | ...
 video_dir: ~/Documents/TermTube/Video
 audio_dir: ~/Documents/TermTube/Audio

@@ -41,6 +41,7 @@ DEFAULT_CONFIG: dict = {
         "auto_skip": True,
         "categories": list(_DEFAULT_SB_CATEGORIES),
     },
+    "cookie_prewarm": True,
     "prefetch_video": False,
     "rows_per_page": DEFAULT_ROWS_PER_PAGE,
     "history": True,
@@ -180,6 +181,11 @@ class Config:
         if isinstance(value, bool) or not isinstance(value, int):
             return DEFAULT_ROWS_PER_PAGE
         return min(MAX_ROWS_PER_PAGE, max(MIN_ROWS_PER_PAGE, value))
+
+    @property
+    def cookie_prewarm(self) -> bool:
+        """Read the browser cookies in the background after first paint; only a literal ``false`` turns it off."""
+        return self._data.get("cookie_prewarm") is not False
 
     @property
     def prefetch_video_enabled(self) -> bool:

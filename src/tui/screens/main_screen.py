@@ -160,6 +160,7 @@ class MainScreen(
         self._sync_player_bar()
         self.call_after_refresh(logger.stage, "first paint")
         self.call_after_refresh(self._maybe_show_image_warning)
+        self.call_after_refresh(self._prewarm_cookies)
 
     def on_unmount(self) -> None:
         if self._current_tab in FEED_TABS:
@@ -187,10 +188,25 @@ class MainScreen(
         def on_result(choice: str) -> None:
             if choice == "update":
                 self._run_ytdlp_update(reload_tab=feed_key)
+            elif choice == "refresh":
+                self._refresh_account(feed_key)
             elif choice == "settings":
                 self.app.push_screen(SettingsModal())
 
         self.app.push_screen(EmptyFeedModal(), on_result)
+
+    def _prewarm_cookies(self) -> None:
+        from src import cookies
+
+        cookies.prewarm(self.app.config)
+
+    def _refresh_account(self, feed_key: str) -> None:
+        """Forget the cookie jar (the next load re-reads the browser) and reload the feed."""
+        from src import cookies
+
+        cookies.invalidate()
+        self.app.cache.clear_feed(feed_key)
+        self._load_view(self._current_tab)
 
     def _prompt_ytdlp_update(self, feed_key: str, error_detail: str = "") -> None:
         from src.tui.screens.ytdlp_update_modal import YtdlpUpdateModal

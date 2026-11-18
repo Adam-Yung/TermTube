@@ -25,7 +25,7 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 
 ## Startup prompts
 
-`_maybe_show_image_warning` runs once after the first refresh: no pixel-image support and the warning not dismissed. `_prompt_ytdlp_update`/`_show_empty_feed_modal` are called by `FeedLoaderMixin` from worker threads through `call_from_thread`.
+`_prewarm_cookies` (after first refresh) calls `cookies.prewarm`; `_refresh_account(feed_key)` (the empty-feed dialog's "refresh" choice) invalidates the jar, clears the feed's cached ids and reloads. `_maybe_show_image_warning` runs once after the first refresh: no pixel-image support and the warning not dismissed. `_prompt_ytdlp_update`/`_show_empty_feed_modal` are called by `FeedLoaderMixin` from worker threads through `call_from_thread`.
 
 ## List tools
 

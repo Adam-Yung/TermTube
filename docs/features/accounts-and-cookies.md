@@ -27,7 +27,7 @@ You must be signed in to YouTube in that browser. `termtube --browser-help` prin
 
 ## How the cookies are handled
 
-- **Lazy.** Nothing is read at startup. The browser is read the first time one of the account feeds needs the account, which takes
+- **Prewarmed.** After the first paint a background thread reads the cookies (`cookie_prewarm`, default true, YAML only), so Home usually finds a warm jar. It never runs when `browser` is `none` or nothing resolves, nor twice. Set `cookie_prewarm: false` to read only on demand. On demand, the browser is read the first time one of the account feeds needs the account, which takes
   5 to 15 s on a cold profile. A session that only searches, plays and browses channels never touches the browser profile.
 - **Narrow.** Only `youtube.com` and `google.com` cookies are kept (subdomains included); everything else is dropped immediately.
 - **In memory only.** Never written to disk, never copied, never in a log.
