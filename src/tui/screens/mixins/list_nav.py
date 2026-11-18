@@ -4,7 +4,7 @@ from textual.events import Key
 
 from src.entries import Entry
 from src.tui.keymap import FOCUS_RECLAIM_KEYS
-from src.tui.widgets.video_list import VideoListPanel
+from src.tui.widgets.video_list import FilterBar, VideoListPanel
 
 
 class ListNavMixin:
@@ -59,6 +59,18 @@ class ListNavMixin:
         else:
             self._on_past_last_page()
 
+    def action_filter(self) -> None:
+        if not self._list().open_filter():
+            self._hint("Nothing to filter yet.", "information")
+
+    def _close_filter_if_active(self) -> bool:
+        """Esc/Backspace clear a kept filter before they go back. True when it did."""
+        panel = self._list()
+        if not panel.filter_active:
+            return False
+        panel.close_filter()
+        return True
+
     def _on_last_page_reached(self) -> None:
         """The user just landed on the last held page."""
 
@@ -75,7 +87,7 @@ class ListNavMixin:
 
     def on_key(self, event: Key) -> None:
         """Pull focus back to the list: DOM changes can leave it on the tab bar."""
-        if event.key not in FOCUS_RECLAIM_KEYS:
+        if event.key not in FOCUS_RECLAIM_KEYS or isinstance(self.app.focused, FilterBar):
             return
         try:
             panel = self._list()

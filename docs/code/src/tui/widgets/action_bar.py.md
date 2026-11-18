@@ -14,3 +14,7 @@ The bottom-right box of the detail panel. It is either the shortcut grid (action
 ## Limits
 
 Height switches between 7 and 11 rows on mode change, so the thumbnail area above resizes and triggers `DetailPanel.RerenderRequested`.
+
+## Prompt
+
+`show_prompt(markup)` replaces the whole bar with one line until `clear_prompt()` (used by the remove question, `ListToolsMixin`). `_set_mode_actions` and `_set_mode_player` re-apply an open prompt, so a track change or a stop cannot hide a question that is still waiting for a key. The third row of the grid (`f Filter`, and `m Mark`, `D Remove`, `u Undo` when the screen sets `HAS_LIST_TOOLS`) wraps out of view below about 120 columns, like the second row already does.

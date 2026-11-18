@@ -40,6 +40,15 @@ ITEM_ACTIONS = [
     Binding("b", "browser", show=False),
 ]
 
+FILTER = Binding("f", "filter", show=False)
+
+LIST_TOOLS = [
+    Binding("m", "mark", show=False),
+    Binding("M", "mark_page", show=False),
+    Binding("D", "delete", show=False),
+    Binding("u", "undo", show=False),
+]
+
 SEARCH = Binding("/", "search", "Search")
 GLOBAL = [
     Binding("comma", "settings", "Settings"),

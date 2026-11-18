@@ -7,3 +7,7 @@ Textual's default toast is a blue-grey slab with green, orange and magenta bars,
 ## 2026-11-17 — Playlist `create` refuses an existing name
 
 `playlist.create` used to reset a playlist of the same name to empty, so typing an existing name in the modal wiped it. It now returns `False` and writes nothing; the modal warns and adds nothing. The modal also pins the entry it holds (fat fields stripped) instead of relying on the video still being in the metadata cache, which is the stopgap for rows that showed a bare id; the full fix is the playlist v2 model (Phase 5).
+
+## 2026-11-17 — List tools live in the shared list engine
+
+Filter (`f`), marks (`m`/`M`), remove (`D`) and undo (`u`) are implemented once, in `VideoListPanel` plus `ListToolsMixin`, not per tab. A tab opts in to `D` by declaring a `Removal` in `MainScreen._removals()`; History is the first. Choices: the filter is substring-with-ranking over title and uploader/channel (own scorer, `src/fuzzy.py`, no dependency) and applies to every loaded page; the remove question is one inline line in the action bar where `y` confirms and any other key cancels without acting; undo keeps one removal for 30 s and covers entries only. History day headers are display-only rows inside the `ListView` (never in the page data), so paging and counts are unchanged; they are hidden while a filter is active. Keys `f m M D u` were free in every screen and modal; `J` `K` `Q` stay unbound until their phases.

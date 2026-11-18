@@ -16,7 +16,10 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
    0–90 %, `>` next track. They work from any list because audio is background playback.
 5. **One key, one action.** No key is "listen or seek" or "stop or subscribe".
    **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
-6. `Esc` and `Backspace` go back. `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
+6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
+   every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
+   `J` `K` (move in an ordered list) and `Q` (queue view) are reserved for later phases and unbound today.
+7. `Esc` and `Backspace` go back. `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
 
 ## Map
 
@@ -36,6 +39,9 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `[` `]` `{` `}` | audio seek ∓5 s / ∓10 s | same keys, same distances |
 | `0`–`9` | audio seek to 0–90 % | seek to 0–90 % |
 | `d` `c` `p` `y` `b` | download / channel / playlist / copy URL / browser | |
+| `f` | filter the loaded list as you type, across all pages (`Enter` keeps it, `Esc` clears it); also on the channel page | |
+| `m` `M` | mark the row and move down / mark the page (`●`; marks survive paging, clear on a view change) | |
+| `D` `u` | remove the row or the marked rows (History only so far) after `y` / `N` / undo the last removal | |
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
 | `F1`–`F7` `` ` `` | jump to a tab / tab picker | |
 | `s` `r` `Esc` | channel page only: sort / reload / back | |

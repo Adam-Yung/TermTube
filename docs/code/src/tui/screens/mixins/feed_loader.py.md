@@ -46,3 +46,9 @@ never fires the callback, so `_load_search` falls back to `_show_pages` when not
 shown early goes through `_show_pages` too, which leaves the list on its empty state.
 
 Local lists (history, library, playlist index and view) go through `_show_pages(..., evict=False)`: they hold every page. The panel's eviction of far pages is meant for feeds that can be refetched; an evicted page of a local list would be lost.
+
+## Filter and day headers
+
+- `_can_extend` is false while a filter is active: a filter works on what is loaded, and extending would re-page the shown set under the cursor. `_append_pages` uses `panel.next_page_number` (pages of the full set), not `total_pages` (pages of what is shown).
+- The `history` load sets `panel.set_view_options(group_by=_day_label, show_count=True)` before the pages arrive; `clear_and_set_loading` resets it on every view change.
+- Known race (not fixed here): a tab switch does not stop a running home load; its `call_from_thread` results can still land in the next tab's list. Tests wait for the home load before opening History.

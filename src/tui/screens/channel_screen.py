@@ -46,6 +46,7 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         *keymap.LIST_NAV,
         *keymap.PLAYBACK,
         *keymap.ITEM_ACTIONS,
+        keymap.FILTER,
         Binding("escape,backspace", "go_back", "Back"),
         Binding("s", "sort", "Sort"),
         Binding("r", "reload", "Reload"),
@@ -261,7 +262,8 @@ class ChannelScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMi
         self._start_content_load()
 
     def action_go_back(self) -> None:
-        self.app.pop_screen()
+        if not self._close_filter_if_active():
+            self.app.pop_screen()
 
     def _on_main_screen(self, method: str) -> None:
         """Pop this page and run ``method`` on the main screen beneath it (search results and quit live there)."""

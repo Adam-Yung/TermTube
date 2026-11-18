@@ -55,13 +55,14 @@ class ActionBar(Widget):
     }
     ActionBar > Static { height: 1; }
 
-    #ab-actions { height: 2; margin-top: 1; margin-left: 2; }
+    #ab-actions { height: 3; margin-top: 1; margin-left: 2; }
 
     #np-title-line { margin-top: 1; color: #ffffff; }
     #np-bar-text   { margin-top: 1; }
     #np-time-line  { color: #666666; }
     #np-keys       { margin-top: 1; color: #888888; }
     #np-queue-line { color: #888888; }
+    #ab-prompt     { margin-top: 1; margin-left: 2; color: #ffffff; }
     """
 
     def __init__(self, **kwargs) -> None:
@@ -80,6 +81,7 @@ class ActionBar(Widget):
         self._segment_cols: list[bool] = []
         self._segment_cols_width: int = 0
         self._segment_cols_dur: float = 0.0
+        self._prompt: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Static(id="ab-actions")
@@ -88,10 +90,12 @@ class ActionBar(Widget):
         yield Static("", id="np-time-line", markup=True)
         yield Static("", id="np-keys", markup=True)
         yield Static("", id="np-queue-line", markup=True)
+        yield Static("", id="ab-prompt", markup=True)
 
     def on_mount(self) -> None:
         self.border_title = "Actions"
         self.query_one("#ab-actions", Static).update(self._get_actions_table())
+        self.query_one("#ab-prompt").display = False
         self._update_np_keys()
         self._set_mode_actions()
 
@@ -134,6 +138,10 @@ class ActionBar(Widget):
             r2("b", "Browser"),
             r2("r", "Refresh"),
         )
+        row3 = [r2("f", "Filter")]
+        if getattr(self.screen, "HAS_LIST_TOOLS", False):
+            row3 += [r2("m", "Mark"), r2("D", "Remove"), r2("u", "Undo")]
+        table.add_row(*row3)
 
         return table
 
@@ -286,6 +294,23 @@ class ActionBar(Widget):
         wave_text = "".join(chars)
         return f"[{color}]{wave_text}[/{color}]"
 
+    def show_prompt(self, markup: str) -> None:
+        """Replace the bar's content with a one-line question until ``clear_prompt``."""
+        self._prompt = markup
+        self._apply_prompt()
+
+    def clear_prompt(self) -> None:
+        self._prompt = None
+        if self._playing:
+            self._set_mode_player()
+        else:
+            self._set_mode_actions()
+
+    def _apply_prompt(self) -> None:
+        for child in self.children:
+            child.display = child.id == "ab-prompt"
+        self.query_one("#ab-prompt", Static).update(self._prompt or "")
+
     def _set_mode_actions(self) -> None:
         self.styles.height = self._HEIGHT_ACTIONS
         self.border_title = "Actions"
@@ -295,6 +320,9 @@ class ActionBar(Widget):
         self.query_one("#np-time-line").display = False
         self.query_one("#np-keys").display = False
         self.query_one("#np-queue-line").display = False
+        self.query_one("#ab-prompt").display = False
+        if self._prompt is not None:
+            self._apply_prompt()
 
     def _set_mode_player(self) -> None:
         self.styles.height = self._HEIGHT_PLAYER
@@ -306,8 +334,11 @@ class ActionBar(Widget):
         self.query_one("#np-keys").display = True
         self.query_one("#np-queue-line").display = True
         self.query_one("#np-queue-line", Static).update("")
+        self.query_one("#ab-prompt").display = False
         self._update_np_keys()
         self._refresh_player()
+        if self._prompt is not None:
+            self._apply_prompt()
 
     def _refresh_player(self) -> None:
         chan = f"  [dim]· {escape_markup(self._channel)}[/dim]" if self._channel else ""

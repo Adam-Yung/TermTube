@@ -68,15 +68,30 @@ def add(entry: Entry, config=None) -> None:
     _store.update(apply, defer=True)
 
 
-def remove(vid: str) -> bool:
-    """Drop one video from the history. Returns False when it was not there."""
-    def apply(data: list) -> bool:
-        kept = [e for e in data if e.get("id") != vid]
-        changed = len(kept) != len(data)
-        data[:] = kept
-        return changed
+def remove_many(ids: list[str]) -> list[Entry]:
+    """Drop videos from the history. Returns copies of the records removed (for undo)."""
+    wanted = set(ids)
+    removed: list[Entry] = []
 
-    return _store.update(apply, defer=True)
+    def apply(data: list) -> bool:
+        removed.extend(dict(e) for e in data if e.get("id") in wanted)
+        data[:] = [e for e in data if e.get("id") not in wanted]
+        return bool(removed)
+
+    _store.update(apply, defer=True)
+    return removed
+
+
+def restore(records: list[Entry]) -> None:
+    """Put removed records back in `watched_at` order. A video watched again since stays as its newer record."""
+    def apply(data: list) -> bool:
+        present = {e.get("id") for e in data}
+        back = [dict(r) for r in records if r.get("id") not in present]
+        data.extend(back)
+        data.sort(key=lambda e: e.get("watched_at") or 0, reverse=True)
+        return bool(back)
+
+    _store.update(apply, defer=True)
 
 
 def clear() -> None:

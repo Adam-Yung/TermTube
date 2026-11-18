@@ -8,6 +8,10 @@ Cursor, page and focus handling for a screen that owns one `VideoListPanel` (`Ma
 - `action_goto_end` loads the last held page with the cursor on its last row.
 - `on_video_list_panel_page_change_requested` routes clicks on the `PageIndicator` to the same actions as `h`/`l`.
 
+## Filter
+
+`action_filter` opens the panel's filter bar (`f`). `_close_filter_if_active` is what Esc/Backspace call first on both screens: a kept filter is cleared before the key goes back. `ChannelScreen` gets the filter and nothing else of the list tools.
+
 ## Focus reclaim
 
-`on_key` returns focus to the list for the keys in `keymap.FOCUS_RECLAIM_KEYS`. Appending list items can move focus onto the tab bar; without this, `j`/`k` would stop moving the cursor.
+`on_key` returns focus to the list for the keys in `keymap.FOCUS_RECLAIM_KEYS`, except while the filter bar has focus (otherwise `Enter` in the bar would also activate the row, and arrow keys would leave the field). Appending list items can move focus onto the tab bar; without this, `j`/`k` would stop moving the cursor.

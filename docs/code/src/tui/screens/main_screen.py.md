@@ -1,6 +1,6 @@
 # src/tui/screens/main_screen.py
 
-The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioBarMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, search, the playlist drill-down, subscription rows, the header spinner counter, and quit.
+The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `ListToolsMixin`, `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioBarMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, search, the playlist drill-down, subscription rows, the header spinner counter, and quit.
 
 ## Tabs
 
@@ -26,3 +26,7 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 ## Startup prompts
 
 `_maybe_show_image_warning` runs once after the first refresh: no pixel-image support and the warning not dismissed. `_prompt_ytdlp_update`/`_show_empty_feed_modal` are called by `FeedLoaderMixin` from worker threads through `call_from_thread`.
+
+## List tools
+
+`ListToolsMixin` comes first in the MRO so its `on_key` can swallow keys while a remove question is open. `_removals()` is the per-tab table of remove handlers (History only). `action_nav_back` clears a kept filter before it pops `_nav_stack`.

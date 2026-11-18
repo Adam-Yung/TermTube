@@ -11,6 +11,14 @@ The paged list. Entries live in `_pages` (page number to entries, `PAGE_SIZE` = 
 - **Selection message.** `ListView.Highlighted` becomes `VideoListPanel.Selected` (cursor moved); Enter and double-click become `Activated`. A single click on the highlighted row activates; on another row it only moves the highlight.
 - `update_entry_by_id` swaps an enriched entry into its page and rebuilds the visible row markup, so metadata that arrives after the row was drawn shows up without reloading the page. `settings_modal.py` also rebuilds rows (`_build_markup`) after a theme change.
 
+## Filter, marks, headers
+
+- **Two page sets.** `_pages` is always the full loaded set. While a filter is active the list shows `_filtered_pages` (ranked matches, re-paged by `src/fuzzy.py`); `total_pages`, `can_go_*`, `load_page` and the indicator follow the shown set. `next_page_number` is the next page of the full set (feed extension). `_max_visited_page` and the eviction anchor ignore the filtered view, so the home stash is not corrupted by filtering.
+- **Filter bar** (`FilterBar`, an `Input` docked above the indicator): every keystroke re-ranks; Enter keeps the filter and returns focus to the list; Esc (bar or, via `close_filter`, the screen) drops it and puts the cursor back on the same id. Emptying the field drops the filter but keeps the bar open. Typing letters never reaches bindings because `Input` consumes printable keys.
+- **Marks** are ids in `_marked`; they survive paging, are pruned by `replace_entries` and cleared by `clear_and_set_loading`. `M` marks the shown page, or unmarks it when all of it is marked.
+- **Day headers.** `set_view_options(group_by=...)` makes `_render_rows` insert a disabled `HeaderListItem` whenever the label changes. Headers exist only in the `ListView`: pages, counts and `_items_by_id` never see them; `cursor_first` skips them and Textual's cursor skips disabled items. They are not drawn while filtering (a ranked list is not chronological).
+- `replace_entries(entries, focus_id)` swaps the full set after a removal or undo and keeps filter, marks and page.
+
 ## Row markup
 
 `VideoListItem._build_markup` handles four row kinds: channel (Subscriptions), playlist, library item (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.

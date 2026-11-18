@@ -10,7 +10,7 @@ from textual.containers import Horizontal
 from textual.screen import Screen
 from textual.widgets import Footer, RichLog, Tab, Tabs
 
-from src import logger
+from src import history, logger
 from src.entries import Entry
 from src.plat import ProcessRegistry
 from src.tui import keymap
@@ -20,6 +20,7 @@ from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin
+from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
 from src.tui.widgets.app_header import AppHeader
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
@@ -47,6 +48,7 @@ def _force_exit() -> None:
 
 
 class MainScreen(
+    ListToolsMixin,
     ListNavMixin,
     DetailFocusMixin,
     ItemActionsMixin,
@@ -64,6 +66,8 @@ class MainScreen(
         *keymap.LIST_NAV,
         *keymap.PLAYBACK,
         *keymap.ITEM_ACTIONS,
+        keymap.FILTER,
+        *keymap.LIST_TOOLS,
         Binding("backspace,escape", "nav_back", show=False),
         Binding("grave_accent", "nav_picker", show=False),
         Binding("f1", "goto_tab('home')", show=False),
@@ -91,6 +95,17 @@ class MainScreen(
         self._workers_lock = threading.Lock()
         self._init_detail_focus()
         self._init_debug_log()
+        self._init_list_tools()
+
+    def _removals(self) -> dict[str, Removal]:
+        return {
+            "history": Removal(
+                remove=lambda entries: history.remove_many([e["id"] for e in entries if e.get("id")]),
+                restore=history.restore,
+                reload=history.all_entries,
+                noun="video",
+            ),
+        }
 
     def compose(self) -> ComposeResult:
         yield AppHeader()
@@ -238,7 +253,7 @@ class MainScreen(
         self.app.push_screen(NavModal(), on_pick)
 
     def action_nav_back(self) -> None:
-        if not self._nav_stack:
+        if self._close_filter_if_active() or not self._nav_stack:
             return
         previous = self._nav_stack.pop()
         self._current_tab = previous

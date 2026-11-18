@@ -8,10 +8,11 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Playlists, Help; vim-style keys ([features/keybindings.md](features/keybindings.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`.
+- List tools on the shared list: `f` filter (all loaded pages, live, ranked), `m`/`M` marks, `D` remove after one `y`/N in the action bar, `u` undo for 30 s. History uses all four and shows day headers and a count; Home, Search, Subscriptions, Library and Playlists answer `D` with a reason (Library and Playlists get delete in Phases 4 and 5). The channel page has the filter only.
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home and the subscription list
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, 489 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, 526 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 

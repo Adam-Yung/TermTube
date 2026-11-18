@@ -35,3 +35,5 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 - Playlists use `innertube.fetch_channel_playlists` under the same rule (id known, else or on empty, `ytdlp.fetch_channel_playlists`).
 - Avatar ids are `ch_<channel_id>` (`_avatar_id`), distinct from video ids, so `ThumbnailWidget`'s stale-id guard also covers channel switches.
 - All results are one unpaged `add_entries(1, ...)` split into pages of 20.
+
+- `f` filters the loaded videos or playlists (`ListNavMixin.action_filter`); `Esc` clears a kept filter before it leaves the page. Marks, `D` and `u` are not bound here.

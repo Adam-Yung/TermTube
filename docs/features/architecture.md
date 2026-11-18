@@ -25,7 +25,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 ## Screens and mixins
 
 ```
-MainScreen (ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
+MainScreen (ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
  |- AppHeader, Tabs, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
  |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, HelpScreen, ...
 ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)

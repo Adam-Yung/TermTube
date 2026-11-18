@@ -44,6 +44,12 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("y", "Copy the video URL"),
         ("b", "Open in the browser"),
     ]),
+    ("LIST TOOLS", [
+        ("f", "Filter the loaded list as you type (Enter keeps it, Esc clears it)"),
+        ("m / M", "Mark the row and move down / mark the whole page"),
+        ("D", "Remove the row or the marked rows from this list, after one y / N (History)"),
+        ("u", "Undo the last removal (within 30 s)"),
+    ]),
     ("APP", [
         ("/", "Search"),
         ("r", "Refresh the current feed (clears its cache)"),

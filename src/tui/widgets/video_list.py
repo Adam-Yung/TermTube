@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.events import Click
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import ListItem, ListView, LoadingIndicator, Static
+from textual.widgets import Input, ListItem, ListView, LoadingIndicator, Static
 
-from src import logger
+from src import fuzzy, logger
 from src.entries import Entry
 from src.tui.fmt import escape_markup, fmt_age, fmt_duration, fmt_subscribers, fmt_views
 from src.tui.widgets.action_bar import THEME_COLORS
@@ -18,6 +20,10 @@ from src.tui.widgets.page_indicator import PageIndicator
 
 PAGE_SIZE = 20
 _MAX_PAGES_IN_MEMORY = 30
+
+
+def _paginate(entries: list[Entry]) -> dict[int, list[Entry]]:
+    return {n + 1: entries[i:i + PAGE_SIZE] for n, i in enumerate(range(0, len(entries), PAGE_SIZE))}
 
 
 class _ItemClicked(Message):
@@ -46,11 +52,56 @@ def _fmt_watched(ts: float | None) -> str:
     return f"watched {int(delta / (86400 * 30))}mo ago"
 
 
+class HeaderListItem(ListItem):
+    """A group label between rows (a day in History). Disabled, so the cursor never lands on it."""
+
+    def __init__(self, label: str) -> None:
+        super().__init__(disabled=True)
+        self._label = label
+
+    def compose(self) -> ComposeResult:
+        yield Static(f"[bold #888888]{escape_markup(self._label)}[/bold #888888]", markup=True)
+
+
+class FilterBar(Input):
+    """One-line filter field at the foot of the list. Esc posts ``Cancelled``."""
+
+    DEFAULT_CSS = """
+    FilterBar, FilterBar:focus {
+        display: none;
+        dock: bottom;
+        height: 1;
+        margin-bottom: 1;
+        padding: 0 1;
+        border: none;
+    }
+    """
+    BINDINGS = [Binding("escape", "cancel", show=False)]
+
+    class Cancelled(Message):
+        pass
+
+    def action_cancel(self) -> None:
+        self.post_message(self.Cancelled())
+
+
 class VideoListItem(ListItem):
-    def __init__(self, entry: Entry) -> None:
+    def __init__(self, entry: Entry, *, marked: bool = False) -> None:
         super().__init__()
         self.entry = entry
+        self.marked = marked
         self._cached_markup: str = ""
+
+    def set_marked(self, marked: bool) -> None:
+        self.marked = marked
+        self.refresh_markup()
+
+    def refresh_markup(self) -> None:
+        self._cached_markup = self._build_markup()
+        try:
+            self.query_one(Static).update(self._cached_markup)
+        except Exception:
+            pass
 
     def compose(self) -> ComposeResult:
         self._cached_markup = self._build_markup()
@@ -114,7 +165,8 @@ class VideoListItem(ListItem):
         if len(title) > 68:
             title = title[:65] + "…"
 
-        line1 = f"[bold white]{escape_markup(title)}[/bold white]{badge}"
+        mark = f"[bold {theme_color}]●[/bold {theme_color}] " if self.marked else ""
+        line1 = f"{mark}[bold white]{escape_markup(title)}[/bold white]{badge}"
 
         meta_parts = []
         if channel:
@@ -133,7 +185,11 @@ class VideoListItem(ListItem):
 
 
 class VideoListPanel(Widget):
-    """Pages of ``PAGE_SIZE`` entries, deduplicated by id across pages."""
+    """Pages of ``PAGE_SIZE`` entries, deduplicated by id across pages.
+
+    ``_pages`` always holds every loaded entry. While a filter is active the list shows ``_filtered_pages``
+    (the ranked matches, re-paged) instead; paging, the indicator and the cursor all follow the shown pages.
+    """
 
     class Selected(Message):
         """Cursor moved to a new item."""
@@ -161,7 +217,14 @@ class VideoListPanel(Widget):
         self._max_visited_page: int = 0
         self._is_loading: bool = False
         self._items_by_id: dict[str, VideoListItem] = {}
+        self._marked: set[str] = set()
+        self._filter: str = ""
+        self._filtered_pages: dict[int, list[Entry]] = {}
+        self._anchor_page: int = 1
+        self._group_by: Callable[[Entry], str] | None = None
+        self._show_count: bool = False
         self._lv: ListView
+        self._filter_bar: FilterBar
         self._anim: LoadingIndicator
         self._breadcrumb: Static
         self._page_indicator: PageIndicator
@@ -170,12 +233,14 @@ class VideoListPanel(Widget):
         yield Static("", id="list-breadcrumb", markup=True)
         yield LoadingIndicator(id="list-loading-anim")
         yield ListView(id="list-view")
+        yield FilterBar(placeholder="Filter…  Enter keeps it, Esc clears", id="list-filter")
         yield PageIndicator(id="list-page-indicator")
 
     def on_mount(self) -> None:
         self._lv = self.query_one("#list-view", ListView)
         self._anim = self.query_one("#list-loading-anim", LoadingIndicator)
         self._breadcrumb = self.query_one("#list-breadcrumb", Static)
+        self._filter_bar = self.query_one("#list-filter", FilterBar)
         self._page_indicator = self.query_one("#list-page-indicator", PageIndicator)
         self._lv.focus()
 
@@ -197,7 +262,20 @@ class VideoListPanel(Widget):
 
     @property
     def total_pages(self) -> int:
-        return max(self._pages, default=1)
+        """Pages of what is shown (the filtered set while filtering)."""
+        return max(self._view_pages(), default=1)
+
+    @property
+    def next_page_number(self) -> int:
+        """The page number a fetched extension starts at: after the last page of the full set."""
+        return max(self._pages, default=0) + 1
+
+    @property
+    def filter_active(self) -> bool:
+        return bool(self._filter)
+
+    def _view_pages(self) -> dict[int, list[Entry]]:
+        return self._filtered_pages if self._filter else self._pages
 
     @property
     def is_loading(self) -> bool:
@@ -215,8 +293,9 @@ class VideoListPanel(Widget):
             deduped.append(entry)
         self._pages[page_num] = deduped
         if evict and len(self._pages) > _MAX_PAGES_IN_MEMORY:
-            keep_min = max(1, self._current_page - 2)
-            keep_max = self._current_page + 2
+            anchor = self._anchor_page if self._filter else self._current_page
+            keep_min = max(1, anchor - 2)
+            keep_max = anchor + 2
             for pn in sorted(self._pages.keys()):
                 if len(self._pages) <= _MAX_PAGES_IN_MEMORY:
                     break
@@ -226,54 +305,78 @@ class VideoListPanel(Widget):
                         eid = e.get("id", "")
                         if eid:
                             self._seen_ids.discard(eid)
+        if self._filter:
+            self._rebuild_filtered()
         self._update_page_indicator()
         logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
 
-    def load_page(self, page_num: int, *, cursor: str = "first") -> bool:
-        """Display a page with the cursor on its first or last row. False if the page is not held."""
-        if page_num not in self._pages:
+    def load_page(
+        self, page_num: int, *, cursor: str = "first", focus_id: str | None = None, focus: bool = True
+    ) -> bool:
+        """Show a page with the cursor on `focus_id`, else its first or last row. False if the page is not held.
+
+        `focus=False` keeps keyboard focus where it is (the filter bar while typing).
+        """
+        entries = self._view_pages().get(page_num)
+        if entries is None:
             return False
 
-        entries = self._pages[page_num]
         self._current_page = page_num
-        if page_num > self._max_visited_page:
+        if not self._filter and page_num > self._max_visited_page:
             self._max_visited_page = page_num
 
         self._is_loading = False
-        self._items_by_id.clear()
-        self._lv.clear()
+        rows = self._render_rows(entries)
 
         if self._anim.display:
             self._anim.display = False
             self._lv.display = True
 
-        items_to_mount: list[VideoListItem] = []
-        for entry in entries:
-            item = VideoListItem(entry)
-            vid = entry.get("id", "")
-            if vid:
-                self._items_by_id[vid] = item
-            items_to_mount.append(item)
-        self._lv.extend(items_to_mount)
-
         if entries:
-            row = len(entries) - 1 if cursor == "last" else 0
+            row = rows[-1] if cursor == "last" else rows[0]
+            ids = [e.get("id") for e in entries]
+            if focus_id is not None and focus_id in ids:
+                row = rows[ids.index(focus_id)]
             self._lv.call_after_refresh(lambda: setattr(self._lv, "index", row))
 
-        self._lv.focus()
+        if focus:
+            self._lv.focus()
         self._update_page_indicator()
         logger.stage("first rows")
         return True
 
+    def _render_rows(self, entries: list[Entry]) -> list[int]:
+        """Mount the rows (with day headers when grouped and not filtering). Returns each entry's list index."""
+        self._items_by_id.clear()
+        self._lv.clear()
+        group = None if self._filter else self._group_by
+        items: list[ListItem] = []
+        rows: list[int] = []
+        last_label: str | None = None
+        for entry in entries:
+            if group is not None:
+                label = group(entry)
+                if label != last_label:
+                    items.append(HeaderListItem(label))
+                    last_label = label
+            vid = entry.get("id", "")
+            item = VideoListItem(entry, marked=vid in self._marked)
+            if vid:
+                self._items_by_id[vid] = item
+            rows.append(len(items))
+            items.append(item)
+        self._lv.extend(items)
+        return rows
+
     def can_go_next(self) -> bool:
         if self._is_loading:
             return False
-        return (self._current_page + 1) in self._pages
+        return (self._current_page + 1) in self._view_pages()
 
     def can_go_prev(self) -> bool:
         if self._is_loading:
             return False
-        return self._current_page > 1 and (self._current_page - 1) in self._pages
+        return self._current_page > 1 and (self._current_page - 1) in self._view_pages()
 
     def all_unseen_entries(self) -> list[Entry]:
         """Entries of pages the user never opened (the home stash)."""
@@ -288,6 +391,10 @@ class VideoListPanel(Widget):
         self._pages.clear()
         self._seen_ids.clear()
         self._items_by_id.clear()
+        self._marked.clear()
+        self._group_by = None
+        self._show_count = False
+        self._reset_filter()
         self._current_page = 0
         self._max_visited_page = 0
         self._is_loading = True
@@ -342,16 +449,14 @@ class VideoListPanel(Widget):
             else:
                 continue
             break
+        if self._filter:
+            self._rebuild_filtered()
 
         item = self._items_by_id.get(vid_id)
         if item is None:
             return
         item.entry = entry
-        try:
-            item._cached_markup = item._build_markup()
-            item.query_one(Static).update(item._cached_markup)
-        except Exception:
-            pass
+        item.refresh_markup()
 
     def add_entries(self, start_page: int, entries: list[Entry], *, evict: bool = True) -> None:
         """Add ``entries`` as consecutive PAGE_SIZE pages starting at ``start_page``."""
@@ -379,21 +484,163 @@ class VideoListPanel(Widget):
         self._lv.action_cursor_up()
 
     def cursor_first(self) -> None:
-        self._lv.index = 0
+        for i, child in enumerate(self._lv.children):
+            if isinstance(child, VideoListItem):
+                self._lv.index = i
+                return
 
     def cursor_last(self) -> None:
         if len(self._lv):
             self._lv.index = len(self._lv) - 1
 
+    def set_view_options(self, *, group_by: Callable[[Entry], str] | None = None, show_count: bool = False) -> None:
+        """Day headers (`group_by` returns a row's label) and the footer item count. Reset on every view change."""
+        self._group_by = group_by
+        self._show_count = show_count
+        self._update_page_indicator()
+
+    def replace_entries(self, entries: list[Entry], *, focus_id: str | None = None) -> None:
+        """Swap the full entry set (after a removal or undo), keeping the filter, marks and, if possible, the page."""
+        self._pages = _paginate(entries)
+        self._seen_ids = {e["id"] for e in entries if e.get("id")}
+        self._marked &= self._seen_ids
+        if self._filter:
+            self._rebuild_filtered()
+        view = self._view_pages()
+        if not view:
+            self._current_page = 1
+            self._render_rows([])
+            self._update_page_indicator()
+            return
+        page = self._page_of(focus_id) or min(max(self._current_page, 1), max(view))
+        self.load_page(page, focus_id=focus_id, focus=self.list_has_focus())
+
+    def visible_ids(self) -> list[str]:
+        """Ids of every row of the shown set (all pages), in order."""
+        return [e["id"] for pn in sorted(self._view_pages()) for e in self._view_pages()[pn] if e.get("id")]
+
+    def _page_of(self, vid: str | None) -> int | None:
+        if vid is None:
+            return None
+        for pn, page_entries in self._view_pages().items():
+            if any(e.get("id") == vid for e in page_entries):
+                return pn
+        return None
+
+    def open_filter(self) -> bool:
+        """Show the filter bar and focus it. False when there is nothing loaded to filter."""
+        if self._is_loading or not self._pages:
+            return False
+        self._filter_bar.display = True
+        self._filter_bar.focus()
+        return True
+
+    def close_filter(self) -> None:
+        """Drop the filter, hide the bar and return focus to the list, the cursor staying on the same video."""
+        self._drop_filter()
+        self._reset_filter()
+        self._lv.focus()
+
+    def _reset_filter(self) -> None:
+        self._filter = ""
+        self._filtered_pages = {}
+        if hasattr(self, "_filter_bar"):
+            self._filter_bar.value = ""
+            self._filter_bar.display = False
+
+    def _apply_filter(self, query: str) -> None:
+        if not query:
+            self._drop_filter()
+            return
+        if not self._filter:
+            self._anchor_page = self._current_page
+        self._filter = query
+        self._rebuild_filtered()
+        if self._filtered_pages:
+            self.load_page(1, focus=False)
+        else:
+            self._current_page = 1
+            self._render_rows([])
+            self._update_page_indicator()
+
+    def _drop_filter(self) -> None:
+        if not self._filter:
+            return
+        selected = self.selected_entry
+        sid = selected.get("id") if selected else None
+        self._filter = ""
+        self._filtered_pages = {}
+        page = self._page_of(sid) or min(self._anchor_page, max(self._pages, default=1))
+        self.load_page(max(page, 1), focus_id=sid, focus=False)
+
+    def _rebuild_filtered(self) -> None:
+        matched = fuzzy.rank(self.visited_entries(), self._filter)
+        self._filtered_pages = _paginate(matched)
+
+    def toggle_mark(self, entry: Entry) -> None:
+        vid = entry.get("id", "")
+        if not vid:
+            return
+        marked = vid not in self._marked
+        self._marked.add(vid) if marked else self._marked.discard(vid)
+        item = self._items_by_id.get(vid)
+        if item is not None:
+            item.set_marked(marked)
+        self._update_page_indicator()
+
+    def mark_page(self) -> None:
+        """Mark every row of the shown page; when all are marked already, unmark them."""
+        ids = [e["id"] for e in self._view_pages().get(self._current_page, []) if e.get("id")]
+        mark = not all(i in self._marked for i in ids)
+        for vid in ids:
+            self._marked.add(vid) if mark else self._marked.discard(vid)
+            item = self._items_by_id.get(vid)
+            if item is not None:
+                item.set_marked(mark)
+        self._update_page_indicator()
+
+    def marked_entries(self) -> list[Entry]:
+        """Marked rows of the full set (also those on other pages), in list order."""
+        return [e for e in self.visited_entries() if e.get("id") in self._marked]
+
+    def _status_note(self) -> str:
+        shown = sum(len(p) for p in self._view_pages().values())
+        total = sum(len(p) for p in self._pages.values())
+        parts = []
+        if self._filter:
+            parts.append(f"{shown} of {total} match")
+        elif self._show_count:
+            parts.append(f"{total} videos")
+        if self._marked:
+            parts.append(f"{len(self._marked)} marked")
+        return "  ·  ".join(parts)
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        event.stop()
+        query = event.value.strip()
+        if query != self._filter:
+            self._apply_filter(query)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        event.stop()
+        if not self._filter:
+            self._filter_bar.display = False
+        self._lv.focus()
+
+    def on_filter_bar_cancelled(self, event: FilterBar.Cancelled) -> None:
+        event.stop()
+        self.close_filter()
+
     def _update_page_indicator(self) -> None:
         try:
             current = max(self._current_page, 1)
             total = max(self.total_pages, current)
-            next_ready = (self._current_page + 1) in self._pages
+            next_ready = (self._current_page + 1) in self._view_pages()
             self._page_indicator.update_state(
                 current=current,
                 total=total,
                 next_ready=next_ready,
+                note=self._status_note(),
             )
         except Exception:
             pass

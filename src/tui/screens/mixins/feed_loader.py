@@ -6,6 +6,7 @@ from textual import work
 
 from src import logger
 from src.entries import Entry
+from src.tui.fmt import fmt_day_group
 from src.tui.widgets.video_list import PAGE_SIZE, VideoListPanel
 
 BATCH_FETCH_COUNT = 80
@@ -17,6 +18,10 @@ PAGED_TABS = ("home", "search")
 CHANNEL_TABS = ("subscriptions",)
 
 _EXTRACTION_ERRORS = ("unable to extract", "unsupported", "sign in", "http error", "unavailable")
+
+
+def _day_label(entry: Entry) -> str:
+    return fmt_day_group(entry.get("watched_at"))
 
 
 def _pages_for(count: int) -> int:
@@ -59,6 +64,9 @@ class FeedLoaderMixin:
             elif view == "history":
                 from src import history
 
+                self.app.call_from_thread(
+                    lambda: panel.set_view_options(group_by=_day_label, show_count=True)
+                )
                 self._load_simple_list(panel, history.all_entries())
             elif view == "library":
                 from src import library
@@ -294,12 +302,16 @@ class FeedLoaderMixin:
         ]
         self._show_pages(panel, entries, evict=False)
 
+    def _can_extend(self) -> bool:
+        """Feeds grow only when the list shows the full set: a filter works on what is loaded."""
+        return self._current_tab in PAGED_TABS and not self._list().filter_active
+
     def _on_last_page_reached(self) -> None:
-        if self._current_tab in PAGED_TABS:
+        if self._can_extend():
             self._extend_feed(show=False, session=self._feed_session)
 
     def _on_past_last_page(self) -> None:
-        if self._current_tab in PAGED_TABS:
+        if self._can_extend():
             self._extend_feed(show=True, session=self._feed_session)
 
     @work(thread=True, exclusive=True, group="feed_extend")
@@ -352,7 +364,7 @@ class FeedLoaderMixin:
 
     @staticmethod
     def _append_pages(panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
-        first = panel.total_pages + 1
+        first = panel.next_page_number
         panel.add_entries(first, entries)
-        if show:
-            panel.load_page(first)
+        if show and not panel.load_page(first):
+            panel.finish_loading()

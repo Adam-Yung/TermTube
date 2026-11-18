@@ -69,3 +69,17 @@ def fmt_age(upload_date: str | None) -> str:
         return f"{days // 365}y ago"
     except (ValueError, TypeError):
         return ""
+
+
+def fmt_day_group(ts: float | None, today: datetime.date | None = None) -> str:
+    """Day header for a history row: Today, Yesterday, `Mon 9 Nov` (with the year when not this year)."""
+    if not ts:
+        return "Earlier"
+    today = today or datetime.date.today()
+    day = datetime.date.fromtimestamp(ts)
+    if day == today:
+        return "Today"
+    if day == today - datetime.timedelta(days=1):
+        return "Yesterday"
+    label = f"{day:%a} {day.day} {day:%b}"
+    return label if day.year == today.year else f"{label} {day.year}"

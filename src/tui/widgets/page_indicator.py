@@ -7,6 +7,8 @@ from textual.events import Click
 from textual.message import Message
 from textual.widget import Widget
 
+from src.tui.fmt import escape_markup
+
 
 class PageIndicator(Widget):
     DEFAULT_CSS = """
@@ -29,6 +31,7 @@ class PageIndicator(Widget):
         self._current: int = 1
         self._total: int = 1
         self._next_ready: bool = False
+        self._note: str = ""
 
     def update_state(
         self,
@@ -36,6 +39,7 @@ class PageIndicator(Widget):
         current: int | None = None,
         total: int | None = None,
         next_ready: bool | None = None,
+        note: str | None = None,
     ) -> None:
         if current is not None:
             self._current = current
@@ -43,13 +47,16 @@ class PageIndicator(Widget):
             self._total = total
         if next_ready is not None:
             self._next_ready = next_ready
+        if note is not None:
+            self._note = note
         self.refresh()
 
     def render(self) -> Text:
         prev_arrow = "◀" if self._current > 1 else "·"
         next_arrow = "▶" if self._next_ready else "·"
+        note = f"  ·  {escape_markup(self._note)}" if self._note else ""
         return Text.from_markup(
-            f"[dim]{prev_arrow}  Page {self._current} / {self._total}  {next_arrow}[/dim]"
+            f"[dim]{prev_arrow}  Page {self._current} / {self._total}  {next_arrow}{note}[/dim]"
         )
 
     def on_click(self, event: Click) -> None:

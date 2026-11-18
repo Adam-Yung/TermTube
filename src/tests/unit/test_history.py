@@ -82,12 +82,30 @@ class TestSettings:
 
 
 class TestRemoveAndClear:
-    def test_remove(self, temp_history):
-        history.add({"id": "a"})
-        history.add({"id": "b"})
-        assert history.remove("a") is True
-        assert history.remove("zzz") is False
+    def test_remove_many_returns_copies_of_what_it_removed(self, temp_history):
+        for vid in "abc":
+            history.add({"id": vid, "title": vid.upper()})
+        removed = history.remove_many(["a", "c", "zzz"])
+        assert sorted(r["id"] for r in removed) == ["a", "c"]
         assert [e["id"] for e in history.all_entries()] == ["b"]
+        assert removed[0] is not history.all_entries()[0]
+        assert history.remove_many(["zzz"]) == []
+
+    def test_restore_puts_records_back_by_watched_time(self, temp_history, monkeypatch):
+        clock = iter([100.0, 200.0, 300.0])
+        monkeypatch.setattr("src.history.time.time", lambda: next(clock))
+        for vid in "abc":
+            history.add({"id": vid})
+        removed = history.remove_many(["b"])
+        history.restore(removed)
+        assert [e["id"] for e in history.all_entries()] == ["c", "b", "a"]
+
+    def test_restore_keeps_the_newer_record_of_a_video_watched_since(self, temp_history):
+        history.add({"id": "a"})
+        removed = history.remove_many(["a"])
+        history.add({"id": "a"})
+        history.restore(removed)
+        assert [e["id"] for e in history.all_entries()] == ["a"]
 
     def test_clear_writes_at_once(self, temp_history):
         history.add({"id": "a"})
