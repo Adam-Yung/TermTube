@@ -61,7 +61,7 @@ async def test_b_before_the_channel_id_is_known_says_so(app):
         assert "still loading" in hint.call_args.args[0] and channel_bookmarks.entries() == []
 
 
-async def test_f_on_subscriptions_lists_followed_channels_and_back_returns(app, monkeypatch):
+async def test_following_in_the_side_list_lists_followed_channels_and_enter_on_subscribed_returns(app, monkeypatch):
     import src.ytdlp as ytdlp
 
     sub = {"id": "UCsub", "title": "Subbed", "_is_channel": True}
@@ -73,10 +73,12 @@ async def test_f_on_subscriptions_lists_followed_channels_and_back_returns(app, 
         await settle(app, pilot)
         panel = main._list()
         assert [e["id"] for e in panel.visited_entries()] == ["UCsub"]
-        await pilot.press("F")
+        main._select_collection("following")
         await settle(app, pilot)
         assert [e["id"] for e in panel.visited_entries()] == [A] and main._current_tab == "following"
         await pilot.press("escape")
+        assert main._rail_focused()
+        await pilot.press("k", "enter")
         await settle(app, pilot)
         assert main._current_tab == "subscriptions" and [e["id"] for e in panel.visited_entries()] == ["UCsub"]
 
@@ -91,7 +93,7 @@ async def test_enter_on_a_followed_channel_opens_its_page_and_it_works_without_s
         main = app.screen
         main.action_goto_tab("subscriptions")
         await settle(app, pilot)
-        await pilot.press("F")
+        main._select_collection("following")
         await settle(app, pilot)
         await pilot.press("enter")
         await pilot.pause()
@@ -99,18 +101,15 @@ async def test_enter_on_a_followed_channel_opens_its_page_and_it_works_without_s
         assert app.screen._crumbs() == ["Subscriptions", "Rick"] or app.screen._crumbs()[-1] == "Rick"
 
 
-async def test_f_elsewhere_says_to_open_subscriptions_and_an_empty_list_says_how_to_follow(app, monkeypatch):
+async def test_an_empty_following_list_says_how_to_follow(app, monkeypatch):
     import src.ytdlp as ytdlp
 
     monkeypatch.setattr(ytdlp, "fetch_subscribed_channels", lambda *a: [])
     monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
     async with app.run_test(size=(110, 34)) as pilot:
         main = app.screen
-        with patch.object(main, "_hint") as hint:
-            await pilot.press("F")
-        assert "Subscriptions" in hint.call_args.args[0] and main._current_tab != "following"
         main.action_goto_tab("subscriptions")
         await settle(app, pilot)
-        await pilot.press("F")
+        main._select_collection("following")
         await settle(app, pilot)
         assert "Press B" in str(main._list().query_one("#list-message").content)

@@ -76,7 +76,7 @@ def key_of(action: str) -> str:
     A screen's own binding wins where two lists bind a key to different actions (``P`` plays a playlist or a channel).
     """
     bound = (*PLAYBACK, *ITEM_ACTIONS, FILTER, *LIST_TOOLS, *HISTORY_KEYS, *PLAYLIST_TOOLS, *SEARCH_FILTERS,
-             *HOME, *SUBSCRIPTIONS, *CHANNEL_PAGE)
+             *HOME, *CHANNEL_PAGE)
     return next(b.key for b in bound if b.action == action)
 
 
@@ -91,7 +91,6 @@ LIST_TOOLS = [
 ]
 
 HISTORY_KEYS = [
-    Binding("Y", "history_source", show=False),
     Binding("I", "history_import", show=False),
 ]
 
@@ -128,8 +127,6 @@ CHANNEL_PAGE = [
 
 HOME = [Binding("Z", "show_played", show=False)]
 
-SUBSCRIPTIONS = [Binding("F", "following", show=False)]
-
 FOCUS_RECLAIM_KEYS = frozenset(
     {"j", "k", "h", "l", "up", "down", "left", "right", "enter", "g", "G", "H", "L"}
 )
@@ -147,12 +144,10 @@ PANEL_TOOLS = [
     PanelTool(("mark",), text("keymap.tool_mark")),
     PanelTool(("delete",), text("keymap.tool_delete")),
     PanelTool(("undo",), text("keymap.tool_undo")),
-    PanelTool(("history_source",), text("keymap.tool_history_source")),
     PanelTool(("history_import",), text("keymap.tool_history_import")),
     PanelTool(("search_sort",), text("keymap.tool_search_sort")),
     PanelTool(("search_type",), text("keymap.tool_search_type")),
     PanelTool(("show_played",), text("keymap.tool_show_played")),
-    PanelTool(("following",), text("keymap.tool_following")),
     PanelTool(("playlist_new",), text("keymap.tool_playlist_new")),
     PanelTool(("playlist_rename",), text("keymap.tool_playlist_rename")),
     PanelTool(("playlist_move_down", "playlist_move_up"), text("keymap.tool_playlist_move")),

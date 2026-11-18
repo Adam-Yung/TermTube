@@ -21,4 +21,4 @@ player's keys are in `src/tui/screens/watch_modal.py`, not here.
 - `FILTER` (`f`) is shared by both screens; `LIST_TOOLS` (`m`, `M`, `D`, `u`) is `MainScreen` only; `CHANNEL_PAGE` (`s` sort, `r` reload, `i` description) is `ChannelScreen` only and, unlike the rest, shows in the footer. `tests/unit/test_keymap.py` checks that every key here appears in the help screen and in `keybindings.md`.
 - Adding a key also means the help screen, the action bar hints and the feature doc (`AGENTS.md`).
 - `CHANNEL_PAGE` also holds the channel page's `B` (follow locally) and the playlist keys `P` `E` `S`; `HOME` (`Z`, show or hide played videos) and `SUBSCRIPTIONS` (`F`, the local Following list) is spliced into `MainScreen` only.
-- `HISTORY_KEYS` (`Y` cycle the History source, `I` import YouTube rows into local history) is `MainScreen` only; both only hint outside the History tab / YouTube source.
+- `HISTORY_KEYS` (`I` import YouTube rows into local history) is `MainScreen` only; it only hints outside the YouTube source.

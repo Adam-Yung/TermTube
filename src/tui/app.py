@@ -111,6 +111,10 @@ class TermTubeApp(App):
             self.cache.pin_all_playlist_videos()
             self.cache.prune_old_thumbnails(max_age_days=7, max_count=300)
             self.cache.prune_old_videos(max_age_days=3, max_count=400)
+            self.cache.prune_old_searches()
+            from src import sponsorblock
+
+            sponsorblock.prune_cache()
             try:
                 from src.ui.thumbnail import prune_old_rendered
                 prune_old_rendered(max_age_days=7, max_count=600)

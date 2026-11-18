@@ -90,7 +90,7 @@ async def _search(app, pilot):
 
 async def _history_source(app, pilot):
     await _tab(app, pilot, "history")
-    app.screen.action_history_source()
+    app.screen._select_collection("history:yt")
     await pilot.pause(0.6)
 
 
@@ -98,7 +98,7 @@ async def _following(app, pilot):
     for i in range(25):
         channel_bookmarks.toggle(f"UC{i:022d}", f"Followed channel number {i}")
     await _tab(app, pilot, "subscriptions")
-    app.screen.action_following()
+    app.screen._select_collection("following")
     await pilot.pause(0.6)
 
 
@@ -110,7 +110,7 @@ async def _playlist(app, pilot):
 
 async def _empty_following(app, pilot):
     await _tab(app, pilot, "subscriptions")
-    app.screen.action_following()
+    app.screen._select_collection("following")
     await pilot.pause(0.6)
 
 

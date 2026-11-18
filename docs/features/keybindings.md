@@ -19,8 +19,8 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
    `Q` (queue view) is reserved for a later phase and unbound today.
-7. `Esc` and `Backspace` go back (out of the channel page; on the Search tab, to the previous search at its page and row; on the Library tab, from the list to the rail). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
-8. **The Library tab has two panes, and `Tab` moves between them.** With the rail focused `j`/`k`/`g`/`G` walk its entries, `Enter` shows one (and focuses the list), `l`/`→` returns to the list without choosing, and `h`/`←` on the first page of the list moves to the rail. Keys that act on a row (`v` `a` `d` `p` ...) do nothing while the rail has focus; the playlist keys (`R` `D` `P` `S` `E`) act on the playlist under the rail cursor. `D` still means "remove the thing I am on": a row in the list, a playlist in the rail.
+7. `Esc` and `Backspace` go back (out of the channel page; on the Search tab, to the previous search at its page and row; on the Library, History and Subscriptions tabs, from the list to the side list). `q` quits the app, or stops the video player. Arrow keys mirror `h`/`j`/`k`/`l`.
+8. **Library, History and Subscriptions have two panes, and `Tab` moves between them.** The left side list holds the tab's sources: Library collections and playlists; TermTube history, YouTube history and Watch Later; Subscribed and Following. With the side list focused `j`/`k`/`g`/`G` walk its entries, `Enter` shows one (and focuses the list), `l`/`→` returns to the list without choosing, and `h`/`←` on the first page of the list moves to the rail. Keys that act on a row (`v` `a` `d` `p` ...) do nothing while the rail has focus; the playlist keys (`R` `D` `P` `S` `E`) act on the playlist under the rail cursor. `D` still means "remove the thing I am on": a row in the list, a playlist in the rail.
 
 ## Map
 
@@ -45,11 +45,11 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `D` `u` | remove the row or the marked rows (History, Library and playlists; on the rail, the playlist under the cursor) after `y` / `N` / undo the last removal | |
 | `/` `r` `,` `?` `Ctrl+D` `q` | search / refresh / settings / help / debug log / quit | `q` `Esc` stop |
 | `F1`–`F6` `` ` `` | jump to a tab (Help is `F6`) / tab picker | |
-| `Tab` | Library tab: move focus between the rail and the list (a hint elsewhere) | |
+| `Tab` | Library, History, Subscriptions: move focus between the side list and the list (a hint elsewhere) | |
 | `n` `R` | Library tab: new playlist / rename the playlist under the rail cursor or the open one (a hint elsewhere) | |
 | `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |
 | `P` `S` `E` | play / shuffle / queue the open or highlighted playlist as audio (a hint elsewhere) | |
-| `Y` `I` | History tab: `Y` cycles the source (Local, YouTube history, Watch Later; the last two are read-only account lists) / `I` imports the YouTube rows (or the marked ones) into local history (a hint elsewhere) | |
+| `I` | History tab, YouTube history source: imports the rows (or the marked ones) into local history (a hint elsewhere) | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); `s` on the local History tab: recent / most watched / longest watched (a hint elsewhere) | |
 | `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
 | `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |

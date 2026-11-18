@@ -210,7 +210,7 @@ async def test_history_journey_play_resume_marker_remove_undo_source_switch_impo
         await pilot.press("u")
         await settle(app, pilot)
         assert history.get(first["id"])["resume_s"] == 60 and shown(app) == [first["id"]]
-        await pilot.press("Y")
+        screen._select_collection("history:yt")
         await settle(app, pilot)
         assert screen._current_tab == "history:yt" and shown(app) == [e["id"] for e in yt]
         await pilot.press("I")

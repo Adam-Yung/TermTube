@@ -64,6 +64,9 @@ async def test_tab_order_and_f_keys_have_no_playlists_tab(app):
         assert screen.query_one("#nav-tabs", Tabs).active == "library" and screen._rail().display
         await pilot.press("f4")
         await pilot.pause(0.4)
+        assert screen._rail().display and screen._current_tab == "history"
+        await pilot.press("f1")
+        await pilot.pause(0.4)
         assert not screen._rail().display
 
 

@@ -55,9 +55,11 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("D", "remove"),
         ("u", "undo"),
     ]),
-    ("library", [
+    ("rail", [
         ("Tab", "rail"),
         ("j / k  Enter", "rail_nav"),
+    ]),
+    ("library", [
         ("f", "filter"),
         ("n / R", "playlist_new"),
         ("D", "delete"),
@@ -66,7 +68,6 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("p", "playlist_dialog"),
     ]),
     ("history", [
-        ("Y", "source"),
         ("I", "import"),
     ]),
     ("app", [
@@ -74,7 +75,6 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("s / t", "sort"),
         ("r", "refresh"),
         ("Z", "hide_played"),
-        ("F", "follow"),
         (",", "settings"),
         ("?", "help"),
         ("Ctrl+D", "debug"),

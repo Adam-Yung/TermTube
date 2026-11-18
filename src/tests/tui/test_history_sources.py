@@ -51,13 +51,13 @@ def panel_of(app) -> VideoListPanel:
     return app.screen.query_one("#video-list-panel", VideoListPanel)
 
 
-async def test_y_cycles_local_and_youtube_and_the_tab_remembers_it(app, signed_in, fetched):
+async def test_the_side_list_picks_the_source_and_the_tab_remembers_it(app, signed_in, fetched):
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen.action_goto_tab("history")
         await pilot.pause(0.3)
         assert screen._current_tab == "history"
-        await pilot.press("Y")
+        await pilot.press("tab", "j", "enter")
         await pilot.pause(0.5)
         assert screen._current_tab == "history:yt"
         screen.action_goto_tab("home")
@@ -65,10 +65,25 @@ async def test_y_cycles_local_and_youtube_and_the_tab_remembers_it(app, signed_i
         screen.action_goto_tab("history")
         await pilot.pause(0.3)
         assert screen._current_tab == "history:yt"
-        await pilot.press("Y")
-        await pilot.press("Y")
+        assert screen._rail_view() == "history:yt"
+        screen._select_collection("history")
         await pilot.pause(0.3)
         assert screen._current_tab == "history"
+
+
+async def test_the_history_tab_opens_on_termtube_history_with_the_side_list_shown(app):
+    async with app.run_test(size=(100, 30)) as pilot:
+        screen = app.screen
+        screen.action_goto_tab("history")
+        await pilot.pause(0.3)
+        rail = screen._rail()
+        assert rail.display and rail.current == "history"
+        assert [i.view for i in rail._items] == ["history", "history:yt", "history:wl"]
+        assert not screen._rail_focused()
+        await pilot.press("tab")
+        assert screen._rail_focused()
+        await pilot.press("tab")
+        assert not screen._rail_focused()
 
 
 async def test_youtube_rows_use_the_account_loader_and_carry_a_badge_and_no_day_headers(app, signed_in, fetched):
@@ -154,15 +169,14 @@ async def test_i_imports_into_local_history_without_duplicates(app, signed_in, f
         assert rows["abcdefghij2"]["source"] == "yt" and rows["abcdefghij2"]["watched_at"] is None
 
 
-async def test_i_and_y_outside_their_view_only_hint(app):
+async def test_i_outside_the_youtube_source_only_hints(app):
     hints = []
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._hint = lambda msg, *a: hints.append(msg)
         screen._current_tab = "home"
         await pilot.press("I")
-        await pilot.press("Y")
-        assert len(hints) == 2 and not history.all_entries()
+        assert len(hints) == 1 and not history.all_entries()
 
 
 def test_yt_badge_on_account_rows_and_imported_rows_only():
@@ -180,8 +194,7 @@ async def test_watch_later_is_the_third_source_and_read_only(app, signed_in, fet
         screen._hint = lambda msg, *a: hints.append(msg)
         screen.action_goto_tab("history")
         await pilot.pause(0.3)
-        await pilot.press("Y")
-        await pilot.press("Y")
+        screen._select_collection("history:wl")
         await pilot.pause(0.5)
         assert screen._current_tab == "history:wl"
         calls = [c for c in fetched if c[1]["feed_key"] == "yt_watchlater"]
@@ -190,7 +203,7 @@ async def test_watch_later_is_the_third_source_and_read_only(app, signed_in, fet
         await pilot.press("D")
         await pilot.press("I")
         assert "Watch Later" in hints[0] and len(hints) == 2 and not history.all_entries()
-        await pilot.press("Y")
+        screen._select_collection("history")
         await pilot.pause(0.3)
         assert screen._current_tab == "history"
 

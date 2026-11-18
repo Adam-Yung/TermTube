@@ -21,7 +21,7 @@ from src.tui.screens.mixins.debug_log import DebugLogMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.feed_loader import FEED_TABS, FeedLoaderMixin, feed_key_of
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
-from src.tui.screens.mixins.library_rail import HISTORY_SOURCES, LibraryRailMixin, tab_of
+from src.tui.screens.mixins.library_rail import RAIL_TABS, LibraryRailMixin, tab_of
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
 from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
@@ -105,7 +105,6 @@ class MainScreen(
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
         Binding("r", "refresh", "Refresh"),
-        *keymap.SUBSCRIPTIONS,
         *keymap.HOME,
         *keymap.GLOBAL,
     ]
@@ -123,7 +122,6 @@ class MainScreen(
         self._init_debug_log()
         self._init_list_tools()
         self._init_library_rail()
-        self._history_view = "history"
         self._history_sort = "recent"
 
     def _removals(self) -> dict[str, Removal]:
@@ -154,8 +152,7 @@ class MainScreen(
             tools.add("history_import")
         if self._can_undo():
             tools.add("undo")
-        tools |= {"history": {"history_source"}, "home": {"show_played"}, "subscriptions": {"following"},
-                  "search": {"search_sort", "search_type"}}.get(tab if tab == "history" else view, set())
+        tools |= {"home": {"show_played"}, "search": {"search_sort", "search_type"}}.get(view, set())
         if view == "history":
             tools.add("search_sort")
         if tab == "library":
@@ -302,22 +299,12 @@ class MainScreen(
             if self._current_tab in FEED_TABS:
                 self._save_feed_stash(self._current_tab)
             self._save_search_position()
-            self._show_rail(tab_id == "library")
-            if tab_id == "library":
-                self._select_collection(self._library_view, focus_list=False)
+            self._show_rail(tab_id in RAIL_TABS)
+            if tab_id in RAIL_TABS:
+                self._select_collection(self._rail_views[tab_id], focus_list=False)
             else:
-                self._current_tab = self._history_view if tab_id == "history" else tab_id
-                self._load_view(self._current_tab)
-
-    def action_history_source(self) -> None:
-        """Y: cycle the History tab's source (Local, then each YouTube account list)."""
-        if tab_of(self._current_tab) != "history":
-            self._hint(text("main_screen.history_source_hint"), "information")
-            return
-        self._cancel_pending_focus_and_thumb()
-        sources = HISTORY_SOURCES
-        self._current_tab = self._history_view = sources[(sources.index(self._current_tab) + 1) % len(sources)]
-        self._load_view(self._current_tab)
+                self._current_tab = tab_id
+                self._load_view(tab_id)
 
     def action_history_import(self) -> None:
         """I: copy the loaded YouTube history rows (or the marked ones) into the local history."""
@@ -377,10 +364,7 @@ class MainScreen(
     def action_nav_back(self) -> None:
         if self._close_filter_if_active():
             return
-        if self._current_tab == "following":
-            self._current_tab = "subscriptions"
-            self._load_view("subscriptions")
-        elif tab_of(self._current_tab) == "library":
+        if tab_of(self._current_tab) in RAIL_TABS:
             if not self._rail_focused():
                 self._rail().focus()
         elif self._current_tab == "search" and self._search.pop():
@@ -476,14 +460,6 @@ class MainScreen(
         self._load_view("home")
         self.notify(text("main_screen.showing_played" if self._show_played else "main_screen.hiding_played"), timeout=2)
 
-    def action_following(self) -> None:
-        """The local Following list, from the Subscriptions tab (it needs no account)."""
-        if self._current_tab != "subscriptions":
-            self._hint(text("main_screen.following_hint"), "information")
-            return
-        self._current_tab = "following"
-        self._load_view("following")
-        self._list().set_breadcrumb(text("main_screen.following_crumb"))
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         entry = message.entry
         if entry.get("_is_channel"):

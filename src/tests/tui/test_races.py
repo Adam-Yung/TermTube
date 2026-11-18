@@ -306,10 +306,10 @@ async def test_a_history_source_switch_during_a_load_shows_the_last_source(app, 
         screen._current_tab = "history"
         screen._load_view("history")
         await settle(app, pilot)
-        screen.action_history_source()  # history:yt, blocks in the gate
+        screen._select_collection("history:yt")  # blocks in the gate
         await until(pilot, slow.started.is_set)
-        screen.action_history_source()  # history:wl
-        screen.action_history_source()  # back to local
+        screen._select_collection("history:wl")
+        screen._select_collection("history")  # back to local
         await settle(app, pilot)
         slow.release.set()
         await settle(app, pilot)

@@ -12,6 +12,9 @@ PLAYLIST_VIEW = "playlist:"
 ACCOUNT_VIEWS = {"history:yt": "yt_history", "history:wl": "yt_watchlater"}
 """History-tab sources read from the account (read-only), each with its feed key."""
 HISTORY_SOURCES = ("history", *ACCOUNT_VIEWS)
+SUBSCRIPTION_SOURCES = ("subscriptions", "following")
+RAIL_TABS = ("library", "history", "subscriptions")
+"""Tabs with a left rail: each rail entry is one source of the tab."""
 _COLLECTIONS = (
     ("library", "library_rail.all_downloads", ""),
     ("library:video", "library_rail.videos", "video"),
@@ -23,21 +26,22 @@ def tab_of(view: str) -> str:
     """The tab a view belongs to: Library collections and playlists live on `library`, History sources on `history`."""
     if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
         return "library"
-    if view == "following":
+    if view in SUBSCRIPTION_SOURCES:
         return "subscriptions"
     return "history" if view in HISTORY_SOURCES else view
 
 
 class LibraryRailMixin:
-    """The left rail of the Library tab: which collection the list shows, and focus between rail and list.
+    """The left rail of the Library, History and Subscriptions tabs: which source the list shows, and rail/list focus.
 
-    The displayed collection is `_current_tab` (`library`, `library:video`, `library:audio` or `playlist:<id>`); the tab
-    bar highlights `tab_of(_current_tab)`. Needs `_list()`, `_hint`, `_load_view` and `_cancel_pending_focus_and_thumb`
-    from the screen, and a `#library-rail` child.
+    The shown source is `_current_tab` (a Library collection or `playlist:<id>`, a History source, `subscriptions` or
+    `following`); the tab bar highlights `tab_of(_current_tab)`, and `_rail_views` remembers each tab's source.
+    Needs `_list()`, `_hint`, `_load_view` and `_cancel_pending_focus_and_thumb` from the screen, and a
+    `#library-rail` child.
     """
 
     def _init_library_rail(self) -> None:
-        self._library_view = "library"
+        self._rail_views = {"library": "library", "history": "history", "subscriptions": "subscriptions"}
         self._library_counts: dict[str, int] = {"": 0, "video": 0, "audio": 0}
 
     def _rail(self) -> LibraryRail:
@@ -53,14 +57,27 @@ class LibraryRailMixin:
             return None
         return playlist.get(item.view.removeprefix(PLAYLIST_VIEW))
 
+    def _rail_view(self) -> str:
+        return self._rail_views.get(tab_of(self._current_tab), "")
+
     def _rail_items(self) -> list[RailItem]:
+        tab = tab_of(self._current_tab)
+        if tab == "history":
+            from src import history
+
+            return [RailItem("history", text("history_rail.local"), len(history.all_entries())),
+                    RailItem("history:yt", text("history_rail.youtube")),
+                    RailItem("history:wl", text("history_rail.watch_later"))]
+        if tab == "subscriptions":
+            return [RailItem("subscriptions", text("subscriptions_rail.subscribed")),
+                    RailItem("following", text("subscriptions_rail.following"))]
         counts = self._library_counts
         items = [RailItem(view, text(label_key), counts[key]) for view, label_key, key in _COLLECTIONS]
         items += [RailItem(f"{PLAYLIST_VIEW}{p['id']}", p["name"], len(p["items"])) for p in playlist.list_playlists()]
         return [*items, RailItem(NEW_PLAYLIST, text("library_rail.new_playlist"))]
 
     def _refresh_rail(self) -> None:
-        self._rail().set_items(self._rail_items(), self._library_view)
+        self._rail().set_items(self._rail_items(), self._rail_view())
 
     def _set_library_counts(self, counts: dict[str, int]) -> None:
         self._library_counts = counts
@@ -78,12 +95,14 @@ class LibraryRailMixin:
             rail.set_narrow(self.size.width < NARROW_BELOW)
 
     def _select_collection(self, view: str, *, focus_list: bool = True) -> None:
-        """Show ``view`` (a Library collection or `playlist:<id>`) in the list, loading it like any tab."""
+        """Show ``view`` (a source of a rail tab) in the list, loading it like any tab."""
         self._cancel_pending_focus_and_thumb()
-        self._current_tab = self._library_view = view
+        self._current_tab = self._rail_views[tab_of(view)] = view
         self._refresh_rail()
         self._rail().set_current(view)
         self._load_view(view)
+        if view == "following":
+            self._list().set_breadcrumb(text("subscriptions_rail.following_crumb"))
         record = playlist.get(view.removeprefix(PLAYLIST_VIEW)) if view.startswith(PLAYLIST_VIEW) else None
         if record:
             self._list().set_breadcrumb(text("library_rail.playlist_crumb", name=record["name"]))
@@ -97,15 +116,15 @@ class LibraryRailMixin:
             self._select_collection(message.view)
 
     def action_page_prev(self) -> None:
-        """h on the first page of a Library list moves to the rail; elsewhere it pages back as usual."""
-        if tab_of(self._current_tab) == "library" and not self._list().can_go_prev() and self._rail().display:
+        """h on the first page of a list with a rail moves to the rail; elsewhere it pages back as usual."""
+        if tab_of(self._current_tab) in RAIL_TABS and not self._list().can_go_prev() and self._rail().display:
             self._rail().focus()
         else:
             super().action_page_prev()
 
     def action_rail_toggle(self) -> None:
-        """Tab: move focus between the Library rail and its list."""
-        if tab_of(self._current_tab) != "library":
+        """Tab: move focus between the rail and the list."""
+        if tab_of(self._current_tab) not in RAIL_TABS:
             self._hint(text("library_rail.rail_hint"), "information")
         elif self._rail_focused():
             self._list().focus_list()
@@ -120,7 +139,7 @@ class LibraryRailMixin:
         shown = self._current_tab.removeprefix(PLAYLIST_VIEW) if self._current_tab.startswith(PLAYLIST_VIEW) else None
         gone = shown is not None and playlist.get(shown) is None
         if gone:
-            self._library_view = "library"
+            self._rail_views = {"library": "library", "history": "history", "subscriptions": "subscriptions"}
         self._refresh_rail()
         if gone:
             self._select_collection("library", focus_list=not self._rail_focused())

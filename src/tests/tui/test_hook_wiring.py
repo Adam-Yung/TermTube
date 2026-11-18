@@ -141,7 +141,7 @@ async def test_r_reloads_the_current_tab(app, monkeypatch, tab):
         assert bool(cleared) == (tab == "home")
 
 
-async def test_escape_closes_a_kept_filter_before_it_goes_back(app, monkeypatch):
+async def test_escape_closes_a_kept_filter_before_it_goes_to_the_side_list(app, monkeypatch):
     loads = spy(monkeypatch, MainScreen, "_load_view")
     async with app.run_test(size=(100, 30)) as pilot:
         screen, panel = await seed(app, pilot, "following", 1)
@@ -152,7 +152,7 @@ async def test_escape_closes_a_kept_filter_before_it_goes_back(app, monkeypatch)
         assert not panel.filter_active and screen._current_tab == "following" and loads == []
         await pilot.press("escape")
         await pilot.pause(0.1)
-        assert screen._current_tab == "subscriptions" and loads == [(("subscriptions",), {})]
+        assert screen._rail_focused() and screen._current_tab == "following" and loads == []
 
 
 async def test_escape_on_home_does_nothing(app, monkeypatch):

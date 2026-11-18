@@ -17,7 +17,7 @@ because a normal quit hits both. `main.py` adds signal handlers and `close_all_s
 `docs/decisions/concurrency.md#2026-06-17--unified-process-registry-and-structured-shutdown`.
 
 `on_unmount` then runs housekeeping synchronously if the timer never fired. `_housekeeping_done` makes it run once per process, whichever
-path gets there first. Housekeeping pins playlist videos before pruning; failures are logged, never raised.
+path gets there first. Housekeeping pins playlist videos before pruning; failures are logged, never raised. It prunes thumbnails (7 days, 300), video metadata (3 days, 400), search feeds (14 days, 50), rendered ANSI thumbnails (7 days, 600) and SponsorBlock segment files (past the 24 h TTL, 300).
 
 ## Limits
 
