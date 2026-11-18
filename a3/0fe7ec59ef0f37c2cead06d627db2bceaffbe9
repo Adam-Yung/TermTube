@@ -1,0 +1,135 @@
+src/fuzzy.py
+  s_6c28d43e292a51::t_3fbfae5c9dafd7 39,43,62
+  s_6c28d43e292a51::t_9d117e4e91605a 40
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_faa0bc50ea834a 38
+  s_6c28d43e292a51::t_4dfba364d7b1e0 113
+  s_6c28d43e292a51::t_8cf5e9cae7f0ed 10,31-37,39-41,58,98-99,299-306,308-311
+src/tui/screens/mixins/list_nav.py
+  s_6c28d43e292a51::t_0140ff4a1431dc 90
+  s_6c28d43e292a51::t_faa0bc50ea834a 91-92
+src/tests/tui/test_library_rail.py
+  s_6c28d43e292a51::t_27cc2a91099ee2 87-88
+  s_6c28d43e292a51::t_9bc4fb575ccef7 1-85,89-98,100-295,299-300
+  s_6c28d43e292a51::t_7d9e35dafea3fb 99,301
+  s_6c28d43e292a51::t_4dfba364d7b1e0 86,296-298
+src/tests/tui/test_search_back.py
+  s_6c28d43e292a51::t_5dcc4879953c08 63,70,73-74
+  s_6c28d43e292a51::t_4dfba364d7b1e0 119,122
+docs/code/src/tui/screens/mixins/library_rail.py.md
+  s_6c28d43e292a51::t_d376566627910c 1-14
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_0140ff4a1431dc 748-761
+docs/code/src/tui/screens/mixins/list_nav.py.md
+  s_6c28d43e292a51::t_d376566627910c 18-19
+docs/code/src/tui/widgets/library_rail.py.md
+  s_6c28d43e292a51::t_d376566627910c 1-6
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_d2a276ca2b3277 20-21,50,53,55-56,58
+  s_6c28d43e292a51::t_faa0bc50ea834a 54
+src/tui/widgets/video_list.py
+  s_6c28d43e292a51::t_24d9c2c5edffbb 25-32,166-167,234,509-512,594
+src/tests/unit/test_library_query.py
+  s_6c28d43e292a51::t_35faa1f0747f2c 1-91
+src/tui/widgets/library_rail.py
+  s_6c28d43e292a51::t_ee3e9c141be0da 9,22,46
+  s_6c28d43e292a51::t_a8b3e5e8642b39 1-8,10-21,23-45,47-147
+docs/features/architecture.md
+  s_6c28d43e292a51::t_12c2cda5078945 96-97
+docs/code/src/playlist.py.md
+  s_6c28d43e292a51::t_d376566627910c 25-26
+docs/features/library-and-downloads.md
+  s_6c28d43e292a51::t_12c2cda5078945 45-46,49-62
+docs/code/src/library.py.md
+  s_6c28d43e292a51::t_d376566627910c 43-44
+docs/todo.md
+  s_6c28d43e292a51::t_4bc6b26a45d721 53-54
+src/tests/unit/test_library_collections.py
+  s_6c28d43e292a51::t_35faa1f0747f2c 1-27
+src/tui/screens/mixins/library_rail.py
+  s_6c28d43e292a51::t_c338c4929777c3 9,20,51,79,115-118
+  s_6c28d43e292a51::t_768da87a99623f 76
+  s_6c28d43e292a51::t_ee3e9c141be0da 1-5,7-8,10,16-19,21-43,47-50,52-68,71-75,77-78,80-96,98-104,107-114,119-120
+  s_6c28d43e292a51::t_faa0bc50ea834a 11-15,44-46,105-106
+  s_6c28d43e292a51::t_bd3a2b1bb4981c 69-70,97
+  s_6c28d43e292a51::t_ada23149b2d8f5 6
+src/tui/library_delete.py
+  s_6c28d43e292a51::t_0140ff4a1431dc 35-36,45
+docs/code/src/tui/screens/mixins/playlist_tools.py.md
+  s_6c28d43e292a51::t_d376566627910c 3-5,7-17
+src/tui/widgets/detail_panel.py
+  s_6c28d43e292a51::t_740b01015713c5 148-149
+docs/code/src/tui/library_delete.py.md
+  s_6c28d43e292a51::t_d376566627910c 11-12
+docs/code/src/tui/screens/help_screen.py.md
+  s_6c28d43e292a51::t_12c2cda5078945 3
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_0140ff4a1431dc 238-242
+  s_6c28d43e292a51::t_6100d9a52acf3c 13,23,29,51,66,98,118,129-130,134-137,142,153,222,232,237,268,292-296,339,371
+  s_6c28d43e292a51::t_b24d51a51a6172 88
+docs/code/src/fuzzy.py.md
+  s_6c28d43e292a51::t_d376566627910c 10-11
+src/tests/tui/test_playlist_tools.py
+  s_6c28d43e292a51::t_344e70fc52c4b1 1,37,39,41-47,59-61,66-67,74,80,90,117,133,141,153
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_5dcc4879953c08 22-23,43,45,47-49,73
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_d376566627910c 23,49,61-62
+src/playlist.py
+  s_6c28d43e292a51::t_24d9c2c5edffbb 258-269
+docs/code/src/tui/screens/nav_modal.py.md
+  s_6c28d43e292a51::t_12c2cda5078945 3
+docs/code/src/tui/widgets/video_list.py.md
+  s_6c28d43e292a51::t_d376566627910c 27-28
+src/tui/screens/mixins/list_tools.py
+  s_6c28d43e292a51::t_c338c4929777c3 66-71,75-86,115,135-138,149,151
+  s_6c28d43e292a51::t_8cf5e9cae7f0ed 124-125
+src/tui/keymap.py
+  s_6c28d43e292a51::t_b24d51a51a6172 44
+README.md
+  s_6c28d43e292a51::t_12c2cda5078945 91,106
+src/library_query.py
+  s_6c28d43e292a51::t_27cc2a91099ee2 1
+  s_6c28d43e292a51::t_3fbfae5c9dafd7 2-132
+src/library.py
+  s_6c28d43e292a51::t_ab47b451b5193b 14,187-221
+  s_6c28d43e292a51::t_509a575d37147f 222-223
+src/tests/unit/test_keymap.py
+  s_6c28d43e292a51::t_b24d51a51a6172 36,42
+docs/code/src/library_query.py.md
+  s_6c28d43e292a51::t_d376566627910c 1-12
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_d376566627910c 3,7-8,32-33,37-41
+docs/code/src/tui/screens/mixins/list_tools.py.md
+  s_6c28d43e292a51::t_d376566627910c 17-18
+src/tui/screens/mixins/playlist_tools.py
+  s_6c28d43e292a51::t_c338c4929777c3 8
+  s_6c28d43e292a51::t_bd3a2b1bb4981c 5,16-32,41-44
+  s_6c28d43e292a51::t_440784799c3f70 9,63,65-66,72,77-89,110-111,124-127,130-131,141,158,160,183,188,190
+  s_6c28d43e292a51::t_c8e9461deadb7c 92
+  s_6c28d43e292a51::t_4df312dbb2fce4 14-15
+src/tui/screens/nav_modal.py
+  s_6c28d43e292a51::t_0140ff4a1431dc 15
+docs/code/src/tui/widgets/detail_panel.py.md
+  s_6c28d43e292a51::t_d376566627910c 18-19
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_12c2cda5078945 30-44
+docs/status.md
+  s_6c28d43e292a51::t_12c2cda5078945 8,12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a30fe7ec59ef0f37c2cead06d627db2bceaffbe9",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
