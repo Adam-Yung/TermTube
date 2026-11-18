@@ -1,0 +1,46 @@
+src/tests/unit/test_thumbnail_download.py
+  s_6c28d43e292a51::t_37fa37b0e2641d 115-121
+src/tests/conftest.py
+  s_6c28d43e292a51::t_663b27eee1920c 88-93
+docs/code/src/innertube.py.md
+  s_6c28d43e292a51::t_eb19d8bfbb0b20 41,43,46
+docs/status.md
+  s_6c28d43e292a51::t_37fa37b0e2641d 18,21
+docs/code/src/plat.py.md
+  s_6c28d43e292a51::t_eb19d8bfbb0b20 13
+docs/decisions/feeds-and-paging.md
+  s_6c28d43e292a51::t_eb19d8bfbb0b20 116,130,153-156
+src/tests/fixtures/innertube_playlist_videos_lockup.json
+  s_6c28d43e292a51::t_73879467a0e2d9 1-750
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_eb19d8bfbb0b20 25
+src/innertube.py
+  s_6c28d43e292a51::t_9912de497d24a1 258-259,264-265,268-271,279-280,282-283,682-691,694-697
+  s_6c28d43e292a51::t_b9f87404e65241 266-267,692-693
+docs/guides/morning-checklist.md
+  s_6c28d43e292a51::t_37fa37b0e2641d 5,8,13-15
+src/tests/unit/test_innertube_parsers.py
+  s_6c28d43e292a51::t_73879467a0e2d9 357-366
+AGENTS.md
+  s_6c28d43e292a51::t_cba7e8fd128e90 9-14
+src/plat.py
+  s_6c28d43e292a51::t_663b27eee1920c 6,260-281,284-290,293
+  s_6c28d43e292a51::t_acbc2718955a9a 292
+  s_6c28d43e292a51::t_72cbaf9bebe689 291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3ed3c7b82e546362a88a0c02eedffbd974b55b7d",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
