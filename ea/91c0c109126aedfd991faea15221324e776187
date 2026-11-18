@@ -1,0 +1,64 @@
+src/tui/screens/search_modal.py
+  s_6c28d43e292a51::t_104bc973e432c7 3,10-13,16-20,24-25,29-33,37-38,48-51,54-57,61-88
+  s_6c28d43e292a51::t_ba46133d0a9f38 26
+  s_6c28d43e292a51::t_1eff32d1d2d16c 40-41
+src/tests/unit/test_search_history.py
+  s_6c28d43e292a51::t_052f735ef38d35 1-50
+src/tests/unit/test_main_cli.py
+  s_6c28d43e292a51::t_751b6e18b5b0c6 7
+  s_6c28d43e292a51::t_1783fb3e9cc685 10,12,18
+src/tests/tui/test_search_modal.py
+  s_6c28d43e292a51::t_052f735ef38d35 1-81
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_052f735ef38d35 13,280
+src/config.py
+  s_6c28d43e292a51::t_7aa5a7bd4bd8ce 42,125-127
+  s_6c28d43e292a51::t_43bcdb8d7e32af 128
+src/search_history.py
+  s_6c28d43e292a51::t_7aa5a7bd4bd8ce 1-54
+src/tests/tui/conftest.py
+  s_6c28d43e292a51::t_052f735ef38d35 18
+src/main.py
+  s_6c28d43e292a51::t_7aa5a7bd4bd8ce 90,209,254-255
+  s_6c28d43e292a51::t_f7c9335e2722d7 252
+docs/features/configuration.md
+  s_6c28d43e292a51::t_751b6e18b5b0c6 36,48
+docs/status.md
+  s_6c28d43e292a51::t_4484e7e2785c14 11
+docs/code/src/search_history.py.md
+  s_6c28d43e292a51::t_751b6e18b5b0c6 1-7
+src/tui/theme.tcss
+  s_6c28d43e292a51::t_052f735ef38d35 353-355
+  s_6c28d43e292a51::t_d46f676798d3c8 351-352
+docs/code/src/tui/screens/search_modal.py.md
+  s_6c28d43e292a51::t_751b6e18b5b0c6 3-8
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_4484e7e2785c14 49
+src/fuzzy.py
+  s_6c28d43e292a51::t_7aa5a7bd4bd8ce 66-70
+src/tests/conftest.py
+  s_6c28d43e292a51::t_052f735ef38d35 120-126
+  s_6c28d43e292a51::t_c39367de18ec82 119
+docs/code/src/fuzzy.py.md
+  s_6c28d43e292a51::t_751b6e18b5b0c6 3-4
+docs/todo.md
+  s_6c28d43e292a51::t_8a13e6681ffe33 40
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_8a13e6681ffe33 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ea91c0c109126aedfd991faea15221324e776187",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
