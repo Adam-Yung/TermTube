@@ -98,6 +98,7 @@ class FeedLoaderMixin:
     def _start_view(self, view: str) -> None:
         self._close_cursor()
         self._feed_session += 1
+        self._pending_show = False
         self._stream_view(view, self._feed_session)
 
     def _ui(self, fn, *args, **kwargs):
