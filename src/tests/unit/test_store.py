@@ -1,6 +1,7 @@
 """Tests for src/store.py: JsonStore."""
 
 import json
+import sys
 import threading
 
 import pytest
@@ -22,7 +23,8 @@ def test_update_writes_envelope_privately(tmp_path):
     assert s.update(lambda d: d.update(x=1) or True)
     raw = json.loads((tmp_path / "a.json").read_text(encoding="utf-8"))
     assert raw == {"version": 1, "data": {"x": 1}}
-    assert (tmp_path / "a.json").stat().st_mode & 0o777 == 0o600
+    if sys.platform != "win32":  # Windows has no POSIX modes
+        assert (tmp_path / "a.json").stat().st_mode & 0o777 == 0o600
 
 
 def test_falsy_result_does_not_write(tmp_path):
