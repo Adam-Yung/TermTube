@@ -17,6 +17,8 @@ ROWS = [
 def quiet(monkeypatch, temp_history):
     monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
     monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    # The startup Home load sees an empty patched feed and opens this modal; its mount races teardown on slow runners.
+    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
 
 
 @pytest.fixture
