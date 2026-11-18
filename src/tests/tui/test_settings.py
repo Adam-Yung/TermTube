@@ -1,5 +1,7 @@
 """Settings modal: sections, navigation, inline editing with refusals, reset, reload from disk, clear actions."""
 
+import sys
+
 import pytest
 import yaml
 from textual.widgets import Input
@@ -164,7 +166,9 @@ async def test_a_file_and_an_unwritable_directory_are_refused(app, tmp_path):
     not_a_dir.write_text("x", encoding="utf-8")
     locked = tmp_path / "locked"
     locked.mkdir()
-    locked.chmod(0o500)
+    posix_modes = sys.platform != "win32"  # Windows ignores directory permission bits
+    if posix_modes:
+        locked.chmod(0o500)
     try:
         async with app.run_test(size=(110, 50)) as pilot:
             modal = await open_settings(app, pilot)
@@ -174,9 +178,10 @@ async def test_a_file_and_an_unwritable_directory_are_refused(app, tmp_path):
             field.value = str(not_a_dir / "sub")
             await pilot.press("enter")
             assert "is a file, not a directory" in status(modal)
-            field.value = str(locked / "sub")
-            await pilot.press("enter")
-            assert "is not writable" in status(modal)
+            if posix_modes:
+                field.value = str(locked / "sub")
+                await pilot.press("enter")
+                assert "is not writable" in status(modal)
     finally:
         locked.chmod(0o700)
 
