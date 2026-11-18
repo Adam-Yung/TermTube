@@ -1,0 +1,45 @@
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_aeb00d67702e18 32-33
+src/tui/screens/help_screen.py
+  s_6c28d43e292a51::t_c22b8db1c61765 20
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_6c28d43e292a51::t_aeb00d67702e18 56-59
+docs/code/src/search_stack.py.md
+  s_6c28d43e292a51::t_aeb00d67702e18 1-8
+docs/features/keybindings.md
+  s_6c28d43e292a51::t_c22b8db1c61765 22
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_7957d33307aeef 16,90,200,207,238,244,258-262,288-289,292-304,307
+docs/todo.md
+  s_6c28d43e292a51::t_aeb00d67702e18 39
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_7957d33307aeef 255,268,374,376
+  s_6c28d43e292a51::t_bcccb0c5bf83e5 37,273-286
+docs/features/architecture.md
+  s_6c28d43e292a51::t_c22b8db1c61765 94
+src/search_stack.py
+  s_6c28d43e292a51::t_7957d33307aeef 1-64
+src/tests/tui/test_search_back.py
+  s_6c28d43e292a51::t_7b7594ba46b438 1
+  s_6c28d43e292a51::t_1a2de1e997342e 2-78
+src/tests/unit/test_search_stack.py
+  s_6c28d43e292a51::t_8d714f5033562b 1-45
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_aeb00d67702e18 14-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4b8be395c9db0baf919477b5540dd58c21951a64",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
