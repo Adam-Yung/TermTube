@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src import logger
-from src.plat import get_cache_dir
+from src.plat import get_cache_dir, prune_dir
 
 _UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text(encoding="utf-8").strip()
 
@@ -105,6 +105,12 @@ class Segment:
 
 def _cache_path(video_id: str) -> Path:
     return _CACHE_DIR / f"{video_id}.json"
+
+
+def prune_cache(max_count: int = 300) -> None:
+    """Delete segment files past their TTL (they are only dropped when read again) and cap the rest."""
+    expired, capped = prune_dir(_CACHE_DIR, "*.json", _CACHE_TTL / 86400, max_count)
+    logger.debug("sponsorblock.prune_cache: %d expired, %d capped", expired, capped)
 
 
 def _read_cache(video_id: str) -> list[Segment] | None:

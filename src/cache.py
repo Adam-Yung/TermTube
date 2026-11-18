@@ -11,7 +11,7 @@ from pathlib import Path
 
 from src import logger
 from src.entries import Entry
-from src.plat import atomic_write, get_cache_dir
+from src.plat import atomic_write, get_cache_dir, prune_dir
 
 CACHE_DIR = get_cache_dir()
 THUMB_DIR = CACHE_DIR / "thumbs"
@@ -302,45 +302,25 @@ class Cache:
         logger.info("cache.clear_all: %d feeds, %d videos, %d thumbnails", feeds, videos, thumbs)
         return sum(counts)
 
-    @staticmethod
-    def _prune_dir(directory: Path, pattern: str, max_age_days: int | None, max_count: int) -> tuple[int, int]:
-        """Delete files older than ``max_age_days`` (if given), then the oldest by mtime beyond ``max_count``.
-
-        Returns ``(expired, capped)``.
-        """
-        cutoff = time.time() - max_age_days * 86400 if max_age_days is not None else None
-        files: list[tuple[float, Path]] = []
-        expired = 0
-        for f in directory.glob(pattern):
-            try:
-                mtime = f.stat().st_mtime
-                if cutoff is not None and mtime < cutoff:
-                    f.unlink(missing_ok=True)
-                    expired += 1
-                else:
-                    files.append((mtime, f))
-            except OSError:
-                pass
-        capped = max(0, len(files) - max_count)
-        files.sort()
-        for _, f in files[:capped]:
-            f.unlink(missing_ok=True)
-        return expired, capped
-
     def prune_video_cache_fifo(self, max_count: int = 100) -> None:
         """Cap video metadata files at ``max_count``, evicting the oldest by mtime."""
-        _, capped = self._prune_dir(VIDEO_DIR, "*.json", None, max_count)
+        _, capped = prune_dir(VIDEO_DIR, "*.json", None, max_count)
         if capped:
             logger.debug("prune_video_cache_fifo: evicted %d", capped)
 
     def prune_old_thumbnails(self, max_age_days: int = 7, max_count: int = 300) -> None:
-        expired, capped = self._prune_dir(THUMB_DIR, "*.jpg", max_age_days, max_count)
+        expired, capped = prune_dir(THUMB_DIR, "*.jpg", max_age_days, max_count)
         logger.debug("prune_old_thumbnails: %d expired, %d capped", expired, capped)
 
     def prune_old_videos(self, max_age_days: int = 3, max_count: int = 100) -> None:
         """mtime is the cache age: ``put_video`` always rewrites the file."""
-        expired, capped = self._prune_dir(VIDEO_DIR, "*.json", max_age_days, max_count)
+        expired, capped = prune_dir(VIDEO_DIR, "*.json", max_age_days, max_count)
         logger.debug("prune_old_videos: %d expired, %d capped", expired, capped)
+
+    def prune_old_searches(self, max_age_days: int = 14, max_count: int = 50) -> None:
+        """Search feeds are keyed by query hash and pile up; ``put_feed`` rewrites the file, so mtime is the age."""
+        expired, capped = prune_dir(CACHE_DIR, "feed_search_*.json", max_age_days, max_count)
+        logger.debug("prune_old_searches: %d expired, %d capped", expired, capped)
 
     def pin_video(self, video_id: str, entry: Entry | None = None) -> None:
         """Copy ``entry`` (default: the cached entry) into the playlist cache that pruning skips."""

@@ -52,6 +52,31 @@ def is_tool_installed(name: str) -> bool:
     return (get_deps_bin() / (f"{name}.exe" if IS_WINDOWS else name)).exists()
 
 
+def prune_dir(directory: Path, pattern: str, max_age_days: int | None, max_count: int) -> tuple[int, int]:
+    """Delete files matching ``pattern`` older than ``max_age_days`` (if given), then the oldest beyond ``max_count``.
+
+    Age is mtime. Returns ``(expired, capped)``.
+    """
+    cutoff = time.time() - max_age_days * 86400 if max_age_days is not None else None
+    files: list[tuple[float, Path]] = []
+    expired = 0
+    for f in directory.glob(pattern):
+        try:
+            mtime = f.stat().st_mtime
+            if cutoff is not None and mtime < cutoff:
+                f.unlink(missing_ok=True)
+                expired += 1
+            else:
+                files.append((mtime, f))
+        except OSError:
+            pass
+    capped = max(0, len(files) - max_count)
+    files.sort()
+    for _, f in files[:capped]:
+        f.unlink(missing_ok=True)
+    return expired, capped
+
+
 def atomic_write(path: Path, data: bytes) -> None:
     """Write ``data`` to ``path`` through a unique temp file in the same directory and ``os.replace``.
 

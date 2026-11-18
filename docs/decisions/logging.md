@@ -23,3 +23,6 @@ The `_termtube_skip_tui` record attribute, set by `logger.file_only`, lets `Main
 ## 2026-11-16 — The TUI log sink never blocks
 
 `logging` calls a handler's `emit` while holding the handler lock. The Ctrl+D panel's sink called `app.call_from_thread`, which waits for the UI thread. With `--debug`, a worker thread logging while the UI thread was also logging (around "Audio start") deadlocked the app: the worker held the lock and waited for the UI, the UI waited for the lock. It surfaced as an intermittent hang in the Windows end-to-end CI job, which runs with `--debug`, and was reproduced locally with a test. The sink now queues records and a UI timer drains them. Rejected: a lock-free `call_soon_threadsafe` on a private loop attribute (relies on Textual internals), and dropping the panel mirror (the panel is what `--debug` is for).
+
+## 2026-11-18 — Debug logs rotate and old ones are pruned
+Each `--debug` run wrote a new timestamped file with no size limit and nothing ever deleted them. The handler is now a `RotatingFileHandler` (5 MB, one backup) and `setup` keeps the 10 newest files no older than 7 days.
