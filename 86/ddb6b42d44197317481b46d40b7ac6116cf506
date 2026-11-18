@@ -1,0 +1,77 @@
+src/tests/tui/test_markup_escaping.py
+  s_6c28d43e292a51::t_eb74ac484a2be1 60-65
+src/tui/screens/mixins/item_actions.py
+  s_6c28d43e292a51::t_d29d00ac41a2cc 11,300
+  s_6c28d43e292a51::t_7145682fb2d22b 253
+src/tui/audio_controller.py
+  s_6c28d43e292a51::t_e72d8df9bef080 368
+  s_6c28d43e292a51::t_7a17c3c4520ba8 14
+  s_6c28d43e292a51::t_c10370460cbb91 359-363
+  s_6c28d43e292a51::t_be7284b69d4673 465-466
+  s_6c28d43e292a51::t_7145682fb2d22b 130,450,455
+  s_6c28d43e292a51::t_b0c646cb60dc1c 295-296
+  s_6c28d43e292a51::t_f3c12bcd220802 25,367,464
+docs/code/src/tui/screens/mixins/channel_playlist.py.md
+  s_6c28d43e292a51::t_36afe111bdd616 8
+docs/code/src/tui/screens/mixins/detail_focus.py.md
+  s_6c28d43e292a51::t_36afe111bdd616 32
+src/tui/screens/playlist_modal.py
+  s_6c28d43e292a51::t_47687134180d1d 104,107,115,120
+docs/decisions/concurrency.md
+  s_6c28d43e292a51::t_36afe111bdd616 58-60
+src/tests/tui/test_channel_playlist.py
+  s_6c28d43e292a51::t_635ade689eb03e 110-131
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_eb74ac484a2be1 102-104
+docs/code/src/tui/audio_controller.py.md
+  s_6c28d43e292a51::t_36afe111bdd616 16
+src/tui/screens/mixins/feed_loader.py
+  s_6c28d43e292a51::t_f3c12bcd220802 11,160
+  s_6c28d43e292a51::t_e813fff380abf1 337,340
+src/tui/screens/mixins/detail_focus.py
+  s_6c28d43e292a51::t_e813fff380abf1 126,130,132
+src/tui/fmt.py
+  s_6c28d43e292a51::t_34572c773fb2c0 8,12-16
+  s_6c28d43e292a51::t_903be44712e017 6,17
+  s_6c28d43e292a51::t_8aebcc587c60d5 7
+src/tests/tui/test_audio_worker_crash.py
+  s_6c28d43e292a51::t_859a26496295f4 20-30
+src/tui/screens/mixins/channel_playlist.py
+  s_6c28d43e292a51::t_9de3890daeb4c8 8
+  s_6c28d43e292a51::t_893009087e1cf0 83-84
+src/tests/tui/test_loader_errors.py
+  s_6c28d43e292a51::t_1d6c6cd19e7a93 1-74,76-85,87,89-92
+  s_6c28d43e292a51::t_e813fff380abf1 140,205-214
+  s_6c28d43e292a51::t_882bda5d2d2eef 121-122
+  s_6c28d43e292a51::t_c10370460cbb91 161
+  s_6c28d43e292a51::t_903be44712e017 86
+  s_6c28d43e292a51::t_010df720a6d865 75,88
+  s_6c28d43e292a51::t_e1af4bfb6079f9 129-139,141-160,162-204
+  s_6c28d43e292a51::t_f270dc8d1f5285 93-120,123-128
+src/tui/screens/download_modal.py
+  s_6c28d43e292a51::t_f3c12bcd220802 209
+docs/code/src/tui/fmt.py.md
+  s_6c28d43e292a51::t_be7284b69d4673 6
+src/tests/tui/test_channel_following.py
+  s_6c28d43e292a51::t_859a26496295f4 11-13
+src/tui/screens/channel_screen.py
+  s_6c28d43e292a51::t_7145682fb2d22b 455,457
+docs/todo.md
+  s_6c28d43e292a51::t_676b72bb2092f2 103-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "86ddb6b42d44197317481b46d40b7ac6116cf506",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
