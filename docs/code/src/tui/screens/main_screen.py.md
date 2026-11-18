@@ -7,7 +7,7 @@ The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It
 - `_current_tab` is the view shown: a tab id, `search`, or on the Library tab a collection (`library`, `library:video`, `library:audio`, `playlist:<id>`). `tab_of(view)` maps a view to its tab (every Library collection is `library`); the tab bar, `H`/`L` cycling and the Help restore all go through it. Leaving and re-entering Library reopens `_library_view`.
 - `on_tabs_tab_activated` ignores an activation of the current tab (compared through `tab_of`). Appending list items can move focus to the tab bar, which re-fires activation of the tab already shown and would reload it. A real switch always changes the id.
 - Search and Help are tabs that open a modal. Cancelling the search modal must not set `tabs.active` (that re-activates the current tab and reloads its list); `_opening_search_tab` suppresses the dialog when `_show_search_results` sets the tab itself.
-- Switching away from the home tab saves the feed stash first (`FeedLoaderMixin._save_feed_stash`); `on_unmount` and quit do the same.
+- Switching away from the home tab saves the feed stash first (`FeedLoaderMixin._save_feed_stash`); `on_unmount` and quit do the same; `on_unmount` also detaches the screen as the audio debug-log sink.
 
 ## Subscriptions rows
 

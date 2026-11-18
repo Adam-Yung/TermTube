@@ -54,3 +54,21 @@ async def test_finished_download_refreshes_one_item_and_pins_it_offline(app, tmp
                                "duration": None, "upload_date": None, "view_count": None, "webpage_url": None,
                                "tags": None, "thumbnail": None, "description": ""}
     assert pinned["thumb"] == videos / "clip.jpg" and (videos / "clip.jpg").exists()
+
+
+async def test_a_download_that_cannot_register_tells_the_user_and_still_closes(app, tmp_path, monkeypatch):
+    from src.tui.screens.download_modal import DownloadModal
+
+    def boom(paths):
+        raise OSError("disk full")
+
+    monkeypatch.setattr("src.library.finish_download", boom)
+    told, closed = [], []
+    monkeypatch.setattr(type(app), "notify", lambda self, msg, **kw: told.append(msg))
+    async with app.run_test(size=(100, 30)) as pilot:
+        modal = DownloadModal("vid1", {"id": "vid1", "title": "Clip"})
+        modal._files = [str(tmp_path / "a [b].mp4")]
+        modal.dismiss = lambda *a: closed.append(a)
+        modal._on_done(True)
+        await pilot.pause(0.1)
+    assert closed == [(True,)] and len(told) == 1 and "a [b].mp4" in told[0] and "next scan" in told[0]

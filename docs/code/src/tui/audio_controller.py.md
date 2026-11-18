@@ -19,7 +19,7 @@ Threads are plain daemon threads (the controller is not a DOM node, so no `@work
 
 State changes reach screens as messages broadcast to every screen on `app.screen_stack` (`_broadcast` builds a fresh message per screen), not only the active one. A covered screen therefore stays current and a modal on top cannot swallow an update. `PlayerStateUpdated` (progress, and `playing=False` on stop, finish or failure), `AudioTrackChanged`, `AudioQueueChanged`, `AudioSegmentsLoaded`: `src/tui/messages.py`. A replaced track posts `AudioTrackChanged` only; no stop message is sent between the two tracks.
 
-`log` is a hook (`MainScreen` sets it to its debug-log writer in `on_mount`); the default discards.
+`log` is a hook (`MainScreen` sets it to its debug-log writer in `on_mount`); the default discards. `MainScreen.on_unmount` calls `detach_log` so a dead screen is not kept referenced (it only resets when the hook is still that screen's).
 
 ## Launch and retry loop
 

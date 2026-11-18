@@ -34,6 +34,10 @@ def _socket_base() -> str:
     return get_audio_ipc_path()
 
 
+def _no_log(_markup: str) -> None:
+    """Default and detached debug-log sink."""
+
+
 def _mpv_log_path() -> str | None:
     """Beside the app's --debug log, so a failed mpv can explain itself. None unless --debug is on."""
     log = logger.log_file() if logger.is_debug() else None
@@ -60,7 +64,7 @@ class AudioController:
 
     def __init__(self, app) -> None:
         self._app = app
-        self.log: Callable[[str], None] = lambda _markup: None
+        self.log: Callable[[str], None] = _no_log
         self._proc: subprocess.Popen | None = None
         self._entry: Entry | None = None
         self._queue: list[Entry] = []
@@ -195,6 +199,11 @@ class AudioController:
 
     def _queue_changed(self) -> None:
         self._broadcast(lambda: AudioQueueChanged(len(self._queue)))
+
+    def detach_log(self, sink: Callable[[str], None]) -> None:
+        """Drop ``sink`` as the debug log when it is the current one (a screen leaving must not stay referenced)."""
+        if self.log == sink:
+            self.log = _no_log
 
     def toggle_audio_pause(self) -> None:
         self._ipc({"command": ["cycle", "pause"]})

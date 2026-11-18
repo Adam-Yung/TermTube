@@ -10,7 +10,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import ProgressBar, Static
 
-from src import library
+from src import library, logger
 from src.entries import Entry
 from src.tui.fmt import escape_markup
 
@@ -177,6 +177,16 @@ class DownloadModal(ModalScreen[bool]):
         thumb = entry.get("_thumb_path")
         cache.pin_thumb(entry["id"], Path(thumb) if thumb else None)
 
+    def _registration_failed(self, exc: Exception) -> None:
+        """The file is on disk; the Library scan indexes it later. Say so instead of hiding it."""
+        logger.warning("download not registered in the Library: %s", type(exc).__name__)
+        library.invalidate_cache()
+        name = Path(self._files[-1]).name if self._files else "the file"
+        self.app.notify(
+            f"{name} downloaded but not added to the Library yet; it appears after the next scan.",
+            severity="warning",
+        )
+
     def _on_done(self, success: bool, error_msg: str = "") -> None:
         if success:
             try:
@@ -186,8 +196,8 @@ class DownloadModal(ModalScreen[bool]):
                 pass
             try:
                 self._pin(library.finish_download(self._files))
-            except Exception:
-                pass
+            except Exception as exc:
+                self._registration_failed(exc)
             self.dismiss(True)
         else:
             try:
