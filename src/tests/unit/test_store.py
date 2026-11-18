@@ -4,8 +4,6 @@ import json
 import sys
 import threading
 
-import pytest
-
 from src import store as store_mod
 from src.store import JsonStore
 
@@ -132,12 +130,31 @@ def test_deferred_write_happens_by_itself(tmp_path, monkeypatch):
     assert p.exists()
 
 
-def test_failed_sync_write_raises_and_keeps_data(tmp_path, monkeypatch):
+def test_failed_sync_write_does_not_raise_tells_once_and_retries_later(tmp_path, monkeypatch):
     s = make(tmp_path / "a.json")
-    monkeypatch.setattr(store_mod, "atomic_write", lambda *a: (_ for _ in ()).throw(PermissionError("held")))
-    with pytest.raises(PermissionError):
-        s.update(lambda d: d.update(x=1) or True)
-    assert s.read(dict) == {"x": 1}
+    told = []
+    store_mod.set_failure_hook(told.append)
+    try:
+        failing = [True]
+
+        def write(path, payload):
+            if failing[0]:
+                raise PermissionError(13, "held")
+            path.write_bytes(payload)
+
+        monkeypatch.setattr(store_mod, "atomic_write", write)
+        assert s.update(lambda d: d.update(x=1) or True)
+        s.update(lambda d: d.update(y=2) or True)
+        assert s.read(dict) == {"x": 1, "y": 2} and len(told) == 1 and "a.json" in told[0]
+        failing[0] = False
+        store_mod.flush_all()
+        assert json.loads((tmp_path / "a.json").read_text(encoding="utf-8"))["data"] == {"x": 1, "y": 2}
+        failing[0] = True
+        s.update(lambda d: d.update(z=3) or True)
+        s.update(lambda d: d.update(v=5) or True)
+        assert len(told) == 2
+    finally:
+        store_mod.set_failure_hook(None)
 
 
 def test_failed_deferred_write_does_not_raise(tmp_path, monkeypatch):

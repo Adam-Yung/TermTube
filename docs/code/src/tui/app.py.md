@@ -26,3 +26,5 @@ path gets there first. Housekeeping pins playlist videos before pruning; failure
 ## Notifications
 
 `notify` is overridden to escape its message (`fmt.escape_markup`): every notice in the app is plain text and many carry video titles with `[brackets]`, which Textual would otherwise parse as markup. Pass `markup=False` to skip the escape. Look: `docs/decisions/ui.md`.
+
+`_store_save_failed` is the `store.set_failure_hook` callback: an error notice when a JSON store cannot write (direct on the UI thread, `call_from_thread` otherwise); cleared in `on_unmount`.

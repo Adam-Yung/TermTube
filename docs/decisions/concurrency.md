@@ -49,3 +49,9 @@ Exit paths, in layers:
 5. SIGTERM/SIGHUP: the signal handler calls `ProcessRegistry.kill_all()` + `sys.exit()`.
 
 Startup `reap_orphans()` handles the SIGKILL case, where no cleanup is possible. It cleans stale `/tmp/termtube-mpv*.sock` files and kills orphaned mpv processes found via `pgrep`.
+
+## 2026-11-18 — A failed store write never raises into the UI
+Playlist create/add and other synchronous `JsonStore.update` calls re-raised `OSError`; no caller caught it, so a read-only or full disk
+crashed the app with a traceback. Now every failed write logs, keeps the change in memory, stays dirty (retried by the next write and at
+exit), and tells the user once per failing streak through `store.set_failure_hook` (the app's `_store_save_failed`, thread-aware). Single-writer
+assumption: there is no cross-process lock; a second TermTube running at once can overwrite the first's file (last writer wins).

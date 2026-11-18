@@ -17,6 +17,13 @@ from src.plat import atomic_write
 
 _FLUSH_DELAY = 0.5
 _pending: weakref.WeakSet[JsonStore] = weakref.WeakSet()
+_failure_hook: Callable[[str], None] | None = None
+
+
+def set_failure_hook(hook: Callable[[str], None] | None) -> None:
+    """The app registers the function that tells the user a save failed (once per failing streak, any thread)."""
+    global _failure_hook
+    _failure_hook = hook
 
 
 def flush_all() -> None:
@@ -52,6 +59,7 @@ class JsonStore:
         self._loaded_from: Path | None = None
         self._dirty = False
         self._timer: threading.Timer | None = None
+        self._failing = False
 
     @property
     def path(self) -> Path:
@@ -65,8 +73,8 @@ class JsonStore:
     def update(self, fn: Callable[[Any], Any], *, defer: bool = False) -> Any:
         """Run `fn(data)` under the lock; it mutates `data` in place and returns a result.
 
-        A truthy result means "changed": the file is rewritten, now (an OSError propagates) or, with `defer`,
-        by a background timer shortly after. The result is returned.
+        A truthy result means "changed": the file is rewritten, now or, with `defer`, by a background timer
+        shortly after. A failed write never raises: the data stays in memory and dirty, and the user is told.
         """
         with self._lock:
             result = fn(self._ensure_loaded())
@@ -76,16 +84,16 @@ class JsonStore:
             if defer:
                 self._schedule()
                 return result
-        self.flush(raise_errors=True)
+        self.flush()
         return result
 
-    def flush(self, *, raise_errors: bool = False) -> None:
-        """Write pending changes now."""
+    def flush(self) -> None:
+        """Write pending changes now; a failure keeps them dirty for the next flush."""
         with self._write_lock:
             with self._lock:
-                if not self._dirty:
-                    return
                 path = self.path
+                if not self._dirty or self._loaded_from != path:
+                    return
                 payload = json.dumps(
                     {"version": self._version, "data": self._data}, ensure_ascii=False, separators=(",", ":")
                 ).encode("utf-8")
@@ -98,9 +106,15 @@ class JsonStore:
             except OSError as exc:
                 with self._lock:
                     self._dirty = True
+                    _pending.add(self)
                 logger.warning("%s not saved: %s", path.name, exc)
-                if raise_errors:
-                    raise
+                if not self._failing:
+                    self._failing = True
+                    if _failure_hook:
+                        why = exc.strerror or type(exc).__name__
+                        _failure_hook(f"{path.name} could not be saved ({why}); changes stay in memory.")
+            else:
+                self._failing = False
 
     def _schedule(self) -> None:
         _pending.add(self)
@@ -115,6 +129,7 @@ class JsonStore:
             return self._data
         self._data = self._load(path)
         self._loaded_from = path
+        self._failing = False
         return self._data
 
     def _load(self, path: Path) -> Any:

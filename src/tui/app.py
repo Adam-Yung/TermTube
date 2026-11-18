@@ -9,7 +9,7 @@ from pathlib import Path
 
 from textual.app import App
 
-from src import logger
+from src import logger, store
 from src.cache import Cache
 from src.config import Config
 from src.tui.audio_controller import AudioController
@@ -54,6 +54,7 @@ class TermTubeApp(App):
         if theme != "crimson":
             self.add_class(f"theme-{theme}")
 
+        store.set_failure_hook(self._store_save_failed)
         threading.Thread(target=self._warmup_ytdlp, daemon=True).start()
         self.set_timer(_HOUSEKEEPING_DELAY_S, self._launch_housekeeping)
 
@@ -61,7 +62,15 @@ class TermTubeApp(App):
 
         self.push_screen(MainScreen())
 
+    def _store_save_failed(self, message: str) -> None:
+        """Tell the user from whichever thread the failing save ran on."""
+        if threading.get_ident() == self._thread_id:
+            self.notify(message, severity="error", timeout=8)
+        else:
+            self.call_from_thread(self.notify, message, severity="error", timeout=8)
+
     def on_unmount(self) -> None:
+        store.set_failure_hook(None)
         self._atexit_cleanup()
         if not self._housekeeping_done.is_set():
             self._run_housekeeping()
