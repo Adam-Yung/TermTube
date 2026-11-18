@@ -1,0 +1,189 @@
+src/tui/screens/main_screen.py
+  s_70fe85e8e85e25::t_a9ab6bfc490998 17,34-39,42-44,47-50,53-55,171,268,277,279,281,284,315,325,330,396,411,416,461,473,477,482,486,500,595
+  s_70fe85e8e85e25::t_5774c0fcbca79d 407-408
+src/tui/widgets/detail_panel.py
+  s_70fe85e8e85e25::t_caf49d440dcea4 86-87,228-229
+  s_70fe85e8e85e25::t_031b783a1ee1b4 18,45,73,94-95,125,144,150,234-237,241
+src/tests/tui/test_markup_escaping.py
+  s_70fe85e8e85e25::t_4e1254ab56af8a 59
+src/tui/screens/settings_modal.py
+  s_70fe85e8e85e25::t_bcc71bbded40c6 12,77-78,82,137,143,147,149,178,192,217,224,227,232,238,242,267
+  s_70fe85e8e85e25::t_ebec0290e824d0 19-20,181-183
+  s_70fe85e8e85e25::t_617297f6e7a38d 59-60
+  s_70fe85e8e85e25::t_e9b2fb98345d6f 22
+src/tui/widgets/app_header.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 11-12,27
+src/tui/library_delete.py
+  s_70fe85e8e85e25::t_a93140288a63bf 7,18-22,24,27-28,33
+  s_70fe85e8e85e25::t_5774c0fcbca79d 30-31
+src/tui/screens/image_warning_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 9-10,19,21,26-27
+src/tui/screens/name_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 9,26-27
+src/tui/screens/sort_modal.py
+  s_70fe85e8e85e25::t_cc3cd387cb8d02 10,14-15,33,38,51
+src/tests/tui/test_channel_global_keys.py
+  s_70fe85e8e85e25::t_351cc79acaa1a0 78
+  s_70fe85e8e85e25::t_83fc6efe34a14c 6
+src/player.py
+  s_70fe85e8e85e25::t_bff84d71b215c8 442-453,462,562,564
+  s_70fe85e8e85e25::t_a80d4014ae6364 20
+src/config.py
+  s_70fe85e8e85e25::t_bff84d71b215c8 12,74,103
+src/tests/tui/test_library_rail.py
+  s_70fe85e8e85e25::t_ef2526c0ecffed 302-312
+src/tests/tui/test_key_hints.py
+  s_70fe85e8e85e25::t_351cc79acaa1a0 80
+  s_70fe85e8e85e25::t_e1ce0b40cccd9f 44-45
+  s_70fe85e8e85e25::t_7ce79c723994eb 7,111
+src/tests/tui/test_queue.py
+  s_70fe85e8e85e25::t_3729352a8e699c 157,186
+  s_70fe85e8e85e25::t_351cc79acaa1a0 251
+  s_70fe85e8e85e25::t_83fc6efe34a14c 10
+src/deps.py
+  s_70fe85e8e85e25::t_a80d4014ae6364 8,16,18,31,46,50,60,62,64,73
+src/tui/screens/playlist_modal.py
+  s_70fe85e8e85e25::t_3c25191157dbd2 11,36,42,46,61,104,107,115,120
+  s_70fe85e8e85e25::t_f6dbc678f657f9 71
+src/tui/widgets/thumbnail_widget.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 14,71,93,96,132,134
+src/tests/tui/test_list_tools.py
+  s_70fe85e8e85e25::t_4e1254ab56af8a 411
+src/tui/widgets/action_bar.py
+  s_70fe85e8e85e25::t_15a1492f2dd9b7 16,29,31-32,109,154,157,264,343,357,389-392
+  s_70fe85e8e85e25::t_caf49d440dcea4 231-232,234-238
+src/tui/widgets/channel_info_panel.py
+  s_70fe85e8e85e25::t_caf49d440dcea4 33-34
+  s_70fe85e8e85e25::t_031b783a1ee1b4 9,19,22-24,60,64,104-107
+src/tui/screens/channel_tab_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 9,32
+  s_70fe85e8e85e25::t_197d00419929a0 33-35,40,49
+src/tests/unit/test_settings_fields.py
+  s_70fe85e8e85e25::t_3729352a8e699c 25,53
+src/tests/unit/test_library.py
+  s_70fe85e8e85e25::t_26a971f1db8501 242
+src/tests/tui/test_home_revalidate.py
+  s_70fe85e8e85e25::t_030f65e55fdb03 9,123
+docs/features/keybindings.md
+  s_70fe85e8e85e25::t_ef2526c0ecffed 23
+src/errors.py
+  s_70fe85e8e85e25::t_bff84d71b215c8 8-10,24,37,41,45
+src/tui/widgets/page_indicator.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 10,59,61
+src/tui/screens/mixins/library_rail.py
+  s_70fe85e8e85e25::t_ebec0290e824d0 99-105
+  s_70fe85e8e85e25::t_a93140288a63bf 5,16-18,58,60,89,109
+src/tui/screens/mixins/feed_loader.py
+  s_70fe85e8e85e25::t_b54b9d28c0dfa3 12,30-31,34-36,38,139,141,162,174,177,255,308,383,392,435,443,494,564,579
+  s_70fe85e8e85e25::t_5774c0fcbca79d 159-160
+docs/features/library-and-downloads.md
+  s_70fe85e8e85e25::t_ef2526c0ecffed 26
+src/tui/screens/queue_modal.py
+  s_70fe85e8e85e25::t_3c25191157dbd2 12
+  s_70fe85e8e85e25::t_ad6150b7cdde80 20,22-23,50,52,75,84-86,113,128
+src/tests/tui/test_settings.py
+  s_70fe85e8e85e25::t_3729352a8e699c 148
+src/tests/tui/test_history_sources.py
+  s_70fe85e8e85e25::t_4e1254ab56af8a 140
+src/tui/screens/video_action_modal.py
+  s_70fe85e8e85e25::t_cc3cd387cb8d02 10,47,63
+src/tui/screens/empty_feed_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 9-10,20,25,30-33
+src/tui/screens/ytdlp_update_modal.py
+  s_70fe85e8e85e25::t_cc3cd387cb8d02 9-10,24,28,30,33-34
+src/tui/audio_controller.py
+  s_70fe85e8e85e25::t_ecfbace1cb9446 25
+  s_70fe85e8e85e25::t_a9ab6bfc490998 126,128,131-132,298,336,340,453,458,468,519-521
+  s_70fe85e8e85e25::t_8283acc5dbefa1 157-158
+  s_70fe85e8e85e25::t_5774c0fcbca79d 320-322,390-391
+src/tui/screens/mixins/list_tools.py
+  s_70fe85e8e85e25::t_b440d5d22fdb90 10,17-21,25-29,85,89,95-96,98-99,136,140-141,144,154,165-166
+src/tui/screens/mixins/channel_playlist.py
+  s_70fe85e8e85e25::t_8de8ed0b9897a2 9,58,62,91,103-104
+src/tui/screens/mixins/debug_log.py
+  s_70fe85e8e85e25::t_8de8ed0b9897a2 9,40,50-53
+src/tui/screens/mixins/playlist_tools.py
+  s_70fe85e8e85e25::t_a93140288a63bf 7,15,24,43,58,60-61,111,126,131,139,143,149,156,160,162,173,175,180,187,191,204
+  s_70fe85e8e85e25::t_5774c0fcbca79d 14,16
+src/tui/fmt.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 8-9,94,98,100
+src/tui/screens/nav_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 9-10,12-17,32,35,39
+src/tui/keymap.py
+  s_70fe85e8e85e25::t_ecfbace1cb9446 9-10,60-69,146-165
+src/tests/tui/test_playlist_modal.py
+  s_70fe85e8e85e25::t_3729352a8e699c 28
+src/main.py
+  s_70fe85e8e85e25::t_26a971f1db8501 23,44-45,67,73,84-94,97,105,108,119-120,129,131,150,169,171-172,201,204-207,211,218,220-223,253,259,278,331
+src/tui/screens/channel_screen.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 17,37-42,45-47,102,148,155,158,162,253,449,454,462,470,475,477,481
+  s_70fe85e8e85e25::t_caf49d440dcea4 160-161
+src/tui/settings_fields.py
+  s_70fe85e8e85e25::t_f6dbc678f657f9 90-91,104-105,113-121,127-128,133-145,148-153,157-167,169-170,172
+  s_70fe85e8e85e25::t_efbe045d59bc52 12,39,49,52,57,59,68,77,79,87,98,100-101,106,108-112,126,154-156
+src/tui/screens/help_screen.py
+  s_70fe85e8e85e25::t_6733b928ca2087 11-12,15-16,18-25,27-37,39-43,45-50,52-56,58-66,68-70,72-81,83-91,96-99,104-108,110-112,146
+src/tui/screens/search_modal.py
+  s_70fe85e8e85e25::t_cc3cd387cb8d02 11,44-45,48,132-133
+src/tui/screens/mixins/item_actions.py
+  s_70fe85e8e85e25::t_8de8ed0b9897a2 10,74,77,91,105,130,133,170,192,194,201,209,215,230,233,250,254,256,276,278,295,297,299,304,307
+src/tests/tui/test_hook_wiring.py
+  s_70fe85e8e85e25::t_4e1254ab56af8a 207
+docs/code/src/strings.json.md
+  s_70fe85e8e85e25::t_ef2526c0ecffed 1-6
+src/strings.json
+  s_70fe85e8e85e25::t_876d75356503a7 674
+  s_70fe85e8e85e25::t_ef2526c0ecffed 629
+  s_70fe85e8e85e25::t_e05af079155638 1-317,319-372,374-527,529-628,630-673,675-692
+  s_70fe85e8e85e25::t_4e1254ab56af8a 318,373,528
+src/strings.py
+  s_70fe85e8e85e25::t_876d75356503a7 1
+  s_70fe85e8e85e25::t_49290b143f5d9e 2-29
+src/plat.py
+  s_70fe85e8e85e25::t_bff84d71b215c8 19-20,408,423
+src/tests/unit/test_mixin_wiring.py
+  s_70fe85e8e85e25::t_add7f48a847f9b 41
+scripts/e2e-local.py
+  s_70fe85e8e85e25::t_4e1254ab56af8a 275
+src/tui/screens/watch_modal.py
+  s_70fe85e8e85e25::t_186e3458ba38bd 26,63,66,71,73,110,121,129,159,168
+  s_70fe85e8e85e25::t_134cc78433c3a4 169-170,267,278,288
+src/tui/screens/download_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 15,40,43,48,53,55,109,122,127,135,137,139,141,146,185,187,206,208,210,213
+src/tui/widgets/video_list.py
+  s_70fe85e8e85e25::t_031b783a1ee1b4 18,27-30,57,59,61,63-64,143,162-165,171,173,175,177,179,181,183,271,672,674,676,678,680
+  s_70fe85e8e85e25::t_caf49d440dcea4 156-157
+src/tui/screens/download_picker_modal.py
+  s_70fe85e8e85e25::t_fb5136497a4a86 10,14-15,18,51-52,54,75,77-78,86-87,89
+src/library.py
+  s_70fe85e8e85e25::t_bff84d71b215c8 333,344,347
+  s_70fe85e8e85e25::t_a80d4014ae6364 18
+src/tui/screens/quality_modal.py
+  s_70fe85e8e85e25::t_3c25191157dbd2 10,46,54
+docs/code/src/strings.py.md
+  s_70fe85e8e85e25::t_ef2526c0ecffed 1-11
+docs/code/src/tui/screens/channel_screen.py.md
+  s_70fe85e8e85e25::t_030f65e55fdb03 12
+src/tests/unit/test_run_mpv.py
+  s_70fe85e8e85e25::t_3729352a8e699c 74
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_70fe85e8e85e25::t_17f547701ab600 12
+docs/code/src/tui/screens/mixins/library_rail.py.md
+  s_70fe85e8e85e25::t_862ab29a0dc9d3 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d7105c4e2376f9e6d35a6a0842c54c2b2f134cb1",
+  "prompts": {},
+  "sessions": {
+    "s_70fe85e8e85e25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83955899-ab6a-413f-8925-3fa1d3a8cfa1",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
