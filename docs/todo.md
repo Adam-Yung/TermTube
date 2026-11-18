@@ -67,7 +67,7 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P8.1 Settings sections, reload from disk, page size setting (A3) (settings search with `/` is not done: one screen of about 26 rows) (f0ddbc2, 291dca1 via merge)
 - [ ] P8.2 Cookie prewarm setting, refresh account, sign-in vs extraction error split (A2)
 - [ ] P8.3 Typed source errors, retry/backoff, rate-limit message (A5)
-- [x] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6)
+- [x] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6) (`0ca0724`)
 - [ ] P8.5 Help screen and keymap consistency test (B6)
 
 ## Always
