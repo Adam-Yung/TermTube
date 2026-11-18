@@ -1,0 +1,46 @@
+README.md
+  s_6c28d43e292a51::t_3ffe9feca412c2 128
+src/cookies.py
+  s_6c28d43e292a51::t_97f7b9fff01ea0 10,52-65
+  s_6c28d43e292a51::t_2ee28d24cbdb86 66-67
+docs/code/src/tui/screens/main_screen.py.md
+  s_6c28d43e292a51::t_b320bbe28d970b 28
+docs/code/src/tui/screens/empty_feed_modal.py.md
+  s_6c28d43e292a51::t_814ed010d4a151 3
+docs/code/src/cookies.py.md
+  s_6c28d43e292a51::t_3ffe9feca412c2 8
+docs/features/accounts-and-cookies.md
+  s_6c28d43e292a51::t_3ffe9feca412c2 30
+src/tui/screens/main_screen.py
+  s_6c28d43e292a51::t_97f7b9fff01ea0 163,191-192,198-209
+  s_6c28d43e292a51::t_73ef8721ab5a30 210
+docs/code/src/config.py.md
+  s_6c28d43e292a51::t_b320bbe28d970b 25
+src/tui/screens/empty_feed_modal.py
+  s_6c28d43e292a51::t_97f7b9fff01ea0 11,30,43-44
+src/config.py
+  s_6c28d43e292a51::t_97f7b9fff01ea0 44,185-188
+  s_6c28d43e292a51::t_68be473f407e7d 189
+docs/decisions/cookies-and-auth.md
+  s_6c28d43e292a51::t_3ffe9feca412c2 148-153
+docs/todo.md
+  s_6c28d43e292a51::t_b14378dd7fbbe9 68
+src/tests/unit/test_cookie_prewarm.py
+  s_6c28d43e292a51::t_5d8856d18f6842 1-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a2e8bb21f083d6c0ecf0f1ff8ab2e7207f08fbee",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
