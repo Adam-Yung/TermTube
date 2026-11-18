@@ -1,0 +1,25 @@
+docs/code/src/tui/theme.tcss.md
+  s_6c28d43e292a51::t_d975fc9b5b4344 12-13
+src/tests/unit/test_theme_wiring.py
+  s_6c28d43e292a51::t_71e20cd2eb1f87 1-2,5-11,13-14,16,19,21-54,56-58,60
+  s_6c28d43e292a51::t_54d7c1e10de7e8 61-68
+  s_6c28d43e292a51::t_e5b602bb0a56d5 3-4,12,15,17-18,20,55,59
+docs/decisions/ui.md
+  s_6c28d43e292a51::t_d975fc9b5b4344 91-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "470fd625235dc01613a441180fe84725aa5e5d50",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
