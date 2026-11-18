@@ -144,6 +144,16 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return None
 
+    def feed_age(self, key: str) -> float | None:
+        """Seconds since the feed was cached, or None if it is missing or past its TTL."""
+        path = CACHE_DIR / f"feed_{key}.json"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            age = time.time() - data.get("_cached_at", 0)
+        except (json.JSONDecodeError, OSError):
+            return None
+        return age if age <= self._ttl.get(key, 3600) else None
+
     def is_feed_fresh(self, key: str) -> bool:
         """True if the feed cache exists and is within TTL."""
         return self.get_feed(key) is not None

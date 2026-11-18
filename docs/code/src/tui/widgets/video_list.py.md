@@ -18,6 +18,7 @@ The paged list. Entries live in `_pages` (page number to entries, `page_size` = 
 - **Marks** are ids in `_marked`; they survive paging, are pruned by `replace_entries` and cleared by `clear_and_set_loading`. `M` marks the shown page, or unmarks it when all of it is marked.
 - **Day headers.** `set_view_options(group_by=...)` makes `_render_rows` insert a disabled `HeaderListItem` whenever the label changes. Headers exist only in the `ListView`: pages, counts and `_items_by_id` never see them; `cursor_first` skips them and Textual's cursor skips disabled items. They are not drawn while filtering (a ranked list is not chronological).
 - `loaded_count` is the number of entries in the full set (the footer total after an extension).
+- `set_notice(text)` is a standing footer note (the Home `↑ N new · r to refresh`), cleared by `clear_and_set_loading`; unlike `set_progress` an extension does not clear it.
 - `set_progress(text)` adds in-flight work ("loading 30 more…") to the footer note; `clear_and_set_loading` clears it.
 - `replace_entries(entries, focus_id)` swaps the full set after a removal or undo and keeps filter, marks and page.
 

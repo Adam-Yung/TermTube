@@ -15,6 +15,7 @@ from src.tui.widgets.video_list import VideoListPanel
 BATCH_FETCH_COUNT = 80
 FIRST_BATCH_COUNT = 15
 SEARCH_FETCH_COUNT = 50
+_MIN_CACHED_FEED = 15
 
 FEED_TABS = ("home",)
 PAGED_TABS = ("home", "search", *ACCOUNT_VIEWS)
@@ -185,6 +186,9 @@ class FeedLoaderMixin:
                 return entries
             return [e for e in entries if not cache.is_suppressed(e.get("id", ""))]
 
+        age = cache.feed_age(feed_key) if feed_key == "home" else None
+        stale = age is not None and age > self.app.config.cache_ttl("home_revalidate")
+
         stash = visible(cache.get_home_stash() or []) if feed_key == "home" else []
         stash_ids = {e["id"] for e in stash if e.get("id")}
         if stash:
@@ -194,6 +198,8 @@ class FeedLoaderMixin:
         first_page = 2 if stash else 1
 
         if stash and self._show_cached_feed(feed_key, panel, stash_ids, visible):
+            if stale:
+                self._revalidate(feed_key, panel, visible)
             return
 
         shown_ids: set[str] = set()
@@ -246,10 +252,33 @@ class FeedLoaderMixin:
                 call(panel.load_page, 1)
             call(panel.finish_loading)
 
+        if stale and not cursor.ids:
+            self._revalidate(feed_key, panel, visible)
+
         try:
             cache.prune_video_cache_fifo(100)
         except Exception as exc:
             logger.debug("video cache prune: %s", exc)
+
+    def _revalidate(self, feed_key: str, panel: VideoListPanel, visible) -> None:
+        """Stale-while-revalidate: read the feed again behind the cached rows and only announce what is new.
+
+        The rows under the cursor never change; ``r`` reloads from the refreshed cache. Failures stay silent.
+        """
+        cache = self.app.cache
+        try:
+            cursor = self._feed_cursor or self._open_cursor(feed_key)
+            if cursor is None:
+                return
+            fresh = visible(cursor.take(BATCH_FETCH_COUNT, set()))
+            if len(cursor.ids) >= _MIN_CACHED_FEED:
+                cache.put_feed(feed_key, list(cursor.ids))
+            held = self._ui(lambda: panel.seen_ids)
+            new = [e for e in fresh if held is not None and e.get("id") not in held]
+            if new:
+                self._ui(panel.set_notice, f"↑ {len(new)} new · r to refresh")
+        except Exception as exc:
+            logger.debug("revalidate %s: %s", feed_key, exc)
 
     def _show_cached_feed(self, feed_key: str, panel: VideoListPanel, stash_ids: set[str], visible) -> bool:
         """Fill pages 2+ from the disk cache when it is fresh. False if there was nothing to show."""

@@ -15,6 +15,7 @@ _THEMES = ("crimson", "amber", "ocean", "midnight")
 _THUMBNAIL_FORMATS = ("auto", "symbols")
 _DEFAULT_SB_CATEGORIES = ["sponsor", "selfpromo"]
 _SECTIONS = ("cache_ttl", "sponsorblock")
+_TTL_DEFAULTS = {"home_revalidate": 600}
 MIN_ROWS_PER_PAGE, DEFAULT_ROWS_PER_PAGE, MAX_ROWS_PER_PAGE = 10, 20, 50
 
 DEFAULT_CONFIG: dict = {
@@ -26,6 +27,7 @@ DEFAULT_CONFIG: dict = {
     "preferred_quality": "best",
     "cache_ttl": {
         "home": 3600,
+        "home_revalidate": 600,
         "subscriptions": 3600,
         "yt_history": 600,
         "yt_watchlater": 600,
@@ -236,7 +238,9 @@ class Config:
 
     def cache_ttl(self, key: str) -> int:
         value = self._data["cache_ttl"].get(key)
-        return value if isinstance(value, int) and not isinstance(value, bool) else 3600
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+            return value
+        return _TTL_DEFAULTS.get(key, 3600)
 
     def __getitem__(self, key: str):
         return self._data[key]

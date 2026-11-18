@@ -28,6 +28,7 @@ History (`history.json`) and local playlists (`playlists.json`) sit next to it. 
 | `sponsorblock.auto_skip` | `true` | seek past a segment automatically |
 | `sponsorblock.categories` | `[sponsor, selfpromo]` | SponsorBlock categories to skip (a non-list reads as the default); values: sponsor, selfpromo, interaction, intro, outro, preview, filler, music_offtopic, poi_highlight |
 | `cache_ttl.home` | `3600` | seconds a cached Home feed stays fresh |
+| `cache_ttl.home_revalidate` | `600` | seconds after which a cached Home feed is shown at once and re-read in the background (a non-integer or negative value means 600; no Settings row) |
 | `cache_ttl.subscriptions` | `3600` | reserved for a subscription video feed (the Subscriptions tab lists channels, cached with the 1 h default); no Settings row until something reads it |
 | `cache_ttl.search` | `1800` | seconds a cached search stays fresh |
 | `cache_ttl.metadata` | `86400` | seconds cached video metadata stays valid |

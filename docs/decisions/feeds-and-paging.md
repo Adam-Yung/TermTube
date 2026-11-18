@@ -142,3 +142,7 @@ Found on the way: `ListNavMixin` defined no-op `_on_last_page_reached` and `_on_
 Prefetch moved to the second-to-last held page for feeds (`_on_page_shown`); one extension per session in flight (`_extending_session`), a page request meanwhile only marks the result to show (`_pending_show`). Extension errors used to be swallowed; they now show as `⚠ <typed message>` in the footer, with a hint when the user was waiting.
 
 **[verify live]** The real generator across calls with the extractor left open (the tests use a fake that records opens and reads).
+
+## 2026-11-18 — Home revalidates a stale cache in the background (P7.3)
+
+A Home cache older than `cache_ttl.home_revalidate` (600 s) and younger than `cache_ttl.home` (3600 s) is still shown at once, then read again behind the rows (cursor, 80 rows, cache rewritten). Rows held on screen never change; the footer says `↑ N new · r to refresh` and `r` reloads from the refreshed cache. This is not the deprecated 2026-04-25 design (a parallel fetch on every cache hit that swapped the list): it runs only past the young window, once per load, on the loader's own thread, and its cursor is the one later extensions continue. Failures are silent (logged). No Settings row; the key is in `config.json` only.

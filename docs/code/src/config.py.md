@@ -6,6 +6,7 @@ The user's settings file, `~/.config/TermTube/config.yaml` (path from `plat.get_
 
 - `Config.save()` is the only writer. It re-reads the file and merges, so keys this version does not know survive a save. Failures are
   logged and swallowed; a read-only config must not crash the UI.
+- `cache_ttl(key)` returns the validated integer (non-negative, not a bool) else the key's default: 3600, or 600 for `home_revalidate`.
 - Defaults live in `DEFAULT_CONFIG`. On load, a file value replaces the default key by key. `cache_ttl` and `sponsorblock` merge one level
   deep so a partial override keeps the other defaults.
 - A missing file is created on first construction.

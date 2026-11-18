@@ -24,3 +24,5 @@ Disk cache under the platform cache dir: video metadata JSON, feed id lists, sup
 - No cross-process locking: two TermTube instances can interleave writes (each write stays atomic; last writer wins).
 
 `pin_thumb(video_id, source=None)` pins `source` (a downloaded file's normalised JPEG) when given, else the cached thumbnail. The download modal pins every finished download with `pin_video` (public fields only) and `pin_thumb`.
+
+- `feed_age(key)` is the seconds since the feed id list was written, or None when missing or past its TTL (Home revalidation compares it with `cache_ttl.home_revalidate`).
