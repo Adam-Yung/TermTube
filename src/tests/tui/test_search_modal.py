@@ -7,7 +7,8 @@ from src.tui.screens.search_modal import SearchModal
 
 
 @pytest.fixture
-def modal_app(app):
+def modal_app(app, monkeypatch):
+    monkeypatch.setattr("src.tui.screens.search_modal._DEBOUNCE_S", 0.01)  # tests wait on workers, not on the debounce
     for q in ("python tips", "rust guide", "learn rust"):
         search_history.add(q)
     return app
@@ -115,12 +116,18 @@ async def test_no_request_below_two_characters_or_when_switched_off(modal_app, m
 
 
 async def test_typing_fast_sends_one_request_for_the_last_text(modal_app, monkeypatch):
+    monkeypatch.setattr("src.tui.screens.search_modal._DEBOUNCE_S", 600.0)
     calls = []
     monkeypatch.setattr("src.innertube.fetch_suggestions", lambda q, **_: calls.append(q) or [])
     async with modal_app.run_test(size=(100, 30)) as pilot:
         modal_app.push_screen(SearchModal())
         await pilot.pause(0.2)
-        await type_and_wait(pilot, "rust")
+        await type_and_wait(pilot, "rust", wait=0.1)
+        assert calls == []  # the debounce has not fired however slow the machine is
+        modal = modal_app.screen
+        modal._debounce.stop()
+        modal._fetch_suggestions("rust", modal._seq)  # what the timer does once typing pauses
+        await pilot.pause(0.5)
     assert calls == ["rust"]
 
 
