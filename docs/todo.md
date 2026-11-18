@@ -70,6 +70,22 @@ Legend: `[ ]` to do, `[~]` in progress, `[x]` done (commit short hash), `[-]` dr
 - [x] P8.4 Resume position, watch count, queue view (B4.4, B4.5, B6) (9c61cab via merge)
 - [x] P8.5 Help screen and keymap consistency test (B6) (consistency test landed in P2.5; keymap, help and keybindings.md checked by it)
 
+## UI audit (2026-11-18)
+Part A (modals, menu, Actions panel). Harness: `src/tests/tui/layout_harness.py`; add a `Scenario` to `test_layout_audit.py` for each new screen.
+- [x] Harness: every modal at 80x24, 100x30, 120x40, 160x50 and 60x20 (1ea9b37)
+- [x] New-playlist and rename prompt centered; one `ModalScreen` align rule and a shared `.dialog` / `.dialog-list` base (1ea9b37)
+- [x] Playlist (21 findings), queue (7), video menu (4), download (1) dialogs: hint and list no longer leave the box (1ea9b37)
+- [x] `YtdlpUpdateModal` had no styling; help CSS was in two places (1ea9b37)
+- [x] Actions panel no longer repeats footer keys (`/`, `r`); grows to its rows; menu and panel built from `keymap.ROW_ACTIONS` (ae09dae)
+- [x] Enter menu hides rows that do not apply (missing file, live, already downloaded) (ae09dae)
+- [x] Thumbnail area capped at half the detail panel (the Actions panel was below the screen at 30 rows) (ae09dae)
+Left for part B (screens, rail, bars):
+- [ ] Main screen and channel screen scenarios in the harness (header, tabs, rail, list, detail panel, footer) at the four sizes
+- [ ] The Library rail takes width from the list: part of the video row is off screen
+- [ ] Actions panel lists every tool of every tab on the main screen (21 entries, 7 rows at 100x30); show only the current tab's tools and re-render on tab and rail focus change
+- [ ] At 80x24 the detail panel leaves 2 rows for the video info; decide a minimum size or a compact layout
+- [ ] `WatchModal` is not in the harness (it needs mpv); check its box by hand
+
 ## Always
 - [x] Remove dead code found along the way; shared code stays shared (no copies of `_load/_save/_lock`)
 - [x] Update mirrors, feature docs, `status.md`, decision log in the same commit as the code
