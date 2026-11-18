@@ -1,0 +1,19 @@
+src/tests/tui/test_hook_wiring.py
+  s_6c28d43e292a51::t_31d78ce7758e3b 41-47,74,78,87,90,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ac4031c00985704f0244782919f71d4cf517e925",
+  "prompts": {},
+  "sessions": {
+    "s_6c28d43e292a51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1cc34886-ff27-4533-90d5-aff8847c8a74",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
