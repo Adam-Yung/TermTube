@@ -455,7 +455,8 @@ function Install-Shortcut {
             $sc.Arguments  = "-- `"$batPath`""
         } else {
             $sc.TargetPath = "cmd.exe"
-            $sc.Arguments  = "/k `"$batPath`""
+            # /d skips the user's AutoRun registry command, which could otherwise hijack the window
+            $sc.Arguments  = "/d /k `"$batPath`""
         }
         if ($icoPath) { $sc.IconLocation = "$icoPath,0" }
         $sc.Save()

@@ -320,7 +320,7 @@ _install_linux_desktop() {
 [Desktop Entry]
 Name=TermTube
 Comment=YouTube in your terminal
-Exec=termtube
+Exec=${BIN_DIR}/termtube
 Icon=${APP_DIR}/assets/termtube.png
 Terminal=true
 Type=Application
@@ -340,10 +340,11 @@ _install_macos_app() {
 
     mkdir -p "$macos_dir" "$resources_dir"
 
-    # Executable — uses absolute path so GUI-launched Terminal finds it
+    # Executable: a Finder launch has no tty, so it hands off to launch-macos.sh, which opens a
+    # Terminal window and copes with whatever the user's shell startup files do (tmux auto-attach...).
     cat > "$macos_dir/TermTube" <<EOF
 #!/bin/bash
-exec "${BIN_DIR}/termtube"
+exec /bin/bash "${APP_DIR}/scripts/launch-macos.sh" "${BIN_DIR}/termtube"
 EOF
     chmod +x "$macos_dir/TermTube"
 

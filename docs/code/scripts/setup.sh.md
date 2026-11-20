@@ -13,7 +13,7 @@ macOS/Linux installer. Copies the checkout to `~/.local/share/TermTube`, builds 
 
 ## Quirks
 
-- The macOS app bundle's launcher calls `~/.local/bin/termtube` by absolute path, because a GUI-launched Terminal has a minimal `PATH`.
+- The macOS app bundle's launcher has no tty when started from Finder, so it runs [launch-macos.sh](launch-macos.sh.md) with the absolute path of `~/.local/bin/termtube`. The Linux `.desktop` entry also uses that absolute path, because a desktop session's `PATH` often lacks `~/.local/bin`.
 - Python is searched as `python3.13`, `3.12`, `3.11`, then `python3`, each checked for >= 3.11.
 
 ## Limits
