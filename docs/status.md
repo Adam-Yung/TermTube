@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-22. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6 (it now also checks a playlist page and a Mix; not yet run live).
+**Last updated:** 2026-11-22. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 8 of 8 on 2026-11-23 (now also a playlist page and a Mix).
 The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists
@@ -32,7 +32,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 | Unit, UI and doc checks pass on all three systems | `gate` job on every push | each push |
 | The installer, launcher and real mpv work on all three systems | `real-app-unix` / `real-app-windows` jobs | each push |
 | The installed app starts, plays, pauses, seeks, stops, records history and quits cleanly in a real terminal | `scripts/e2e-local.py`, 14 steps, hermetic | each push; 10 of 10 runs per platform after the debug-log deadlock fix |
-| Live YouTube still parses (search, channel, details, streams) | `scripts/canary-live.py`, weekly, not a gate | 2026-11-16: 6 of 6 |
+| Live YouTube still parses (search, channel, details, streams) | `scripts/canary-live.py`, weekly, not a gate | 2026-11-23: 8 of 8 |
 | Thumbnails, `b`, `y`, `p`, `d`, notifications look and work right | the owner, real terminal, installed app | 2026-11-16 |
 
 ## Not verified

@@ -30,7 +30,7 @@ def check(name: str, ok: bool, detail: str, started: float) -> None:
 
 def main() -> int:
     t = time.perf_counter()
-    results = innertube.search_videos("lofi hip hop", count=10)
+    results = innertube.search("lofi hip hop", count=10, kind="video")
     complete = [r for r in results if r.get("id") and r.get("title") and r.get("channel_id")]
     check("InnerTube search", len(complete) >= 5, f"{len(complete)} of {len(results)} rows complete", t)
 
