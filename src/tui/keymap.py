@@ -123,6 +123,7 @@ CHANNEL_PAGE = [
     Binding("E", "enqueue_all", show=False),
     Binding("S", "save_list", show=False),
     Binding("B", "bookmark", show=False),
+    Binding("o", "owner", show=False),
 ]
 
 HOME = [Binding("Z", "show_played", show=False)]

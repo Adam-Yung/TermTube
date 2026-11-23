@@ -42,7 +42,7 @@ async def test_playlist_and_channel_rows_have_no_video_actions(main_app):  # noq
     async with main_app.run_test(size=(120, 40)) as pilot:
         await pilot.pause(0.6)
         screen = main_app.screen
-        for entry, enter in (({"id": "PLx", "title": "A list", "_is_playlist": True}, None),
+        for entry, enter in (({"id": "PLx", "title": "A list", "_is_playlist": True}, "Open playlist"),
                              ({"id": "UCx", "title": "A channel", "_is_channel": True}, "Open channel")):
             screen._selected_entry = lambda entry=entry: entry
             hints = dict(screen.panel_hints())

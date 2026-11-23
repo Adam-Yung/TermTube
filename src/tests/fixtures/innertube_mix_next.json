@@ -1,0 +1,255 @@
+{
+ "contents": {
+  "twoColumnWatchNextResults": {
+   "playlist": {
+    "playlist": {
+     "title": "Mix - Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+     "playlistId": "RDdQw4w9WgXcQ",
+     "ownerName": {
+      "simpleText": "YouTube"
+     },
+     "isInfinite": true,
+     "contents": [
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "Rick Astley",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+             "canonicalBaseUrl": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+            }
+           }
+          }
+         ]
+        },
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg?sqp=-oaymwEjCNACELwBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLDOZ1h20ByRP_-2KuQ-l58BHOqkFA",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        },
+        "lengthText": {
+         "simpleText": "3:34"
+        },
+        "indexText": {
+         "simpleText": "\u25b6"
+        },
+        "navigationEndpoint": {
+         "commandMetadata": {
+          "webCommandMetadata": {
+           "url": "/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&index=1&pp=8AUB0gcJCRAIAYcqIYzv",
+           "webPageType": "WEB_PAGE_TYPE_WATCH",
+           "rootVe": 3832
+          }
+         },
+         "watchEndpoint": {
+          "videoId": "dQw4w9WgXcQ",
+          "playlistId": "RDdQw4w9WgXcQ",
+          "index": 0,
+          "params": "OAE%3D"
+         }
+        },
+        "videoId": "dQw4w9WgXcQ",
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "Rick Astley",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+             "canonicalBaseUrl": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+            }
+           }
+          }
+         ]
+        },
+        "playlistSetVideoId": "56B44F6D10557CC6"
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "Rick Astley - Together Forever (Official HD Video)"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "Rick Astley",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+             "canonicalBaseUrl": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+            }
+           }
+          }
+         ]
+        },
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/E9de-cmycx8/hqdefault.jpg?sqp=-oaymwEjCNACELwBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLAnShMWNWG72nknl5VNYkNz16V5eA",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        },
+        "lengthText": {
+         "simpleText": "3:24"
+        },
+        "navigationEndpoint": {
+         "commandMetadata": {
+          "webCommandMetadata": {
+           "url": "/watch?v=E9de-cmycx8&list=RDdQw4w9WgXcQ&index=2&pp=8AUB",
+           "webPageType": "WEB_PAGE_TYPE_WATCH",
+           "rootVe": 3832
+          }
+         },
+         "watchEndpoint": {
+          "videoId": "E9de-cmycx8",
+          "playlistId": "RDdQw4w9WgXcQ",
+          "index": 1,
+          "params": "OAE%3D"
+         }
+        },
+        "videoId": "E9de-cmycx8",
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "Rick Astley",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UCuAXFkgsw1L7xaCfnd5JJOw",
+             "canonicalBaseUrl": "/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
+            }
+           }
+          }
+         ]
+        },
+        "playlistSetVideoId": "289F4A46DF0A30D2"
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "simpleText": "Madonna - Material Girl (Official Video) [HD]"
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "Madonna",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UC81VD6eeuLLSfyY_D-N8sVw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UC81VD6eeuLLSfyY_D-N8sVw",
+             "canonicalBaseUrl": "/channel/UC81VD6eeuLLSfyY_D-N8sVw"
+            }
+           }
+          }
+         ]
+        },
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/6p-lDYPR2P8/hqdefault.jpg?sqp=-oaymwEjCNACELwBSFryq4qpAxUIARUAAAAAGAElAADIQj0AgKJDeAE=&rs=AOn4CLAqSTcvlrxnRCfg2LOA7qXOiJ-3Yg",
+           "width": 336,
+           "height": 188
+          }
+         ]
+        },
+        "lengthText": {
+         "simpleText": "4:46"
+        },
+        "navigationEndpoint": {
+         "commandMetadata": {
+          "webCommandMetadata": {
+           "url": "/watch?v=6p-lDYPR2P8&list=RDdQw4w9WgXcQ&index=24&pp=8AUB",
+           "webPageType": "WEB_PAGE_TYPE_WATCH",
+           "rootVe": 3832
+          }
+         },
+         "watchEndpoint": {
+          "videoId": "6p-lDYPR2P8",
+          "playlistId": "RDdQw4w9WgXcQ",
+          "index": 23,
+          "params": "OAE%3D"
+         }
+        },
+        "videoId": "6p-lDYPR2P8",
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "Madonna",
+           "navigationEndpoint": {
+            "commandMetadata": {
+             "webCommandMetadata": {
+              "url": "/channel/UC81VD6eeuLLSfyY_D-N8sVw",
+              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+              "rootVe": 3611,
+              "apiUrl": "/youtubei/v1/browse"
+             }
+            },
+            "browseEndpoint": {
+             "browseId": "UC81VD6eeuLLSfyY_D-N8sVw",
+             "canonicalBaseUrl": "/channel/UC81VD6eeuLLSfyY_D-N8sVw"
+            }
+           }
+          }
+         ]
+        },
+        "playlistSetVideoId": "9750BB53E158A2E4"
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

@@ -7,3 +7,5 @@ One lazy, flat yt-dlp listing of an account feed (Home, History on YouTube, Watc
 - Errors: a `DownloadError` before any row retries once (2 s) and then raises the typed `SourceError` from `errors.classify` (a sign-in failure also drops the cookie jar, as `_extract_videos` does). After rows were read it returns them; the dead generator is dropped and the next `take` reopens the feed from the top, skipping `skip_ids`.
 - Not exercised against YouTube: whether the live generator keeps paging across calls with the extractor left open is `[verify live]`; the tests use a fake extractor that records opens and reads.
 - `FeedLoaderMixin._revalidate` also uses it: a stale-but-valid Home cache is read once behind the shown rows; the cursor then stays the view's cursor.
+
+- `playlists=True` (Home only) keeps playlist and Mix rows: `ytdlp.playlist_row` turns a `YoutubeTab` entry with a `playlist?list=` url into a list row (`_is_playlist`, id = the list id). The other account feeds list videos and keep dropping them. **[verify live]**: that the signed-in Home returns such entries was read from yt-dlp's `_extract_lockup_view_model`, not seen with real cookies.

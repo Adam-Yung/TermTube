@@ -70,8 +70,8 @@ class ItemActionsMixin:
         if entry:
             if entry.get("_is_channel") or entry.get("_is_playlist"):
                 shown = {"copy_url", "browser"}
-                if entry.get("_is_channel"):
-                    hints.append(("⏎", text("item_actions.open_channel")))
+                opens = "open_channel" if entry.get("_is_channel") else "open_playlist"
+                hints.append(("⏎", text(f"item_actions.{opens}")))
             else:
                 shown = {row.action for row in keymap.ROW_ACTIONS} - self._hidden_menu_actions(entry)
                 hints.append(("⏎", text("item_actions.video_actions")))
@@ -277,6 +277,15 @@ class ItemActionsMixin:
             return
         name = entry.get("uploader") or entry.get("channel") or text("item_actions.default_channel_name")
         self.app.push_screen(ChannelScreen(channel_url=url, channel_name=name, trail=self._crumbs()))
+
+    def _open_playlist(self, entry: Entry) -> None:
+        """A playlist row from Search or Home: its page, the channel page in playlist mode."""
+        from src.tui.screens.channel_screen import ChannelScreen
+
+        if not entry.get("id"):
+            self._hint(text("item_actions.not_a_video"), "information")
+            return
+        self.app.push_screen(ChannelScreen("", "", trail=self._crumbs(), playlist=entry))
 
     def action_playlist(self) -> None:
         entry = self._playable_entry()

@@ -44,3 +44,7 @@ it returns nothing. A yt-dlp fallback is logged at debug level. Channel info for
 ## Search cache
 
 `fetch_search_batch(query, ..., sort, kind)` keys the cache on `query|sort|kind` (`_search_cache_key`), so each sort and type has its own list. A hit reads up to `MAX_SEARCH_RESULTS` (200) cached ids minus `skip_ids`; `count` only limits a live fetch. An extension fetch (non-empty `skip_ids`) appends its ids to the cached list (`_remember_search`), so restoring a page beyond the first batch (search stack pop) finds them; with no cached list to append to nothing is stored. yt-dlp `ytsearchN:` is the fallback only for relevance/all, since it cannot apply a filter. Extension re-reads the earlier result pages (InnerTube has no cursor kept between calls) and skips them, trading some requests for no state.
+
+## Playlist rows on Home
+
+`playlist_row(entry)` is the one place a flat yt-dlp entry becomes a playlist or Mix list row (`_is_playlist`, `_playlist_name`, `url`, thumbnail); `FeedCursor(playlists=True)` calls it before `_is_playable_video`. `_is_playable_video` still rejects everything that is not an 11-character video id.

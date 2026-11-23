@@ -86,6 +86,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("i", "description"),
         ("Enter", "playlist"),
         ("B", "follow"),
+        ("o", "owner"),
         ("P E S", "playlist_bulk"),
         ("/ , ? q", "global"),
         ("Esc", "back"),

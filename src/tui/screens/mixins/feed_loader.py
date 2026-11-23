@@ -447,7 +447,9 @@ class FeedLoaderMixin:
         import src.ytdlp as ytdlp
         from src.feed_cursor import FeedCursor
 
-        cursor = FeedCursor(ytdlp.FEED_URLS[feed_key], self.app.config, self.app.cache, auth=True)
+        cursor = FeedCursor(
+            ytdlp.FEED_URLS[feed_key], self.app.config, self.app.cache, auth=True, playlists=feed_key == "home"
+        )
         if not self._ui(self._adopt_cursor, cursor):
             cursor.close()
             return None

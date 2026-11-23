@@ -80,7 +80,8 @@
     "no_url": "No URL available.",
     "url_copied": "URL copied to clipboard.",
     "url_shown": "URL: {url}",
-    "opened_in_browser": "Opened in browser."
+    "opened_in_browser": "Opened in browser.",
+    "open_playlist": "Open playlist"
   },
   "channel_playlist": {
     "open_playlist_first": "Open a playlist first (Enter on a playlist row).",
@@ -200,7 +201,6 @@
     "show_played_hint": "Open the Home tab, then press Z to show or hide videos already played.",
     "showing_played": "Showing played videos.",
     "hiding_played": "Hiding played videos.",
-    "open_playlist_in_browser": "Press b to open the playlist in the browser.",
     "refreshing": "Refreshing {tab}…"
   },
   "audio_controller": {
@@ -246,7 +246,8 @@
     "loading": "Loading…",
     "load_error": "Could not load channel information.",
     "show_all": "i  show all",
-    "show_less": "i  show less"
+    "show_less": "i  show less",
+    "views": "{count:,} views"
   },
   "page_indicator": {
     "page": "Page {current} / {total}"
@@ -316,7 +317,13 @@
     "following": "Following {name} (stored locally, no account needed).",
     "unfollowed": "Unfollowed {name}.",
     "still_loading": "The channel is still loading.",
-    "nothing_more": "Nothing more to show."
+    "nothing_more": "Nothing more to show.",
+    "playlist_crumb": "Playlist: {name}",
+    "playlist_untitled": "Playlist",
+    "no_tabs_on_playlist": "A playlist has no tabs, sort or follow.",
+    "owner_by": "by {owner}",
+    "no_owner": "This playlist shows no channel to open.",
+    "mix_unavailable": "This Mix is not available without signing in."
   },
   "channel_tab_modal": {
     "title": "Go to…",
@@ -484,9 +491,10 @@
     "channel_title": "CHANNEL PAGE",
     "channel_sort": "Sort (date / views).",
     "channel_reload": "Reload.",
-    "channel_description": "Show the whole channel description / show less.",
+    "channel_description": "Fold the channel description to three lines / show it all again.",
     "channel_playlist": "On a playlist row: open its videos (Esc returns to the list).",
     "channel_follow": "Follow or unfollow this channel locally (kept in channels.json, no account needed).",
+    "channel_owner": "Playlist page: open the channel that owns the playlist.",
     "channel_playlist_bulk": "Open playlist: play all / add all to the queue / save as a local playlist.",
     "channel_global": "Search, settings, help, quit (as on the main page).",
     "channel_back": "Back to the previous page.",

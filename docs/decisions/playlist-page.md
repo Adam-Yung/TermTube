@@ -17,3 +17,10 @@ Plan: `~/.claude-personal/plans/` (this session); steps are listed in [../status
 - **Watch Later** (`VLWL`): "The playlist does not exist." anonymously, as expected; it stays a History source.
 - **Topic (`OLAK…`) playlists:** the search for one found none; still unprobed. **Private playlists:** unprobed (needs an id from the owner).
 - Unviewable and missing playlists give an `alerts` reply with no `header`; the parser reports YouTube's own sentence and the page shows it.
+
+## 2026-11-22 — Built: playlist page, Mixes, Home rows
+
+- **Playlist page:** `ChannelScreen(playlist=row)`; header from the first page's `ChannelPage.info`; `o` opens the owner channel, `c` the channel of the highlighted video; tabs, sort and follow are hidden and answer with a reason. The owner id is parsed from the header, so the search rows need no owner field (the plan's step 2 was dropped).
+- **Mixes work after all, but not through `browse`:** `next` with `{"playlistId": "RD<video>"}` returns 24 to 25 rows anonymously, and `next` with the last row's `videoId`, `playlistId`, `index` and `params` continues it (recorded 2026-11-22; the continuation repeats the last row and may repeat earlier ones, the list's id de-duplication absorbs that). `RDMM` ("My Mix") needs an account and shows "This Mix is not available without signing in." `fetch_mix_page` reads it; a Mix is endless, so the 200 cap ends it and the footer says `first 200 shown`.
+- **Home:** `FeedCursor(playlists=True)` keeps playlist and Mix rows; Enter opens the page. Only Home: the other account feeds are lists of videos. Not seen against a signed-in Home (needs the owner's cookies).
+- **Still open:** Topic (`OLAK…`) and private playlists were not probed; play all and save stop at 200; Watch Later and Liked stay out.

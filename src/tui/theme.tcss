@@ -281,6 +281,8 @@ ChannelInfoPanel {
 
 #ch-tabs { height: 2; }
 
+Screen.-playlist #ch-tabs { display: none; }
+
 #ch-video-list {
     height: 1fr;
     width: 100%;

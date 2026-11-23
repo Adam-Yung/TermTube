@@ -110,16 +110,17 @@ async def test_s_and_t_on_other_tabs_only_hint(app):
         assert "search results" in notify.call_args.args[0]
 
 
-async def test_enter_on_a_search_playlist_row_says_to_press_b(app):
-    from unittest.mock import patch
+async def test_enter_on_a_search_playlist_row_opens_the_playlist_page(app, monkeypatch):
+    from src import innertube
 
+    monkeypatch.setattr(innertube, "fetch_playlist_page", lambda *a, **k: innertube.ChannelPage([]))
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._current_tab = "search"
-        with patch.object(screen, "notify") as notify:
-            screen._activate_entry({"id": "PLx", "_is_playlist": True, "_playlist_name": "x"})
-            await pilot.pause(0.1)
-        assert "press b" in notify.call_args.args[0].lower()
+        screen._activate_entry({"id": "PLx", "_is_playlist": True, "_playlist_name": "x"})
+        await pilot.pause(0.1)
+        assert type(app.screen).__name__ == "ChannelScreen" and app.screen._playlist["id"] == "PLx"
+        assert app.screen._trail == ["Search"]
 
 
 def test_search_extension_asks_for_what_is_left_below_the_200_cap(monkeypatch):

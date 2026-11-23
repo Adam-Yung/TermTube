@@ -100,6 +100,30 @@ def _is_playable_video(entry: VideoEntry) -> bool:
     return entry.get("_type", "video") not in ("playlist", "channel")
 
 
+_LIST_PARAM_RE = re.compile(r"^https?://(?:www\.|m\.)?youtube\.com/playlist\?(?:.*&)?list=([\w-]+)")
+
+
+def playlist_row(entry: dict) -> dict | None:
+    """A flat Home entry that is a playlist or Mix (yt-dlp: ``ie_key`` ``YoutubeTab``, a ``playlist?list=`` url) as a
+    list row, or None for anything else. Home only: the other account feeds list videos."""
+    if not isinstance(entry, dict) or entry.get("ie_key") != "YoutubeTab":
+        return None
+    match = _LIST_PARAM_RE.match(str(entry.get("url") or ""))
+    if not match:
+        return None
+    playlist_id = match.group(1)
+    row = {k: v for k, v in entry.items() if k not in ("ie_key",)}
+    row.update(
+        id=playlist_id, url=f"https://www.youtube.com/playlist?list={playlist_id}", _is_playlist=True, _type="playlist"
+    )
+    row["webpage_url"] = row["url"]
+    row["_playlist_name"] = row.get("title") or ""
+    if not row.get("thumbnail"):
+        from src.ui.thumbnail import best_thumb_url
+        row["thumbnail"] = best_thumb_url(row) or ""
+    return row
+
+
 def _normalise_entry(entry: VideoEntry) -> VideoEntry:
     """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
     entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")

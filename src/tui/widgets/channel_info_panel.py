@@ -32,9 +32,31 @@ def _stats(info: dict) -> str:
     count = info.get("video_count")
     key = "channel_info_panel.video_one" if count == 1 else "channel_info_panel.video_many"
     parts = [text(key, count=count)] if count else []
-    if info.get("joined"):
-        parts.append(info["joined"])
+    parts += [info[k] for k in ("joined", "stats_tail") if info.get(k)]
     return " · ".join(parts)
+
+
+def playlist_panel_info(info: dict, fallback_title: str = "") -> dict:
+    """A playlist header (``innertube._playlist_info``) in the shape ``update_info`` reads for a channel.
+
+    The title takes the channel name's place, "by Owner" the subscriber line, and the view count and "Updated …" ride
+    on the stats line.
+    """
+    views = info.get("view_count")
+    tail = [text("channel_info_panel.views", count=views)] if views else []
+    if info.get("updated"):
+        tail.append(info["updated"])
+    owner = info.get("owner", "")
+    return {
+        "channel": info.get("title") or fallback_title,
+        "subtitle": text("channel_screen.owner_by", owner=owner) if owner else "",
+        "video_count": info.get("video_count"),
+        "stats_tail": " · ".join(tail),
+        "channel_url": f"https://www.youtube.com/playlist?list={info['playlist_id']}",
+        "uploader_id": info["playlist_id"],
+        "description": info.get("description", ""),
+        "thumbnail": info.get("thumbnail", ""),
+    }
 
 
 class ChannelInfoPanel(Vertical):
@@ -81,10 +103,10 @@ class ChannelInfoPanel(Vertical):
     def update_info(self, info: dict) -> None:
         self.info = info
         name = info.get("channel", "") or info.get("uploader", "")
-        subs = fmt_subscribers(info.get("subscriber_count"))
+        subs = info.get("subtitle") or fmt_subscribers(info.get("subscriber_count"))
         url = info.get("channel_url", "") or info.get("uploader_url", "")
         self.query_one("#ch-name", Static).update(f"[bold white]{escape_markup(name)}[/bold white]")
-        self.query_one("#ch-subs", Static).update(f"[dim]{subs}[/dim]" if subs else "")
+        self.query_one("#ch-subs", Static).update(f"[dim]{escape_markup(subs)}[/dim]" if subs else "")
         stats = _stats(info)
         self.query_one("#ch-stats", Static).update(f"[dim]{escape_markup(stats)}[/dim]" if stats else "")
         self.query_one("#ch-url", Static).update(f"[dim]{url[:50]}[/dim]" if url else "")

@@ -24,7 +24,7 @@ from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin
 from src.tui.thumb_loader import load_thumbnail
-from src.tui.widgets.channel_info_panel import ChannelInfoPanel
+from src.tui.widgets.channel_info_panel import ChannelInfoPanel, playlist_panel_info
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
 
@@ -59,6 +59,9 @@ def _avatar_id(info: dict) -> str:
 class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, Screen):
     """One channel: info on the left, its videos or playlists in the middle, detail on the right.
 
+    Given ``playlist`` (a playlist row from Search or Home) it is that playlist's page instead: the playlist's header on
+    the left, its videos in the middle, no tabs, sort or follow (decision log: ``docs/decisions/playlist-page.md``).
+
     Audio belongs to ``app.audio``; this screen forwards the keys and mirrors playback state
     into its own action bar.
     """
@@ -78,8 +81,17 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         Binding("grave_accent", "tab_picker", show=False),
     ]
 
-    def __init__(self, channel_url: str, channel_name: str = "", trail: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        channel_url: str,
+        channel_name: str = "",
+        trail: list[str] | None = None,
+        playlist: PlaylistEntry | None = None,
+    ) -> None:
         super().__init__()
+        self._playlist = playlist
+        self._solo = playlist is not None
+        self._owner = ("", "")
         self._trail = list(trail or [])
         self._channel_url = channel_url
         self._channel_name = channel_name
@@ -108,6 +120,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
 
     def on_mount(self) -> None:
         self._info_panel().show_loading()
+        self.set_class(self._solo, "-playlist")
         panel = self._list()
         panel.clear_and_set_loading()
         panel.focus_list()
@@ -115,12 +128,15 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         tabs.can_focus = False
         for tab in tabs.query(Tab):
             tab.can_focus = False
-        self._show_tabs(_DEFAULT_TABS)
-        self._load_channel_info()
+        if not self._solo:
+            self._show_tabs(_DEFAULT_TABS)
+            self._load_channel_info()
         self.set_timer(0.05, self._start_content_once)
         self._sync_player_bar()
 
     def _tool_actions(self) -> set[str]:
+        if self._solo:
+            return {"filter", "play_all", "enqueue_all", "save_list"}
         tools = {"filter", "bookmark"}
         return tools | {"play_all", "enqueue_all", "save_list"} if self._playlist is not None else tools
 
@@ -138,7 +154,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         """True for a row that names a different channel than this page (a video in a playlist of another channel)."""
         own = self._known_id()
         theirs = entry.get("channel_id") or channel_ref.channel_id(entry.get("channel_url", ""))
-        return bool(theirs and own and theirs != own)
+        return bool(theirs and (self._solo or own and theirs != own))
 
     def action_channel(self) -> None:
         entry = self._selected_entry()
@@ -155,6 +171,11 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         return info.get("channel") or self._channel_name or text("channel_screen.channel_fallback")
 
     def _show_breadcrumb(self) -> None:
+        if self._solo:
+            name = self._display_name() if self._info_panel().info else self._playlist_title()
+            crumb = text("channel_screen.playlist_crumb", name=name)
+            self._list().set_breadcrumb(text("channel_screen.breadcrumb", trail=fmt_breadcrumb([*self._trail, crumb])))
+            return
         parts = [*self._crumbs(), text(_TAB_LABELS[self._tab_kind()])]
         if self._playlist:
             fallback = text("channel_screen.playlist_fallback")
@@ -193,6 +214,17 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         else:
             self._call_ui(self._show_info_error)
 
+    def _playlist_title(self) -> str:
+        row = self._playlist or {}
+        return row.get("_playlist_name") or row.get("title") or text("channel_screen.playlist_untitled")
+
+    def _apply_playlist_info(self, info: dict | None) -> None:
+        """The left column of a playlist page: the header from the first page, or just the row's title without one."""
+        info = info or {}
+        self._owner = (info.get("owner", ""), info.get("owner_id", ""))
+        header = {"playlist_id": self._playlist["id"], **info}
+        self._apply_info(playlist_panel_info(header, self._playlist_title()))
+
     def _show_info_error(self) -> None:
         self._info_panel().show_error()
 
@@ -201,7 +233,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         panel.update_info(info)
         self._show_breadcrumb()
         known = tuple(kind for kind in _TAB_LABELS if kind in info.get("tabs", ()))
-        if "videos" in known:
+        if "videos" in known and not self._solo:
             self._show_tabs(known)
         url = info.get("thumbnail", "")
         if not url:
@@ -249,13 +281,17 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         if session != self._content_session:
             return
         panel = self._list()
+        info = page.info
+        if self._solo:
+            self._apply_playlist_info(info)
         if not page.entries:
-            panel.set_empty_message(text("channel_screen.no_content"))
+            reason = (info or {}).get("unavailable")
+            panel.set_empty_message(reason or text("channel_screen.no_content"))
             return
         panel.add_entries(1, page.entries)
         panel.load_page(1)
         panel.finish_loading()
-        self._pager.start(len(page.entries), page.token)
+        self._pager.start(len(page.entries), page.token, (info or {}).get("video_count"))
         self._maybe_prefetch()
 
     def _show_content_error(self, session: int, message: str) -> None:
@@ -342,7 +378,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         page = innertube.ChannelPage([])
         try:
             if kind == "playlist":
-                page = innertube.fetch_playlist_page(self._playlist["id"], token)
+                page = self._page_fetcher(self._playlist["id"])(self._playlist["id"], token)
             else:
                 page = innertube.fetch_channel_page(self._channel_id() or "", kind, token)
                 self._label(page.entries)
@@ -422,17 +458,27 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         return "playlist" if self._playlist else self._tab_kind()
 
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
+        if self._solo:
+            return
         tab_id = event.tab.id if event.tab else None
         if tab_id and (tab_id != self._current_tab or not self._content_started):
             self._playlist = None
             self._current_tab = tab_id
             self._start_content_load()
 
+    def _no_tabs(self) -> bool:
+        """True (with a hint) on a playlist page, which has no tabs, sort or follow."""
+        if self._solo:
+            self._hint(text("channel_screen.no_tabs_on_playlist"), "information")
+        return self._solo
+
     def action_tab_prev(self) -> None:
-        self._cycle_tab(-1)
+        if not self._no_tabs():
+            self._cycle_tab(-1)
 
     def action_tab_next(self) -> None:
-        self._cycle_tab(1)
+        if not self._no_tabs():
+            self._cycle_tab(1)
 
     def _cycle_tab(self, step: int) -> None:
         order = self._tab_ids()
@@ -440,6 +486,8 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         self.query_one("#ch-tabs", Tabs).active = target
 
     def action_tab_picker(self) -> None:
+        if self._no_tabs():
+            return
         from src.tui.screens.channel_tab_modal import ChannelTabModal
 
         def on_pick(tab_id: str | None) -> None:
@@ -450,6 +498,8 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         self.app.push_screen(ChannelTabModal(self._current_tab, shown), on_pick)
 
     def action_sort(self) -> None:
+        if self._no_tabs():
+            return
         if self._tab_kind() != "videos":
             self._hint(text(_NO_SORT[self._tab_kind()]), "information")
             return
@@ -465,6 +515,8 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         self.app.push_screen(SortModal(current_sort=self._sort), on_pick)
 
     def action_bookmark(self) -> None:
+        if self._no_tabs():
+            return
         channel_id = self._known_id()
         if not channel_id:
             self._hint(text("channel_screen.still_loading"), "information")
@@ -480,8 +532,21 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         if not self._info_panel().toggle_description():
             self._hint(text("channel_screen.nothing_more"), "information")
 
+    def action_owner(self) -> None:
+        """Playlist page: open the channel that owns the playlist."""
+        name, owner_id = self._owner
+        if not self._solo or not owner_id:
+            self._hint(text("channel_screen.no_owner"), "information")
+            return
+        url = f"https://www.youtube.com/channel/{owner_id}"
+        self.app.push_screen(ChannelScreen(url, name, trail=self._crumbs_for_owner()))
+
+    def _crumbs_for_owner(self) -> list[str]:
+        return [*self._trail, text("channel_screen.playlist_crumb", name=self._display_name())]
+
     def action_reload(self) -> None:
-        self._load_channel_info()
+        if not self._solo:
+            self._load_channel_info()
         self._start_content_load()
 
     def action_go_back(self) -> None:

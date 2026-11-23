@@ -12,3 +12,7 @@ Lets `ChannelScreen` open one of the channel's playlists in place and act on all
 ## Fallback and limits
 
 The first page falls back to yt-dlp (`fetch_page_batch` on the playlist URL, no continuation) when InnerTube returns nothing. `innertube.fetch_playlist_page` reads `playlistVideoListRenderer`; **[verify live]**: the shape and fixture `innertube_playlist_videos.json` are hand-written. Rows of other channels' videos carry `channel_id`, so `c` on them opens that channel with this one in the breadcrumb.
+
+## Mixes and the playlist's own page
+
+`_page_fetcher(id)` picks `innertube.fetch_mix_page` for ids starting `RD` (a Mix: `browse` answers "unviewable", `next` serves it, endless, cut by the 200 cap) and `fetch_playlist_page` otherwise; the first page, the continuations and `_gather_playlist` all use it. A Mix has no yt-dlp fallback. `_solo` is True on a page that is the playlist itself: `_leave_playlist` then returns False so Esc pops the screen.

@@ -90,7 +90,7 @@ class DetailPanel(Widget):
         desc = entry.get("description", "")
         if desc:
             self._set_description(desc)
-        elif vid and not vid.startswith("__"):
+        elif vid and not vid.startswith("__") and not entry.get("_is_playlist"):
             self._text("#video-desc-header", text("detail_panel.description_header"))
             self._text("#video-desc", text("detail_panel.loading"))
         else:

@@ -16,15 +16,18 @@ class ChannelPager:
         self.loaded = 0
         self.fetching = False
         self._batch = 0
+        self.total: int | None = None  # the playlist's own count, when its header said
 
     def reset(self) -> None:
         self.token = ""
         self.loaded = 0
         self.fetching = False
         self._batch = 0
+        self.total = None
 
-    def start(self, count: int, token: str) -> None:
-        """The first page arrived with ``count`` entries."""
+    def start(self, count: int, token: str, total: int | None = None) -> None:
+        """The first page arrived with ``count`` entries; ``total`` is the list's own length when it is known."""
+        self.total = total
         self.loaded = count
         self._batch = count
         self.token = token if count < self.cap else ""
@@ -51,5 +54,7 @@ class ChannelPager:
         if self.fetching:
             return f"loading {self._batch} more…"
         if self.loaded >= self.cap:
+            if self.total and self.total > self.cap:
+                return f"first {self.cap} of {self.total:,} shown"
             return f"first {self.cap} shown"
         return ""

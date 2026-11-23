@@ -387,3 +387,41 @@ def test_an_unviewable_playlist_reports_youtubes_own_reason():
         page = innertube.fetch_playlist_page("RDdQw4w9WgXcQ")
     assert page.entries == []
     assert page.info == {"playlist_id": "RDdQw4w9WgXcQ", "unavailable": "This playlist type is unviewable."}
+
+
+def test_a_mix_loads_through_next_with_the_playlist_id_alone():
+    sent = []
+
+    def fake(url, payload, **_):
+        sent.append((url.rsplit("/", 1)[-1].split("?")[0], payload.get("playlistId"), payload.get("videoId")))
+        return load("innertube_mix_next.json")
+
+    with patch.object(innertube, "_post_json", fake):
+        page = innertube.fetch_mix_page("RDdQw4w9WgXcQ")
+    assert sent == [("next", "RDdQw4w9WgXcQ", None)]
+    first = page.entries[0]
+    assert first["id"] == "dQw4w9WgXcQ" and first["duration"] == 214 and first["channel_id"].startswith("UC")
+    assert first["uploader"] == "Rick Astley" and first["thumbnail"].startswith("https://")
+    assert page.info["title"].startswith("Mix - Rick Astley") and page.info["owner"] == "YouTube"
+    assert page.info["video_count"] is None and page.info["mix"] is True and len(page.entries) == 3
+
+
+def test_a_mix_continues_from_its_last_video_and_stays_endless():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_mix_next.json")):
+        page = innertube.fetch_mix_page("RDdQw4w9WgXcQ")
+    sent = []
+
+    def fake(url, payload, **_):
+        sent.append(payload)
+        return load("innertube_mix_next.json")
+
+    with patch.object(innertube, "_post_json", fake):
+        more = innertube.fetch_mix_page("RDdQw4w9WgXcQ", page.token)
+    assert sent[0]["videoId"] == page.entries[-1]["id"] and sent[0]["playlistId"] == "RDdQw4w9WgXcQ"
+    assert more.token and more.info is None
+
+
+def test_a_mix_that_needs_an_account_reports_it():
+    with patch.object(innertube, "_post_json", return_value={"contents": {}}):
+        page = innertube.fetch_mix_page("RDMM")
+    assert page.entries == [] and page.info["unavailable"] and page.info["playlist_id"] == "RDMM"

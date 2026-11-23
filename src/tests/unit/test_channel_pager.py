@@ -53,3 +53,13 @@ def test_reset_clears_everything():
     pager.begin_fetch()
     pager.reset()
     assert (pager.token, pager.loaded, pager.fetching, pager.note()) == ("", 0, False, "")
+
+
+def test_note_says_how_long_the_playlist_really_is_when_the_header_knew():
+    pager = ChannelPager(cap=50)
+    pager.start(50, "tok", total=1234)
+    assert pager.note() == "first 50 of 1,234 shown"
+    pager.start(50, "tok", total=50)
+    assert pager.note() == "first 50 shown"
+    pager.reset()
+    assert pager.total is None

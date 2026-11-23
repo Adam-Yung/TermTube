@@ -6,3 +6,5 @@ Paging state of one channel tab, kept out of `ChannelScreen` so the stop conditi
 - `MAX_ENTRIES` (200) caps the tab. `finish` trims the batch that crosses it and drops the token, so the note reads "first 200 shown".
 - A failed continuation arrives as an empty page with no token: paging stops for that tab until it is reloaded. The token is not kept for a retry because a transient failure and an expired token look the same.
 - Touched from the UI thread only (`ChannelScreen` applies results through `call_from_thread`); there is no lock.
+
+- `start(count, token, total)` keeps the list's own length when a playlist header gave one; `note()` then reads `first 200 of 1,234 shown` once the cap is reached and the total is larger.

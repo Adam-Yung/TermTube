@@ -16,6 +16,7 @@ from src import logger
 from src.channel_ref import channel_id as channel_url_id
 from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
 from src.errors import NetworkDown, RateLimited, SourceError
+from src.strings import text
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 _BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
@@ -242,6 +243,59 @@ def _browse_page(
 def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[VideoEntry]:
     """First page of newest-first channel videos (~600 ms for 30). Empty on failure."""
     return fetch_channel_page(channel_id, "videos", timeout=timeout).entries
+
+
+_NEXT_URL = "https://www.youtube.com/youtubei/v1/next?prettyPrint=false"
+
+
+def fetch_mix_page(playlist_id: str, token: str = "", *, timeout: int = 12) -> ChannelPage:
+    """One page (about 25 videos) of a Mix (``RD…``): ``browse`` refuses those, ``next`` serves them anonymously.
+
+    ``token`` is the watch endpoint of the last video of the page before; a Mix never ends, the caller's cap does.
+    The first page carries the header (``mix: True``). A Mix that needs an account ("My Mix", ``RDMM``) comes back
+    as an ``unavailable`` header. Recorded 2026-11-22 (``innertube_mix_next.json``). [verify live]
+    """
+    payload = json.loads(token) if token else {"playlistId": playlist_id}
+    data = _post_json(_NEXT_URL, {**payload, "context": _WEB_CONTEXT}, timeout=timeout)
+    watch = (data or {}).get("contents", {}).get("twoColumnWatchNextResults", {})
+    box = watch.get("playlist", {}).get("playlist") or {}
+    items = [i["playlistPanelVideoRenderer"] for i in box.get("contents") or [] if "playlistPanelVideoRenderer" in i]
+    entries = [e for e in map(_parse_panel_video, items) if e]
+    if not entries:
+        info = None if token else {"playlist_id": playlist_id, "unavailable": text("channel_screen.mix_unavailable")}
+        return ChannelPage([], "", info)
+    endpoint = items[-1].get("navigationEndpoint", {}).get("watchEndpoint", {})
+    next_token = json.dumps({k: endpoint[k] for k in ("videoId", "playlistId", "index", "params") if k in endpoint})
+    info = None if token else {
+        "playlist_id": playlist_id, "title": box.get("title", ""), "owner": _text(box.get("ownerName")), "owner_id": "",
+        "description": "", "video_count": None, "view_count": None, "updated": "", "mix": True,
+        "thumbnail": entries[0]["thumbnail"],
+    }
+    return ChannelPage(entries, next_token, info)
+
+
+def _parse_panel_video(pr: dict) -> VideoEntry | None:
+    """One ``playlistPanelVideoRenderer`` (a row of a Mix) as a video entry."""
+    video_id = pr.get("videoId", "")
+    if not video_id:
+        return None
+    byline = (pr.get("longBylineText") or pr.get("shortBylineText") or {}).get("runs") or [{}]
+    channel_id = byline[0].get("navigationEndpoint", {}).get("browseEndpoint", {}).get("browseId", "")
+    thumbs = pr.get("thumbnail", {}).get("thumbnails") or []
+    entry: VideoEntry = {
+        "id": video_id,
+        "title": _text(pr.get("title")) or video_id,
+        "uploader": byline[0].get("text", ""),
+        "channel": byline[0].get("text", ""),
+        "duration": _parse_duration_text(_text(pr.get("lengthText"))),
+        "thumbnail": thumbs[-1].get("url", "") if thumbs else "",
+        "webpage_url": f"https://www.youtube.com/watch?v={video_id}",
+        "_type": "url",
+    }
+    if channel_id.startswith("UC"):
+        entry["channel_id"] = channel_id
+        entry["channel_url"] = f"https://www.youtube.com/channel/{channel_id}"
+    return entry
 
 
 _VIDEO_COUNT_TEXT = re.compile(r"^[\d,.]+\s+videos?$")

@@ -25,9 +25,9 @@ class FeedCursor:
     extraction (the generator is dead) and the next one reopens the feed from the top, skipping ``skip_ids``.
     """
 
-    def __init__(self, url: str, config, cache, *, auth: bool = False) -> None:
+    def __init__(self, url: str, config, cache, *, auth: bool = False, playlists: bool = False) -> None:
         self.url = url
-        self._config, self._cache, self._auth = config, cache, auth
+        self._config, self._cache, self._auth, self._playlists = config, cache, auth, playlists
         self.ids: list[str] = []
         self.exhausted = False
         self._consumed = 0
@@ -101,9 +101,13 @@ class FeedCursor:
                     if self.closed:
                         break
                     self._consumed += 1
-                    if not ytdlp._is_playable_video(entry):
+                    row = ytdlp.playlist_row(entry) if self._playlists else None
+                    if row is not None:
+                        entry = row
+                    elif ytdlp._is_playable_video(entry):
+                        ytdlp._normalise_entry(entry)
+                    else:
                         continue
-                    ytdlp._normalise_entry(entry)
                     vid = entry["id"]
                     if vid in skip_ids:
                         continue

@@ -195,3 +195,31 @@ async def test_channel_screen_layout(main_app, scenario, monkeypatch):
             main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
         )
     assert not problems, "\n".join(problems)
+
+
+def _playlist_scenario(name, *, info=None):
+    header = {"playlist_id": "PLx", "title": "A Playlist With A Long Name Indeed " * 2, "description": LONG_DESC,
+              "owner": "Some Owner", "owner_id": "UCx", "video_count": 442, "view_count": 1234567,
+              "updated": "Updated 4 days ago", "thumbnail": ""} if info is None else info
+
+    async def setup(app, pilot):
+        screen = app.screen
+        screen._show_first_page(screen._content_session, ChannelPage(_entries(30), "tok", header))
+        await pilot.pause(0.5)
+
+    return ScreenScenario(name, setup)
+
+
+@pytest.mark.parametrize("scenario", [_playlist_scenario("playlist-page"),
+                                      _playlist_scenario("playlist-page-no-header", info={})],
+                         ids=lambda s: s.name)
+async def test_playlist_page_layout(main_app, scenario, monkeypatch):
+    for name in ("_start_content_once", "_start_content_load"):
+        monkeypatch.setattr(ChannelScreen, name, lambda self: None)
+    async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
+        main_app.push_screen(ChannelScreen("", "", trail=["Search"], playlist={"id": "PLx", "title": "Hits"}))
+        await settle(pilot, lambda: [] if isinstance(main_app.screen, ChannelScreen) else ["not pushed"])
+        problems = await audit_screen_scenario(
+            main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
+        )
+    assert not problems, "\n".join(problems)

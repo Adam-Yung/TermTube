@@ -17,6 +17,7 @@ class ChannelPlaylistMixin:
     """
 
     _playlist: PlaylistEntry | None = None
+    _solo = False  # the page IS the playlist (opened from Search or Home): there is no Playlists tab to return to
 
     def _activate_entry(self, entry: Entry) -> None:
         if entry.get("_is_playlist") and entry.get("id"):
@@ -27,18 +28,25 @@ class ChannelPlaylistMixin:
 
     def _leave_playlist(self) -> bool:
         """Back to the Playlists tab list. False when no playlist was open."""
-        if self._playlist is None:
+        if self._playlist is None or self._solo:
             return False
         self._playlist = None
         self._start_content_load()
         return True
 
+    @staticmethod
+    def _page_fetcher(playlist_id: str):
+        """A Mix (``RD…``) is read through ``next``; every other playlist through ``browse``."""
+        return innertube.fetch_mix_page if playlist_id.startswith("RD") else innertube.fetch_playlist_page
+
     def _fetch_playlist_videos(self) -> innertube.ChannelPage:
-        """InnerTube browse of the playlist; yt-dlp when it comes back empty."""
+        """InnerTube browse of the playlist; yt-dlp when it comes back empty without a reason."""
         import src.ytdlp as ytdlp
 
-        page = innertube.fetch_playlist_page(self._playlist["id"])
-        if page.entries:
+        playlist_id = self._playlist["id"]
+        page = self._page_fetcher(playlist_id)(playlist_id)
+        # With a reason from YouTube, or for a Mix (yt-dlp has no Mix reader), a second source would add nothing.
+        if page.entries or (page.info or {}).get("unavailable") or playlist_id.startswith("RD"):
             return page
         logger.debug("InnerTube playlist empty; falling back to yt-dlp")
         url = self._playlist.get("url") or f"https://www.youtube.com/playlist?list={self._playlist['id']}"
@@ -72,7 +80,7 @@ class ChannelPlaylistMixin:
         token = ""
         try:
             while len(entries) < MAX_ENTRIES:
-                page = innertube.fetch_playlist_page(source["id"], token)
+                page = self._page_fetcher(source["id"])(source["id"], token)
                 entries.extend(page.entries)
                 token = page.token
                 if not token:

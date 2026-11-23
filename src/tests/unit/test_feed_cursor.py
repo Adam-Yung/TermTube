@@ -104,3 +104,23 @@ def test_a_failure_after_rows_keeps_them_and_the_next_take_reopens(fake_ydl, tem
     again = cur.take(20, {e["id"] for e in got})
     assert [e["id"] for e in again][:3] == [e["id"] for e in FEED[7:10]]
     assert len(fake_ydl.opened) == 2
+
+
+MIXED = [
+    {"id": "vid00000001", "title": "A video"},
+    {"id": "RDdQw4w9WgXcQ", "ie_key": "YoutubeTab", "url": "https://www.youtube.com/playlist?list=RDdQw4w9WgXcQ",
+     "title": "Mix - Rick", "channel": "YouTube", "thumbnails": [{"url": "https://i.ytimg.com/vi/x/hq.jpg"}]},
+    {"id": "UCabc", "ie_key": "YoutubeTab", "url": "https://www.youtube.com/channel/UCabc", "title": "A channel"},
+    {"id": "PLhits", "ie_key": "YoutubeTab", "url": "https://www.youtube.com/playlist?list=PLhits", "title": "Hits"},
+]
+
+
+def test_home_keeps_playlist_and_mix_rows_and_the_other_feeds_do_not(fake_ydl, temp_cache, monkeypatch):
+    monkeypatch.setattr(_FakeYDL, "_rows", lambda self: iter([dict(r) for r in MIXED]))
+    home = FeedCursor("u", None, temp_cache, playlists=True).take(10, set())
+    assert [e["id"] for e in home] == ["vid00000001", "RDdQw4w9WgXcQ", "PLhits"]
+    mix = home[1]
+    assert mix["_is_playlist"] and mix["url"].endswith("list=RDdQw4w9WgXcQ") and mix["_playlist_name"] == "Mix - Rick"
+    assert mix["thumbnail"] == "https://i.ytimg.com/vi/x/hq.jpg"
+    other = FeedCursor("u", None, temp_cache).take(10, set())
+    assert [e["id"] for e in other] == ["vid00000001"]

@@ -62,6 +62,7 @@ class DetailFocusMixin:
             self._thumb_dwell_timer = self.set_timer(
                 THUMB_DWELL_S, lambda: self._kick_thumb(vid, entry)
             )
+        if is_video and not entry.get("_is_playlist"):  # a playlist id has no video details to fetch
             self._focus_dwell_timer = self.set_timer(
                 FOCUS_DWELL_S, lambda: self._kick_focus(vid, entry)
             )

@@ -473,7 +473,7 @@ class MainScreen(
 
     def _activate_entry(self, entry: Entry) -> None:
         if entry.get("_is_playlist"):
-            self._hint(text("main_screen.open_playlist_in_browser"), "information")
+            self._open_playlist(entry)
         elif entry.get("_is_channel"):
             self._open_channel(entry)
         else:

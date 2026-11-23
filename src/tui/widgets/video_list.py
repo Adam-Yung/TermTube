@@ -193,6 +193,8 @@ class VideoListItem(ListItem):
         meta_parts = []
         if channel:
             meta_parts.append(f"[{theme_color}]{escape_markup(channel)}[/{theme_color}]")
+        if is_playlist and entry.get("playlist_count"):
+            meta_parts.append(f"[dim]{text('video_list.videos', count=entry['playlist_count'])}[/dim]")
         if duration:
             meta_parts.append(f"[dim]{duration}[/dim]")
         if views:
