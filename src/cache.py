@@ -24,6 +24,8 @@ PLAYLIST_THUMB_DIR = CACHE_DIR / "playlist_thumbs"
 _SUPPRESSED_PATH = CACHE_DIR / "suppressed.json"
 
 _write_lock = threading.Lock()
+FEED_FORMAT = 2
+"""Bumped when a feed cache must be refetched (2: Home rows may be playlists and Mixes); older files are ignored."""
 
 
 def _ensure_dirs() -> None:
@@ -138,7 +140,7 @@ class Cache:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             age = time.time() - data.get("_cached_at", 0)
-            if age > self._ttl.get(key, 3600):
+            if age > self._ttl.get(key, 3600) or data.get("format") != FEED_FORMAT:
                 return None
             return data.get("ids", [])
         except (json.JSONDecodeError, OSError):
@@ -152,6 +154,8 @@ class Cache:
             age = time.time() - data.get("_cached_at", 0)
         except (json.JSONDecodeError, OSError):
             return None
+        if data.get("format") != FEED_FORMAT:
+            return None
         return age if age <= self._ttl.get(key, 3600) else None
 
     def is_feed_fresh(self, key: str) -> bool:
@@ -161,7 +165,7 @@ class Cache:
     def put_feed(self, key: str, ids: list[str]) -> None:
         path = CACHE_DIR / f"feed_{key}.json"
         with _write_lock:
-            _atomic_write(path, json.dumps({"_cached_at": time.time(), "ids": ids}))
+            _atomic_write(path, json.dumps({"_cached_at": time.time(), "format": FEED_FORMAT, "ids": ids}))
         logger.debug("cache.put_feed %s (%d ids)", key, len(ids))
 
     def _load_suppressed(self) -> None:

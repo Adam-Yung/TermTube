@@ -158,3 +158,7 @@ Home has always dropped videos already played (suppression). The footer now coun
 
 ## 2026-11-18: live check of the channel and playlist parsers
 With YouTube now reachable for agents (rate limited, anonymous), the channel tabs and a playlist page were read once each. The playlist page used a layout the hand-written parser did not know and returned an empty list for every playlist: fixed and recorded as a fixture. Everything else matched. Still needing a signed-in browser: Home, YouTube history, Watch Later.
+
+## 2026-11-23: the feed cache has a format number
+**Found:** the owner's signed-in Home showed no playlists or Mixes after the playlist work. `scripts/owner/probe-home.py` showed yt-dlp returns them (4 of 60 rows) and a headless Home load with those rows shows all four, so the missing rows came from the Home id list cached before the change (served for up to an hour, plus the quick-start stash).
+**Decision:** `feed_<key>.json` carries `format` (`cache.FEED_FORMAT`); a file with another value counts as missing. Bump the number whenever what a feed may contain changes.

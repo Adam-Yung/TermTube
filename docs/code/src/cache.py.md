@@ -5,7 +5,7 @@ Disk cache under the platform cache dir: video metadata JSON, feed id lists, sup
 ## Layout
 
 - `videos/<id>.json`: slim yt-dlp entry plus `_cached_at`. `_FAT_FIELDS` (formats, subtitles, heatmap, ...) are stripped on write: about 48 KB becomes about 2 KB.
-- `feed_<key>.json`: `{ids, _cached_at}`; TTL from the `ttl_map` given to `Cache` (default 1 h). Search feeds use key `search_<hash>`.
+- `feed_<key>.json`: `{ids, format, _cached_at}`; a file whose `format` is not `FEED_FORMAT` (2: Home rows may be playlists and Mixes) counts as missing, so a cache written before that is refetched once; TTL from the `ttl_map` given to `Cache` (default 1 h). Search feeds use key `search_<hash>`.
 - `feed_home_stash.json`: up to 20 full entries saved at exit so the next boot shows content at once.
 - `playlist_videos/`, `playlist_thumbs/`: copies of playlist members. Pruning only touches `videos/` and `thumbs/`, so a pinned video survives eviction. `pin_video` takes the entry the caller holds (the playlist modal passes the row it was opened on, so a video that is no longer in `videos/` still pins) and strips the fat fields like `put_video`.
 - `suppressed.json`: ids hidden from the home feed, with focus counts.

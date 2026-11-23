@@ -108,6 +108,15 @@ class TestFeed:
 
         assert temp_cache.get_feed("home") is None
 
+    def test_a_feed_cached_before_playlist_rows_is_ignored(self, temp_cache):
+        from src.cache import CACHE_DIR
+
+        old = {"_cached_at": time.time(), "ids": ["x"]}  # written without a format marker
+        (CACHE_DIR / "feed_home.json").write_text(json.dumps(old), encoding="utf-8")
+
+        assert temp_cache.get_feed("home") is None
+        assert temp_cache.feed_age("home") is None
+
 
 class TestFeedFreshness:
     def test_is_feed_fresh_true(self, temp_cache):
