@@ -1,0 +1,22 @@
+scripts/owner/probe-home.py
+  s_694efe28e9a048::t_31ca75f67652f2 1-33,37-49
+  s_694efe28e9a048::t_5f81c6f4edae36 34-36
+docs/code/scripts/owner/probe-home.py.md
+  s_694efe28e9a048::t_77343ae0360d70 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9bf0bf321504502a653c6026c29d8e6a3588d469",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
