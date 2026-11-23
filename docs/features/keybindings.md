@@ -52,7 +52,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `I` | History tab, YouTube history source: imports the rows (or the marked ones) into local history (a hint elsewhere) | |
 | `s` `t` | Search tab: sort (relevance / date / views) / result type (all / video / channel / playlist); `s` on the local History tab: recent / most watched / longest watched (a hint elsewhere) | |
 | `Q` | open the audio queue (any screen with the audio bar): `j` `k` move, `J` `K` reorder, `D` remove, `u` undo, `Enter` play now, `Esc` close; "Nothing playing." when idle | |
-| `s` `r` `i` `Esc` | channel page only: sort / reload / show all or less of the description / back | |
+| `s` `r` `i` `Esc` | channel page only: sort / reload / fold or unfold the description (shown in full by default) / back | |
 | `B` | channel page: follow or unfollow the channel locally (`channels.json`, works with `browser: none`) | |
 | `Z` | Home tab: show or hide the videos already played (the footer says `N hidden`, or `played shown`); a hint on other tabs | |
 | `F` | Subscriptions tab: the local Following list (`Enter` opens a channel, `Esc` returns); a hint on other tabs | |

@@ -1,4 +1,4 @@
-"""Channel info column: description folded to three lines, `i` toggles, video count and join date."""
+"""Channel info column: description shown in full by default, `i` folds it to three lines, video count and join date."""
 
 import pytest
 from textual.widgets import Static
@@ -41,18 +41,18 @@ def text(screen, selector):
     return str(screen.query_one(selector, Static).content)
 
 
-async def test_i_expands_and_collapses_the_description(app):
+async def test_description_is_shown_in_full_and_i_folds_it(app):
     async with app.run_test(size=(110, 34)) as pilot:
         app.push_screen(ChannelScreen(URL, "Chan"))
         await pilot.pause()
         screen = app.screen
         screen._info_panel().update_info({"channel": "Chan", "description": LONG, "video_count": 442})
-        assert text(screen, "#ch-desc") == "line 1\nline 2\nline 3" and "show all" in text(screen, "#ch-desc-hint")
+        assert text(screen, "#ch-desc") == LONG and "show less" in text(screen, "#ch-desc-hint")
         assert "442 videos" in text(screen, "#ch-stats")
         await pilot.press("i")
-        assert text(screen, "#ch-desc") == LONG and "show less" in text(screen, "#ch-desc-hint")
+        assert text(screen, "#ch-desc") == "line 1\nline 2\nline 3" and "show all" in text(screen, "#ch-desc-hint")
         await pilot.press("i")
-        assert text(screen, "#ch-desc") == "line 1\nline 2\nline 3"
+        assert text(screen, "#ch-desc") == LONG
 
 
 async def test_i_on_a_short_description_says_there_is_nothing_more(app):
@@ -69,7 +69,7 @@ async def test_i_on_a_short_description_says_there_is_nothing_more(app):
         assert hint.call_args.args[0] == "Nothing more to show."
 
 
-async def test_a_new_channel_info_collapses_again(app):
+async def test_a_new_channel_info_is_expanded_again(app):
     async with app.run_test(size=(110, 34)) as pilot:
         app.push_screen(ChannelScreen(URL, "Chan"))
         await pilot.pause()
@@ -78,4 +78,4 @@ async def test_a_new_channel_info_collapses_again(app):
         panel.update_info({"channel": "Chan", "description": LONG})
         panel.toggle_description()
         panel.update_info({"channel": "Chan", "description": LONG})
-        assert text(screen, "#ch-desc") == "line 1\nline 2\nline 3"
+        assert text(screen, "#ch-desc") == LONG

@@ -43,7 +43,7 @@ class ChannelInfoPanel(Vertical):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.info: dict | None = None
-        self._expanded = False
+        self._expanded = True
 
     def compose(self) -> ComposeResult:
         yield ThumbnailWidget(id="ch-thumbnail")
@@ -89,7 +89,7 @@ class ChannelInfoPanel(Vertical):
         self.query_one("#ch-stats", Static).update(f"[dim]{escape_markup(stats)}[/dim]" if stats else "")
         self.query_one("#ch-url", Static).update(f"[dim]{url[:50]}[/dim]" if url else "")
         self.query_one("#ch-sep", Static).update("─" * 24)
-        self._expanded = False
+        self._expanded = True
         self._render_description()
 
     def toggle_description(self) -> bool:
