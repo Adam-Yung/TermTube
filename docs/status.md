@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-22. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6.
+**Last updated:** 2026-11-22. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 6 of 6 (it now also checks a playlist page and a Mix; not yet run live).
 The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Does live YouTube still look the way TermTube's parsers expect? Anonymous, youtube.com only, about 10 requests.
+"""Does live YouTube still look the way TermTube's parsers expect? Anonymous, youtube.com only, about 12 requests.
 
 Not part of the gate: YouTube changes without notice and datacenter addresses are sometimes blocked, so a red
 canary means "look", not "the code broke". Run by .github/workflows/canary.yml weekly and by hand.
@@ -44,6 +44,16 @@ def main() -> int:
     playlists = innertube.fetch_channel_playlists(CHANNEL, count=20)
     well_formed = all(p.get("id", "").startswith("PL") for p in playlists)
     check("InnerTube channel playlists", len(playlists) >= 3 and well_formed, f"{len(playlists)} playlists", t)
+
+    t = time.perf_counter()
+    page = innertube.fetch_playlist_page(playlists[0]["id"]) if playlists else innertube.ChannelPage([])
+    pinfo = page.info or {}
+    check("InnerTube playlist page", len(page.entries) >= 1 and bool(pinfo.get("title")),
+          f"{len(page.entries)} rows, header {pinfo.get('title')!r}", t)
+
+    t = time.perf_counter()
+    mix = innertube.fetch_mix_page(f"RD{VIDEO}")
+    check("InnerTube Mix (next)", len(mix.entries) >= 10 and bool(mix.token), f"{len(mix.entries)} rows", t)
 
     t = time.perf_counter()
     info = innertube.fetch_channel_info(f"https://www.youtube.com/channel/{CHANNEL}")
