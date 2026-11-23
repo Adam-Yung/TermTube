@@ -11,6 +11,8 @@ Fills the detail panel for the row under the cursor, without a request per row w
 
 Placeholder ids (`__playlist__...`) get no timers and no workers.
 
+A playlist row (not a Mix, whose row carries its first video's thumbnail) that still lacks a thumbnail or description takes the `FOCUS_DWELL_S` timer too, but `_kick_playlist` starts `_playlist_header_worker` (group `focus`, one `browse` request) instead of a video-details fetch. yt-dlp's Home rows for playlists carry neither; the worker merges the header's thumbnail, description and video count into the row, caches it, marks it `_header_read` (so it is read once) and re-kicks the thumbnail.
+
 ## Session counters
 
 | Counter | Guards | Bumped by |

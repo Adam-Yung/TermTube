@@ -17,6 +17,14 @@ THUMB_DWELL_S = 0.15
 RERENDER_DEBOUNCE_S = 0.3
 
 
+def _needs_playlist_header(entry: Entry) -> bool:
+    """A playlist (not a Mix, whose rows carry the first video's thumbnail) still without thumbnail or description."""
+    pid = entry.get("id", "")
+    if not entry.get("_is_playlist") or pid.startswith("RD") or entry.get("_header_read"):
+        return False
+    return not (entry.get("thumbnail") and entry.get("description"))
+
+
 class DetailFocusMixin:
     """Fills the detail panel for the row under the cursor.
 
@@ -66,6 +74,10 @@ class DetailFocusMixin:
             self._focus_dwell_timer = self.set_timer(
                 FOCUS_DWELL_S, lambda: self._kick_focus(vid, entry)
             )
+        elif _needs_playlist_header(entry):
+            self._focus_dwell_timer = self.set_timer(
+                FOCUS_DWELL_S, lambda: self._kick_playlist(vid, entry)
+            )
 
     def _cancel_pending_focus_and_thumb(self) -> None:
         for timer in (self._focus_dwell_timer, self._thumb_dwell_timer):
@@ -82,6 +94,13 @@ class DetailFocusMixin:
             return
         self._thumb_session += 1
         self._thumb_worker(vid, entry, self._thumb_session)
+
+    def _kick_playlist(self, vid: str, entry: Entry) -> None:
+        self._focus_dwell_timer = None
+        if self._detail().current_id != vid:
+            return
+        self._focus_session += 1
+        self._playlist_header_worker(vid, entry, self._focus_session)
 
     def _kick_focus(self, vid: str, entry: Entry) -> None:
         self._focus_dwell_timer = None
@@ -119,6 +138,31 @@ class DetailFocusMixin:
             self.app.call_from_thread(self._detail().refresh_metadata, merged)
         except Exception as exc:
             logger.debug("detail worker %s: %s", vid, exc)
+        finally:
+            self._worker_end()
+
+    @work(thread=True, exclusive=True, group="focus")
+    def _playlist_header_worker(self, vid: str, entry: Entry, session: int) -> None:
+        """A playlist row from Home carries no thumbnail or description: read them from the playlist's own header."""
+        from src import innertube
+
+        self._worker_start()
+        try:
+            info = innertube.fetch_playlist_page(vid).info or {}
+            if session != self._focus_session:
+                return
+            merged = {**entry, "_header_read": True}
+            for key, value in (("thumbnail", info.get("thumbnail")), ("description", info.get("description")),
+                               ("playlist_count", info.get("video_count"))):
+                if value and not merged.get(key):
+                    merged[key] = value
+            self.app.cache.put_video(merged)
+            panel = self.query_one(self._LIST_ID, VideoListPanel)
+            self.app.call_from_thread(panel.update_entry_by_id, vid, merged)
+            self.app.call_from_thread(self._detail().refresh_metadata, merged)
+            self.app.call_from_thread(self._kick_thumb, vid, merged)
+        except Exception as exc:
+            logger.debug("playlist header %s: %s", vid, exc)
         finally:
             self._worker_end()
 
