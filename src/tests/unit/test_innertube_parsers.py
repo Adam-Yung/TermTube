@@ -364,3 +364,26 @@ def test_playlist_page_parses_the_lockup_layout_recorded_from_youtube():
     assert first["uploader"] == "Google for Developers" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
     assert second["id"] == "ID6vEy94j7c"
     assert page.token.startswith("4qmFsgIx")
+
+
+def test_playlist_first_page_carries_the_header_recorded_from_youtube():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_page_header.json")):
+        page = innertube.fetch_playlist_page("PLBTanuC8SLeZUH4mYXFvRbDfxTMKvNLHJ")
+    info = page.info
+    assert info["title"].startswith("Lofi Music 2027") and info["description"].startswith("Lofi Music 2027")
+    assert (info["owner"], info["owner_id"]) == ("Hitsify", "UCnFrtWHPWzuvzMwwJLv9dnA")
+    assert (info["video_count"], info["view_count"], info["updated"]) == (50, 62909, "Updated 4 days ago")
+    assert info["thumbnail"].startswith("https://i.ytimg.com/vi/GgVcgbtHY9k/")
+    assert info["playlist_id"] == "PLBTanuC8SLeZUH4mYXFvRbDfxTMKvNLHJ" and len(page.entries) == 2
+
+
+def test_a_continuation_page_has_no_header():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos_lockup.json")):
+        assert innertube.fetch_playlist_page("PLx", "tok").info is None
+
+
+def test_an_unviewable_playlist_reports_youtubes_own_reason():
+    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_unviewable.json")):
+        page = innertube.fetch_playlist_page("RDdQw4w9WgXcQ")
+    assert page.entries == []
+    assert page.info == {"playlist_id": "RDdQw4w9WgXcQ", "unavailable": "This playlist type is unviewable."}

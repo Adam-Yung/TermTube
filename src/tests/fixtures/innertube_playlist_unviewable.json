@@ -1,0 +1,16 @@
+{
+ "alerts": [
+  {
+   "alertRenderer": {
+    "type": "ERROR",
+    "text": {
+     "runs": [
+      {
+       "text": "This playlist type is unviewable."
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

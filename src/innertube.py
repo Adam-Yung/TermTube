@@ -201,6 +201,7 @@ class ChannelPage(NamedTuple):
 
     entries: list
     token: str = ""
+    info: dict | None = None  # a playlist's first page: its header (``_playlist_info``); None everywhere else
 
 
 def fetch_channel_page(channel_id: str, tab: str = "videos", token: str = "", *, timeout: int = 12) -> ChannelPage:
@@ -218,10 +219,13 @@ def fetch_playlist_page(playlist_id: str, token: str = "", *, timeout: int = 12)
         payload: dict = {"continuation": token, "context": _WEB_CONTEXT}
     else:
         payload = {"browseId": "VL" + playlist_id, "context": _WEB_CONTEXT}
-    return _browse_page(payload, _parse_playlist_video, timeout)
+    header = None if token else lambda data: _playlist_info(data, playlist_id)
+    return _browse_page(payload, _parse_playlist_video, timeout, header)
 
 
-def _browse_page(payload: dict, parse: Callable[[dict], Entry | None], timeout: int) -> ChannelPage:
+def _browse_page(
+    payload: dict, parse: Callable[[dict], Entry | None], timeout: int, header: Callable[[dict], dict] | None = None
+) -> ChannelPage:
     data = _post_json(_BROWSE_URL, payload, timeout=timeout)
     if not data:
         return ChannelPage([])
@@ -232,12 +236,64 @@ def _browse_page(payload: dict, parse: Callable[[dict], Entry | None], timeout: 
         return ChannelPage([])
     entries = [e for e in map(parse, items) if e]
     logger.debug("innertube: %d browse entries", len(entries))
-    return ChannelPage(entries, _next_token(items))
+    return ChannelPage(entries, _next_token(items), header(data) if header else None)
 
 
 def fetch_channel_videos(channel_id: str, *, timeout: int = 12) -> list[VideoEntry]:
     """First page of newest-first channel videos (~600 ms for 30). Empty on failure."""
     return fetch_channel_page(channel_id, "videos", timeout=timeout).entries
+
+
+_VIDEO_COUNT_TEXT = re.compile(r"^[\d,.]+\s+videos?$")
+_VIEW_COUNT_TEXT = re.compile(r"^[\d,.]+\s+views?$")
+
+
+def _playlist_owner(parts: list[dict]) -> tuple[str, str]:
+    """(name, channel id) from the "by Name" avatar-stack part of the header; empty strings when it is missing."""
+    stack = next((p["avatarStack"]["avatarStackViewModel"]["text"] for p in parts if "avatarStack" in p), {})
+    commands = [run.get("onTap", {}).get("innertubeCommand", {}) for run in stack.get("commandRuns") or []]
+    ids = [c.get("browseEndpoint", {}).get("browseId", "") for c in commands]
+    owner_id = next((i for i in ids if i), "")
+    return stack.get("content", "").removeprefix("by ").strip(), owner_id
+
+
+def _playlist_updated(data: dict) -> str:
+    """"Updated 4 days ago": only the sidebar carries it."""
+    items = ((data.get("sidebar") or {}).get("playlistSidebarRenderer") or {}).get("items") or []
+    stats = [_text(s) for i in items for s in (i.get("playlistSidebarPrimaryInfoRenderer") or {}).get("stats") or []]
+    return next((t for t in stats if t.startswith("Updated")), "")
+
+
+def _playlist_info(data: dict, playlist_id: str) -> dict:
+    """Header of a playlist's first /browse reply, or ``{"unavailable": <YouTube's reason>}`` when it carries an alert.
+
+    Title, description and thumbnail come from the metadata and microformat blocks; the owner and the count rows from
+    ``pageHeaderViewModel``. Every field is optional: a missing piece is an empty string or None, never an error.
+    """
+    info: dict = {"playlist_id": playlist_id}
+    alerts = [_text((a.get("alertRenderer") or {}).get("text")) for a in data.get("alerts") or []]
+    if alerts and not data.get("header"):
+        info["unavailable"] = next((a for a in alerts if a), "unavailable")
+        return info
+    meta = (data.get("metadata") or {}).get("playlistMetadataRenderer") or {}
+    content = ((data.get("header") or {}).get("pageHeaderRenderer") or {}).get("content") or {}
+    view_meta = content.get("pageHeaderViewModel", {}).get("metadata", {}).get("contentMetadataViewModel") or {}
+    parts = [p for row in view_meta.get("metadataRows") or [] for p in row.get("metadataParts") or []]
+    texts = [(p.get("text") or {}).get("content", "") for p in parts]
+    owner, owner_id = _playlist_owner(parts)
+    microformat = (data.get("microformat") or {}).get("microformatDataRenderer") or {}
+    thumbs = microformat.get("thumbnail", {}).get("thumbnails") or []
+    info.update(
+        title=meta.get("title", ""),
+        description=meta.get("description", ""),
+        owner=owner,
+        owner_id=owner_id,
+        video_count=_parse_view_count(next((t for t in texts if _VIDEO_COUNT_TEXT.match(t)), "")),
+        view_count=_parse_view_count(next((t for t in texts if _VIEW_COUNT_TEXT.match(t)), "")),
+        updated=_playlist_updated(data),
+        thumbnail=thumbs[-1].get("url", "") if thumbs else "",
+    )
+    return info
 
 
 def _browse_items(data: dict) -> list[dict]:
