@@ -6,9 +6,9 @@
 > must repeat this rule and forbid downloading. Tests must not touch the network, the user's browser profile or keychain, or kill the test
 > runner (patch `_force_exit`, set `browser: none`).
 
-> **ALLOWLIST (amended 2026-11-18 by the owner; mirrors `~/.claude/CLAUDE.md`): `youtube.com` and its media hosts `googlevideo.com`, `ytimg.com`,
-> `youtu.be` may be downloaded from, including `yt-dlp` runs, and nothing else may.** Conditions: rate limit every call (one at a time, several
-> seconds apart, `--sleep-requests`, `--sleep-interval`, `--limit-rate`, small batches; stop at the first 429, bot check or sign-in demand, never
+> **ALLOWLIST (amended 2026-11-18, widened 2026-11-22 by the owner; `~/.claude/CLAUDE.md` is not changed): `youtube.com` with every subdomain
+> (`www.`, `m.`, `music.` and any other `*.youtube.com`, including the InnerTube API at `www.youtube.com/youtubei/v1`) and its media hosts `googlevideo.com`, `ytimg.com`, `youtu.be` may be fetched from, including `yt-dlp`
+> runs and read-only page or JSON requests for metadata (playlist, channel and search responses saved as test fixtures), and nothing else may.** Conditions: rate limit every call (one at a time, several seconds apart, `--sleep-requests`, `--sleep-interval`, `--limit-rate`, small batches; stop at the first 429, bot check or sign-in demand, never
 > retry in a loop or evade a block); use judgement and skip sensitive or offensive items; only video, audio and image files, never code or
 > archives; subagent prompts must restate these conditions in full. Tests still never touch the network. This is the only exception to the rule above.
 
