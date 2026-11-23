@@ -1,0 +1,27 @@
+docs/decisions/feeds-and-paging.md
+  s_694efe28e9a048::t_76ad4283d2218b 124-127
+src/tests/tui/test_channel_info.py
+  s_694efe28e9a048::t_846beaa775ea68 1,44,50,53,55,72,81
+src/tui/widgets/channel_info_panel.py
+  s_694efe28e9a048::t_846beaa775ea68 46,92
+docs/features/keybindings.md
+  s_694efe28e9a048::t_76ad4283d2218b 55
+docs/code/src/tui/widgets/channel_info_panel.py.md
+  s_694efe28e9a048::t_76ad4283d2218b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "90f071fcb32c89509bd9a4ebbeff5c5676a9748f",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}

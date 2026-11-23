@@ -1,0 +1,26 @@
+docs/code/scripts/owner/probe-playlist.py.md
+  s_694efe28e9a048::t_b7f610266bde6f 1-9
+AGENTS.md
+  s_694efe28e9a048::t_e164115a436802 9
+  s_694efe28e9a048::t_db25fc61ea87b2 10-11
+scripts/owner/probe-playlist.py
+  s_694efe28e9a048::t_b7f610266bde6f 2-3,44
+  s_694efe28e9a048::t_427eadb2dc9d31 4-7
+  s_694efe28e9a048::t_0c032bd0ed5375 1,8-43,45-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "cec557c919410154a3c91860180a58bde267da6a",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}

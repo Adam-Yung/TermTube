@@ -1,0 +1,35 @@
+src/tests/unit/test_innertube_parsers.py
+  s_694efe28e9a048::t_494858645951c8 388-389
+  s_694efe28e9a048::t_298e572d2c13ff 367-387
+docs/decisions/playlist-page.md
+  s_694efe28e9a048::t_427eadb2dc9d31 1-11
+  s_694efe28e9a048::t_276cf97e4f5321 12-19
+src/tests/fixtures/innertube_playlist_unviewable.json
+  s_694efe28e9a048::t_298e572d2c13ff 1-16
+src/tests/fixtures/innertube_playlist_page_header.json
+  s_694efe28e9a048::t_5ab1aeb2daeb3a 1-941
+src/innertube.py
+  s_694efe28e9a048::t_baee581eebaf64 204,226,228,239,247-250,267-269,272-278,282,286-288,290,294-296
+  s_694efe28e9a048::t_7ff3f9331ddcf5 254
+  s_694efe28e9a048::t_494858645951c8 222-223,227,251-253,257-266,270-271,279,283,289,291-293
+  s_694efe28e9a048::t_0313862ef4c162 280-281,284-285
+  s_694efe28e9a048::t_a8745ccfb01104 255-256,297-298
+docs/code/src/innertube.py.md
+  s_694efe28e9a048::t_5d8159464ffc1e 48-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "87cd01513b7ee6ee6cc52135f9ee822bbc10f118",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
