@@ -1,0 +1,21 @@
+docs/status.md
+  s_694efe28e9a048::t_897feb52865f4b 3,35
+scripts/canary-live.py
+  s_694efe28e9a048::t_7edc1f3780d9a4 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "114a9474c520bdde0a5e300ee3fc8942da5dbd45",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
