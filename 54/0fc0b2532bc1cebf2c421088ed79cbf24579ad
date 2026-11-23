@@ -1,0 +1,26 @@
+src/cache.py
+  s_694efe28e9a048::t_2092be23975949 143,157-158,168
+  s_694efe28e9a048::t_f21e9be0f2c442 27-28
+src/tests/unit/test_cache.py
+  s_694efe28e9a048::t_47066cf87bd404 111-119
+docs/code/src/cache.py.md
+  s_694efe28e9a048::t_cbe20419ac961a 8
+docs/decisions/feeds-and-paging.md
+  s_694efe28e9a048::t_36001b9fabda80 161-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "540fc0b2532bc1cebf2c421088ed79cbf24579ad",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
