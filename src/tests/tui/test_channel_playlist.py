@@ -8,7 +8,11 @@ from src import innertube, playlist
 from src.tui.screens.channel_screen import ChannelScreen
 
 URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
-PL = {"id": "PLmix", "title": "Mix", "_playlist_name": "Mix", "_is_playlist": True, "url": "https://www.youtube.com/playlist?list=PLmix"}
+PL = {
+    "id": "PLmix", "title": "Mix", "_playlist_name": "Mix", "_is_playlist": True,
+    "url": "https://www.youtube.com/playlist?list=PLmix",
+    "thumbnail": "https://i.ytimg.com/pl.jpg",  # InnerTube rows carry one
+}
 
 
 def vids(prefix, n):

@@ -9,7 +9,7 @@ ROW = {"id": "PLabcdefghij", "title": "Jazz", "_is_playlist": True, "_type": "pl
 def test_which_rows_need_the_header():
     assert _needs_playlist_header(ROW)
     assert not _needs_playlist_header({**ROW, "id": "RDabcdefghijk"})  # a Mix row carries its first video's thumbnail
-    assert not _needs_playlist_header({**ROW, "thumbnail": "u", "description": "d"})
+    assert not _needs_playlist_header({**ROW, "thumbnail": "u"})  # search and channel rows already have one
     assert not _needs_playlist_header({**ROW, "_header_read": True})
     assert not _needs_playlist_header({"id": "abcdefghijk", "title": "v"})
 

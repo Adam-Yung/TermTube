@@ -18,11 +18,14 @@ RERENDER_DEBOUNCE_S = 0.3
 
 
 def _needs_playlist_header(entry: Entry) -> bool:
-    """A playlist (not a Mix, whose rows carry the first video's thumbnail) still without thumbnail or description."""
+    """A playlist (not a Mix, whose rows carry the first video's thumbnail) with no thumbnail: Home rows from yt-dlp.
+
+    Search and channel playlist rows arrive with a thumbnail, so they cost no extra request.
+    """
     pid = entry.get("id", "")
     if not entry.get("_is_playlist") or pid.startswith("RD") or entry.get("_header_read"):
         return False
-    return not (entry.get("thumbnail") and entry.get("description"))
+    return not entry.get("thumbnail")
 
 
 class DetailFocusMixin:
