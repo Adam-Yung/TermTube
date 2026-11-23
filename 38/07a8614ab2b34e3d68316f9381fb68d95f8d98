@@ -1,0 +1,26 @@
+docs/code/src/tui/screens/mixins/detail_focus.py.md
+  s_694efe28e9a048::t_62ec497442b43c 14
+src/tui/screens/mixins/detail_focus.py
+  s_694efe28e9a048::t_62ec497442b43c 21-24,28
+src/tests/tui/test_channel_playlist.py
+  s_694efe28e9a048::t_7d908a5b5f5e6a 11-12,15
+  s_694efe28e9a048::t_808c0323b97e04 13-14
+src/tests/tui/test_playlist_row_header.py
+  s_694efe28e9a048::t_62ec497442b43c 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3807a8614ab2b34e3d68316f9381fb68d95f8d98",
+  "prompts": {},
+  "sessions": {
+    "s_694efe28e9a048": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c74865e1-e228-43ce-b147-81d4f1266f2c",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
