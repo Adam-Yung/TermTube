@@ -1,0 +1,86 @@
+README.md
+  s_e7aa8e3e185f22::t_8197e2674e0678 107,123
+  s_e7aa8e3e185f22::t_a64a564522bddc 124
+src/tests/tui/test_key_hints.py
+  s_e7aa8e3e185f22::t_e884e341d68453 66-74,76,78
+src/tui/screens/watch_modal.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 40-48,57-58,62,64,84-87,94,145,172-176,178,189,191-193,243,245,260,381-386,388-391,403
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 3,31,34-39,74
+src/strings.json
+  s_e7aa8e3e185f22::t_ba84d712197ab1 85-86,508-510,572-574,711-714
+src/tests/tui/test_actions_panel.py
+  s_e7aa8e3e185f22::t_e884e341d68453 41,45-48,52
+docs/code/src/tui/audio_controller.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 16-17
+docs/code/src/playlist_fetch.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 1-7
+docs/status.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 3,23
+docs/code/src/tui/screens/watch_modal.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 12-13,18,27-30,33,41
+docs/code/src/tui/screens/mixins/item_actions.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 8,23,25
+src/tests/tui/test_layout_audit.py
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 64
+docs/decisions/playlist-page.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 27-30
+src/tui/screens/help_screen.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 31,45
+docs/code/src/tui/screens/mixins/playlist_rows.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 1-8
+docs/features/playback.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 34,41-45,59-60
+src/player.py
+  s_e7aa8e3e185f22::t_887530ad1c776b 533
+  s_e7aa8e3e185f22::t_ba84d712197ab1 72-84,86,588
+src/playlist_fetch.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 1-48
+src/tui/screens/channel_screen.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 13,381
+docs/code/src/player.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 63,83
+src/tui/screens/mixins/channel_playlist.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 5,37,64,69,74
+src/tui/screens/mixins/item_actions.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 13,41,72,74-78,142-143,171-172,192-193
+src/tui/screens/mixins/playlist_rows.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 1-92
+src/tests/integration/test_mpv_sequence_keys.py
+  s_e7aa8e3e185f22::t_fe026d51f5d1b2 1-47
+src/tui/screens/mixins/playlist_tools.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 5,12,83-91
+  s_e7aa8e3e185f22::t_715684a0208db1 92
+docs/code/src/tui/screens/mixins/channel_playlist.py.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 3,9,12,14,16
+docs/features/keybindings.md
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 23,35-36
+src/tests/tui/test_playlist_row_playback.py
+  s_e7aa8e3e185f22::t_58032cf5dad4a7 193-197
+  s_e7aa8e3e185f22::t_ba84d712197ab1 1-7,9,11-160,162-165,174-188,190-192
+  s_e7aa8e3e185f22::t_8bde5dcffae07a 168,170-171
+  s_e7aa8e3e185f22::t_887530ad1c776b 8,161
+  s_e7aa8e3e185f22::t_4ad9722a938f47 10,166-167,169,172-173
+  s_e7aa8e3e185f22::t_7edc6f5734b740 189
+src/tests/unit/test_mixin_wiring.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 40
+src/tui/audio_controller.py
+  s_e7aa8e3e185f22::t_ba84d712197ab1 74,102-110,131,188,201
+docs/features/architecture.md
+  s_e7aa8e3e185f22::t_8197e2674e0678 12,20,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "154e8e28893a94c668b33ac49a467e6ab912a987",
+  "prompts": {},
+  "sessions": {
+    "s_e7aa8e3e185f22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8eab02b-c674-439e-ab04-16467952a8b9",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
