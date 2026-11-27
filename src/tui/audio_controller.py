@@ -228,6 +228,14 @@ class AudioController:
         self._queue.insert(min(max(index, 0), len(self._queue)), entry)
         self._queue_changed()
 
+    def clear_queue(self) -> list[Entry]:
+        """Drop every upcoming track and return them in order; the playing one goes on."""
+        cleared = list(self._queue)
+        if cleared:
+            self._queue.clear()
+            self._queue_changed()
+        return cleared
+
     def play_queued(self, index: int) -> None:
         """Play the upcoming track at ``index`` now. The tracks before it stay queued, in order (nothing is dropped)."""
         if not 0 <= index < len(self._queue):
@@ -286,6 +294,8 @@ class AudioController:
     def _start(self, entry: Entry, *, ytdl_format: str = "") -> None:
         self._play_pending = True
         self._entry = entry
+        # A track is never both playing and queued: the queue page tells rows apart by id.
+        self._queue = [e for e in self._queue if e.get("id") != entry.get("id")]
         self._stopped = False
         self._session += 1
         self._segments = []

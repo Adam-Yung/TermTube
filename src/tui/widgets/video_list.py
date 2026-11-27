@@ -98,10 +98,11 @@ class FilterBar(Input):
 
 
 class VideoListItem(ListItem):
-    def __init__(self, entry: Entry, *, marked: bool = False) -> None:
+    def __init__(self, entry: Entry, *, marked: bool = False, playing: bool = False) -> None:
         super().__init__()
         self.entry = entry
         self.marked = marked
+        self.playing = playing
         self._cached_markup: str = ""
 
     def set_marked(self, marked: bool) -> None:
@@ -167,7 +168,9 @@ class VideoListItem(ListItem):
             line1 = f"[bold white]{escape_markup(ch_name)}[/bold white] [{theme_color}]📺[/{theme_color}]"
             return f"{line1}\n{line2}" if line2 else line1
 
-        if entry.get("_missing_file"):
+        if self.playing:
+            badge = text("video_list.badge_playing")
+        elif entry.get("_missing_file"):
             badge = text("video_list.badge_file_missing")
         elif is_playlist:
             badge = text("video_list.badge_playlist")
@@ -248,6 +251,7 @@ class VideoListPanel(Widget):
         self._is_loading: bool = False
         self._items_by_id: dict[str, VideoListItem] = {}
         self._marked: set[str] = set()
+        self._playing_id: str | None = None
         self._filter: str = ""
         self._matcher: Callable[[list[Entry], str], list[Entry]] = fuzzy.rank
         self._filtered_pages: dict[int, list[Entry]] = {}
@@ -409,7 +413,7 @@ class VideoListPanel(Widget):
                     items.append(HeaderListItem(label))
                     last_label = label
             vid = entry.get("id", "")
-            item = VideoListItem(entry, marked=vid in self._marked)
+            item = VideoListItem(entry, marked=vid in self._marked, playing=bool(vid) and vid == self._playing_id)
             if vid:
                 self._items_by_id[vid] = item
             rows.append(len(items))
@@ -551,6 +555,10 @@ class VideoListPanel(Widget):
     def cursor_last(self) -> None:
         if len(self._lv):
             self._lv.index = len(self._lv) - 1
+
+    def set_playing(self, vid: str | None) -> None:
+        """Badge this id as now playing from the next render on."""
+        self._playing_id = vid
 
     def set_matcher(self, matcher: Callable[[list[Entry], str], list[Entry]] | None) -> None:
         """How the filter ranks entries for the view being loaded; None restores the plain free-text match."""

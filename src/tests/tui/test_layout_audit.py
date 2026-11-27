@@ -15,7 +15,6 @@ from src.tui.screens.name_modal import NameModal
 from src.tui.screens.nav_modal import NavModal
 from src.tui.screens.playlist_modal import PlaylistModal
 from src.tui.screens.quality_modal import QualityModal
-from src.tui.screens.queue_modal import QueueModal
 from src.tui.screens.search_modal import SearchModal
 from src.tui.screens.settings_modal import SettingsModal
 from src.tui.screens.sort_modal import SortModal
@@ -28,12 +27,6 @@ VIDEO = {
     "title": "A rather long video title that goes on and on to test how the dialog header copes with it",
     "uploader": "A Channel With A Long Name Indeed",
 }
-
-
-def _queue(app):
-    app.audio._play_pending = True
-    app.audio._entry = {"id": "AAAAAAAAAAA", "title": "Playing", "uploader": "U", "duration": 600}
-    app.audio._queue = [{"id": f"Q{i:010d}", "title": f"Queued track number {i}", "duration": 90} for i in range(30)]
 
 
 def _playlists(app):
@@ -53,8 +46,6 @@ SCENARIOS = [
     Scenario("channel-tab", lambda app: ChannelTabModal()),
     Scenario("settings", lambda app: SettingsModal()),
     Scenario("search", lambda app: SearchModal()),
-    Scenario("queue", lambda app: QueueModal(), before=_queue),
-    Scenario("queue-empty", lambda app: QueueModal()),
     Scenario("nav", lambda app: NavModal()),
     Scenario("empty-feed", lambda app: EmptyFeedModal()),
     Scenario("ytdlp-update", lambda app: YtdlpUpdateModal("ERROR: " + "x" * 200)),

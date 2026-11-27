@@ -23,7 +23,7 @@ Browse, search, listen in the background and watch, without leaving the command 
 - **List tools** on every list: `f` filters all loaded pages as you type, `m`/`M` mark rows, `D` removes them after one `y`/N, `u` undoes (History and playlists; Library deletes files for good).
 - **History** with day headers, resume points (`▶ 2:05 / 10:00`), watch time and sorting; `Y` switches between local history, your YouTube history and Watch Later. `history: false` records nothing.
 - **Library** with a left rail (All downloads, Videos, Audio and your local playlists), search tokens (`type:audio`, `dur:<10m`) and delete of the files with sizes shown first.
-- **Background audio** through a headless mpv: queue (`Q` shows and reorders it), pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
+- **Background audio** through a headless mpv: queue (`q` shows, reorders and clears it), pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
 - **Video** in an mpv window, with progress and controls in the terminal.
 - **Downloads** (video as mp4, audio as mp3) with progress, then a **Library** tab that lists and plays what you downloaded.
 - **Thumbnails** as real images (Kitty, Sixel) where the terminal supports it, as colour half-block art everywhere else.
@@ -94,8 +94,8 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 - Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F6`.
 - `Enter` opens the action menu for the highlighted video; every action also has its own key, shown in the footer and the in-app help (`?`).
 - `/` searches. `a` plays the audio in the background, `v` watches the video, `d` downloads, `c` opens the channel, `p` adds to a playlist.
-- `f` filters the list, `m`/`M` mark rows, `D` removes (then `u` undoes), `Q` opens the audio queue, `,` opens settings.
-- `q` quits (stops audio; the queue is not saved).
+- `f` filters the list, `m`/`M` mark rows, `D` removes (then `u` undoes), `q` opens the audio queue, `,` opens settings.
+- `Ctrl+Q` quits (stops audio; the queue is not saved).
 
 ### Keys
 
@@ -116,9 +116,9 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `c` | channel page (`s` sort, `r` reload) | `r` | refresh the feed |
 | `p` | add to a local playlist | `,` | settings |
 | `f` `m` `M` | filter / mark row / mark page | `D` `u` | remove marked or current / undo |
-| `Y` | History: cycle source | `Q` | audio queue |
+| `Y` | History: cycle source | `q` | audio queue |
 | `y` | copy the URL | `?` | help |
-| `b` | open in the browser | `q` | quit |
+| `b` | open in the browser | `Ctrl+Q` | quit |
 
 On a playlist or Mix row, `v` `a` `e` play it as video, as audio, or queue it without opening it; in a video run `>` `<` step and `q` ends it.
 

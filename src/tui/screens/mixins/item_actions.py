@@ -215,13 +215,9 @@ class ItemActionsMixin(PlaylistRowsMixin):
             audio.previous_audio()
 
     def action_audio_queue(self) -> None:
-        audio = self.app.audio
-        if not audio.is_playing and not audio.queue:
-            self._hint(text("item_actions.nothing_playing"), "information")
-            return
-        from src.tui.screens.queue_modal import QueueModal
+        from src.tui.screens.queue_screen import QueueScreen
 
-        self.app.push_screen(QueueModal())
+        self.app.push_screen(QueueScreen())
 
     def action_audio_pause(self) -> None:
         if not self.app.audio.is_playing:

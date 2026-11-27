@@ -12,6 +12,7 @@ from textual.app import App
 from src import logger, store
 from src.cache import Cache
 from src.config import Config
+from src.tui import keymap
 from src.tui.audio_controller import AudioController
 from src.tui.fmt import escape_markup
 from src.tui.layout import HORIZONTAL_BREAKPOINTS
@@ -25,6 +26,7 @@ class TermTubeApp(App):
     TITLE = "TermTube"
     CSS_PATH = Path(__file__).parent / "theme.tcss"
     ENABLE_COMMAND_PALETTE = False
+    BINDINGS = keymap.APP
     HORIZONTAL_BREAKPOINTS = HORIZONTAL_BREAKPOINTS
 
     def __init__(self, config: Config) -> None:
@@ -88,6 +90,16 @@ class TermTubeApp(App):
         self._atexit_cleanup()
         if not self._housekeeping_done.is_set():
             self._run_housekeeping()
+
+    async def action_quit(self) -> None:
+        """``Ctrl+Q`` from any screen or dialog quits through the main screen, which saves and stops first."""
+        from src.tui.screens.main_screen import MainScreen
+
+        main = next((s for s in self.screen_stack if isinstance(s, MainScreen)), None)
+        if main:
+            main.action_quit_app()
+        else:
+            self.exit()
 
     @staticmethod
     def _warmup_ytdlp() -> None:

@@ -9,7 +9,7 @@ from textual.worker import WorkerCancelled
 
 from src import history, playlist
 from src.tui.audio_controller import AudioController
-from src.tui.screens.queue_modal import QueueModal
+from src.tui.screens.queue_screen import QueueScreen
 from src.tui.widgets.video_list import VideoListPanel
 
 
@@ -100,21 +100,26 @@ async def test_queue_journey_enqueue_three_then_reorder_remove_jump_and_close(ap
             await pilot.press("e", "j")
         assert controller.entry["id"] == rows("q", 1)[0]["id"]
         assert [e["id"] for e in controller.queue] == [rows("q", 3)[i]["id"] for i in (1, 2)]
-        await pilot.press("Q")
-        await pilot.pause()
-        modal = app.screen
-        assert isinstance(modal, QueueModal) and [k for k, _ in modal._rows] == ["now", "next", "next"]
-        await pilot.press("down", "J")  # the first upcoming track moves below the second
+        await pilot.press("q")
+        await pilot.pause(0.3)
+        page = app.screen
+        assert isinstance(page, QueueScreen) and len(page._ids) == 3
+        await pilot.press("down")
+        await pilot.pause(0.2)
+        await pilot.press("J")  # the first upcoming track moves below the second
         assert [e["id"] for e in controller.queue] == [rows("q", 3)[i]["id"] for i in (2, 1)]
+        await pilot.pause(0.2)
         await pilot.press("D")
         assert [e["id"] for e in controller.queue] == [rows("q", 3)[2]["id"]]
+        await pilot.pause(0.2)
         await pilot.press("u")
         assert len(controller.queue) == 2
+        await pilot.pause(0.2)
         await pilot.press("enter")  # jumps to the highlighted upcoming track
         assert controller.entry["id"] in {rows("q", 3)[1]["id"], rows("q", 3)[2]["id"]} and len(controller.queue) == 1
         await pilot.press("escape")
         await pilot.pause()
-        assert app.screen is not modal and isinstance(app.screen.query_one(VideoListPanel), VideoListPanel)
+        assert app.screen is not page and isinstance(app.screen.query_one(VideoListPanel), VideoListPanel)
 
 
 async def test_quit_journey_flushes_history_and_stops_audio(app, monkeypatch, tmp_path):
@@ -124,7 +129,7 @@ async def test_quit_journey_flushes_history_and_stops_audio(app, monkeypatch, tm
         await settle(app, pilot)
         history.add(rows("g", 1)[0], app.config)
         monkeypatch.setattr(app.audio, "stop_audio", lambda *a, **k: stopped.append(1))
-        await pilot.press("q")
+        await pilot.press("ctrl+q")
         await pilot.pause()
     assert stopped == [1] and not app.is_running
     on_disk = history.HISTORY_PATH.read_text(encoding="utf-8")

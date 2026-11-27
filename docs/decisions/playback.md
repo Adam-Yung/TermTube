@@ -102,3 +102,7 @@ When neither the certifi nor the system context builds, `sponsorblock` returns n
 **Queue view.** `AudioController` stays the only owner of queue state: four small methods (`move_queued`, `remove_queued`, `insert_queued`, `play_queued`) and a modal that redraws from `app.audio.queue` on the controller's broadcasts. Choices: the playing track is shown but is not editable (`>` and `x` already end it, and removing it would need a rule for what plays next); `Enter` plays the chosen track now and leaves the tracks before it queued, like `a`; undo is local to the dialog.
 
 **History sort** (`s` on the local History tab) reuses `SortModal` and the existing `s` key, which is a hint elsewhere. The two non-recent orders drop the day headers. The choice lasts for the session. This needed a small change in `FeedLoaderMixin._stream_view` (the History branch), the one place the order is applied at load.
+
+## 2026-11-27 — The queue is a page on `q`; `Ctrl+Q` quits
+
+The `Q` popup was easy to miss and showed no details. `q` now opens `QueueScreen`, a list-and-detail page like a playlist's, and quit moved to `Ctrl+Q` (Textual's own binding, overridden to keep our cleanup). Rejected: keeping the popup and only moving it to `q`. `c` clears the upcoming tracks only, so it needs no confirmation: `u` brings them back and `x` already stops everything. `c` means "channel" elsewhere; the queue page has no channel key. Starting a queued track now removes it from the queue, because the page identifies rows by video id.

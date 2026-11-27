@@ -302,9 +302,9 @@ def run(args, tmp: Path) -> int:
         session.send("F4")
         step("History tab shows the played track", session.expect(TONE_TITLE, mark, 15))
 
-        session.send("q")
+        session.send("\x11")  # Ctrl+Q
         code = terminal.exit_code(20)
-        step("q: the app exits with code 0", code == 0, f"exit code {code}")
+        step("Ctrl+Q: the app exits with code 0", code == 0, f"exit code {code}")
         step("no mpv left behind", poll()[0] is None)
     finally:
         still_running = terminal.exit_code(0) is None

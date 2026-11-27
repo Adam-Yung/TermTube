@@ -21,7 +21,7 @@ def test_every_panel_and_menu_key_is_in_the_help_screen():
 
 def test_the_footer_keys_are_in_the_help_screen():
     rows = {key for _, section in _SECTIONS for key, _ in section}
-    assert {"/", "?", ","} <= rows and "q" in _help_tokens()
+    assert {"/", "?", ","} <= rows and {"q", "Ctrl+Q"} <= _help_tokens()
 
 
 def test_f_keys_match_the_tabs():

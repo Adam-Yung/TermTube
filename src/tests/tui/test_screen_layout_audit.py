@@ -9,6 +9,7 @@ from src import channel_bookmarks, history, playlist
 from src.innertube import ChannelPage
 from src.tests.tui.layout_harness import MAIN_SIZES, ScreenScenario, audit_screen_scenario, settle
 from src.tui.screens.channel_screen import ChannelScreen
+from src.tui.screens.queue_screen import QueueScreen
 
 LONG = "A rather long video title that goes on and on to test how a list row copes with a narrow column"
 
@@ -221,5 +222,24 @@ async def test_playlist_page_layout(main_app, scenario, monkeypatch):
         await settle(pilot, lambda: [] if isinstance(main_app.screen, ChannelScreen) else ["not pushed"])
         problems = await audit_screen_scenario(
             main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
+        )
+    assert not problems, "\n".join(problems)
+
+
+async def test_queue_page_layout(main_app, monkeypatch):
+    entries = _entries(60)
+
+    async def setup(app, pilot):
+        audio = app.audio
+        audio._play_pending, audio._entry, audio._queue = True, entries[0], list(entries[1:])
+        app.screen._rebuild()
+        await pilot.pause(0.5)
+
+    async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
+        main_app.push_screen(QueueScreen())
+        await settle(pilot, lambda: [] if isinstance(main_app.screen, QueueScreen) else ["not pushed"])
+        problems = await audit_screen_scenario(
+            main_app, pilot, ScreenScenario("queue-page", setup), MAIN_SIZES,
+            list_id="#queue-video-list", detail_id="#queue-detail-panel",
         )
     assert not problems, "\n".join(problems)

@@ -30,7 +30,7 @@ def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666", *,
     e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]{text('action_bar.queue_add')}[/dim]"
     skip_part = (
         f"[bold {color}]>[/bold {color}] [dim]{text('action_bar.queue_skip', count=queue_len)}[/dim]  "
-        f"[bold {color}]Q[/bold {color}] [dim]{text('action_bar.queue_open')}[/dim]"
+        f"[bold {color}]q[/bold {color}] [dim]{text('action_bar.queue_open')}[/dim]"
         if queue_len > 0
         else ""
     )

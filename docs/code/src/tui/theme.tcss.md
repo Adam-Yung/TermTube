@@ -12,4 +12,4 @@ The app stylesheet (`App.CSS_PATH`). Crimson is the base; amber, ocean and midni
 - Textual component classes (`.bar--bar`, `.footer-key--key`) never appear in Python; they are not dead.
 - Every id and class here must appear in `src/**/*.py`, and every type selector must name a real widget (`Scrollbar` is not one: Textual styles scrollbars through `scrollbar-color`); remove a rule with the widget that owned it. `src/tests/unit/test_theme_wiring.py` checks this.
 
-`QueueModal` (`Q`) uses `#queue-dialog`, `#queue-title`, `#queue-hint` and `#queue-list`; `#queue-title` is in the per-theme accent lists with the other dialog titles. `NameModal` and `YtdlpUpdateModal` take their ids from the playlist and image-warning groups.
+`QueueScreen` (`q`) uses `#queue-main`, `#queue-center`, `#queue-video-list`, `#queue-hint` and `#queue-detail-panel` (`-narrow` shifts width to the detail column). `NameModal` and `YtdlpUpdateModal` take their ids from the playlist and image-warning groups.

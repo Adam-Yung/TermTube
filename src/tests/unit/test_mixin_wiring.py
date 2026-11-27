@@ -18,8 +18,9 @@ from textual.screen import Screen
 import src.tui
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.main_screen import MainScreen
+from src.tui.screens.queue_screen import QueueScreen
 
-HOSTS = [MainScreen, ChannelScreen]
+HOSTS = [MainScreen, ChannelScreen, QueueScreen]
 
 # name -> class that must win on each host. Every other duplicate across the MRO is a failure.
 # Screens refine a mixin's default (calling super() where it extends it); PlaylistToolsMixin and LibraryRailMixin
@@ -49,17 +50,29 @@ OVERRIDES = {
         "action_goto_end": "ChannelScreen",
         "_activate_entry": "ChannelPlaylistMixin",
     },
+    "QueueScreen": {
+        "action_activate": "QueueScreen",
+        "panel_hints": "QueueScreen",
+        "on_audio_queue_changed": "QueueScreen",
+        "on_audio_track_changed": "QueueScreen",
+        "on_player_state_updated": "QueueScreen",
+    },
 }
 
 # Hooks whose winning definition may do nothing, with the reason.
 # ChannelScreen has no spinner and prefetches from its own page actions.
 EMPTY_HOOKS = {
+    ("QueueScreen", "_worker_start"): "no header spinner on the queue page",
+    ("QueueScreen", "_worker_end"): "no header spinner on the queue page",
+    ("QueueScreen", "_on_page_shown"): "the queue is held whole",
+    ("QueueScreen", "_on_past_last_page"): "the queue is held whole",
     ("ChannelScreen", "_worker_start"): "no header spinner on a channel page",
     ("ChannelScreen", "_worker_end"): "no header spinner on a channel page",
     ("ChannelScreen", "_on_page_shown"): "the page actions prefetch themselves",
 }
 
-DUPLICATE_HANDLERS_OK = {"on_key"}
+# The queue page redraws its rows on the messages AudioBarMixin mirrors into the bar; Textual runs both handlers.
+DUPLICATE_HANDLERS_OK = {"on_key", "on_audio_queue_changed", "on_audio_track_changed", "on_player_state_updated"}
 
 
 def _own(cls):

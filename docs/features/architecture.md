@@ -33,15 +33,15 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 ```
 MainScreen (PlaylistTools, LibraryRail, ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
  |- AppHeader, Tabs, LibraryRail, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
- |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, QueueModal, PlaylistModal, HelpScreen, ...
+ |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, QueueScreen, PlaylistModal, HelpScreen, ...
 ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)
  |- ChannelInfoPanel, Tabs, VideoListPanel, DetailPanel
  |- audio: mirrors app.audio, like MainScreen
 ```
 
-`ListToolsMixin` runs `f`, `m`/`M`, `D` and `u` over a `Removal` (what a tab's `D` deletes and how it reloads; `MainScreen._removals()` maps tab to `Removal`: History, Library in `src/tui/library_delete.py`, playlists via `PlaylistToolsMixin`). `LibraryRailMixin` drives the rail (All downloads, Videos, Audio, playlists). `QueueModal` shows and edits the audio queue.
+`ListToolsMixin` runs `f`, `m`/`M`, `D` and `u` over a `Removal` (what a tab's `D` deletes and how it reloads; `MainScreen._removals()` maps tab to `Removal`: History, Library in `src/tui/library_delete.py`, playlists via `PlaylistToolsMixin`). `LibraryRailMixin` drives the rail (All downloads, Videos, Audio, playlists). `QueueScreen` (ListNav, DetailFocus, ItemActions, AudioBar) is the audio queue as a page, pushed over any screen by `q`; `Ctrl+Q` is an app binding that quits through `MainScreen.action_quit_app`.
 
-A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_page_shown`, `_on_past_last_page`) in its docstring. Interfaces are listed in each mixin's mirror. A mixin never ships a no-op default for a hook another class provides: an earlier class in the MRO would shadow the real one (this broke Home paging once). `test_mixin_wiring.py` walks both screens' MRO and fails on an unlisted override, a silent stub, a `self.x` no class provides, a bound key without an action and a message nobody handles; `test_hook_wiring.py` spies on the real hooks through the running screens.
+A mixin declares what it needs from the host (`_LIST_ID`, `_DETAIL_ID`, hooks such as `_worker_start`, `_on_page_shown`, `_on_past_last_page`) in its docstring. Interfaces are listed in each mixin's mirror. A mixin never ships a no-op default for a hook another class provides: an earlier class in the MRO would shadow the real one (this broke Home paging once). `test_mixin_wiring.py` walks the three screens' MRO and fails on an unlisted override, a silent stub, a `self.x` no class provides, a bound key without an action and a message nobody handles; `test_hook_wiring.py` spies on the real hooks through the running screens.
 
 ## Worker groups
 

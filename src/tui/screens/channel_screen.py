@@ -554,15 +554,12 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
             self.app.pop_screen()
 
     def _on_main_screen(self, method: str) -> None:
-        """Pop this page and run ``method`` on the main screen beneath it (search results and quit live there)."""
+        """Pop this page and run ``method`` on the main screen beneath it (search results live there)."""
         self.app.pop_screen()
         getattr(self.app.screen, method)()
 
     def action_search(self) -> None:
         self._on_main_screen("_open_search_dialog")
-
-    def action_quit_app(self) -> None:
-        self._on_main_screen("action_quit_app")
 
     def action_help(self) -> None:
         from src.tui.screens.help_screen import HelpScreen

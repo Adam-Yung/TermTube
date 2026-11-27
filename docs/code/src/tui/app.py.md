@@ -12,6 +12,8 @@ owns startup warmup and shutdown cleanup. It sets `HORIZONTAL_BREAKPOINTS` from 
 
 ## Shutdown
 
+`action_quit` (`Ctrl+Q`) overrides Textual's, which would exit without saving: it runs `MainScreen.action_quit_app` on the main screen in the stack, whatever covers it.
+
 `_atexit_cleanup` (kill every `ProcessRegistry` process, `ytdlp.cancel_all()`, only if `src.ytdlp` was ever imported) runs from both `on_unmount` and `atexit`. It is idempotent,
 because a normal quit hits both. `main.py` adds signal handlers and `close_all_sockets`, described in
 `docs/decisions/concurrency.md#2026-06-17--unified-process-registry-and-structured-shutdown`.

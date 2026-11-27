@@ -27,7 +27,7 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 
 ## Global keys
 
-`/`, `,`, `?` and `q` are bound (`keymap.SEARCH`, `keymap.GLOBAL`). Help and settings open over this page. Search and quit belong to the main screen (search results land in its list; quit saves its feed stash and stops audio), so `_on_main_screen(method)` pops this screen and calls the method on the screen beneath.
+`/`, `,`, `?` and `q` are bound (`keymap.SEARCH`, `keymap.GLOBAL`). Help, settings and the queue page open over this page. Search belongs to the main screen (search results land in its list), so `_on_main_screen(method)` pops this screen and calls the method on the screen beneath.
 
 ## Content loading
 

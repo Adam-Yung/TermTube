@@ -28,7 +28,6 @@ PLAYBACK = [
     Binding("e", "audio_enqueue", show=False),
     Binding(">", "audio_skip", show=False),
     Binding("<", "audio_prev", show=False),
-    Binding("Q", "audio_queue", show=False),
     Binding("space", "audio_pause", show=False),
     Binding("x", "audio_stop", show=False),
     Binding("left_square_bracket", "audio_seek(-5)", show=False),
@@ -105,14 +104,24 @@ PLAYLIST_TOOLS = [
     Binding("E", "playlist_enqueue", show=False),
 ]
 
+QUEUE_PAGE = [
+    Binding("a", "activate", show=False),
+    Binding("J", "queue_move_down", show=False),
+    Binding("K", "queue_move_up", show=False),
+    Binding("D", "queue_remove", show=False),
+    Binding("c", "queue_clear", show=False),
+    Binding("u", "queue_undo", show=False),
+]
+
 SEARCH = Binding("/", "search", "Search")
 SEARCH_FILTERS = [
     Binding("s", "search_sort", show=False),
     Binding("t", "search_type", show=False),
 ]
+APP = [Binding("ctrl+q", "quit", "Quit", priority=True)]
 GLOBAL = [
     Binding("comma", "settings", "Settings"),
-    Binding("q", "quit_app", "Quit"),
+    Binding("q", "audio_queue", "Queue"),
     Binding("?", "help", "Help"),
 ]
 

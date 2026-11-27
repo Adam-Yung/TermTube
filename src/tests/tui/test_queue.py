@@ -1,4 +1,4 @@
-"""Queue operations on AudioController, the Q queue modal, and resume/watch-time through the controller."""
+"""Queue operations on AudioController, the queue page, and resume/watch-time through the controller."""
 
 import asyncio
 from unittest.mock import patch
@@ -9,7 +9,9 @@ from textual.screen import Screen
 from src import history, player
 from src.strings import text
 from src.tui.audio_controller import AudioController
-from src.tui.screens.queue_modal import QueueModal
+from src.tui.messages import PlayerStateUpdated
+from src.tui.screens.queue_screen import QueueScreen
+from src.tui.widgets.video_list import VideoListItem
 
 A = {"id": "AAAAAAAAAAA", "title": "Playing", "uploader": "U", "duration": 600}
 B = {"id": "BBBBBBBBBBB", "title": "Second", "duration": 100}
@@ -95,106 +97,148 @@ async def test_play_queued_starts_that_track_and_keeps_the_ones_before_it(audio)
         assert ids(controller) == ["B", "D"]
 
 
-async def test_q_when_idle_is_a_hint_and_opens_no_modal(audio):
+async def test_q_when_idle_opens_the_empty_page_and_q_closes_it(audio):
     async with audio.run_test(size=(100, 30)) as pilot:
         await pilot.pause(0.8)
-        shown = []
-        screen = audio.screen
-        with patch.object(screen, "notify", lambda msg, **kw: shown.append(msg)):
-            await pilot.press("Q")
-            await pilot.pause(0.1)
-        assert shown == ["Nothing playing."] and not isinstance(audio.screen, QueueModal)
+        main = audio.screen
+        await pilot.press("q")
+        await pilot.pause(0.3)
+        page = audio.screen
+        assert isinstance(page, QueueScreen) and titles(page) == []
+        assert text("queue_screen.empty") in str(page.query_one("#list-message").content)
+        await pilot.press("D", "J", "c", "u", "enter")
+        await pilot.press("q")
+        await pilot.pause(0.2)
+        assert audio.screen is main and audio.is_running
 
 
 async def open_queue(audio, pilot, *queued):
     await pilot.pause(0.8)
     playing(audio.audio, *queued)
-    await pilot.press("Q")
-    await pilot.pause(0.2)
-    assert isinstance(audio.screen, QueueModal)
+    await pilot.press("q")
+    await pilot.pause(0.3)
+    assert isinstance(audio.screen, QueueScreen)
     return audio.screen
 
 
-def titles(modal):
-    return [str(modal._list.get_option_at_index(i).prompt).split("  ")[0] for i in range(modal._list.option_count)]
+def titles(page):
+    return [item.entry["title"] for item in page.query(VideoListItem)]
 
 
-async def test_q_opens_the_queue_with_the_playing_track_first(audio):
+def cursor(page):
+    entry = page._selected_entry()
+    return entry["title"] if entry else None
+
+
+async def press(pilot, *keys):
+    for key in keys:
+        await pilot.press(key)
+        await pilot.pause(0.15)
+
+
+async def test_q_opens_the_page_with_the_playing_track_first_and_badged(audio):
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B, C)
-        assert titles(modal) == ["▶ Playing", "1. Second", "2. Third"]
-        assert modal._list.highlighted == 0
-        assert str(modal.query_one("#queue-title").content) == "Queue · 2 up next"
+        page = await open_queue(audio, pilot, B, C)
+        assert titles(page) == ["Playing", "Second", "Third"] and cursor(page) == "Playing"
+        assert [item.playing for item in page.query(VideoListItem)] == [True, False, False]
+        assert "Queue · 2 up next" in str(page.query_one("#list-breadcrumb").content)
 
 
-async def test_reorder_remove_and_undo_in_the_modal(audio):
+async def test_reorder_remove_and_undo_on_the_page(audio):
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B, C, D)
-        await pilot.press("j", "J")  # Second moves down; the cursor follows it
-        assert ids(audio.audio) == ["C", "B", "D"] and modal._list.highlighted == 2
-        await pilot.press("K", "K", "K")
-        assert ids(audio.audio) == ["B", "C", "D"] and modal._list.highlighted == 1
-        await pilot.press("j", "D")  # remove Third (index 1 of the queue)
-        assert ids(audio.audio) == ["B", "D"]
-        await pilot.press("D")
+        page = await open_queue(audio, pilot, B, C, D)
+        await press(pilot, "j", "J")  # Second moves down; the cursor follows it
+        assert ids(audio.audio) == ["C", "B", "D"] and cursor(page) == "Second"
+        await press(pilot, "K", "K")
+        assert ids(audio.audio) == ["B", "C", "D"] and cursor(page) == "Second"
+        await press(pilot, "j", "D")  # remove Third; the cursor stays on its row
+        assert ids(audio.audio) == ["B", "D"] and cursor(page) == "Fourth"
+        await press(pilot, "D")
         assert ids(audio.audio) == ["B"]
-        await pilot.press("u")
+        await press(pilot, "u")
         assert ids(audio.audio) == ["B", "D"]
-        await pilot.press("u")
-        assert ids(audio.audio) == ["B", "C", "D"] and modal._list.highlighted == 2
-        await pilot.press("u")
+        await press(pilot, "u")
+        assert ids(audio.audio) == ["B", "C", "D"] and cursor(page) == "Third"
+        await press(pilot, "u")
         assert ids(audio.audio) == ["B", "C", "D"]
+
+
+async def test_c_clears_the_upcoming_tracks_and_u_brings_them_back(audio):
+    async with audio.run_test(size=(100, 30)) as pilot:
+        page = await open_queue(audio, pilot, B, C, D)
+        await press(pilot, "c")
+        assert ids(audio.audio) == [] and audio.audio.entry is A and titles(page) == ["Playing"]
+        await press(pilot, "u")
+        assert ids(audio.audio) == ["B", "C", "D"] and titles(page) == ["Playing", "Second", "Third", "Fourth"]
 
 
 async def test_the_playing_track_cannot_be_moved_or_removed(audio):
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B, C)
+        page = await open_queue(audio, pilot, B, C)
         shown = []
-        with patch.object(modal, "notify", lambda msg, **kw: shown.append(msg)):
-            await pilot.press("D", "J", "K")
-            await pilot.press("enter")
+        with patch.object(page, "notify", lambda msg, **kw: shown.append(msg)):
+            await press(pilot, "D", "J", "K", "enter")
         assert ids(audio.audio) == ["B", "C"] and audio.audio.entry is A
-        assert shown[0].startswith("This track is playing") and shown[-1] == "This track is already playing."
+        assert shown == [text("queue_screen.is_playing"), text("queue_screen.already_playing")]
 
 
-async def test_enter_plays_the_highlighted_upcoming_track_now(audio):
+@pytest.mark.parametrize("key", ["enter", "a"])
+async def test_enter_and_a_play_the_highlighted_upcoming_track_now(audio, key):
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B, C)
+        page = await open_queue(audio, pilot, B, C)
         with patch.object(audio.audio, "play_audio") as play:
-            await pilot.press("j", "j", "enter")
+            await press(pilot, "j", "j", key)
         play.assert_called_once_with(C)
-        assert ids(audio.audio) == ["B"] and audio.screen is modal
+        assert ids(audio.audio) == ["B"] and audio.screen is page
 
 
-async def test_the_modal_follows_the_queue_while_open(audio):
+async def test_the_page_follows_the_queue_while_open(audio):
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B)
-        await pilot.press("j")
+        page = await open_queue(audio, pilot, B)
+        await press(pilot, "j")
         audio.audio._queue.append(C)
         audio.audio._queue_changed()
-        await pilot.pause(0.2)
-        assert titles(modal) == ["▶ Playing", "1. Second", "2. Third"] and modal._list.highlighted == 1
+        await pilot.pause(0.3)
+        assert titles(page) == ["Playing", "Second", "Third"] and cursor(page) == "Second"
         audio.audio._queue.pop(0)  # the first upcoming track started elsewhere: the cursor keeps its row
         audio.audio._queue_changed()
-        await pilot.pause(0.2)
-        assert titles(modal) == ["▶ Playing", "1. Third"]
+        await pilot.pause(0.3)
+        assert titles(page) == ["Playing", "Third"] and cursor(page) == "Third"
         audio.audio._entry, audio.audio._play_pending = None, False
         audio.audio._queue.clear()
-        audio.audio._broadcast(lambda: __import__("src.tui.messages", fromlist=["x"]).PlayerStateUpdated(
-            0.0, 0.0, False, playing=False))
-        await pilot.pause(0.2)
-        assert titles(modal) == ["Nothing is queued. Press e on a video to add it."]
+        audio.audio._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
+        await pilot.pause(0.3)
+        assert titles(page) == [] and page.query_one("#list-message").display
 
 
-async def test_escape_closes_the_modal_and_q_works_again(audio):
+async def test_a_long_queue_keeps_the_cursor_across_pages(audio):
+    many = [{"id": f"x{i:010d}", "title": f"T{i}"} for i in range(60)]
     async with audio.run_test(size=(100, 30)) as pilot:
-        modal = await open_queue(audio, pilot, B)
-        await pilot.press("escape")
+        page = await open_queue(audio, pilot, *many)
+        await press(pilot, "G")
+        assert cursor(page) == "T59"
+        await press(pilot, "K")
+        assert ids(audio.audio)[-2:] == ["x", "x"] and audio.audio.queue[-2]["title"] == "T59"
+        assert cursor(page) == "T59"
+
+
+async def test_starting_a_queued_track_takes_it_out_of_the_queue(audio):
+    async with audio.run_test(size=(100, 30)):
+        controller = audio.audio
+        playing(controller, B, C)
+        controller.play_audio(C)
+        assert controller.entry is C and ids(controller) == ["B"]
+
+
+async def test_clear_queue_returns_what_it_removed_and_broadcasts_once(audio):
+    async with audio.run_test(size=(100, 30)) as pilot:
+        controller = audio.audio
+        playing(controller, B, C)
+        seen = Recorder()
+        await audio.push_screen(seen)
+        assert controller.clear_queue() == [B, C] and controller.clear_queue() == []
         await pilot.pause(0.1)
-        assert audio.screen is not modal
-        await pilot.press("Q")
-        await pilot.pause(0.2)
-        assert isinstance(audio.screen, QueueModal)
+        assert seen.queue_lens == [0] and controller.entry is A
 
 
 def publish(controller, positions, dur=600.0):

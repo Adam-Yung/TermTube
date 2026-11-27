@@ -317,9 +317,9 @@ async def test_a_history_source_switch_during_a_load_shows_the_last_source(app, 
         assert screen._active_workers == 0
 
 
-async def test_the_queue_modal_follows_a_queue_that_empties_and_a_track_that_changes(app, monkeypatch):
+async def test_the_queue_page_follows_a_queue_that_empties_and_a_track_that_changes(app, monkeypatch):
     from src.tui.audio_controller import AudioController
-    from src.tui.screens.queue_modal import QueueModal
+    from src.tui.screens.queue_screen import QueueScreen
 
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     monkeypatch.setattr("src.tui.audio_controller.cleanup_ipc", lambda path: None)
@@ -329,22 +329,24 @@ async def test_the_queue_modal_follows_a_queue_that_empties_and_a_track_that_cha
         await settle(app, pilot)
         controller = app.audio
         controller._play_pending, controller._entry, controller._queue = True, a, [b, c, d]
-        app.push_screen(QueueModal())
-        await pilot.pause()
-        modal = app.screen
+        app.push_screen(QueueScreen())
+        await pilot.pause(0.3)
+        page = app.screen
         await pilot.press("down", "down", "down")
-        assert modal._current_row()[1] is d
+        await pilot.pause(0.2)
+        assert page._selected_entry() is d
         controller.remove_queued(2)
         controller.remove_queued(1)
         controller.remove_queued(0)
         await pilot.pause()
-        assert [kind for kind, _ in modal._rows] == ["now"]
+        await pilot.pause(0.3)
+        assert page._ids == [a["id"]]
         await pilot.press("J", "D", "enter")  # a move, a remove and a jump on the playing row only notify
         controller._play_pending, controller._entry = False, None
         controller._broadcast(lambda: PlayerStateUpdated(0, 0, False, playing=False))
         await pilot.pause()
-        assert modal._rows == [] and app.screen is modal
+        assert page._ids == [] and app.screen is page
         await pilot.press("D", "J", "enter", "u")
         await pilot.press("escape")
         await pilot.pause()
-        assert app.screen is not modal
+        assert app.screen is not page

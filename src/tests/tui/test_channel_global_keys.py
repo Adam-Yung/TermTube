@@ -46,13 +46,24 @@ async def test_slash_leaves_the_channel_page_and_opens_search(app):
         assert isinstance(app.screen, SearchModal) and "ChannelScreen" not in names(app)
 
 
-async def test_q_on_the_channel_page_quits_through_the_main_screen(app):
+async def test_q_on_the_channel_page_opens_the_queue_and_q_returns(app):
+    async with app.run_test(size=(110, 34)) as pilot:
+        await open_channel(app, pilot)
+        await pilot.press("q")
+        await pilot.pause(0.3)
+        assert names(app)[-2:] == ["ChannelScreen", "QueueScreen"]
+        await pilot.press("q")
+        await pilot.pause(0.3)
+        assert names(app)[-1] == "ChannelScreen" and app.is_running
+
+
+async def test_ctrl_q_on_the_channel_page_quits_through_the_main_screen(app):
     async with app.run_test(size=(110, 34)) as pilot:
         await open_channel(app, pilot)
         with patch.object(MainScreen, "action_quit_app") as quit_app:
-            await pilot.press("q")
+            await pilot.press("ctrl+q")
             await pilot.pause(0.3)
-        assert quit_app.called and "ChannelScreen" not in names(app)
+        assert quit_app.called
 
 
 async def test_menu_offers_queueing_when_idle_with_its_own_label_and_hides_it_for_the_playing_track(app):

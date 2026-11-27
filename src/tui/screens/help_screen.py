@@ -31,7 +31,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("v / a / e", "playlist_row"),
         (">", "skip"),
         ("<", "previous"),
-        ("Q", "queue"),
+        ("q", "queue"),
         ("Space", "pause"),
         ("x", "stop"),
         ("[ / ]", "seek5"),
@@ -44,6 +44,14 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("Space  0–9", "pause"),
         ("< / >", "step"),
         ("q / Esc", "stop"),
+    ]),
+    ("queue", [
+        ("Enter / a", "play_now"),
+        ("J / K", "reorder"),
+        ("D", "remove"),
+        ("c", "clear"),
+        ("u", "undo"),
+        ("q / Esc", "back"),
     ]),
     ("row", [
         ("d", "download"),
@@ -81,7 +89,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         (",", "settings"),
         ("?", "help"),
         ("Ctrl+D", "debug"),
-        ("q", "quit"),
+        ("Ctrl+Q", "quit"),
     ]),
     ("channel", [
         ("s", "sort"),
