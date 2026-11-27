@@ -38,16 +38,18 @@ async def test_search_adds_sort_and_type(main_app):  # noqa: F811
         assert {"s", "t", "f"} <= got and not got & {"m", "D", "Z"}
 
 
-async def test_playlist_and_channel_rows_have_no_video_actions(main_app):  # noqa: F811
+async def test_playlist_rows_have_play_actions_and_channel_rows_none(main_app):  # noqa: F811
     async with main_app.run_test(size=(120, 40)) as pilot:
         await pilot.pause(0.6)
         screen = main_app.screen
-        for entry, enter in (({"id": "PLx", "title": "A list", "_is_playlist": True}, "Open playlist"),
-                             ({"id": "UCx", "title": "A channel", "_is_channel": True}, "Open channel")):
+        for entry, enter, plays in (({"id": "PLx", "title": "A list", "_is_playlist": True}, "Open playlist",
+                                      {"v", "a", "e"}),
+                                     ({"id": "UCx", "title": "A channel", "_is_channel": True}, "Open channel",
+                                      set())):
             screen._selected_entry = lambda entry=entry: entry
             hints = dict(screen.panel_hints())
             assert hints.get("⏎") == enter
-            assert not set(hints) & {"v", "a", "d", "p"} and {"y", "b"} <= set(hints)
+            assert set(hints) & {"v", "a", "e", "d", "p"} == plays and {"y", "b"} <= set(hints)
 
 
 async def test_library_collection_and_playlist_tools(main_app):  # noqa: F811

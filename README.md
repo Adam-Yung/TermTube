@@ -104,7 +104,7 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `j` `k` | cursor down / up | `a` `A` | audio / choose quality first |
 | `h` `l` (or arrows) | previous / next page | `v` `V` | watch video / choose quality first |
 | `g` `G` | first / last item | `e` | add audio to the queue |
-| `H` `L` | previous / next tab | `>` | skip to the next queued track |
+| `H` `L` | previous / next tab | `>` `<` | next queued track / previous track |
 | `Enter` | action menu | `Space` | pause / resume audio |
 | `Esc` `Backspace` | back | `x` | stop audio and clear the queue |
 | `F1`..`F6`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
@@ -119,6 +119,8 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `Y` | History: cycle source | `Q` | audio queue |
 | `y` | copy the URL | `?` | help |
 | `b` | open in the browser | `q` | quit |
+
+On a playlist or Mix row, `v` `a` `e` play it as video, as audio, or queue it without opening it; in a video run `>` `<` step and `q` ends it.
 
 While audio plays, `v` is refused (video and audio would overlap): stop audio with `x` first. A key that cannot act says why in a short notice.
 The rules behind the keymap, and every key per screen, are in [docs/features/keybindings.md](docs/features/keybindings.md).

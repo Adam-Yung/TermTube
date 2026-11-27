@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 import subprocess
 import time
@@ -27,10 +28,24 @@ from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
 
 _DEFAULT_FORMAT = "bv+ba/b"
+_run_sockets = itertools.count(1)
 
 
-class WatchModal(ModalScreen[bool]):
-    """Launches mpv with a video window, shows progress in the TUI, and seeks/pauses/stops over IPC."""
+def _run_socket() -> str:
+    """A path per run item: the item left behind removes its socket while the next mpv may be creating one."""
+    stem, ext = os.path.splitext(get_video_ipc_path())
+    return f"{stem}-{next(_run_sockets)}{ext}"
+
+
+_RUN_RESULTS = {0: "ended", player_mod.EXIT_NEXT: "next", player_mod.EXIT_PREV: "prev"}
+
+
+class WatchModal(ModalScreen[str]):
+    """Launches mpv with a video window, shows progress in the TUI, and seeks/pauses/stops over IPC.
+
+    Dismisses with ``ended``, ``next``, ``prev``, ``failed`` or ``stopped``. ``position`` (number, total) marks one item
+    of a playlist run.
+    """
 
     BINDINGS = [
         Binding("space", "pause_toggle", "Pause/Resume", show=True),
@@ -39,11 +54,14 @@ class WatchModal(ModalScreen[bool]):
         Binding("H,left_curly_bracket", "seek(-10)", "−10s", show=False),
         Binding("L,right_curly_bracket", "seek(10)", "+10s", show=False),
         *[Binding(str(n), f"seek_pct({n * 10})", f"{n * 10}%", show=False) for n in range(10)],
+        Binding("greater_than_sign", "step('next')", "Next", show=False),
+        Binding("less_than_sign", "step('prev')", "Previous", show=False),
         Binding("q,escape", "stop", "Stop", show=True),
     ]
 
-    def __init__(self, entry: Entry, *, ytdl_format: str = "") -> None:
+    def __init__(self, entry: Entry, *, ytdl_format: str = "", position: tuple[int, int] | None = None) -> None:
         super().__init__()
+        self._position = position
         self._entry = entry
         self._ytdl_format = ytdl_format
         self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
@@ -53,7 +71,7 @@ class WatchModal(ModalScreen[bool]):
         self._sb_next_idx: int = 0  # sorted pointer for O(1) segment scan
         self._dur: float = 0.0
         self._poll_timer = None
-        self._socket = get_video_ipc_path()
+        self._socket = _run_socket() if position else get_video_ipc_path()
         self._tracker: ProgressTracker | None = None
         self._segment_cols: list[bool] = []
         self._segment_cols_width: int = 0
@@ -63,14 +81,17 @@ class WatchModal(ModalScreen[bool]):
         title = self._entry.get("title") or text("watch_modal.unknown_title")
         channel = self._entry.get("uploader") or self._entry.get("channel") or ""
         with Vertical(id="watch-dialog", classes="dialog"):
-            yield Static(text("watch_modal.header"), id="np-header")
+            header = text("watch_modal.header")
+            if self._position:
+                header = f"{header}  ·  {self._position[0]} / {self._position[1]}"
+            yield Static(header, id="np-header")
             yield Static(f"[bold white]{escape_markup(title)}[/bold white]", id="np-title", markup=True)
             if channel:
                 yield Static(escape_markup(channel), id="np-channel", markup=True)
             yield Static("", id="np-progress", markup=True)
             yield Static(text("watch_modal.loading"), id="np-time")
             yield Static(
-                text("watch_modal.hint"),
+                text("watch_modal.hint_run" if self._position else "watch_modal.hint"),
                 id="np-hint",
                 markup=True,
             )
@@ -121,7 +142,7 @@ class WatchModal(ModalScreen[bool]):
             self._fail_launch(text("watch_modal.mpv_missing", hint=install_hint("mpv")))
             return
 
-        input_conf = player_mod.write_input_conf()
+        input_conf = player_mod.write_input_conf(sequence=self._position is not None)
         page_url = local_path or f"https://www.youtube.com/watch?v={vid}"
         cookie_args = config.browser_cookie_args() if config else []
         start = start_offset(self._entry, config) if config else None
@@ -148,8 +169,13 @@ class WatchModal(ModalScreen[bool]):
         outcome = player_mod.run_mpv_with_retries(
             build_cmd, headless=False, is_stale=lambda: self._stopped, on_spawn=on_spawn
         )
+        self._finish(outcome, input_conf, title)
+
+    def _finish(self, outcome: player_mod.MpvOutcome, input_conf: str, title: str) -> None:
+        """After mpv: save progress, clean up and dismiss with what happened."""
+        clean_end = outcome.status == "ok" and outcome.returncode == 0
         if self._tracker:
-            self._tracker.finish(completed=outcome.status == "ok" and outcome.returncode == 0)
+            self._tracker.finish(completed=clean_end)
         self._cleanup_ipc(input_conf)
         if outcome.status == "launch_error":
             self._fail_launch(outcome.message)
@@ -160,10 +186,11 @@ class WatchModal(ModalScreen[bool]):
                 severity="error",
                 timeout=8,
             )
-            self._dismiss_from_thread(False)
+            self._dismiss_from_thread("failed")
         elif outcome.status != "stale":
-            self._dismiss_from_thread(True)
-            if title:
+            result = _RUN_RESULTS.get(outcome.returncode, "stopped") if outcome.status == "ok" else "stopped"
+            self._dismiss_from_thread(result)
+            if title and not self._position:
                 try:
                     self.app.call_from_thread(
                         self.app.notify, text("watch_modal.finished", title=title[:50]), timeout=4
@@ -213,9 +240,9 @@ class WatchModal(ModalScreen[bool]):
 
     def _fail_launch(self, message: str) -> None:
         self.app.call_from_thread(self.app.notify, message, severity="error")
-        self.app.call_from_thread(self.dismiss, False)
+        self.app.call_from_thread(self.dismiss, "stopped")
 
-    def _dismiss_from_thread(self, result: bool) -> None:
+    def _dismiss_from_thread(self, result: str) -> None:
         try:
             self.app.call_from_thread(self.dismiss, result)
         except Exception:
@@ -230,14 +257,8 @@ class WatchModal(ModalScreen[bool]):
         cleanup_ipc(self._socket)
 
     def _poll_mpv(self) -> None:
-        # The user closed the external mpv window.
+        # mpv has exited: the launch worker reads the exit code and dismisses.
         if self._proc and self._proc.poll() is not None:
-            if not self._stopped:
-                self._stopped = True
-                try:
-                    self.dismiss(True)
-                except Exception:
-                    pass
             return
         self._poll_mpv_threaded()
 
@@ -357,7 +378,17 @@ class WatchModal(ModalScreen[bool]):
     def action_seek_pct(self, pct: int) -> None:
         self._ipc(["seek", pct, "absolute-percent"])
 
+    def action_step(self, result: str) -> None:
+        if self._position is None:
+            self.notify(text("watch_modal.not_a_playlist"), timeout=2)
+            return
+        self._end(result)
+
     def action_stop(self) -> None:
+        self._end("stopped")
+
+    def _end(self, result: str) -> None:
+        """Quit mpv and dismiss with ``result``; the launch worker sees ``_stopped`` and stays out."""
         if self._stopped:
             return
         self._stopped = True
@@ -369,6 +400,6 @@ class WatchModal(ModalScreen[bool]):
         if self._proc:
             ProcessRegistry.get().unregister(self._proc)
         try:
-            self.dismiss(False)
+            self.dismiss(result)
         except Exception:
             pass

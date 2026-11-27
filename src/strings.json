@@ -82,7 +82,8 @@
     "url_copied": "URL copied to clipboard.",
     "url_shown": "URL: {url}",
     "opened_in_browser": "Opened in browser.",
-    "open_playlist": "Open playlist"
+    "open_playlist": "Open playlist",
+    "queue_playlist": "Queue"
   },
   "channel_playlist": {
     "open_playlist_first": "Open a playlist first (Enter on a playlist row).",
@@ -504,7 +505,9 @@
     "config_browser": "auto / none / firefox / chrome / … (cookie source for your account feeds)",
     "config_quality": "best / 1080 / 720 / 480 / 360",
     "config_video_dir": "Download directory for videos.",
-    "config_audio_dir": "Download directory for audio."
+    "config_audio_dir": "Download directory for audio.",
+    "player_step": "Playlist run: previous / next video (also in the mpv window).",
+    "play_playlist_row": "On a playlist row, v a e play it as video, as audio, or queue it, without opening it."
   },
   "playlist_modal": {
     "title": "🎵  Playlists — [dim]{title}[/dim]",
@@ -566,7 +569,9 @@
     "skipped": "Skipped {category} ({seconds} s).",
     "paused": "  ⏸ paused",
     "buffering": "Buffering…",
-    "buffering_wait": "Buffering… ({seconds} s)"
+    "buffering_wait": "Buffering… ({seconds} s)",
+    "hint_run": "[dim]Space[/dim] pause  [dim]h/l[/dim] ±5 s  [dim]H/L[/dim] ±10 s  [dim]0–9[/dim] seek to %  [dim]< >[/dim] previous / next  [dim]q[/dim] stop all",
+    "not_a_playlist": "This video is not part of a playlist run."
   },
   "settings_fields": {
     "on": "on",
@@ -703,5 +708,9 @@
     "installed": "  ✓ {tool} installed",
     "failed": "  ✗ {tool} could not be installed",
     "manual": "  To install manually, run:\n    {command}\n\n  Or install each tool individually.\n    Target: {path}"
+  },
+  "playlist_rows": {
+    "loading": "Loading the playlist…",
+    "finished": "End of the playlist."
   }
 }

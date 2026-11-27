@@ -69,10 +69,21 @@ IPC_SOCKET = get_ipc_path()
 _temp_input_confs: set[str] = set()
 
 
-def write_input_conf() -> str:
-    """Write input.conf to a temp file and return its path."""
+# Keys in the mpv window of a playlist run: the exit code says what was asked. Later lines override earlier ones.
+EXIT_NEXT, EXIT_PREV, EXIT_STOP = 10, 11, 12
+_SEQUENCE_CONF = f"""\
+> quit {EXIT_NEXT}
+< quit {EXIT_PREV}
+q quit {EXIT_STOP}
+CLOSE_WIN quit {EXIT_STOP}
+Meta+q quit {EXIT_STOP}
+"""
+
+
+def write_input_conf(*, sequence: bool = False) -> str:
+    """Write input.conf to a temp file and return its path. ``sequence`` adds the playlist-run keys."""
     f = tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False, prefix="termtube-mpv-")
-    f.write(_INPUT_CONF)
+    f.write(_INPUT_CONF + (_SEQUENCE_CONF if sequence else ""))
     f.flush()
     f.close()
     _temp_input_confs.add(f.name)
@@ -519,7 +530,7 @@ MPV_MAX_ATTEMPTS = 3
 
 @dataclass(frozen=True)
 class MpvOutcome:
-    """How the loop ended: ``ok`` (exit 0 or 4), ``killed`` (3), ``stale``, ``failed`` or ``launch_error``."""
+    """How the loop ended: ``ok`` (exit 0, 4, run codes), ``killed`` (3), ``stale``, ``failed`` or ``launch_error``."""
 
     status: str
     returncode: int | None = None
@@ -574,7 +585,7 @@ def run_mpv_with_retries(
         stderr = (err or "").strip()
         if is_stale():
             return MpvOutcome("stale", proc.returncode, stderr)
-        if proc.returncode in (_EXIT_EOF, _EXIT_QUIT):
+        if proc.returncode in (_EXIT_EOF, _EXIT_QUIT, EXIT_NEXT, EXIT_PREV, EXIT_STOP):
             return MpvOutcome("ok", proc.returncode, stderr)
         if proc.returncode == _EXIT_SIGNAL:
             return MpvOutcome("killed", proc.returncode, stderr)

@@ -13,6 +13,8 @@ Background audio: a headless mpv controlled over an IPC socket, with a queue, Sp
 
 `_played` is the stack behind `previous_audio`. `play_audio` and `_advance_queue` push the outgoing track; `previous_audio` pops through `_stop` and `_start` directly, so going back never pushes. `play_many` clears after its `play_audio`, which would otherwise record the track of the list being replaced.
 
+`claim()` / `intent` number requests that load before they play (`playlist_rows.py`); `play_audio`, `previous_audio` and `stop_audio` claim too, `_advance_queue` does not.
+
 ## Threads and messages
 
 `_launch_worker` is a thin wrapper that logs (with traceback) and reports any exception from the launch body (`_launch`) through `_launch_failed` (a `SourceError` shows its own message; every notice and log line is escaped); a raw thread would swallow it and the bar would stay on "Buffering…".

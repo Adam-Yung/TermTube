@@ -71,6 +71,7 @@ class AudioController:
         self._entry: Entry | None = None
         self._queue: list[Entry] = []
         self._played: list[Entry] = []
+        self._intent = 0
         self._session = 0
         self._stopped = False
         self._play_pending = False
@@ -99,6 +100,15 @@ class AudioController:
         return self.is_playing and bool(self._played)
 
     @property
+    def intent(self) -> int:
+        return self._intent
+
+    def claim(self) -> int:
+        """Number a request that loads before it plays; play, stop, back or a later claim makes it stale."""
+        self._intent += 1
+        return self._intent
+
+    @property
     def segments(self) -> list[Segment]:
         return self._segments
 
@@ -118,6 +128,7 @@ class AudioController:
 
     def play_audio(self, entry: Entry, *, ytdl_format: str = "") -> None:
         """Play ``entry`` now, replacing the current track. The queue is kept."""
+        self.claim()
         if self.is_playing:
             self._remember(self._entry, entry)
             self._stop(keep_player_mode=True)
@@ -174,6 +185,7 @@ class AudioController:
         """Go back to the track played before this one; this one returns to the head of the queue."""
         if not self.has_previous:
             return
+        self.claim()
         self._queue.insert(0, self._entry)
         entry = self._played.pop()
         self._stop(keep_player_mode=True)
@@ -186,6 +198,7 @@ class AudioController:
 
     def stop_audio(self) -> None:
         """Stop playback, drop the queue and forget the played tracks."""
+        self.claim()
         self._queue.clear()
         self._played.clear()
         self._stop()

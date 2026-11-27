@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-22. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 8 of 8 on 2026-11-23 (now also a playlist page and a Mix).
+**Last updated:** 2026-11-27. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 8 of 8 on 2026-11-23 (now also a playlist page and a Mix).
 The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists
@@ -20,6 +20,7 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 - Home shows a cache older than 10 min (`cache_ttl.home_revalidate`) at once and re-reads behind it; new items show as `↑ N new · r to refresh` without moving the cursor.
 - Channel page: Videos follow InnerTube continuations (next batch fetched at the second-to-last page, cap 200, footer progress); Shorts and Live tabs appear when the channel has them (checked live 2026-11-18); a playlist row opens its videos in place (play all, enqueue all, save as a local playlist); `B` follows a channel locally and the Following entry of the Subscriptions side list shows those channels; non-date sorts use yt-dlp.
 - Playlist pages: Enter on a playlist row in Search or Home opens `ChannelScreen` in playlist mode (header on the left from the first `/browse` page, its videos in the middle, no tabs, sort or follow; `o` opens the owner channel, `P`/`E`/`S` play, queue and save, `first 200 of N shown` past the cap). Mixes (`RD…`) load through `/next` (endless, 200 cap); Home shows playlist and Mix rows (`[verify live]`: needs a signed-in browser). The channel description now shows in full and `i` folds it. [decisions/playlist-page.md](decisions/playlist-page.md).
+- Playlist and Mix rows (and Library rail playlists) play in place: `v` video run, `a` audio, `e` queue; `>` `<` step; `<` also returns to the previous audio track. The mpv-window keys are tested against a headless mpv; a real video window is not checked yet.
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home, the subscription list, YouTube history and Watch Later (the last two read-only)
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).

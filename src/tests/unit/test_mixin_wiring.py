@@ -37,6 +37,7 @@ OVERRIDES = {
         "_worker_end": "MainScreen",
         "_removal_key": "PlaylistToolsMixin",
         "_delete_targets": "PlaylistToolsMixin",
+        "_playlist_source": "PlaylistToolsMixin",
         "on_key": "ListToolsMixin",
         "action_page_prev": "LibraryRailMixin",
     },

@@ -10,7 +10,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Footer, Tab, Tabs
 
-from src import channel_bookmarks, channel_ref, innertube, logger
+from src import channel_bookmarks, channel_ref, innertube, logger, playlist_fetch
 from src.channel_pager import ChannelPager
 from src.entries import Entry, PlaylistEntry
 from src.errors import classify
@@ -378,7 +378,7 @@ class ChannelScreen(ChannelPlaylistMixin, ListNavMixin, DetailFocusMixin, ItemAc
         page = innertube.ChannelPage([])
         try:
             if kind == "playlist":
-                page = self._page_fetcher(self._playlist["id"])(self._playlist["id"], token)
+                page = playlist_fetch.page_fetcher(self._playlist["id"])(self._playlist["id"], token)
             else:
                 page = innertube.fetch_channel_page(self._channel_id() or "", kind, token)
                 self._label(page.entries)

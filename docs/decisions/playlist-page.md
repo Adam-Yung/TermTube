@@ -24,3 +24,7 @@ Plan: `~/.claude-personal/plans/` (this session); steps are listed in [../status
 - **Mixes work after all, but not through `browse`:** `next` with `{"playlistId": "RD<video>"}` returns 24 to 25 rows anonymously, and `next` with the last row's `videoId`, `playlistId`, `index` and `params` continues it (recorded 2026-11-22; the continuation repeats the last row and may repeat earlier ones, the list's id de-duplication absorbs that). `RDMM` ("My Mix") needs an account and shows "This Mix is not available without signing in." `fetch_mix_page` reads it; a Mix is endless, so the 200 cap ends it and the footer says `first 200 shown`.
 - **Home:** `FeedCursor(playlists=True)` keeps playlist and Mix rows; Enter opens the page. Only Home: the other account feeds are lists of videos. Not seen against a signed-in Home (needs the owner's cookies).
 - **Still open:** Topic (`OLAK…`) and private playlists were not probed; play all and save stop at 200; Watch Later and Liked stay out.
+
+## 2026-11-27 — Playlist rows play in place; a video run is one mpv per video
+
+`v` `a` `e` on a playlist row play or queue it; `>` `<` step. Owner request. Video chains one `WatchModal` per item, so the mpv window closes and reopens between videos. Rejected: one long-lived mpv fed by `loadfile` (a seamless window, but URL resolution, the separate audio stream, SponsorBlock and resume state would all have to be swapped inside a running player). The mpv window's keys report back through exit codes. No video run starts from inside the playlist page.

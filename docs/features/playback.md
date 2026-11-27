@@ -31,13 +31,18 @@ Both go through **mpv**, driven by TermTube. Audio runs headless in the backgrou
 - **Watch time.** `seconds` on the history record counts time actually played: pauses and seeks add nothing, and a step between two polls over 3 s
   is treated as a seek. `plays` counts starts. `s` on the local History tab sorts by recent (day headers), most watched (plays, then time) or longest
   watched; the sort lasts for the session and the other two orders have no day headers.
-- Audio is refused with a hint for non-videos (channel and playlist rows).
+- Audio is refused with a hint for channel rows.
 
 ## Video (`v`, `V`)
 
 - `v` opens an mpv window with the video and a small modal in the terminal showing progress and the same transport keys (`Space`, `h l`/arrows and
   `[ ]` seek 5 s, `H L` and `{ }` 10 s, `0`-`9`, `q`/`Esc` stop).
 - Stream resolution, retries, SponsorBlock and resume work as for audio. A local file plays directly.
+- **Playlist rows.** `v`, `a` and `e` on a playlist or Mix row (Search, Home, a channel's Playlists tab) or on a Library rail playlist
+  act on the whole list without opening it: up to 200 videos are read first ("Loading the playlist…"), then `a` replaces the track
+  and queue, `e` queues, `v` starts a video run. A result that arrives after another play, stop or playlist request is dropped.
+- **Video run.** One mpv window per video, the header says "3 / 50". The end of a video starts the next; `>` / `<` step (terminal or
+  mpv window); `q`, `Esc` or closing the window ends the run. A video that fails is skipped; three failures in a row end the run.
 - **Video is refused while audio plays** (`v`, `V` and the menu entries): the two would overlap. Stop audio with `x` first.
 
 ## What can go wrong
@@ -51,5 +56,6 @@ Both go through **mpv**, driven by TermTube. Audio runs headless in the backgrou
 ## Where it lives
 
 `src/tui/audio_controller.py` (state, threads, polling), `src/player.py` (mpv commands, IPC, the shared launch-and-retry loop `run_mpv_with_retries`),
-`src/streams.py` (URL resolution and cache), `src/tui/screens/watch_modal.py` (video), `src/sponsorblock.py`. Mirrors under `docs/code/`; decisions in
+`src/streams.py` (URL resolution and cache), `src/playlist_fetch.py` and
+`src/tui/screens/mixins/playlist_rows.py` (playlist rows), `src/tui/screens/watch_modal.py` (video), `src/sponsorblock.py`. Mirrors under `docs/code/`; decisions in
 `docs/decisions/playback.md`; the real thing exercised end to end by `scripts/e2e-local.py` ([../guides/ci.md](../guides/ci.md)).

@@ -60,7 +60,7 @@ log.
 
 `write_input_conf` writes a temp `input.conf` (digits seek to percent, `h`/`l`/`H`/`L` and arrows seek, `q` quits) for the video player,
 where mpv owns the keyboard. These are mpv's keys, separate from the TUI keymap in `src/tui/keymap.py`. Files are tracked in
-`_temp_input_confs` and removed by `close_all_sockets`.
+`_temp_input_confs` and removed by `close_all_sockets`. `sequence=True` rebinds `>`, `<`, `q`, `CLOSE_WIN` and `Meta+q` to `quit 10/11/12`, so a playlist run can tell the end of a video (exit 0) from a step or a close. `tests/integration/test_mpv_sequence_keys.py` checks the codes against a real mpv.
 
 ## Audio command
 
@@ -80,7 +80,7 @@ one, mpv resolves `page_url` through its own yt-dlp hook, with `--ytdl-format` a
 
 `run_mpv_with_retries(build_cmd, ...)` is the only place mpv is spawned and retried; the audio controller (`headless=True`, stderr captured) and `WatchModal` (`headless=False`, stderr discarded) share it and keep their own command builders. It returns an `MpvOutcome` instead of acting on it:
 
-- `ok` (exit 0 or 4) and `killed` (exit 3, the stop key or a signal) are normal exits; the caller decides what each means (audio advances the queue on `ok` and says nothing on `killed`; video dismisses on both).
+- `ok` (exit 0, 4, or a run code 10, 11, 12) and `killed` (exit 3, the stop key or a signal) are normal exits; the caller decides what each means (audio advances the queue on `ok` and says nothing on `killed`; video dismisses on both).
 - Any other exit retries after 1 s, up to `MPV_MAX_ATTEMPTS` (3), then `failed` with the last exit code and stderr. `build_cmd(attempt)` is where a caller re-resolves an expired stream URL for attempts after the first.
 - mpv's stdin is `DEVNULL` and the audio command uses `--no-input-terminal`, not `--no-terminal`: mpv must not read the TUI's keystrokes, but its error messages (`--msg-level=all=error`) must reach the captured stderr. With `--no-terminal` a Windows failure read "exit code 2, no stderr output" and the cause was invisible.
 - Captured stderr is decoded as UTF-8 with `errors="replace"`, never the locale codec: on Windows without UTF-8 mode (cp1252) a title containing `ā` made `communicate()` raise and left `returncode` unset.

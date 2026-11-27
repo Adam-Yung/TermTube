@@ -61,6 +61,7 @@ SCENARIOS = [
     Scenario("image-warning", lambda app: ImageWarningModal()),
     Scenario("download", lambda app: DownloadModal(VIDEO["id"], VIDEO)),
     Scenario("watch", lambda app: WatchModal(VIDEO), dialog="#watch-dialog"),
+    Scenario("watch-run", lambda app: WatchModal(VIDEO, position=(3, 50)), dialog="#watch-dialog"),
     Scenario("help", lambda app: HelpScreen(), dialog="#help-outer"),
 ]
 

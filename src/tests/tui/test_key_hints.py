@@ -63,13 +63,19 @@ async def test_the_same_hint_is_not_repeated_within_two_seconds(app):
         assert notify.call_count == 2
 
 
-@pytest.mark.parametrize("entry", [
-    {"id": "UCx", "title": "Chan", "_is_channel": True},
-    {"id": "PLx", "title": "List", "_is_playlist": True},
+CHANNEL_ROW = {"id": "UCx", "title": "Chan", "_is_channel": True}
+PLAYLIST_ROW = {"id": "PLx", "title": "List", "_is_playlist": True}
+_ONE_VIDEO_ACTIONS = ("action_download", "action_playlist")
+_PLAY_ACTIONS = ("action_watch", "action_audio", "action_audio_enqueue")
+
+
+@pytest.mark.parametrize("entry,actions", [
+    (CHANNEL_ROW, _PLAY_ACTIONS + _ONE_VIDEO_ACTIONS),
+    (PLAYLIST_ROW, _ONE_VIDEO_ACTIONS),  # v a e play a playlist row: test_playlist_row_playback.py
 ])
-async def test_video_keys_on_channel_and_playlist_rows_say_not_a_video(app, entry):
+async def test_video_keys_on_channel_and_playlist_rows_say_not_a_video(app, entry, actions):
     async with app.run_test(size=(100, 30)) as pilot:
-        for action in ("action_watch", "action_audio", "action_audio_enqueue", "action_download", "action_playlist"):
+        for action in actions:
             app.screen.__dict__.pop("_hint_times", None)
             assert await hints_for(app, pilot, entry, action) == ["Not a video."], action
 

@@ -9,7 +9,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Entry | `src/main.py` | CLI args, logger, imports `textual_image` before Textual, launches the app |
 | App | `src/tui/app.py` | `TermTubeApp`: config and cache, screen push, housekeeping, warm-ups |
 | Screens | `src/tui/screens/main_screen.py`, `channel_screen.py` | Thin; compose widgets and mixins |
-| Mixins | `src/tui/screens/mixins/` | list navigation, list tools (filter, marks, remove, undo), playlist tools, Library rail, detail focus, item actions, feed loading, audio bar, debug log |
+| Mixins | `src/tui/screens/mixins/` | list navigation, list tools (filter, marks, remove, undo), playlist tools, Library rail, detail focus, item actions, playlist rows, feed loading, audio bar, debug log |
 | Audio | `src/tui/audio_controller.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
 | Widgets | `src/tui/widgets/` | list, detail panel, action bar, thumbnail, page indicator, header, channel info |
 | Keys | `src/tui/keymap.py` | The only definition of the keymap in code (`docs/features/keybindings.md`) |
@@ -17,6 +17,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Thumbnails | `src/tui/thumb_loader.py`, `src/ui/thumbnail.py` | worker-side thumbnail loading; fetch, validate, half-block render |
 | yt-dlp | `src/ytdlp.py` (opts, feeds, search, channels), `src/cookies.py`, `src/downloads.py`, `src/streams.py` | all extraction; `streams.py` resolves and caches playback URLs |
 | InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
+| Playlists (remote) | `src/playlist_fetch.py` | reads a playlist or Mix for the playlist page and for playing from a row |
 | Player | `src/player.py` | mpv command lines, IPC, polling |
 | Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
 | Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/search_history.py`, `src/config.py` | disk and RAM state |
@@ -63,6 +64,7 @@ All are `@work(thread=True, exclusive=True)` unless noted. `exclusive` cancels t
 | default (not exclusive) | Main | `_run_ytdlp_update` | yt-dlp self-update |
 | `video_player`, `mpv_poll` | WatchModal | | foreground mpv (`docs/code/src/tui/screens/watch_modal.py.md`) |
 | `download` | DownloadModal | | one download |
+| `playlist_row` | Main, Channel | `_load_playlist_worker` | read a playlist row, then play, queue or start a video run |
 | `suggest` | SearchModal | | search suggestions as you type |
 | `settings_clear` | SettingsModal | | clear-data actions |
 

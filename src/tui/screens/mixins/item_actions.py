@@ -10,6 +10,7 @@ from src.progress import is_live
 from src.strings import text
 from src.tui import keymap
 from src.tui.fmt import escape_markup
+from src.tui.screens.mixins.playlist_rows import PlaylistRowsMixin
 
 _HINT_REPEAT_S = 2.0
 _PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
@@ -37,7 +38,7 @@ def _page_url(entry: Entry | None) -> str:
     return "" if not vid or vid.startswith("__") else watch_url(vid)
 
 
-class ItemActionsMixin:
+class ItemActionsMixin(PlaylistRowsMixin):
     """Actions on the highlighted row: play, download, copy, open, and the Enter menu.
 
     Needs ``_selected_entry()`` (``ListNavMixin``), ``_sync_player_bar()`` (``AudioBarMixin``) and ``_crumbs()``
@@ -68,10 +69,13 @@ class ItemActionsMixin:
         entry = self._selected_entry()
         hints: list[tuple[str, str]] = []
         if entry:
-            if entry.get("_is_channel") or entry.get("_is_playlist"):
+            if entry.get("_is_channel"):
                 shown = {"copy_url", "browser"}
-                opens = "open_channel" if entry.get("_is_channel") else "open_playlist"
-                hints.append(("⏎", text(f"item_actions.{opens}")))
+                hints.append(("⏎", text("item_actions.open_channel")))
+            elif entry.get("_is_playlist"):
+                shown = {"copy_url", "browser", "audio"} | (set() if self.app.audio.is_playing else {"watch"})
+                hints.append(("⏎", text("item_actions.open_playlist")))
+                hints.append((keymap.key_of("audio_enqueue"), text("item_actions.queue_playlist")))
             else:
                 shown = {row.action for row in keymap.ROW_ACTIONS} - self._hidden_menu_actions(entry)
                 hints.append(("⏎", text("item_actions.video_actions")))
@@ -135,6 +139,8 @@ class ItemActionsMixin:
         return entry
 
     def action_watch(self) -> None:
+        if self._use_playlist("video"):
+            return
         entry = self._playable_entry()
         if entry:
             self._watch(entry)
@@ -162,6 +168,8 @@ class ItemActionsMixin:
         self.app.push_screen(QualityModal(audio_only=audio_only), on_pick)
 
     def action_audio(self) -> None:
+        if self._use_playlist("audio"):
+            return
         entry = self._playable_entry()
         if not entry:
             return
@@ -181,6 +189,8 @@ class ItemActionsMixin:
         self._sync_player_bar()
 
     def action_audio_enqueue(self) -> None:
+        if self._use_playlist("enqueue"):
+            return
         entry = self._playable_entry()
         if entry:
             self.app.audio.enqueue_audio(entry)

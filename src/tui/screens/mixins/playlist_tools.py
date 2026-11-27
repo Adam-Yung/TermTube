@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import random
 
-from src import library, playlist
+from src import library, playlist, playlist_fetch
 from src.entries import Entry
 from src.strings import text
 from src.tui.fmt import escape_markup
 from src.tui.screens.mixins.library_rail import PLAYLIST_VIEW as _PLAYLIST_TAB
 from src.tui.screens.mixins.library_rail import tab_of
 from src.tui.screens.mixins.list_tools import Removal
+from src.tui.screens.mixins.playlist_rows import PlaylistLoader
 from src.tui.screens.name_modal import NameModal
 
 
@@ -78,6 +79,16 @@ class PlaylistToolsMixin:
             record = self._rail_playlist()
             return record["id"] if record else None
         return self._playlist_id()
+
+    def _playlist_source(self) -> PlaylistLoader | None:
+        """On the rail, the local playlist under its cursor; elsewhere the playlist row, as on any screen."""
+        if not self._rail_focused():
+            return super()._playlist_source()
+        record = self._rail_playlist()
+        if record is None:
+            return None
+        tracks = playlist_fetch.videos_only(self._collection_entries(_PLAYLIST_TAB + record["id"]))
+        return lambda: (tracks, "")
 
     def _removal_key(self) -> str:
         return "playlists" if self._rail_focused() else super()._removal_key()
