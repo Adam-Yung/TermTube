@@ -1,0 +1,39 @@
+src/tui/keymap.py
+  s_e7aa8e3e185f22::t_7409af334445a0 30
+src/tests/tui/test_audio_controller.py
+  s_e7aa8e3e185f22::t_7409af334445a0 128-178
+src/tui/audio_controller.py
+  s_e7aa8e3e185f22::t_7409af334445a0 73,97-100,122,147,173-186,188,190,460,462,464,478,480,495
+src/strings.json
+  s_e7aa8e3e185f22::t_7409af334445a0 73,228,450
+src/tui/widgets/action_bar.py
+  s_e7aa8e3e185f22::t_7409af334445a0 28-29,37,296,301
+src/tui/screens/mixins/audio_bar.py
+  s_e7aa8e3e185f22::t_7409af334445a0 41
+src/tui/screens/help_screen.py
+  s_e7aa8e3e185f22::t_7409af334445a0 32
+src/tui/screens/mixins/item_actions.py
+  s_e7aa8e3e185f22::t_7409af334445a0 198-206
+docs/code/src/tui/audio_controller.py.md
+  s_e7aa8e3e185f22::t_24ced076d2890d 3,14-15
+docs/features/keybindings.md
+  s_e7aa8e3e185f22::t_fb2dc58105bd77 16,37
+docs/features/playback.md
+  s_e7aa8e3e185f22::t_8fe7129a2c76d7 5,10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "da946b29a1192648347d935a8c8d60b642b1a6f0",
+  "prompts": {},
+  "sessions": {
+    "s_e7aa8e3e185f22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8eab02b-c674-439e-ab04-16467952a8b9",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
