@@ -1,0 +1,91 @@
+docs/guides/morning-checklist.md
+  s_e7aa8e3e185f22::t_121960753fec41 10
+src/tui/screens/help_screen.py
+  s_e7aa8e3e185f22::t_f333962835f043 34,48-55,92
+src/tests/tui/test_screen_layout_audit.py
+  s_e7aa8e3e185f22::t_950a042f32cf9b 12,227-243
+  s_e7aa8e3e185f22::t_10b4bffe17ad4f 244-245
+docs/code/src/tui/theme.tcss.md
+  s_e7aa8e3e185f22::t_121960753fec41 15
+src/tui/screens/queue_screen.py
+  s_e7aa8e3e185f22::t_33381bcd2bf57d 26-28,40
+  s_e7aa8e3e185f22::t_be386af8c4fdf9 1-25,29-39,41-197
+src/tui/widgets/action_bar.py
+  s_e7aa8e3e185f22::t_f333962835f043 33
+src/tests/tui/test_journeys.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 12,103-109,111,114,117,122,132
+src/tests/unit/test_mixin_wiring.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 21,23,53-59,65-68,74-75
+docs/code/src/tui/widgets/video_list.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 32-33
+src/tests/tui/test_channel_global_keys.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 49-60,64,66
+docs/features/architecture.md
+  s_e7aa8e3e185f22::t_121960753fec41 36,42,44
+src/strings.json
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 285,453,464-470,511,536,539,542-549
+scripts/e2e-local.py
+  s_e7aa8e3e185f22::t_1317313443a5a5 305,307
+README.md
+  s_e7aa8e3e185f22::t_121960753fec41 26,97-98,119,121
+src/tui/screens/mixins/item_actions.py
+  s_e7aa8e3e185f22::t_f333962835f043 218,220
+src/tui/app.py
+  s_e7aa8e3e185f22::t_f333962835f043 15,29,94-102
+  s_e7aa8e3e185f22::t_9f60c9efd22d0c 103
+src/tui/widgets/video_list.py
+  s_e7aa8e3e185f22::t_f333962835f043 101,105,171-173,254,416,559-561
+  s_e7aa8e3e185f22::t_9126669ee5deed 562
+src/tests/unit/test_help_matches_keymap.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 24
+docs/status.md
+  s_e7aa8e3e185f22::t_121960753fec41 12
+src/tui/keymap.py
+  s_e7aa8e3e185f22::t_f333962835f043 107-115,121,124
+src/tests/tui/test_races.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 320,322,332-334,336-337,342-343,348,352
+docs/features/keybindings.md
+  s_e7aa8e3e185f22::t_121960753fec41 21-22,33,48,56-57,64
+docs/code/src/tui/screens/queue_screen.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 1-9
+docs/code/scripts/e2e-local.py.md
+  s_e7aa8e3e185f22::t_1317313443a5a5 9
+src/tests/tui/test_navigation.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 3,23-25,28-31,39
+src/tui/audio_controller.py
+  s_e7aa8e3e185f22::t_f333962835f043 231-238,297-298
+src/tui/theme.tcss
+  s_e7aa8e3e185f22::t_f333962835f043 309-316,674,695,716
+src/tui/screens/channel_screen.py
+  s_e7aa8e3e185f22::t_f333962835f043 557
+docs/code/src/tui/audio_controller.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 60
+docs/decisions/playback.md
+  s_e7aa8e3e185f22::t_121960753fec41 105-108
+src/tests/tui/test_queue.py
+  s_e7aa8e3e185f22::t_112fc4e29ff50e 1,12-14,100,103-112,118-120,124-130,133-139,141-144,147,149-156,158,160-162,166-174,177,179-180,182,185-186,188,190,192,195,197-198,201-202,205-206,209-211,214-215,217-239,241
+docs/features/playback.md
+  s_e7aa8e3e185f22::t_121960753fec41 5,12-17
+docs/code/src/tui/keymap.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 13
+docs/code/src/tui/app.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 15-16
+docs/code/src/tui/screens/channel_screen.py.md
+  s_e7aa8e3e185f22::t_121960753fec41 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1ae41d2600fba1e10e7b1f9d8fb2b8b65ccb3891",
+  "prompts": {},
+  "sessions": {
+    "s_e7aa8e3e185f22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8eab02b-c674-439e-ab04-16467952a8b9",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
