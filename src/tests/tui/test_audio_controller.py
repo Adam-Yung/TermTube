@@ -125,3 +125,54 @@ async def test_history_is_recorded_once_on_the_first_successful_poll(audio):
             await pilot.pause(0.1)
         assert add.call_count == 1
         assert add.call_args.args[0] == ENTRY
+
+
+THIRD = {"id": "CCCCCCCCCCC", "title": "Third"}
+
+
+async def test_previous_returns_through_the_tracks_already_played(audio):
+    async with audio.run_test(size=(100, 30)):
+        controller = audio.audio
+        controller.play_many([ENTRY, OTHER, THIRD])
+        assert not controller.has_previous
+        controller.skip_audio()
+        controller.skip_audio()
+        controller.previous_audio()
+        assert controller.entry is OTHER and controller.queue == (THIRD,)
+        controller.previous_audio()
+        assert controller.entry is ENTRY and controller.queue == (OTHER, THIRD)
+        controller.previous_audio()
+        assert controller.entry is ENTRY and not controller.has_previous
+
+
+async def test_a_finished_track_is_the_previous_one(audio):
+    async with audio.run_test(size=(100, 30)):
+        controller = audio.audio
+        controller.play_many([ENTRY, OTHER])
+        controller._on_finished(ENTRY, controller._session)
+        controller.previous_audio()
+        assert controller.entry is ENTRY and controller.queue == (OTHER,)
+
+
+async def test_stop_and_a_new_playlist_forget_the_played_tracks(audio):
+    async with audio.run_test(size=(100, 30)):
+        controller = audio.audio
+        controller.play_many([ENTRY, OTHER])
+        controller.skip_audio()
+        controller.play_many([THIRD, ENTRY])
+        assert not controller.has_previous
+        controller.skip_audio()
+        controller.stop_audio()
+        controller.play_audio(OTHER)
+        assert not controller.has_previous
+
+
+async def test_the_less_than_key_plays_the_previous_track(audio):
+    async with audio.run_test(size=(120, 40)) as pilot:
+        await pilot.pause(0.5)
+        controller = audio.audio
+        controller.play_many([ENTRY, OTHER])
+        controller.skip_audio()
+        controller._proc = fake_proc()
+        await pilot.press("<")
+        assert controller.entry is ENTRY

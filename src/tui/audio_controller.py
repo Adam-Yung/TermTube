@@ -70,6 +70,7 @@ class AudioController:
         self._proc: subprocess.Popen | None = None
         self._entry: Entry | None = None
         self._queue: list[Entry] = []
+        self._played: list[Entry] = []
         self._session = 0
         self._stopped = False
         self._play_pending = False
@@ -94,6 +95,10 @@ class AudioController:
         return tuple(self._queue)
 
     @property
+    def has_previous(self) -> bool:
+        return self.is_playing and bool(self._played)
+
+    @property
     def segments(self) -> list[Segment]:
         return self._segments
 
@@ -114,6 +119,7 @@ class AudioController:
     def play_audio(self, entry: Entry, *, ytdl_format: str = "") -> None:
         """Play ``entry`` now, replacing the current track. The queue is kept."""
         if self.is_playing:
+            self._remember(self._entry, entry)
             self._stop(keep_player_mode=True)
         self._start(entry, ytdl_format=ytdl_format)
 
@@ -138,6 +144,7 @@ class AudioController:
             return
         self._queue = list(entries[1:])
         self.play_audio(entries[0])
+        self._played.clear()
         self._queue_changed()
 
     def enqueue_many(self, entries: list[Entry]) -> int:
@@ -163,9 +170,24 @@ class AudioController:
             return
         self.play_audio(self._queue.pop(0))
 
+    def previous_audio(self) -> None:
+        """Go back to the track played before this one; this one returns to the head of the queue."""
+        if not self.has_previous:
+            return
+        self._queue.insert(0, self._entry)
+        entry = self._played.pop()
+        self._stop(keep_player_mode=True)
+        self._start(entry)
+        self._queue_changed()
+
+    def _remember(self, outgoing: Entry | None, incoming: Entry) -> None:
+        if outgoing and outgoing.get("id") != incoming.get("id"):
+            self._played.append(outgoing)
+
     def stop_audio(self) -> None:
-        """Stop playback and drop the queue."""
+        """Stop playback, drop the queue and forget the played tracks."""
         self._queue.clear()
+        self._played.clear()
         self._stop()
 
     def move_queued(self, index: int, step: int) -> int:
@@ -435,9 +457,11 @@ class AudioController:
         elif outcome.status == "failed":
             self._app.call_from_thread(self._on_failed, entry, outcome.returncode, outcome.stderr, session)
 
-    def _advance_queue(self) -> bool:
+    def _advance_queue(self, outgoing: Entry) -> bool:
         if not self._queue:
+            self._played.clear()
             return False
+        self._remember(outgoing, self._queue[0])
         self._start(self._queue.pop(0))
         return True
 
@@ -451,8 +475,9 @@ class AudioController:
         if self._queue:
             if title:
                 self._app.notify(text("audio_controller.next_track", title=escape_markup(title[:40])), timeout=3)
-            self._advance_queue()
+            self._advance_queue(entry)
         else:
+            self._played.clear()
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
             if title:
                 self._app.notify(text("audio_controller.finished", title=escape_markup(title[:50])), timeout=4)
@@ -467,7 +492,7 @@ class AudioController:
         self.log(f"[red]Audio failed: {escape_markup(title[:50])} — {escape_markup(detail)}[/red]")
         shown = text("audio_controller.failed", title=title[:40], detail=detail[:80])
         self._app.notify(escape_markup(shown), severity="error", timeout=8)
-        if not self._advance_queue():
+        if not self._advance_queue(entry):
             self._broadcast(lambda: PlayerStateUpdated(0.0, 0.0, False, playing=False))
 
     def _poll_tick(self) -> None:

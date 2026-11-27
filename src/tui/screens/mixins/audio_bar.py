@@ -38,6 +38,7 @@ class AudioBarMixin:
         bar.update_queue_hint(
             len(audio.queue),
             hide_e=bool(focused_id and (focused_id == playing_id or focused_id in queued)),
+            has_prev=audio.has_previous,
         )
 
     def on_audio_track_changed(self, message: AudioTrackChanged) -> None:

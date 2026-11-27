@@ -25,7 +25,8 @@ _CHROME = 3  # border top and bottom, and the margin above the grid
 _MAX_ROWS = 5  # grid rows; more entries end in a "…" cell
 
 
-def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") -> str:
+def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666", *, has_prev: bool = False) -> str:
+    prev_part = f"[bold {color}]<[/bold {color}] [dim]{text('action_bar.queue_prev')}[/dim]" if has_prev else ""
     e_part = "" if hide_e else f"[bold {color}]e[/bold {color}] [dim]{text('action_bar.queue_add')}[/dim]"
     skip_part = (
         f"[bold {color}]>[/bold {color}] [dim]{text('action_bar.queue_skip', count=queue_len)}[/dim]  "
@@ -33,7 +34,7 @@ def _queue_hint(queue_len: int, hide_e: bool = False, color: str = "#ff6666") ->
         if queue_len > 0
         else ""
     )
-    parts = [p for p in (e_part, skip_part) if p]
+    parts = [p for p in (e_part, prev_part, skip_part) if p]
     return "  ".join(parts)
 
 
@@ -292,12 +293,12 @@ class ActionBar(Widget):
         self._paused = paused
         self._refresh_player()
 
-    def update_queue_hint(self, queue_len: int, *, hide_e: bool = False) -> None:
+    def update_queue_hint(self, queue_len: int, *, hide_e: bool = False, has_prev: bool = False) -> None:
         if not self._playing:
             return
         self._queue_len = queue_len
         self.query_one("#np-queue-line", Static).update(
-            _queue_hint(queue_len, hide_e=hide_e, color=self._get_theme_color())
+            _queue_hint(queue_len, hide_e=hide_e, color=self._get_theme_color(), has_prev=has_prev)
         )
 
     def _animate_wave(self) -> None:

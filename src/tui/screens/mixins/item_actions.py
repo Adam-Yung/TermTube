@@ -195,6 +195,15 @@ class ItemActionsMixin:
         else:
             audio.skip_audio()
 
+    def action_audio_prev(self) -> None:
+        audio = self.app.audio
+        if not audio.is_playing:
+            self._hint(text("item_actions.nothing_playing"), "information")
+        elif not audio.has_previous:
+            self._hint(text("item_actions.no_previous"), "information")
+        else:
+            audio.previous_audio()
+
     def action_audio_queue(self) -> None:
         audio = self.app.audio
         if not audio.is_playing and not audio.queue:

@@ -1,6 +1,6 @@
 # src/tui/audio_controller.py
 
-Background audio: a headless mpv controlled over an IPC socket, with a queue, SponsorBlock auto-skip and progress reporting. One `AudioController` lives on the app (`app.audio`, created in `TermTubeApp.__init__`), so music survives every screen push and pop. Screens call its public methods (`play_audio`, `enqueue_audio`, `play_many` (play the first, queue the rest, replacing the queue), `enqueue_many` (queue what is not playing or queued, one notice), `skip_audio`, `stop_audio`, `toggle_audio_pause`, `seek_audio`, `seek_audio_percent`, `can_enqueue`) through `ItemActionsMixin` and mirror its state through messages (`docs/code/src/tui/screens/mixins/audio_bar.py.md`). Decisions: `docs/decisions/playback.md`.
+Background audio: a headless mpv controlled over an IPC socket, with a queue, SponsorBlock auto-skip and progress reporting. One `AudioController` lives on the app (`app.audio`, created in `TermTubeApp.__init__`), so music survives every screen push and pop. Screens call its public methods (`play_audio`, `enqueue_audio`, `play_many` (play the first, queue the rest, replacing the queue), `enqueue_many` (queue what is not playing or queued, one notice), `skip_audio`, `previous_audio`, `stop_audio`, `toggle_audio_pause`, `seek_audio`, `seek_audio_percent`, `can_enqueue`) through `ItemActionsMixin` and mirror its state through messages (`docs/code/src/tui/screens/mixins/audio_bar.py.md`). Decisions: `docs/decisions/playback.md`.
 
 ## Session and stale rules
 
@@ -10,6 +10,8 @@ Background audio: a headless mpv controlled over an IPC socket, with a queue, Sp
 - The IPC socket path is a function of the session number (`_socket_for(session)`), and each worker uses the session it holds, never the current one. A dying mpv from the previous track cannot answer polls for the next one, and a stale worker cannot address the new socket.
 - `play_audio` stops the old track first (`_stop` reads the old session's socket, so the `quit` command and socket cleanup hit the right mpv) and `_start` bumps the counter afterwards. Both run in one UI-thread call, so no worker sees a state in between.
 - Completion (`_on_finished`, `_on_failed`) and `_launch_failed`'s stop run on the UI thread through `call_from_thread` and re-check the session, so a late failure of an old track never stops the new one.
+
+`_played` is the stack behind `previous_audio`. `play_audio` and `_advance_queue` push the outgoing track; `previous_audio` pops through `_stop` and `_start` directly, so going back never pushes. `play_many` clears after its `play_audio`, which would otherwise record the track of the list being replaced.
 
 ## Threads and messages
 

@@ -2,12 +2,13 @@
 
 Both go through **mpv**, driven by TermTube. Audio runs headless in the background and keeps playing while you browse; video opens an mpv window.
 
-## Audio (`a`, `A`, `e`, `>`, `Q`, `Space`, `x`, `[ ] { }`, `0`-`9`)
+## Audio (`a`, `A`, `e`, `>`, `<`, `Q`, `Space`, `x`, `[ ] { }`, `0`-`9`)
 
 - One **audio controller** (`app.audio`, `src/tui/audio_controller.py`) owns the mpv process, the queue and the position polling for the whole app. Screens only
   mirror its state, so music survives opening a channel page, a menu or a download.
 - `a` plays now (replacing the current track, keeping the queue); `A` asks for a quality first. `e` queues; with nothing playing it starts
-  playback. `>` skips to the next queued track. `x` stops and clears the queue. The queue is in memory: quitting drops it.
+  playback. `>` skips to the next queued track; `<` goes back to the track played before it (the current one returns to the head
+  of the queue). The played tracks are forgotten by `x`, a new playlist and the end of the queue. `x` stops and clears the queue. The queue is in memory: quitting drops it.
 - `Q` opens the **queue** (from any screen with the audio bar; "Nothing playing." when idle): the playing track first, the upcoming ones
   numbered. `j` `k` move, `J` `K` reorder the highlighted upcoming track, `D` removes it, `u` undoes removals (inside the dialog), `Enter` plays it
   now (the tracks before it stay queued), `Esc` closes. The list follows the queue live. The playing track cannot be moved or removed there:

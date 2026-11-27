@@ -13,7 +13,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 3. **Mnemonic letters for actions, lower case for the default, upper case for "ask me first".** `v` video, `a` audio, `V`/`A` pick the
    quality first. `d` download, `c` channel, `p` playlist, `y` yank the URL, `b` browser, `e` enqueue.
 4. **Audio transport lives on keys that nothing else uses.** `Space` pause, `x` stop, `[`/`]` seek ±5 s, `{`/`}` ±10 s, `0`–`9` seek to
-   0–90 %, `>` next track. They work from any list because audio is background playback.
+   0–90 %, `>` next track, `<` previous track. They work from any list because audio is background playback.
 5. **One key, one action.** No key is "listen or seek" or "stop or subscribe".
    **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
@@ -34,7 +34,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `v` `V` | watch / choose quality (refused while audio plays) | |
 | `a` `A` | play audio / choose quality (replaces the current track) | |
 | `e` | add audio to the queue | |
-| `>` | skip to the next queued track | |
+| `>` `<` | skip to the next queued track / back to the track played before | |
 | `Space` | pause audio | pause |
 | `x` | stop audio, clear queue | |
 | `[` `]` `{` `}` | audio seek ∓5 s / ∓10 s | same keys, same distances |
