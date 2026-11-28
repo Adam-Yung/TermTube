@@ -1,0 +1,27 @@
+docs/decisions/quality.md
+  s_856376552aead6::t_2fb0bd9a877c2f 1-11
+docs/decisions/README.md
+  s_856376552aead6::t_2fb0bd9a877c2f 14
+docs/todo.md
+  s_856376552aead6::t_2fb0bd9a877c2f 5-10
+docs/status.md
+  s_856376552aead6::t_2fb0bd9a877c2f 3,5,37
+docs/README.md
+  s_856376552aead6::t_2fb0bd9a877c2f 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4d7d24e5951805241ae9cb4d1458b728ed5a46e1",
+  "prompts": {},
+  "sessions": {
+    "s_856376552aead6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bae150dd-b94b-4856-8f1f-1339dddc03e4",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
