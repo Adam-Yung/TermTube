@@ -1,0 +1,21 @@
+src/tests/unit/test_local_files.py
+  s_856376552aead6::t_94eca87d9c13f9 67
+src/tests/unit/test_local_media.py
+  s_856376552aead6::t_f7949d94355503 6,52-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0d3d073977689969c632d6c8f90f764aff20e377",
+  "prompts": {},
+  "sessions": {
+    "s_856376552aead6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bae150dd-b94b-4856-8f1f-1339dddc03e4",
+        "model": "unknown"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
