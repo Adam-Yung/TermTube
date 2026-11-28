@@ -34,3 +34,5 @@ thumbnail. Channel rows (`_is_channel`) and placeholder ids (`__playlist__…`) 
 404, for a deleted video; `validate_thumb` accepts it. Source ladder: `docs/features/sources.md`.
 
 A Library entry's `_thumb_path` (from the index) is the first local source in `_resolve_local_thumb`; it is copied into the thumbnail cache, so a downloaded item never needs the network.
+
+- Local file rows (`local_files.is_local_id`): after an image of the same name, `_resolve_local_thumb` asks `local_media.thumbnail` (cover art, then a frame) to write the cached JPEG; `download` refuses local ids, so no thumbnail host is ever asked about a local file.

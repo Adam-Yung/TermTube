@@ -9,6 +9,7 @@ from collections.abc import Callable
 import yt_dlp
 
 from src import logger
+from src.local_files import is_local_id
 from src.ytdlp import base_opts, new_cancel_event, release_cancel_event
 
 _STREAM_URL_TTL = 3600 * 5  # YouTube CDN URLs expire after about 6 hours
@@ -39,6 +40,8 @@ def resolve_stream_url(
 
     Returns None on failure or cancellation. Never uses cookies (see docs/code/src/ytdlp.py.md).
     """
+    if is_local_id(video_id):
+        return None
     cancel = cancel_event or new_cancel_event()
     opts = base_opts(skip_manifests=False)
     opts['format'] = format_spec

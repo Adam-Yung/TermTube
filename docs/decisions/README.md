@@ -13,5 +13,6 @@ Topic files:
 - [ui.md](ui.md): notifications and other look-and-feel calls.
 - [quality.md](quality.md): the ratchet gates, where they run, what they do not judge.
 - [config.md](config.md): config location, `--sync` symlink, fzf/gum removal.
+- [local-files.md](local-files.md): the Local tab, local file ids, probing, thumbnails and delete rules.
 
 An older entry can describe a design that a later entry replaced. Read a topic file to the bottom before relying on any entry.

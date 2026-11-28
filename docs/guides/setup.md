@@ -1,6 +1,6 @@
 # Setup guide: install, run, develop, update, move, uninstall
 
-> Verified: 2026-11-28 · Sources: `scripts/setup.sh`, `scripts/setup.ps1`, `scripts/uninstall.sh`, `scripts/verify.sh`, `scripts/dev-setup.sh`, `src/main.py`, `src/updater.py`, `src/plat.py`
+> Verified: 2026-11-28 03:55 · Sources: `scripts/setup.sh`, `scripts/setup.ps1`, `scripts/uninstall.sh`, `scripts/verify.sh`, `scripts/dev-setup.sh`, `src/main.py`, `src/updater.py`, `src/plat.py`
 
 For people and for agents. The short version is in the [README](../../README.md); this is the complete one. Two environments exist and must not be
 confused: the **installed app** (what a user runs) and the **checkout** (where you develop). [environments.md](environments.md) explains the split.

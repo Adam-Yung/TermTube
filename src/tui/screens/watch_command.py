@@ -34,7 +34,7 @@ def build_command(
     if title:
         cmd += [f"--title={title}", f"--force-media-title={title}"]
     if urls:
-        cmd.append("--no-ytdl")
+        cmd += ["--no-ytdl", *player_mod.source_args(urls[0])]
         if len(urls) == 2:
             cmd.append(f"--audio-file={urls[1]}")
         return cmd + ["--", urls[0]]

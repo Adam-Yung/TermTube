@@ -7,6 +7,7 @@ from functools import partial
 
 from src import logger
 from src.entries import Entry
+from src.local_files import is_local_id
 from src.plat import clipboard_copy
 from src.progress import is_live
 from src.strings import text
@@ -18,11 +19,13 @@ from src.tui.widgets.video_list import VideoListPanel
 
 _HINT_REPEAT_S = 2.0
 _PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
+_YOUTUBE_ACTIONS = {"download", "channel", "copy_url", "browser", "watch_quality", "audio_quality"}
+"""Row actions that need YouTube (a quality is a yt-dlp format): a local file row hides them."""
 
 
 def _is_video(entry: Entry | None) -> bool:
-    """True for a row that is a playable video, not a playlist or channel placeholder."""
-    return bool(entry) and not entry.get("_is_playlist") and not entry.get("_is_channel")
+    """True for a row that is a playable video, not a playlist, channel or folder placeholder."""
+    return bool(entry) and not any(entry.get(k) for k in ("_is_playlist", "_is_channel", "_is_folder"))
 
 
 def _page_url(entry: Entry | None) -> str:
@@ -35,7 +38,7 @@ def _page_url(entry: Entry | None) -> str:
         url = entry.get("url") or ""
         return url if url.startswith("http") else ""
     vid = entry.get("id", "")
-    return "" if not vid or vid.startswith("__") else watch_url(vid)
+    return "" if not vid or vid.startswith("__") or is_local_id(vid) else watch_url(vid)
 
 
 class ItemActionsMixin(PlaylistRowsMixin):
@@ -49,7 +52,7 @@ class ItemActionsMixin(PlaylistRowsMixin):
     def _hidden_menu_actions(self, entry: Entry) -> set[str]:
         """The row actions the Enter menu leaves out: those that would only answer with a hint for this row."""
         audio = self.app.audio
-        hidden: set[str] = set()
+        hidden: set[str] = set(_YOUTUBE_ACTIONS) if is_local_id(entry.get("id")) else set()
         if entry.get("_missing_file"):
             hidden |= _PLAYABLE_ACTIONS | {"download", "playlist"}
         if is_live(entry) or entry.get("_has_audio"):
@@ -72,9 +75,14 @@ class ItemActionsMixin(PlaylistRowsMixin):
             if entry.get("_is_channel"):
                 shown = {"copy_url", "browser"}
                 hints.append(("⏎", text("item_actions.open_channel")))
-            elif entry.get("_is_playlist"):
-                shown = {"copy_url", "browser", "audio"} | (set() if self.app.audio.is_playing else {"watch"})
-                hints.append(("⏎", text("item_actions.open_playlist")))
+            elif entry.get("_is_parent"):
+                shown = set()
+                hints.append(("⏎", text("item_actions.open_folder")))
+            elif entry.get("_is_playlist") or entry.get("_is_folder"):
+                folder = bool(entry.get("_is_folder"))
+                shown = ({"audio"} if folder else {"copy_url", "browser", "audio"}) | (
+                    set() if self.app.audio.is_playing else {"watch"})
+                hints.append(("⏎", text("item_actions.open_folder" if folder else "item_actions.open_playlist")))
                 hints.append((keymap.key_of("audio_enqueue"), text("item_actions.queue_playlist")))
             else:
                 shown = {row.action for row in keymap.ROW_ACTIONS} - self._hidden_menu_actions(entry)
@@ -151,7 +159,7 @@ class ItemActionsMixin(PlaylistRowsMixin):
 
     def action_watch_quality(self) -> None:
         entry = self._playable_entry()
-        if entry and not self._video_blocked_by_audio():
+        if entry and not self._local_refused(entry) and not self._video_blocked_by_audio():
             self._pick_quality(audio_only=False, then=lambda fmt: self._watch(entry, fmt))
 
     def _watch(self, entry: Entry, ytdl_format: str = "") -> None:
@@ -185,7 +193,7 @@ class ItemActionsMixin(PlaylistRowsMixin):
 
     def action_audio_quality(self) -> None:
         entry = self._playable_entry()
-        if entry:
+        if entry and not self._local_refused(entry):
             self._pick_quality(audio_only=True, then=lambda fmt: self._play_audio(entry, fmt))
 
     def _play_audio(self, entry: Entry, ytdl_format: str = "") -> None:
@@ -242,9 +250,16 @@ class ItemActionsMixin(PlaylistRowsMixin):
     def action_audio_seek_pct(self, percent: float) -> None:
         self.app.audio.seek_audio_percent(percent)
 
+    def _local_refused(self, entry: Entry | None) -> bool:
+        """True (with the reason) for a local file row, which has no YouTube page, channel or download."""
+        if entry and is_local_id(entry.get("id")):
+            self._hint(text("local_tab.youtube_only"), "information")
+            return True
+        return False
+
     def action_download(self) -> None:
         entry = self._playable_entry()
-        if not entry:
+        if not entry or self._local_refused(entry):
             return
         if is_live(entry):
             self._hint(text("item_actions.live_no_download"))
@@ -281,7 +296,7 @@ class ItemActionsMixin(PlaylistRowsMixin):
 
     def action_channel(self) -> None:
         entry = self._selected_entry()
-        if entry:
+        if entry and not self._local_refused(entry):
             self._open_channel(entry)
 
     def _open_channel(self, entry: Entry) -> None:
@@ -319,7 +334,10 @@ class ItemActionsMixin(PlaylistRowsMixin):
         self._detail().refresh_playlists(entry.get("id", ""))
 
     def action_copy_url(self) -> None:
-        url = _page_url(self._selected_entry())
+        entry = self._selected_entry()
+        if self._local_refused(entry):
+            return
+        url = _page_url(entry)
         if not url:
             self._hint(text("item_actions.no_url"))
         elif clipboard_copy(url):
@@ -328,7 +346,10 @@ class ItemActionsMixin(PlaylistRowsMixin):
             self.notify(text("item_actions.url_shown", url=escape_markup(url)), timeout=10)
 
     def action_browser(self) -> None:
-        url = _page_url(self._selected_entry())
+        entry = self._selected_entry()
+        if self._local_refused(entry):
+            return
+        url = _page_url(entry)
         if not url:
             self._hint(text("item_actions.no_url"))
             return

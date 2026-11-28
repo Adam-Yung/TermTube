@@ -72,11 +72,12 @@ class ListToolsMixin:
         return self._current_tab
 
     def _delete_targets(self) -> list[Entry]:
+        """The marked rows, else the highlighted one; folder rows (Local tab) are never targets."""
         targets = self._list().marked_entries()
         if not targets:
             entry = self._selected_entry()
             targets = [entry] if entry else []
-        return targets
+        return [t for t in targets if not t.get("_is_folder")]
 
     def action_delete(self) -> None:
         key = self._removal_key()

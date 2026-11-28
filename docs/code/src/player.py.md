@@ -49,3 +49,5 @@ one, mpv resolves `page_url` through its own yt-dlp hook, with `--ytdl-format` a
 - The process is registered with `ProcessRegistry` before `on_spawn` runs and unregistered when it exits, so `on_spawn` is where callers store the `Popen` and clear their "pending" flag.
 
 `start_args(start)` is the one place the `--start=<s>` flag is built (resume position); `audio_command(start=)` and `WatchModal._build_command` both use it. It goes before the `--` that separates options from the URL.
+
+- `source_args`: a file on disk gets `--access-references=no` (audio and video). mpv otherwise follows references inside a local file: a "song.mp3" holding `#EXTM3U` and a URL made it fetch that URL. Stream URLs (`http`, `https`) are unchanged.

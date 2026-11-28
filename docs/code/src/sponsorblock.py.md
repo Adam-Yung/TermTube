@@ -15,3 +15,5 @@ Fetches SponsorBlock skip segments for a video and caches them on disk. Called t
 The context is chosen once per process: the preference saved in `<cache>/ssl_pref` if valid, otherwise the first of `certifi`, `system` that builds (building makes no network call). If a request raises `ssl.SSLError`, the preference is dropped from memory and disk and the request retries once with a re-probed context. The point is to survive Python installs whose system certificate store is missing.
 
 There is no unverified fallback: if neither context builds, `_cached_ssl_context` raises `OSError`, the fetch logs it at debug level and returns no segments (a stale `unverified` preference file is ignored). Sharp edge: the probe only checks that a context builds, not that it verifies this host. A `certifi` context that fails verification re-probes into the same order and builds `certifi` again, so the retry fails and the fetch returns `[]`.
+
+`fetch_segments` returns no segments for a local file id (`local_files.is_local_id`) without asking the API.

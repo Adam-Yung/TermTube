@@ -1,6 +1,6 @@
 # Debugging slow startup and slow playback
 
-> Verified: 2026-11-28 · Sources: `src/logger.py`, `src/streams.py`, `src/player.py`, `src/tui/audio_launch.py`, `src/deps.py`
+> Verified: 2026-11-28 03:55 · Sources: `src/logger.py`, `src/streams.py`, `src/player.py`, `src/tui/audio_launch.py`, `src/deps.py`
 
 Run these on the slow machine and keep the output. yt-dlp is a Python package in the app's venv; mpv is the managed binary.
 

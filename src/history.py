@@ -6,6 +6,7 @@ import time
 from functools import partial
 
 from src.entries import Entry
+from src.local_files import encodable, is_local_id
 from src.plat import get_config_dir
 from src.store import JsonStore
 
@@ -23,6 +24,8 @@ def slim(entry: Entry, vid: str, keys: tuple[str, ...] = _KEPT) -> dict:
     thumb = record["thumbnail"]
     record["thumbnail"] = thumb if isinstance(thumb, str) else None
     record["id"] = vid
+    if is_local_id(vid) and encodable(entry.get("_local_path") or ""):  # else it could only be looked up online
+        record["_local_path"], record["_local_type"] = entry["_local_path"], entry.get("_local_type", "")
     return record
 
 

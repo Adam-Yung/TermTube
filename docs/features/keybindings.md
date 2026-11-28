@@ -50,9 +50,10 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `d` `c` `p` `y` `b` | download / channel / playlist / copy URL / browser | |
 | `f` | filter the loaded list as you type, across all pages (`Enter` keeps it, `Esc` clears it); also on the channel page. On the Library tab it also takes tokens: `type:audio`, `dur:<10m`, `by:"name"`, `year:2024`, `pl:name`, `dl:yes` | |
 | `m` `M` | mark the row and move down / mark the page (`●`; marks survive paging, clear on a view change) | |
-| `D` `u` | remove the row or the marked rows (History, Library and playlists; on the rail, the playlist under the cursor) after `y` / `N` / undo the last removal | |
+| `D` `u` | remove the row or the marked rows (History, Library, Local and playlists; on the rail, the playlist under the cursor) after `y` / `N` / undo the last removal | |
 | `/` `r` `,` `?` `Ctrl+D` `Ctrl+Q` | search / refresh / settings / help / debug log / quit (from anywhere) | `q` `Esc` stop |
-| `F1`–`F6` `` ` `` | jump to a tab (Help is `F6`) / tab picker | |
+| `F1`–`F7` `` ` `` | jump to a tab (Local is `F6`, Help is `F7`) / tab picker | |
+| `Enter` `Backspace` | Local tab: open the folder row (`..` goes up) / go up to the parent folder; `v` `a` `e` on a folder row play or queue the files directly in it; `D` deletes the file (or the marked files) for good after `y` / `N`, never a folder; `d` `c` `y` `b` answer that a local file has no YouTube page | |
 | `Tab` | Library, History, Subscriptions: move focus between the side list and the list (a hint elsewhere) | |
 | `n` `R` | Library tab: new playlist / rename the playlist under the rail cursor or the open one (a hint elsewhere) | |
 | `J` `K` | inside a playlist: move the video down / up, saved at once (a hint elsewhere) | |

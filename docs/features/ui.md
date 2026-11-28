@@ -12,7 +12,7 @@ Subscriptions add a left side list. `Enter` opens an action menu, the backtick k
 ## How it works
 
 `MainScreen` composes the widgets and takes its behaviour from mixins ([architecture.md](architecture.md)). `VideoListPanel` holds pages,
-filter, marks and footer and never fetches. Moving the cursor paints basic fields at once, then loads details and the thumbnail in workers.
+filter, marks and footer and never fetches. Moving the cursor paints basic fields at once, then loads details and the thumbnail in workers (for a local file, ffprobe and ffmpeg instead of YouTube).
 `ActionBar` shows what the screen's `panel_hints()` says applies. `layout.py` and `theme.tcss` set the widths and the narrow layout.
 
 ## Code

@@ -18,6 +18,8 @@ If your terminal reports no image support, a one-time dialog says so; "Never sho
 The `thumbnail_format` setting (Settings `,`): `auto` (default) uses a real image where the terminal supports it; `symbols` always uses half-block art, even in
 a terminal with image support (useful if its graphics render badly). The change applies from the next thumbnail shown.
 
+Local file rows never ask a host: their image is the one of the same name beside the file, else `local_media.thumbnail` (cover art, then a frame) writes the cached JPEG ([local-files.md](local-files.md)).
+
 ## How a thumbnail arrives
 
 Pausing on a row starts a worker that resolves the image, in order: a copy already on disk, a thumbnail saved next to a download (at download completion it is converted to `<name>.jpg`, and the Library index records it as `_thumb_path`, so a downloaded item never needs the network; the download is also pinned in the playlist thumbnail cache that pruning skips), then a

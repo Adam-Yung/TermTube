@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src import logger
+from src.local_files import is_local_id
 from src.plat import get_cache_dir, prune_dir
 
 _UA_VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text(encoding="utf-8").strip()
@@ -187,7 +188,7 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
 
     Failures are cached as empty for the TTL so a bad video is not re-requested.
     """
-    if not video_id:
+    if not video_id or is_local_id(video_id):
         return []
 
     cached = _read_cache(video_id)

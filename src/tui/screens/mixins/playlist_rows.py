@@ -5,7 +5,7 @@ from functools import partial
 
 from textual import work
 
-from src import logger, playlist_fetch
+from src import local_files, logger, playlist_fetch
 from src.entries import Entry, VideoEntry
 from src.errors import classify
 from src.strings import text
@@ -17,7 +17,7 @@ _MAX_FAILURES = 3  # offline, every item fails: do not walk 200 videos asking Yo
 
 
 class PlaylistRowsMixin:
-    """``v`` ``a`` ``e`` on a playlist row: play it as video or audio, or queue it, without opening its page.
+    """``v`` ``a`` ``e`` on a playlist or folder row: play it as video or audio, or queue it, without opening it.
 
     Needs ``_selected_entry``, ``_hint``, ``_video_blocked_by_audio``, ``_sync_player_bar`` and ``app`` from the screen.
     """
@@ -25,6 +25,8 @@ class PlaylistRowsMixin:
     def _playlist_source(self) -> PlaylistLoader | None:
         """How to load the playlist under the cursor, or None when the cursor is not on one."""
         row = self._selected_entry()
+        if row and row.get("_is_folder"):
+            return partial(local_files.folder_tracks, row["_local_path"])
         if not (row and row.get("_is_playlist") and row.get("id")):
             return None
         config, cache = self.app.config, self.app.cache
@@ -32,6 +34,10 @@ class PlaylistRowsMixin:
 
     def _use_playlist(self, mode: str) -> bool:
         """Start ``mode`` (``video``, ``audio``, ``enqueue``) on a playlist row. False when there is none."""
+        row = self._selected_entry()
+        if row and row.get("_is_parent"):
+            self._hint(text("local_tab.parent_not_played"), "information")
+            return True
         load = self._playlist_source()
         if load is None:
             return False

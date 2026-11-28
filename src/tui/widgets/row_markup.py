@@ -61,6 +61,8 @@ def _badge_key(entry: Entry, playing: bool) -> str:
         return "badge_playing"
     if entry.get("_missing_file"):
         return "badge_file_missing"
+    if entry.get("_is_folder"):
+        return "badge_folder"
     if entry.get("_is_playlist"):
         return "badge_playlist"
     if "_dl" in entry:

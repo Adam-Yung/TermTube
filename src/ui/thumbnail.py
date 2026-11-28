@@ -9,6 +9,7 @@ from pathlib import Path
 from src import logger
 from src.cache import CACHE_DIR, THUMB_DIR
 from src.entries import Entry
+from src.local_files import is_local_id
 from src.plat import prune_dir
 
 RENDERED_DIR = CACHE_DIR / "rendered"
@@ -58,7 +59,13 @@ def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
     """Find the thumbnail of a downloaded file and copy it into the cache."""
     own = entry.get("_thumb_path")  # the library index already knows the image next to the file
     source = Path(own) if own and Path(own).exists() else _beside_media(entry)
-    return _into_cache(video_id, source) if source else None
+    if source:
+        return _into_cache(video_id, source)
+    if is_local_id(video_id) and entry.get("_local_path"):
+        from src import local_media
+
+        return local_media.thumbnail(entry, _thumb_path(video_id))
+    return None
 
 
 def _fetch_candidate(video_id: str, url: str, dest: Path, insecure: bool) -> bool:
@@ -80,7 +87,7 @@ def _fetch_candidate(video_id: str, url: str, dest: Path, insecure: bool) -> boo
 
 def download(video_id: str, url: str, *, insecure: bool = False) -> Path | None:
     """Download a thumbnail to the cache. Returns its path, or None if the download failed or is not an image."""
-    if not url:
+    if not url or is_local_id(video_id):
         return None
     dest = _thumb_path(video_id)
     if dest.exists():

@@ -11,6 +11,7 @@ from functools import partial
 from src import logger, player, streams
 from src.entries import Entry
 from src.errors import SourceError
+from src.local_files import is_local_id
 from src.plat import IS_WINDOWS, get_audio_ipc_path, install_hint
 from src.progress import start_offset
 from src.strings import text
@@ -99,6 +100,9 @@ class AudioLaunchMixin:
             return
         vid = entry.get("id", "")
         local = entry.get("_local_path")
+        if is_local_id(vid) and not local:  # mpv's yt-dlp hook would look the id up on YouTube
+            self._launch_failed(session, text("local_files.missing"))
+            return
         if vid:
             self._app.cache.suppress_video(vid)
 

@@ -14,7 +14,8 @@ _PAGES = [
     ("3", "search", "nav_modal.page_search"),
     ("4", "history", "nav_modal.page_history"),
     ("5", "library", "nav_modal.page_library"),
-    ("6", "help", "nav_modal.page_help"),
+    ("6", "local", "nav_modal.page_local"),
+    ("7", "help", "nav_modal.page_help"),
 ]
 
 

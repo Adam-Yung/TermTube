@@ -33,11 +33,11 @@ def matcher_for(view: str):
 
 
 class ListSourcesMixin:
-    """The views that are not feeds: subscriptions, following, search, local history and the Library.
+    """The views that are not feeds: subscriptions, following, search, local history, the Library and Local.
 
     Every method runs on the loader thread and reaches the UI through ``_ui``. Needs ``_ui``, ``_search``,
     ``_history_sort``, ``_detail``, ``_rail_focused``, ``_collection_entries``, ``_set_library_counts``,
-    ``_show_empty_feed_modal`` and ``app``.
+    ``_show_empty_feed_modal``, ``_load_local`` and ``app``.
     """
 
     def _source_loader(self, view: str) -> Callable[[VideoListPanel], None] | None:
@@ -49,6 +49,7 @@ class ListSourcesMixin:
             "following": self._load_following,
             "search": self._load_search,
             "history": self._load_history,
+            "local": self._load_local,
         }
         return loaders.get(view)
 

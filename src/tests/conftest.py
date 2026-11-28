@@ -88,6 +88,12 @@ def isolated_sponsorblock_cache(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolated_launch_dir(tmp_path_factory, monkeypatch):
+    """The Local tab lists an empty folder of the test, never the checkout or the home folder."""
+    monkeypatch.setattr("src.local_files._launch_dir", tmp_path_factory.mktemp("launch"))
+
+
+@pytest.fixture(autouse=True)
 def no_keychain_reads(monkeypatch):
     """TLS contexts must not shell out to the real macOS keychain during tests."""
     monkeypatch.setattr("src.thumbnail_http._macos_keychain_pem", lambda: "")

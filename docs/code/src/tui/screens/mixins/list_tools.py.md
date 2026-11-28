@@ -18,3 +18,5 @@ A dict from tab id to `Removal(remove, restore, reload, noun)`. `remove(entries)
 `Removal` also has `ask(targets) -> (question markup, {key: choice})` for tabs with more than yes/no, `permanent` (files deleted: no undo entry, the notice says the files are gone), and `remove(targets, choice)` takes the chosen value (`""` for the plain y/N). The Library handler is in [tui/library_delete.py](library_delete.py.md).
 
 Hooks a screen can override: `_removal_key()` (which `_removals()` entry `D` and `u` use; the Library screen switches to `playlists` while its rail has focus), `_delete_targets()` (the rows `D` acts on) and `_after_removal()` (no default here; `LibraryRailMixin` provides it; called after a removal and after an undo).
+
+- `_delete_targets` drops folder rows (Local tab): marking a page with `M` never makes a folder a target or a "could not be deleted".

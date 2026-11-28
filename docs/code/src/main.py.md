@@ -22,3 +22,5 @@ Entry point (`termtube` and `python src/main.py`). Order of operations matters a
 - `--update` exits 1 when any update step failed.
 - `--test` runs the whole `src/tests` tree, and writes `test_results_<ts>.log` under the temp dir.
 - `_migrate_legacy_windows_paths` moves `history.json` and `playlists.json` from `~/.config/TermTube` to `%APPDATA%\TermTube`; older Windows builds wrote to the wrong place. Safe to delete once no such installs remain.
+
+- `main()` calls `local_files.capture_launch_dir()` before anything else, so the Local tab opens in the folder TermTube was started from.

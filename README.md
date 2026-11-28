@@ -91,7 +91,7 @@ The full install, update and troubleshooting guide, including how to move to ano
 
 Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History**, **Library**, **Help**. Playlists live in the Library rail.
 
-- Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F6`.
+- Move with `j`/`k`, change page with `h`/`l`, jump to the first or last item with `g`/`G`, change tab with `H`/`L` or `F1`..`F7`.
 - `Enter` opens the action menu for the highlighted video; every action also has its own key, shown in the footer and the in-app help (`?`).
 - `/` searches. `a` plays the audio in the background, `v` watches the video, `d` downloads, `c` opens the channel, `p` adds to a playlist.
 - `f` filters the list, `m`/`M` mark rows, `D` removes (then `u` undoes), `q` opens the audio queue, `,` opens settings.
@@ -107,7 +107,7 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `H` `L` | previous / next tab | `>` `<` | next queued track / previous track |
 | `Enter` | action menu | `Space` | pause / resume audio |
 | `Esc` `Backspace` | back | `x` | stop audio and clear the queue |
-| `F1`..`F6`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
+| `F1`..`F7`, `` ` `` | jump to a tab / tab picker | `[` `]` `{` `}` | seek ∓5 s / ∓10 s |
 | | | `0`..`9` | seek to 0 % to 90 % |
 
 | Row actions | | App | |

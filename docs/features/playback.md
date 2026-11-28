@@ -24,7 +24,7 @@ Both go through **mpv**, driven by TermTube. Audio runs headless in the backgrou
 - Pressing `a` on the track that is already playing says so instead of restarting it. `Space`, `x`, `>` with nothing playing, and `>` with an empty
   queue, say so too.
 - **Where the audio comes from.** A YouTube video: the stream URL is resolved by yt-dlp (about 2 s; usually already cached because the row was
-  prefetched when you paused on it), warmed against the CDN, and handed to mpv as a direct URL. A **local file** (Library, downloads): handed to mpv as a plain file.
+  prefetched when you paused on it), warmed against the CDN, and handed to mpv as a direct URL. A **local file** (Library, downloads, the Local tab): handed to mpv as a plain file; a Local tab file gets no SponsorBlock lookup.
 - mpv is started with its own control channel (a Unix socket, or a named pipe on Windows) and polled every 0.5 s for position, length and pause
   state. Seeks and pause are commands on that channel. A second per-track channel name keeps a dying mpv from answering for the next track.
 - **Failure handling.** If mpv exits abnormally it is relaunched up to three times, re-resolving the stream URL each time (the usual cause is an expired

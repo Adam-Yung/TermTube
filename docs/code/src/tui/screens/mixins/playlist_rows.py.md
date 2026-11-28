@@ -8,3 +8,7 @@
 - `_watch_run` chains one `WatchModal` per video through the dismiss result. It stops after three failures in a row: offline, every item would fail and each one asks YouTube three times.
 
 `_on_run_item_done` gets the dismiss result of each player in a run.
+
+- A folder row of the Local tab loads through `local_files.folder_tracks` (the media files directly inside, no network) and then plays like a playlist row.
+
+- The `..` row (`_is_parent`) is refused for `v` `a` `e` with a hint: it stands for a folder that is not on screen.

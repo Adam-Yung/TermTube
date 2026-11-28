@@ -25,6 +25,7 @@ from src.tui.screens.mixins.item_actions import ItemActionsMixin
 from src.tui.screens.mixins.library_rail import LibraryRailMixin
 from src.tui.screens.mixins.list_nav import ListNavMixin, lock_tab_bar
 from src.tui.screens.mixins.list_tools import ListToolsMixin, Removal
+from src.tui.screens.mixins.local_tab import LOCAL_TAB, LocalTabMixin
 from src.tui.screens.mixins.playlist_tools import PlaylistToolsMixin
 from src.tui.screens.mixins.search_tab import SearchTabMixin
 from src.tui.screens.mixins.subscription_rows import SubscriptionRowsMixin
@@ -40,9 +41,10 @@ _TABS = (
     ("search", text("main_screen.tab_search")),
     ("history", text("main_screen.tab_history")),
     ("library", text("main_screen.tab_library")),
+    (LOCAL_TAB, text("main_screen.tab_local")),
     ("help", text("main_screen.tab_help")),
 )
-_LOADABLE_TABS = ("home", "subscriptions", "history", "library")
+_LOADABLE_TABS = ("home", "subscriptions", "history", "library", LOCAL_TAB)
 _VIEW_TOOLS = {
     "home": {"show_played"},
     "search": {"search_sort", "search_type"},
@@ -75,6 +77,7 @@ class MainScreen(
     DebugLogMixin,
     SearchTabMixin,
     SubscriptionRowsMixin,
+    LocalTabMixin,
     FeedPromptsMixin,
     AppPagesMixin,
     Screen,
@@ -100,7 +103,8 @@ class MainScreen(
         Binding("f3", "goto_tab('search')", show=False),
         Binding("f4", "goto_tab('history')", show=False),
         Binding("f5", "goto_tab('library')", show=False),
-        Binding("f6", "goto_tab('help')", show=False),
+        Binding("f6", f"goto_tab('{LOCAL_TAB}')", show=False),
+        Binding("f7", "goto_tab('help')", show=False),
         Binding("ctrl+d", "toggle_log", "Debug", show=False),
         keymap.SEARCH,
         *keymap.SEARCH_FILTERS,
@@ -121,6 +125,7 @@ class MainScreen(
         self._init_list_tools()
         self._init_library_rail()
         self._init_search_tab()
+        self._init_local_tab()
 
     def _removals(self) -> dict[str, Removal]:
         return {
@@ -128,6 +133,7 @@ class MainScreen(
             "library": library_delete.removal(self.app.config),
             "library:video": library_delete.removal(self.app.config, "video"),
             "library:audio": library_delete.removal(self.app.config, "audio"),
+            LOCAL_TAB: self._local_removal(),
             **self._playlist_removals(),
         }
 
@@ -304,6 +310,8 @@ class MainScreen(
                 self._rail().focus()
         elif self._current_tab == "search" and self._search.pop():
             self._show_search_frame()
+        elif self._current_tab == LOCAL_TAB:
+            self._local_up()
 
     def _crumbs(self) -> list[str]:
         tab = tab_of(self._current_tab)
@@ -328,7 +336,9 @@ class MainScreen(
             self._refresh_queue_hint(entry)
 
     def _activate_entry(self, entry: Entry) -> None:
-        if entry.get("_is_playlist"):
+        if entry.get("_is_folder"):
+            self._open_folder(entry)
+        elif entry.get("_is_playlist"):
             self._open_playlist(entry)
         elif entry.get("_is_channel"):
             self._open_channel(entry)

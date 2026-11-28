@@ -27,6 +27,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 | Playlists (remote) | `src/playlist_fetch.py` | reads a playlist or Mix for the playlist page and for playing from a row |
 | Player | `src/player.py` (mpv commands, launch and retry), `src/mpv_ipc.py` (socket or pipe transport) | |
 | Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
+| Local files | `src/local_files.py` (listing, ids, delete), `src/local_media.py` (ffprobe, ffmpeg) | the Local tab ([local-files.md](local-files.md)) |
 | Data | `src/cache.py`, `src/history.py`, `src/library.py` (index, delete) with `src/library_scan.py` (folder walk), `src/playlist.py`, `src/search_history.py`, `src/channel_bookmarks.py`, `src/config.py` | disk and RAM state |
 | Store | `src/store.py` | locked, atomic, versioned JSON file shared by history, playlists, search history and the Library index; a corrupt file is kept as `.bad` and the store starts empty |
 | Errors | `src/errors.py` | typed `SourceError` (`SignInRequired`, `RateLimited`, `NetworkDown`, `ExtractionFailed`) from `classify(exc)`; loaders show its message |
@@ -40,7 +41,7 @@ How the pieces connect. For why a file is written the way it is, read its mirror
 
 ```
 MainScreen (PlaylistTools, LibraryRail, ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog,
-            SearchTab, SubscriptionRows, FeedPrompts, AppPages)
+            SearchTab, SubscriptionRows, LocalTab, FeedPrompts, AppPages)
  |- AppHeader, Tabs, LibraryRail, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
  |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, QueueScreen, PlaylistModal, HelpScreen, ...
 ChannelScreen (ChannelPlaylist, ListNav, DetailFocus, ItemActions, AudioBar, ChannelHeader, ChannelContent, AppPages)
@@ -120,6 +121,7 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 | History | `history.iter_entries` (local), `playlist?list=WL` (Watch Later), YouTube history (`/feed/history`) through the Home loader; the side list picks | local is read off disk; the other two are read-only and need cookies |
 | Library (rail: All downloads, Videos, Audio) | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
 | Library rail: playlists (`playlists.json`) | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
+| Local | `local_files.list_folder` (one folder, no network); details and thumbnails from the managed ffprobe/ffmpeg (`local_media`) | folder rows open in place; local ids are refused by every network module ([local-files.md](local-files.md)) |
 | Channel and playlist pages | `fetch_channel_info`, `innertube.fetch_channel_page` / `fetch_playlist_page` (token kept in `ChannelPager`) or yt-dlp | pushed `ChannelScreen` |
 
 Cursor move on a video row: `update_basic` immediately; 100 ms later the metadata worker (skipped if the entry has a description); 150 ms later the thumbnail worker.

@@ -19,6 +19,8 @@ Each operation takes the first rung that returns the fields the UI reads, and ke
 4. InnerTube, anonymous;
 5. yt-dlp.
 
+A file of the Local tab takes none of these: every rung refuses its `local-…` id ([local-files.md](local-files.md)).
+
 A faster source is adopted only if the benchmark (`scripts/bench-sources.py`) shows it clearly faster (p50 at least 2x for a new rung, 1.5x for a
 yt-dlp variant), it returns every field the UI reads, and the slower one stays wired as fallback. No authenticated InnerTube.
 

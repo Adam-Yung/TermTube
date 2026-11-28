@@ -12,6 +12,7 @@ from pathlib import Path
 from src import library_scan, logger
 from src.entries import Entry, LibraryEntry
 from src.library_scan import IMAGE_EXTS, INFO, MEDIA_EXTS
+from src.local_files import is_local_id
 from src.plat import get_cache_dir
 from src.store import JsonStore
 from src.strings import text
@@ -92,6 +93,9 @@ def attach_local(rows: list[Entry], library_entries: Iterable[LibraryEntry]) -> 
     by_id = {e["id"]: e for e in library_entries if not e.get("_missing_file")}
     out = []
     for row in rows:
+        if is_local_id(row.get("id")) and row.get("_local_path"):  # a Local tab file: on disk by itself, or gone
+            out.append({**row, "_missing_file": not os.path.exists(row["_local_path"])})
+            continue
         found = by_id.get(row.get("id", ""))
         have = kinds(found) if found else set()
         dl = "both" if len(have) == 2 else next(iter(have), "")

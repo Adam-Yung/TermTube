@@ -16,6 +16,7 @@ from textual.widgets import Static
 from src import history
 from src import player as player_mod
 from src.entries import Entry
+from src.local_files import is_local_id
 from src.plat import (
     ProcessRegistry,
     cleanup_ipc,
@@ -111,6 +112,9 @@ class WatchModal(ModalScreen[str]):
         title = self._entry.get("title", "")
         config = getattr(self.app, "config", None)
         fmt = self._ytdl_format or _DEFAULT_FORMAT
+        if is_local_id(vid) and not local_path:  # mpv's yt-dlp hook would look the id up on YouTube
+            self._fail_launch(text("local_files.missing"))
+            return
 
         if vid and hasattr(self.app, "cache") and hasattr(self.app.cache, "suppress_video"):
             self.app.cache.suppress_video(vid)

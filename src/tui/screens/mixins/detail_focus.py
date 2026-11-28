@@ -7,6 +7,7 @@ from textual.timer import Timer
 
 from src import logger
 from src.entries import Entry
+from src.local_files import is_local_id
 from src.tui.thumb_loader import load_thumbnail
 from src.tui.widgets.detail_panel import DetailPanel
 from src.tui.widgets.video_list import VideoListPanel
@@ -67,7 +68,9 @@ class DetailFocusMixin:
             return
         detail.set_thumbnail_video_id(vid)
         is_video = not vid.startswith("__")
-        if not is_video or not _thumb_path(vid).exists():
+        if not is_video:  # nothing will fill it: a folder or local playlist placeholder
+            detail.set_thumbnail_placeholder()
+        elif not _thumb_path(vid).exists():
             detail.set_thumbnail_loading()
         if is_video:
             self._thumb_dwell_timer = self.set_timer(
@@ -110,7 +113,8 @@ class DetailFocusMixin:
         if self._detail().current_id != vid or entry.get("description"):
             return
         self._focus_session += 1
-        self._detail_worker(vid, entry, self._focus_session)
+        worker = self._local_detail_worker if is_local_id(vid) else self._detail_worker
+        worker(vid, entry, self._focus_session)
 
     def on_detail_panel_rerender_requested(self, message: DetailPanel.RerenderRequested) -> None:
         """Re-render the thumbnail after a resize, debounced so a drag does not render per frame."""
@@ -141,6 +145,23 @@ class DetailFocusMixin:
             self.app.call_from_thread(self._detail().refresh_metadata, merged)
         except Exception as exc:
             logger.debug("detail worker %s: %s", vid, exc)
+        finally:
+            self._worker_end()
+
+    @work(thread=True, exclusive=True, group="focus")
+    def _local_detail_worker(self, vid: str, entry: Entry, session: int) -> None:
+        """ffprobe a local file row; never the network and no stream prefetch."""
+        from src import local_media
+
+        self._worker_start()
+        try:
+            merged = {**entry, **local_media.details(entry)}
+            if session != self._focus_session:
+                return
+            self.app.call_from_thread(self.query_one(self._LIST_ID, VideoListPanel).update_entry_by_id, vid, merged)
+            self.app.call_from_thread(self._detail().refresh_metadata, merged)
+        except Exception as exc:
+            logger.debug("local details %s: %s", vid, exc)
         finally:
             self._worker_end()
 

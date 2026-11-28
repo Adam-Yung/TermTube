@@ -60,3 +60,5 @@ badge). The thumbnail is the first video's, from `collectionThumbnailViewModel`.
 ## Search suggestions
 
 `fetch_suggestions(query)` GETs `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=<query>` through `_request` (same verified-TLS connection helper; only `User-Agent` and `Accept` headers, no cookies, no account). Timeout 2 s, body read capped at 16 KB (a longer reply is cut, fails to parse and the connection is dropped). `parse_suggestions` reads `[query, [suggestion, ...]]` and returns `[]` for anything else; every failure returns `[]`. Used only by `SearchModal`.
+
+`fetch_video_details` returns None for a local file id (`local_files.is_local_id`): a file of the Local tab is never sent to YouTube.

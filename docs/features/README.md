@@ -10,6 +10,7 @@ One page per feature, grouped by the objectives in [../brief.md](../brief.md). S
 | `browse` | [sources](sources.md) | built |
 | `playback` | [playback](playback.md) | partial: video-run keys not checked in a real window |
 | `library` | [library-and-downloads](library-and-downloads.md) | built |
+| `library` | [local-files](local-files.md) | built; thumbnails not seen in a real terminal |
 | `ui` | [ui](ui.md) | built |
 | `ui` | [keybindings](keybindings.md) | built |
 | `ui` | [thumbnails](thumbnails.md) | built |

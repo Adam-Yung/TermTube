@@ -198,6 +198,11 @@ def start_args(start: float | None) -> list[str]:
     return [f"--start={int(start)}"] if start else []
 
 
+def source_args(source: str) -> list[str]:
+    """For a file on disk: mpv must not follow references inside it (an `#EXTM3U` "song.mp3" naming a URL)."""
+    return [] if source.startswith(("http://", "https://")) else ["--access-references=no"]
+
+
 def audio_command(
     exe: str,
     *,
@@ -234,7 +239,7 @@ def audio_command(
         cmd += ["--msg-level=all=info", f"--log-file={mpv_log}"]
     cmd += start_args(start)
     if stream_url:
-        return cmd + ["--no-ytdl", "--", stream_url]
+        return cmd + ["--no-ytdl", *source_args(stream_url), "--", stream_url]
     cmd.append(f"--ytdl-format={ytdl_format or 'ba/b'}")
     raw = cookie_args_to_ytdl_raw(cookie_args or [])
     if raw:

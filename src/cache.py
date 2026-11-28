@@ -11,6 +11,7 @@ from pathlib import Path
 
 from src import logger
 from src.entries import Entry
+from src.local_files import is_local_id
 from src.plat import atomic_write, get_cache_dir, prune_dir
 
 CACHE_DIR = get_cache_dir()
@@ -223,7 +224,9 @@ class Cache:
         self._focus_counts = dict(keep)
 
     def suppress_video(self, video_id: str) -> None:
-        """Suppress a video now. Past 2000 suppressed ids the oldest are evicted down to 1500."""
+        """Suppress a video now. Past 2000 suppressed ids the oldest are evicted down to 1500. Local files never are."""
+        if is_local_id(video_id):
+            return
         self._load_suppressed()
         with self._suppression_lock:
             if video_id in self._suppressed:

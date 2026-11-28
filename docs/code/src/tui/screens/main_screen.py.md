@@ -50,3 +50,5 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 
 **Following (local).** The Following entry of the Subscriptions side list opens the locally followed channels: `_current_tab` becomes `following`, and `FeedLoaderMixin._load_following` fills the list from `channel_bookmarks`. Enter opens the channel as on Subscriptions.
 
+
+- The Local tab (`F6`, Help is `F7`) comes from `LocalTabMixin` ([mixins/local_tab.py.md](mixins/local_tab.py.md)); folder rows open through `_activate_entry`, Backspace goes up through `action_nav_back`, and `_removals()` maps `local` to its permanent removal.

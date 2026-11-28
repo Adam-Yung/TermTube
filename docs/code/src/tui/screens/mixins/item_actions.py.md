@@ -25,3 +25,7 @@ Video playback (`WatchModal`) suspends the app and runs mpv in the foreground (`
 - `_open_playlist(entry)` pushes `ChannelScreen(..., playlist=entry)` with `_crumbs()` as the trail. `action_watch`, `action_audio` and `action_audio_enqueue` first call `_use_playlist` (`playlist_rows.py`), which handles a playlist row.
 
 `on_video_list_panel_activated` lives here for all three screens (Enter on a row is `action_activate`).
+
+- Local file rows hide `_YOUTUBE_ACTIONS` (download, channel, copy URL, browser, the quality pickers) from the Enter menu and the Actions panel; the keys answer with `local_tab.youtube_only` (`_local_refused`). Folder rows are not videos (`_is_video`) and get the playlist-row hints with "Open folder".
+
+- `V` and `A` on a local file answer with `local_tab.youtube_only` (a quality is a yt-dlp format). The `..` row offers only Enter.

@@ -1,6 +1,6 @@
 # Source benchmarks
 
-> Verified: 2026-11-28 · Sources: `scripts/bench-sources.py`, `src/innertube.py`, `src/streams.py`, `src/thumbnail_http.py`
+> Verified: 2026-11-28 03:55 · Sources: `scripts/bench-sources.py`, `src/innertube.py`, `src/streams.py`, `src/thumbnail_http.py`
 
 `scripts/bench-sources.py [runs]` times each rung of the source ladder (`docs/features/sources.md`) with anonymous
 requests: no cookies, no browser profile, no media download. Run it from the network you care about; results depend on it.

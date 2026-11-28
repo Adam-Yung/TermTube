@@ -11,6 +11,7 @@
 - **Search** (`F3`, `/`): results with sort (`s`) and type (`t`), a session stack of 20 searches (Backspace), 100 remembered queries and suggestions.
 - **Channel page**: Videos, Shorts, Live and Playlists tabs, follow, sort, description. A playlist row opens in place.
 - **Playlist page**: `Enter` on a playlist or Mix row from Search or Home.
+- The **Local** tab (`F6`) uses the same list for folders on disk: [local-files.md](local-files.md).
 
 ## How it works
 

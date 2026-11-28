@@ -70,7 +70,7 @@ plain text only. A search across History, Library and playlists together is not 
 ## History
 
 The local watch history (`history.json`, slim records, `history_max`) holds what was played here. `D` removes, `u` undoes, `s` sorts, `I` on
-the YouTube source imports its rows.
+the YouTube source imports its rows. A record of a file from the Local tab keeps its path, as does a playlist item of one ([local-files.md](local-files.md)).
 
 ## Rules that must hold
 

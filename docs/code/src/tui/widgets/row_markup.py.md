@@ -1,6 +1,6 @@
 # src/tui/widgets/row_markup.py
 
-`row_markup` handles four row kinds: channel (Subscriptions), playlist, library item (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.
+`row_markup` handles five row kinds: channel (Subscriptions), playlist, Local folder (`_is_folder`, `📁 FOLDER`), library or local file (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.
 
 A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of the video/audio badge.
 

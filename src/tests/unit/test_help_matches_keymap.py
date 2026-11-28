@@ -27,4 +27,4 @@ def test_the_footer_keys_are_in_the_help_screen():
 def test_f_keys_match_the_tabs():
     bound = {b.key for b in MainScreen.BINDINGS if b.key.startswith("f") and b.key[1:].isdigit()}
     assert bound == {f"f{n}" for n in range(1, len(_TABS) + 1)}
-    assert any("F1–F6" in key for _, rows in _SECTIONS for key, _ in rows)
+    assert any(f"F1–F{len(_TABS)}" in key for _, rows in _SECTIONS for key, _ in rows)

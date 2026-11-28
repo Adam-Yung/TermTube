@@ -333,6 +333,9 @@ def _install_exit_handlers() -> None:
 
 
 def main() -> None:
+    from src import local_files
+
+    local_files.capture_launch_dir()  # first: the Local tab opens where the user started TermTube
     args = _parser().parse_args()
 
     if args.help:

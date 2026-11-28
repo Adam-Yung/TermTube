@@ -18,7 +18,7 @@ relevant file in `decisions/`, and the `code/` mirror of any file you are about 
 
 | Folder | What is in it |
 |---|---|
-| `features/` | One page per feature, describing the code today, indexed by objective in [the index](features/README.md): `architecture` (wiring map), `browse`, `sources`, `accounts-and-cookies`, `playback`, `library-and-downloads`, `ui`, `keybindings`, `thumbnails`, `configuration`, `install`, `quality`. |
+| `features/` | One page per feature, describing the code today, indexed by objective in [the index](features/README.md): `architecture` (wiring map), `browse`, `sources`, `accounts-and-cookies`, `playback`, `library-and-downloads`, `local-files`, `ui`, `keybindings`, `thumbnails`, `configuration`, `install`, `quality`. |
 | `code/` | One file per source file, at the same relative path (`code/src/player.py.md`): the file-specific "why". Enforced by `scripts/gate/run.sh`. |
 | `decisions/` | Append-only log of implementation decisions, one file per topic. See `decisions/README.md`. |
 | `guides/` | How to run, debug and check the product: `setup` (install, update, uninstall, move machines, develop, test, troubleshoot, agent recipes), `environments` (the app's venv versus the checkout's), `ci` (the GitHub jobs, including real Windows), `morning-checklist` (live checks only a human can do), `startup-debugging` (slow start or playback), `benchmarks` (source timings). |

@@ -26,6 +26,7 @@ from src.innertube_pages import (
     video_details,
 )
 from src.innertube_rows import channel_video, playlist_item, playlist_video, short_video
+from src.local_files import is_local_id
 
 _PLAYER_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
 _BROWSE_URL = "https://www.youtube.com/youtubei/v1/browse?prettyPrint=false"
@@ -143,6 +144,8 @@ def _post_json(url: str, payload: dict, *, timeout: int = 8, strict: bool = Fals
 
 def fetch_video_details(video_id: str, *, timeout: int = 8) -> dict | None:
     """Video metadata from the /player API, shaped like a yt-dlp info dict (``_innertube`` is set). None on failure."""
+    if is_local_id(video_id):
+        return None
     payload = {
         "videoId": video_id,
         "context": _WEB_CONTEXT,

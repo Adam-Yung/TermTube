@@ -22,7 +22,7 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
         ("H / L", "tab"),
         ("Enter", "menu"),
         ("Backspace / Esc", "back"),
-        ("F1–F6  `", "jump"),
+        ("F1–F7  `", "jump"),
     ]),
     ("play", [
         ("v / V", "watch"),
@@ -80,6 +80,12 @@ _SECTIONS: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("history", [
         ("I", "import"),
+    ]),
+    ("local", [
+        ("Enter", "open"),
+        ("Backspace", "up"),
+        ("v / a / e", "folder"),
+        ("D", "delete"),
     ]),
     ("app", [
         ("/", "search"),

@@ -58,7 +58,7 @@ async def test_tab_order_and_f_keys_have_no_playlists_tab(app):
         from textual.widgets import Tabs
 
         tab_ids = [t.id for t in screen.query_one("#nav-tabs", Tabs).query("Tab")]
-        assert tab_ids == ["home", "subscriptions", "search", "history", "library", "help"]
+        assert tab_ids == ["home", "subscriptions", "search", "history", "library", "local", "help"]
         await pilot.press("f5")
         await pilot.pause(0.5)
         assert screen.query_one("#nav-tabs", Tabs).active == "library" and screen._rail().display
@@ -70,10 +70,10 @@ async def test_tab_order_and_f_keys_have_no_playlists_tab(app):
         assert not screen._rail().display
 
 
-async def test_f6_and_the_picker_open_help(app):
+async def test_f7_and_the_picker_open_help(app):
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.pause(0.5)
-        await pilot.press("f6")
+        await pilot.press("f7")
         await pilot.pause(0.3)
         assert "HelpScreen" in [type(s).__name__ for s in app.screen_stack]
         await pilot.press("escape")
@@ -92,14 +92,14 @@ async def test_h_and_l_cycle_through_the_remaining_tabs_and_wrap(app, monkeypatc
     async with app.run_test(size=(110, 40)) as pilot:
         await pilot.pause(0.6)
         seen = []
-        for _ in range(5):
+        for _ in range(6):
             await pilot.press("L")
             await pilot.pause(0.4)
             seen.append(app.screen._current_tab)
-        assert seen == ["subscriptions", "history", "library", "home", "subscriptions"]
+        assert seen == ["subscriptions", "history", "library", "local", "home", "subscriptions"]
         await pilot.press("H", "H")
         await pilot.pause(0.5)
-        assert app.screen._current_tab == "library"
+        assert app.screen._current_tab == "local"
 
 
 async def test_rail_lists_collections_with_counts_and_playlists(app, lib):
@@ -158,7 +158,7 @@ async def test_return_from_help_keeps_the_open_collection(app, lib):
         await open_library(app, pilot)
         await pilot.press("tab", "j", "enter")
         await pilot.pause(0.4)
-        await pilot.press("f6")
+        await pilot.press("f7")
         await pilot.pause(0.3)
         await pilot.press("escape")
         await pilot.pause(0.5)

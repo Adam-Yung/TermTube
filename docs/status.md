@@ -2,12 +2,13 @@
 
 **Last updated:** 2026-11-28. `main` holds the de-slopped code (behaviour unchanged, [decisions/quality.md](decisions/quality.md)). The six pipeline jobs, the real-terminal run and the canary against live YouTube (8 of 8) passed on 2026-11-28.
 
-Next: a **Local files** tab.
+Next: the owner's live checks ([todo.md](todo.md)).
 
 ## What exists
 
 - Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` runs with mpv launch and polling stubbed); `test_screen_layout_audit.py` does the same for every main-screen tab, the Library rail and the channel page, and sets the width rules (rail 24, list `9fr` min 40, detail `11fr` min 30, `-narrow` under 100 columns). `test_mixin_wiring.py`, `test_hook_wiring.py` and `test_theme_wiring.py` read the screens' MRO, spy on the real hooks and check CSS selectors against the composed widgets. Error paths, races, 5000-row lists, hostile text and whole-screen journeys have their own suites (`test_loader_errors.py`, `test_races.py`, `test_scale_edge.py`, `test_journeys.py`). The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS`; the panel lists only what applies to the tab, focus and row ([decisions/ui.md](decisions/ui.md)).
-- A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Help (`F1`..`F6`); vim-style keys ([features/keybindings.md](features/keybindings.md)).
+- A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Local, Help (`F1`..`F7`); vim-style keys ([features/keybindings.md](features/keybindings.md)).
+- Local tab (`F6`): the launch folder's audio and video files and folders as rows (ffprobe details and cover or frame thumbnails from the managed tools, `D` deletes one file, nothing sent online); built 2026-11-28, thumbnails not looked at in a real terminal ([features/local-files.md](features/local-files.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`; a failed write there never raises: it notifies once and stays dirty. Debug logs are redacted (`logger.redact`).
 - Playback remembers where you stopped (`resume_playback`, saved every 5 s of watching and on stop; History rows show `▶ 2:05 / 10:00`), counts time watched, `s` sorts the local History (recent / most watched / longest watched), and `q` opens the audio queue page (reorder, remove, clear, undo, play now); `Ctrl+Q` quits.

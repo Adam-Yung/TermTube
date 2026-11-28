@@ -39,3 +39,7 @@ The counters are bumped twice per row on purpose: once on cursor move (cancel ev
 ## Messages
 
 `DetailPanel.RerenderRequested` (resize, screen resume) is handled here: the thumbnail restarts after a 300 ms debounce, sharing `_thumb_dwell_timer` with the cursor path so a resize drag and a cursor move cancel each other.
+
+- A local file id gets `_local_detail_worker` (ffprobe through `local_media.details`) instead of the InnerTube worker and starts no stream prefetch. Same `focus` group and session, so it is cancelled the same way.
+
+- A placeholder id (`__…`: folder rows, local playlist rows) shows the thumbnail placeholder at once; no worker would ever replace a "Loading" state there.

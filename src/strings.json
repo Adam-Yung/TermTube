@@ -43,7 +43,7 @@
     "not_removable_watch_later": "Items cannot be removed from Watch Later here. Open youtube.com/playlist?list=WL in a browser.",
     "not_removable_youtube_history": "Items cannot be removed from YouTube history here. Open youtube.com/feed/history in a browser.",
     "not_removable_default": "Nothing here can be removed.",
-    "nothing_selected": "Nothing selected.",
+    "nothing_selected": "Nothing selected (folders are never deleted).",
     "untitled": "Untitled",
     "remove_one": "Remove \"{title}\"?",
     "remove_many": "Remove {count} items?",
@@ -58,7 +58,9 @@
     "noun_playlist": "playlist",
     "noun_playlist_plural": "playlists",
     "noun_item": "item",
-    "noun_item_plural": "items"
+    "noun_item_plural": "items",
+    "noun_file": "file",
+    "noun_file_plural": "files"
   },
   "item_actions": {
     "open_channel": "Open channel",
@@ -83,7 +85,8 @@
     "url_shown": "URL: {url}",
     "opened_in_browser": "Opened in browser.",
     "open_playlist": "Open playlist",
-    "queue_playlist": "Queue"
+    "queue_playlist": "Queue",
+    "open_folder": "Open folder"
   },
   "channel_playlist": {
     "open_playlist_first": "Open a playlist first (Enter on a playlist row).",
@@ -203,7 +206,8 @@
     "show_played_hint": "Open the Home tab, then press Z to show or hide videos already played.",
     "showing_played": "Showing played videos.",
     "hiding_played": "Hiding played videos.",
-    "refreshing": "Refreshing {tab}…"
+    "refreshing": "Refreshing {tab}…",
+    "tab_local": "💾 Local"
   },
   "audio_controller": {
     "already_playing": "Already playing this track.",
@@ -302,7 +306,8 @@
     "status_total": "{total} videos",
     "status_marked": "{count} marked",
     "status_played_shown": "played videos shown",
-    "status_hidden": "{count} hidden"
+    "status_hidden": "{count} hidden",
+    "badge_folder": " [#e0c060]📁 FOLDER[/]"
   },
   "channel_screen": {
     "tab_videos": "Videos",
@@ -392,7 +397,8 @@
     "page_search": "🔍  Search",
     "page_history": "🕐  History",
     "page_library": "📁  Library",
-    "page_help": "📚  Help"
+    "page_help": "📚  Help",
+    "page_local": "💾  Local"
   },
   "main": {
     "temp_dir": "the temporary directory",
@@ -442,7 +448,7 @@
     "move_ends": "First / last item of the whole list.",
     "move_tab": "Previous / next tab.",
     "move_menu": "Open the action menu for the row.",
-    "move_back": "Go back (in Library, from the list to the rail; in Search, to the previous results).",
+    "move_back": "Go back (in Library, from the list to the rail; in Search, to the previous results; in Local, to the parent folder).",
     "move_jump": "Jump to a tab / open the tab picker.",
     "play_title": "PLAY",
     "play_watch": "Watch the video / choose the quality first.",
@@ -491,6 +497,11 @@
     "library_playlist_dialog": "In the playlist dialog: Space selects several playlists, Enter toggles them.",
     "history_title": "HISTORY TAB",
     "history_import": "On a YouTube source: copy the rows (or the marked ones) into local history. Rows already there are kept.",
+    "local_title": "LOCAL TAB (F6)",
+    "local_open": "Open the folder (the .. row goes up); on a file, the action menu.",
+    "local_up": "Go up to the parent folder.",
+    "local_folder": "On a folder row: play its files as video or audio, or queue them.",
+    "local_delete": "Delete the file (or the marked files) for good, after one y / N. Folders are never deleted.",
     "app_title": "APP",
     "app_search": "Search (↑↓ earlier searches, Ctrl+D forgets one).",
     "app_sort": "Search tab: sort / type. On local History, s cycles recent, most watched and longest watched.",
@@ -726,5 +737,33 @@
   "playlist_rows": {
     "loading": "Loading the playlist…",
     "finished": "End of the playlist."
+  },
+  "local_files": {
+    "unreadable": "Cannot read this folder: {reason}",
+    "no_media": "No audio or video files directly in this folder.",
+    "refuse_not_file": "only files are deleted, never folders",
+    "refuse_changed": "the file changed since the list was read; press r and try again",
+    "missing": "This local file has no path on disk; local files are never looked up online."
+  },
+  "local_media": {
+    "no_ffprobe": "No details: the managed ffprobe is not installed.",
+    "unreadable": "No details could be read from this file.",
+    "video_line": "Video: {parts}",
+    "audio_line": "Audio: {parts}",
+    "tag_title": "Title: {value}",
+    "tag_artist": "Artist: {value}",
+    "tag_album": "Album: {value}",
+    "tag_date": "Date: {value}",
+    "tag_genre": "Genre: {value}",
+    "bitrate": "Bitrate: {value} Mb/s"
+  },
+  "local_tab": {
+    "empty": "Nothing here.",
+    "at_root": "This is the top folder.",
+    "delete_one": "Delete \"{title}\" ({size}) for good?",
+    "delete_many": "Delete {count} files ({size}) for good? Folders are skipped.",
+    "delete_refused": "\"{title}\" was not deleted: {reason}",
+    "youtube_only": "This is a local file: it has no YouTube page, channel, download or quality choice.",
+    "parent_not_played": "The .. row only opens the parent folder; open it to play its files."
   }
 }

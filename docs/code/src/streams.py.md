@@ -15,3 +15,5 @@ Resolves a video id to direct stream URLs with yt-dlp, caches them, and hides CD
 ## Threading
 
 Every function blocks and belongs in a worker thread. `resolve_stream_url` registers a cancel event with `src/ytdlp.py` unless the caller passes its own; `cancel_all()` aborts it at exit. Probe threads are daemons.
+
+`resolve_stream_url` (and so prefetch, playback and re-resolve) returns None for a local file id (`local_files.is_local_id`).
