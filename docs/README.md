@@ -22,7 +22,7 @@ relevant file in `decisions/`, and the `code/` mirror of any file you are about 
 | `code/` | One file per source file, at the same relative path (`code/src/player.py.md`): the file-specific "why". Enforced by `scripts/gate/run.sh`. |
 | `decisions/` | Append-only log of implementation decisions, one file per topic. See `decisions/README.md`. |
 | `guides/` | How to run, debug and check the product: `setup` (install, update, uninstall, move machines, develop, test, troubleshoot, agent recipes), `environments` (the app's venv versus the checkout's), `ci` (the GitHub jobs, including real Windows), `morning-checklist` (live checks only a human can do), `startup-debugging` (slow start or playback), `benchmarks` (source timings). |
-| `plans/` | Intent for work not yet built: `website.md`, `2026-11-27-deslop-PLAN.md`. A finished plan is deleted; git keeps it. |
+| `plans/` | Intent for work not yet built: `website.md`. A finished plan is deleted; git keeps it. |
 
 Which one holds a piece of information: plans describe intent, features describe the current shape of a whole feature, code docs describe
 one file's reasoning, decisions record a settled call, status describes present reality, guides say how to do something.

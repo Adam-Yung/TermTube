@@ -1,8 +1,8 @@
 # Status
 
-**Last updated:** 2026-11-28. Branch `deslop`: a behaviour-preserving refactor of `src`, tests and scripts, with the docs matched to it; not yet merged. On `main` the six pipeline jobs and the weekly canary against live YouTube (8 of 8 on 2026-11-23) were green at the last check.
+**Last updated:** 2026-11-28. `main` holds the de-slopped code (behaviour unchanged, [decisions/quality.md](decisions/quality.md)). The six pipeline jobs, the real-terminal run and the canary against live YouTube (8 of 8) passed on 2026-11-28.
 
-Next: finish the de-slop plan (review, merge, push, watch the pipeline), then a **Local files** tab.
+Next: a **Local files** tab.
 
 ## What exists
 
@@ -34,7 +34,7 @@ Next: finish the de-slop plan (review, merge, push, watch the pipeline), then a 
 | Unit, UI and doc checks pass on all three systems | `gate` job on every push | each push |
 | The installer, launcher and real mpv work on all three systems | `real-app-unix` / `real-app-windows` jobs | each push |
 | The installed app starts, plays, pauses, seeks, stops, records history and quits cleanly in a real terminal | `scripts/e2e-local.py`, 14 steps, hermetic | each push; 10 of 10 runs per platform after the debug-log deadlock fix |
-| Live YouTube still parses (search, channel, details, streams) | `scripts/canary-live.py`, weekly, not a gate | 2026-11-23: 8 of 8 |
+| Live YouTube still parses (search, channel, details, streams) | `scripts/canary-live.py`, weekly, not a gate | 2026-11-28: 8 of 8 |
 | Thumbnails, `b`, `y`, `p`, `d`, notifications look and work right | the owner, real terminal, installed app | 2026-11-16 |
 
 ## Not verified
