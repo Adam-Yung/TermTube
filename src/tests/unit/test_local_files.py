@@ -64,6 +64,7 @@ def test_cancelled_listing_stops_early(tmp_path):
     assert [e for e in local_files.list_folder(tmp_path, cancelled=lambda: True).entries if not e["_is_folder"]] == []
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows forbids newlines, colons and bars in names")
 def test_hostile_names_keep_the_raw_path_but_show_a_clean_title(tmp_path):
     name = "-[bold red]x\nrm -rf ~ https:||evil.mp4"
     media = touch(tmp_path / name)

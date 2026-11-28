@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import sys
 from functools import partial
 from types import SimpleNamespace
 
@@ -48,7 +49,11 @@ def tools(tmp_path, monkeypatch):
     return calls
 
 
-def media_row(tmp_path, name="-a:b.mp4"):
+# Windows reads "a:b" as a stream of the file "a", so the colon stays off there.
+_ODD_NAME = "-a b.mp4" if sys.platform == "win32" else "-a:b.mp4"
+
+
+def media_row(tmp_path, name=_ODD_NAME):
     (tmp_path / name).write_bytes(b"x")
     return next(e for e in local_files.list_folder(tmp_path).entries if e["title"] == name)
 
