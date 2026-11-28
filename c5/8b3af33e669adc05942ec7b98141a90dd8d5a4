@@ -1,0 +1,35 @@
+src/tui/screens/download_picker_modal.py
+  s_856376552aead6::t_d288b05bdf9446 11,50
+src/tests/unit/test_mpv_ipc_late_reply.py
+  s_856376552aead6::t_ea825dd0e7253d 1-19,22-23
+  s_856376552aead6::t_e79560203ae31c 20-21,24
+src/tests/tui/test_modal_markup.py
+  s_856376552aead6::t_d288b05bdf9446 1-24
+docs/code/src/mpv_ipc.py.md
+  s_856376552aead6::t_e79560203ae31c 45-46
+src/mpv_ipc.py
+  s_856376552aead6::t_e79560203ae31c 13,241,249-250,256
+  s_856376552aead6::t_d288b05bdf9446 26
+docs/code/src/tui/screens/download_picker_modal.py.md
+  s_856376552aead6::t_e79560203ae31c 4-5
+docs/code/src/tui/screens/ytdlp_update_modal.py.md
+  s_856376552aead6::t_e79560203ae31c 4-5
+src/tui/screens/ytdlp_update_modal.py
+  s_856376552aead6::t_d288b05bdf9446 10,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c58b3af33e669adc05942ec7b98141a90dd8d5a4",
+  "prompts": {},
+  "sessions": {
+    "s_856376552aead6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bae150dd-b94b-4856-8f1f-1339dddc03e4",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
