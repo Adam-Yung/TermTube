@@ -2,6 +2,7 @@
 
 import base64
 import json
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,15 +45,19 @@ def test_mixed_page_gives_video_channel_and_playlist_rows_and_skips_the_rest():
     assert rows[3]["title"] == "Lockup list"
 
 
+def _mixed_page(url, payload, **_):
+    return mixed()
+
+
+def _search_rows(seen, query, **kw):
+    seen.append((kw["sort"], kw["kind"]))
+    return _rows(10)
+
+
 def test_params_go_with_the_first_request_only():
-    calls = []
-
-    def fake(url, payload, **_):
-        calls.append(payload)
-        return mixed()
-
-    with patch.object(innertube, "_post_json", side_effect=fake):
+    with patch.object(innertube, "_post_json", side_effect=_mixed_page) as post:
         innertube.search("x", count=100, sort="date", kind="video")
+    calls = [c.args[1] for c in post.call_args_list]
     assert calls[0]["params"] == "CAISAhAB" and "params" not in calls[1] and "continuation" in calls[1]
 
 
@@ -83,12 +88,7 @@ def _rows(n, start=0):
 
 def test_each_sort_and_type_has_its_own_cache_entry(temp_cache):
     seen = []
-
-    def fake(query, **kw):
-        seen.append((kw["sort"], kw["kind"]))
-        return _rows(10)
-
-    with patch.object(ytdlp.innertube, "search", side_effect=fake):
+    with patch.object(ytdlp.innertube, "search", side_effect=partial(_search_rows, seen)):
         ytdlp.fetch_search_batch("q", None, temp_cache)
         ytdlp.fetch_search_batch("q", None, temp_cache)
         ytdlp.fetch_search_batch("q", None, temp_cache, sort="date")

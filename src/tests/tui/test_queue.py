@@ -8,6 +8,7 @@ from textual.screen import Screen
 
 from src import history, player
 from src.strings import text
+from src.tests.fakes import silence_detail_workers
 from src.tui.audio_controller import AudioController
 from src.tui.messages import PlayerStateUpdated
 from src.tui.screens.queue_screen import QueueScreen
@@ -33,8 +34,7 @@ def audio(app, mock_mpv_ipc, tmp_path, monkeypatch):
     monkeypatch.setattr("src.history.HISTORY_PATH", tmp_path / "history.json")
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     monkeypatch.setattr("src.tui.audio_controller.cleanup_ipc", lambda path: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     return app
 
 

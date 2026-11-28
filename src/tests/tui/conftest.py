@@ -1,8 +1,16 @@
 """Fixtures for headless TUI tests."""
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from src import history, playlist
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.layout_data import LONG, long_channels, long_entries
+from src.tui.audio_controller import AudioController
+from src.tui.screens.download_modal import DownloadModal
+from src.tui.screens.watch_modal import WatchModal
 
 
 @pytest.fixture
@@ -47,3 +55,51 @@ def app(mock_all_externals, tmp_path):
     config._data["thumbnail_warning_dismissed"] = True
     config._data["browser"] = "none"
     return TermTubeApp(config)
+
+
+@pytest.fixture
+def quiet_app(app, temp_playlists, monkeypatch):
+    """The app with Home's startup load and every modal's and detail panel's worker silenced."""
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
+    monkeypatch.setattr(DownloadModal, "_start_download", lambda self: None)
+    monkeypatch.setattr(WatchModal, "_launch_video", lambda self: None)
+    monkeypatch.setattr(WatchModal, "_poll_mpv", lambda self: None)
+    monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
+    return app
+
+
+@pytest.fixture
+def fake_data(monkeypatch, tmp_path, temp_history, temp_channels, temp_playlists):
+    """Fake feeds, history, library files and playlists; nothing leaves the process."""
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: long_entries())
+    monkeypatch.setattr("src.ytdlp.fetch_subscribed_channels", lambda *a, **k: long_channels())
+    monkeypatch.setattr("src.ytdlp.fetch_search_batch", lambda query, *a, count=50, **k: long_entries(count))
+    monkeypatch.setattr("src.tui.screens.mixins.feed_loader.resolve_browser", lambda config: "firefox")
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
+    for entry in long_entries(12):
+        history.add(entry)
+    videos, audio = tmp_path / "vid", tmp_path / "aud"
+    for directory, ext, kind in ((videos, "mp4", "v"), (audio, "mp3", "a")):
+        _add_downloads(directory, ext, kind)
+    return videos, audio
+
+
+def _add_downloads(directory, ext, kind):
+    directory.mkdir()
+    for i in range(8):
+        vid = f"{kind}{i:010d}"
+        (directory / f"{vid}.{ext}").write_bytes(b"x" * 5)
+        sidecar = {"id": vid, "title": f"{LONG} {vid}", "uploader": "Alpha", "duration": 100,
+                   "upload_date": "20260101"}
+        (directory / f"{vid}.info.json").write_text(json.dumps(sidecar), encoding="utf-8")
+
+
+@pytest.fixture
+def main_app(app, fake_data):
+    videos, audio = fake_data
+    app.config._data["video_dir"], app.config._data["audio_dir"] = str(videos), str(audio)
+    for i in range(3):
+        playlist.create(f"Playlist number {i}", long_entries(4))
+    return app

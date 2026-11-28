@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from src import innertube  # noqa: E402
+from src import innertube
 
 PAUSE_S = 4
 BASE = "https://www.youtube.com/youtubei/v1"
@@ -35,7 +35,7 @@ def post(endpoint: str, payload: dict) -> tuple[int, dict | None]:
     body = {**payload, "context": innertube._WEB_CONTEXT}
     req = urllib.request.Request(f"{BASE}/{endpoint}?prettyPrint=false", json.dumps(body).encode(), innertube._HEADERS)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 (fixed https youtube.com URL)
+        with urllib.request.urlopen(req, timeout=15) as resp:  # fixed https youtube.com URL
             return resp.status, json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         return exc.code, None

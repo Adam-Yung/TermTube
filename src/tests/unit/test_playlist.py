@@ -2,9 +2,11 @@
 
 import json
 import threading
+from functools import partial
 from unittest.mock import MagicMock
 
 from src import playlist
+from src.tests.fakes import run_in_threads
 
 
 def vid(n, title=None):
@@ -133,16 +135,15 @@ class TestMigration:
         assert [p["items"][0]["id"] for p in pls] == ["a", "b", "c"]
 
 
+def _add_twenty(pid, n):
+    for i in range(20):
+        playlist.add_items(pid, [{"id": f"v{n}-{i}", "title": "t"}])
+
+
 def test_concurrent_adds_lose_no_update(temp_playlists):
     pid = playlist.create("Busy")["id"]
 
-    def worker(n):
-        for i in range(20):
-            playlist.add_items(pid, [{"id": f"v{n}-{i}", "title": "t"}])
-
-    threads = [threading.Thread(target=worker, args=(n,)) for n in range(6)]
-    [t.start() for t in threads]
-    [t.join() for t in threads]
+    run_in_threads(partial(_add_twenty, pid), 6)
     assert len(ids(pid)) == 120
 
 

@@ -1,24 +1,26 @@
 """DownloadModal: Esc must stop the running download, not only close the dialog."""
 
 import threading
-from unittest.mock import patch
+from functools import partial
+from unittest.mock import MagicMock, patch
 
 from src.tui.screens.download_modal import DownloadModal
+
+
+def _wait_for_cancel(seen, started, video_id, config, *, cancel, **kwargs):
+    seen["cancel"] = cancel
+    started.set()
+    cancel.wait(5)
+    return False
 
 
 async def test_escape_sets_the_cancel_handle_and_dismisses(app):
     seen = {}
     started = threading.Event()
 
-    def fake_download(video_id, config, *, cancel, **kwargs):
-        seen["cancel"] = cancel
-        started.set()
-        cancel.wait(5)
-        return False
-
     results = []
     async with app.run_test(size=(100, 30)) as pilot:
-        with patch("src.downloads.download_video_with_progress", fake_download):
+        with patch("src.downloads.download_video_with_progress", partial(_wait_for_cancel, seen, started)):
             app.push_screen(DownloadModal("AAAAAAAAAAA", {"title": "t"}), results.append)
             await pilot.pause(0.2)
             assert started.wait(2)
@@ -59,10 +61,7 @@ async def test_finished_download_refreshes_one_item_and_pins_it_offline(app, tmp
 async def test_a_download_that_cannot_register_tells_the_user_and_still_closes(app, tmp_path, monkeypatch):
     from src.tui.screens.download_modal import DownloadModal
 
-    def boom(paths):
-        raise OSError("disk full")
-
-    monkeypatch.setattr("src.library.finish_download", boom)
+    monkeypatch.setattr("src.library.finish_download", MagicMock(side_effect=OSError("disk full")))
     told, closed = [], []
     monkeypatch.setattr(type(app), "notify", lambda self, msg, **kw: told.append(msg))
     async with app.run_test(size=(100, 30)) as pilot:

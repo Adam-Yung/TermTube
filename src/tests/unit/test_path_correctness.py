@@ -12,6 +12,7 @@ Two categories:
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import re
 import sys
@@ -30,14 +31,10 @@ def _restore_modules():
     frozen dataclass equality to fail across test files.
     """
     yield
-    import importlib as _il
-    import sys as _sys
-    for _name in ("src.plat", "src.history", "src.playlist", "src.deps"):
-        if _name in _sys.modules:
-            try:
-                _il.reload(_sys.modules[_name])
-            except Exception:
-                pass
+    for name in ("src.plat", "src.history", "src.playlist", "src.deps"):
+        if name in sys.modules:
+            with contextlib.suppress(Exception):
+                importlib.reload(sys.modules[name])
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -190,28 +187,27 @@ _FORBIDDEN = [
 _LINTER_ALLOWLIST = {"plat.py", "main.py", "bootstrap.py"}
 
 
+def _violations_in(py_file: Path, repo: Path) -> list[str]:
+    try:
+        text = py_file.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    return [
+        f"  {py_file.relative_to(repo)}:{lineno}: {message}\n    {line.strip()}"
+        for lineno, line in enumerate(text.splitlines(), 1)
+        for pattern, message in _FORBIDDEN
+        if pattern.search(line)
+    ]
+
+
 class TestNoHardcodedPlatformPaths:
     def test_no_hardcoded_unix_paths_in_src(self):
         src_root = Path(__file__).parents[2]
         violations: list[str] = []
         for py_file in sorted(src_root.rglob("*.py")):
-            if py_file.name in _LINTER_ALLOWLIST:
-                continue
-            # Skip the tests subtree — test files legitimately reference path
-            # strings in assertions and fixture names that match the patterns.
-            if "tests" in py_file.parts:
-                continue
-            try:
-                text = py_file.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            for lineno, line in enumerate(text.splitlines(), 1):
-                for pattern, message in _FORBIDDEN:
-                    if pattern.search(line):
-                        rel = py_file.relative_to(src_root.parent)
-                        violations.append(
-                            f"  {rel}:{lineno}: {message}\n    {line.strip()}"
-                        )
+            # The tests subtree legitimately quotes the patterns in assertions and fixture names.
+            if py_file.name not in _LINTER_ALLOWLIST and "tests" not in py_file.parts:
+                violations += _violations_in(py_file, src_root.parent)
         assert not violations, (
             "Hardcoded platform-specific paths found in src/.\n"
             "Use the helpers in src/platform.py instead:\n\n"

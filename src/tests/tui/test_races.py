@@ -2,10 +2,14 @@
 
 import asyncio
 import threading
+from functools import partial
+from unittest.mock import MagicMock
 
 import pytest
-from textual.worker import WorkerCancelled
 
+from src.feed_cursor import FeedCursor
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import settle, until
 from src.tui.messages import PlayerStateUpdated
 from src.tui.widgets.video_list import VideoListPanel
 
@@ -21,9 +25,8 @@ def rows(prefix, n=3):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history, temp_playlists):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
 
 
 class Gate:
@@ -40,21 +43,23 @@ class Gate:
         return self.result
 
 
-async def settle(app, pilot):
-    for _ in range(3):
-        try:
-            await app.workers.wait_for_complete()
-        except WorkerCancelled:
-            pass
-        await pilot.pause()
+def _local_rows(prefix, path):
+    return [dict(e, _local_path=path) for e in rows(prefix)]
 
 
-async def until(pilot, check):
-    for _ in range(200):
-        if check():
-            return
-        await pilot.pause()
-    raise AssertionError("condition never became true")
+def _same(value):
+    return value
+
+
+class _Sequence:
+    """A fake fetch answered by ``initial`` on its first call and by ``later`` after it."""
+
+    def __init__(self, initial, later):
+        self.initial, self.later, self.calls = initial, later, 0
+
+    def __call__(self, *args, **kwargs):
+        self.calls += 1
+        return self.initial() if self.calls == 1 else self.later()
 
 
 def shown_ids(screen):
@@ -76,14 +81,15 @@ async def test_a_tab_switch_during_a_load_drops_the_old_result(app, monkeypatch)
         assert shown_ids(screen) == [e["id"] for e in rows("lib")] and screen._active_workers == 0
 
 
+def _gated_only_for_cats(first, query, *a, **k):
+    return first(query) if query == "cats" else rows("new")
+
+
 async def test_a_search_during_a_load_shows_only_the_newest_query(app, monkeypatch):
     first = Gate(rows("old"))
 
-    def fake(query, *a, **k):
-        return first(query) if query == "cats" else rows("new")
-
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: [])
-    monkeypatch.setattr("src.ytdlp.fetch_search_batch", fake)
+    monkeypatch.setattr("src.ytdlp.fetch_search_batch", partial(_gated_only_for_cats, first))
     async with app.run_test(size=(100, 30)) as pilot:
         await settle(app, pilot)
         screen = app.screen
@@ -100,14 +106,8 @@ async def test_a_search_during_a_load_shows_only_the_newest_query(app, monkeypat
 
 async def test_rapid_rail_changes_end_on_the_last_selection(app, monkeypatch):
     slow = Gate([dict(e, _local_path="/x/a.mp4") for e in rows("all")])
-    calls = []
-
-    def fake(*a, **k):
-        calls.append(1)
-        return slow() if len(calls) == 1 else [dict(e, _local_path="/x/b.mp4") for e in rows("fast")]
-
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: [])
-    monkeypatch.setattr("src.library.all_entries", fake)
+    monkeypatch.setattr("src.library.all_entries", _Sequence(slow, partial(_local_rows, "fast", "/x/b.mp4")))
     async with app.run_test(size=(100, 30)) as pilot:
         await settle(app, pilot)
         screen = app.screen
@@ -121,21 +121,24 @@ async def test_rapid_rail_changes_end_on_the_last_selection(app, monkeypatch):
         assert shown_ids(screen) == [e["id"] for e in rows("fast")] and screen._active_workers == 0
 
 
+def _outlive_the_app(started, release, done, holder, raised, *a, **k):
+    """A fetch still running at quit: its late UI hand-off must be dropped, not raise on the closed loop."""
+    started.set()
+    assert release.wait(WAIT)
+    try:
+        holder[0]._ui(lambda: None)
+    except Exception as exc:
+        raised.append(exc)
+    done.set()
+    return []
+
+
 async def test_quitting_during_a_load_leaves_the_worker_quiet(app, monkeypatch):
     started, release, done = (threading.Event() for _ in range(3))
     raised, holder = [], []
 
-    def fake(*a, **k):
-        started.set()
-        assert release.wait(WAIT)
-        try:  # the loader thread outlives the app: its UI hand-off must be dropped, not raise on the closed loop
-            holder[0]._ui(lambda: None)
-        except Exception as exc:
-            raised.append(exc)
-        done.set()
-        return []
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", fake)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch",
+                        partial(_outlive_the_app, started, release, done, holder, raised))
     async with app.run_test(size=(100, 30)) as pilot:
         await until(pilot, started.is_set)
         holder.append(app.screen)
@@ -168,31 +171,32 @@ async def test_a_removal_question_is_dropped_when_the_list_is_replaced(app, monk
         assert len(history.all_entries()) == 3
 
 
+class _SlowYdl:
+    """An extractor whose second row arrives only after ``release``; counts how often it is closed."""
+
+    def __init__(self, started, release, exits):
+        self.started, self.release, self.exits = started, release, exits
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.exits.append(1)
+
+    def extract_info(self, url, download=False):
+        return {"entries": self._rows()}
+
+    def _rows(self):
+        yield {"id": "AAAAAAAAAAA", "title": "a", "duration": 60, "url": "u"}
+        self.started.set()
+        assert self.release.wait(WAIT)
+        yield {"id": "BBBBBBBBBBB", "title": "b", "duration": 60, "url": "u"}
+
+
 async def test_closing_a_feed_cursor_while_a_take_runs_ends_the_take_and_closes_the_extractor_once(monkeypatch):
-    from unittest.mock import MagicMock
-
-    from src.feed_cursor import FeedCursor
-
     started, release = threading.Event(), threading.Event()
     exits = []
-
-    class Ydl:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            exits.append(1)
-
-        def extract_info(self, url, download=False):
-            def gen():
-                yield {"id": "AAAAAAAAAAA", "title": "a", "duration": 60, "url": "u"}
-                started.set()
-                assert release.wait(WAIT)
-                yield {"id": "BBBBBBBBBBB", "title": "b", "duration": 60, "url": "u"}
-
-            return {"entries": gen()}
-
-    monkeypatch.setattr("src.ytdlp._make_ydl", lambda *a, **k: Ydl())
+    monkeypatch.setattr("src.ytdlp._make_ydl", lambda *a, **k: _SlowYdl(started, release, exits))
     cursor = FeedCursor("https://example.invalid/feed", MagicMock(), MagicMock())
     result = []
     thread = threading.Thread(target=lambda: result.extend(cursor.take(5, set())))
@@ -236,13 +240,7 @@ async def test_a_channel_screen_popped_while_its_workers_run_drops_their_results
 async def test_a_filter_typed_while_an_extension_lands_keeps_the_filtered_view(app, monkeypatch):
     first = [dict(e, title=f"cat {e['title']}") for e in rows("a", 30)]
     gate = Gate(rows("b", 30))
-    calls = []
-
-    def fetch(*a, **k):
-        calls.append(1)
-        return first if len(calls) == 1 else gate()
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", fetch)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", _Sequence(partial(_same, first), gate))
     async with app.run_test(size=(100, 30)) as pilot:
         await settle(app, pilot)
         panel = app.screen.query_one(VideoListPanel)
@@ -295,11 +293,14 @@ async def test_marks_survive_a_re_page(app, monkeypatch):
         assert {e["id"] for e in panel.marked_entries()} == marked
 
 
+def _gated_history(slow, *a, **k):
+    return slow() if "history" in str(k.get("feed_key")) else []
+
+
 async def test_a_history_source_switch_during_a_load_shows_the_last_source(app, monkeypatch):
     slow = Gate(rows("yt"))
     monkeypatch.setattr("src.tui.screens.mixins.feed_loader.resolve_browser", lambda cfg: "chrome")
-    feed = lambda *a, **k: slow() if "history" in str(k.get("feed_key")) else []  # noqa: E731
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", feed)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", partial(_gated_history, slow))
     async with app.run_test(size=(100, 30)) as pilot:
         await settle(app, pilot)
         screen = app.screen

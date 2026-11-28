@@ -1,11 +1,13 @@
 """Channel page paging: continuation tokens, prefetch on the second-to-last page, the cap, tab hiding."""
 
 import threading
+from functools import partial
 
 import pytest
 from textual.widgets import Tabs
 
 from src import innertube
+from src.tests.fakes import silence_detail_workers
 from src.tui.screens.channel_screen import ChannelScreen
 
 URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
@@ -13,8 +15,7 @@ URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
 
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_once", lambda self: None)
     monkeypatch.setattr(innertube, "resolve_channel_id", lambda url: None)
@@ -89,17 +90,19 @@ async def test_a_page_without_a_token_ends_fetching(app, monkeypatch):
         assert len(script.calls) == 2
 
 
+def _gated_pages(gate, second, channel_id, tab="videos", token="", **_):
+    """The first page at once; the continuation only after ``gate`` opens."""
+    if token:
+        gate.wait(5)
+        return second
+    return innertube.ChannelPage(videos(20), "T1")
+
+
 async def test_paging_past_the_last_page_waits_for_the_fetch_and_shows_it(app, monkeypatch):
     gate = threading.Event()
     second = innertube.ChannelPage(videos(20, "w"), "")
 
-    def script(channel_id, tab="videos", token="", **_):
-        if token:
-            gate.wait(5)
-            return second
-        return innertube.ChannelPage(videos(20), "T1")
-
-    monkeypatch.setattr(innertube, "fetch_channel_page", script)
+    monkeypatch.setattr(innertube, "fetch_channel_page", partial(_gated_pages, gate, second))
     async with app.run_test(size=(110, 34)) as pilot:
         app.push_screen(ChannelScreen(URL, "Chan"))
         await pilot.pause()

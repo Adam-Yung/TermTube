@@ -16,9 +16,8 @@ BIN="${1:?usage: launch-macos.sh /path/to/termtube}"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 TIMEOUT_TICKS="${TERMTUBE_LAUNCH_TICKS:-60}"   # x0.5 s
 
-# Preferred: a terminal with real image support (Kitty graphics / Sixel) that runs a command directly,
-# with no login shell and so no rc files. Terminal.app has no image protocol (thumbnails fall back to
-# block-character pixel art). TERMTUBE_TERMINAL=terminal forces Terminal.app.
+# Preferred: terminals with real image support that run a command directly, with no login shell and so no rc files.
+# TERMTUBE_TERMINAL=terminal forces Terminal.app.
 find_app() {
     local a
     for a in "/Applications/$1.app" "$HOME/Applications/$1.app"; do

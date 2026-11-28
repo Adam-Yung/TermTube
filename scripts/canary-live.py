@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src import innertube  # noqa: E402
+from src import innertube
 
 CHANNEL = "UC_x5XG1OV2P6uZZ5FSM9Ttw"  # Google Developers
 VIDEO = "dQw4w9WgXcQ"

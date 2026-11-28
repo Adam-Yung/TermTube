@@ -14,10 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import yt_dlp  # noqa: E402
+import yt_dlp
 
-from src import flat_entries, ytdlp  # noqa: E402
-from src.config import Config  # noqa: E402
+from src import flat_entries, ytdlp
+from src.config import Config
 
 
 def main() -> int:

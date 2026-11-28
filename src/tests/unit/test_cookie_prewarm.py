@@ -12,19 +12,22 @@ def reset(monkeypatch):
     monkeypatch.setattr(cookies, "_prewarmed", False)
 
 
+class _InlineThread:
+    """A Thread that runs its target on ``start``, on the caller's thread."""
+
+    def __init__(self, target, args=(), **kw):
+        self.target, self.args = target, args
+
+    def start(self):
+        self.target(*self.args)
+
+
 @pytest.fixture
 def reads(monkeypatch):
     calls = []
     monkeypatch.setattr(cookies, "get_cookiejar", lambda config: calls.append(1))
 
-    class _Thread:
-        def __init__(self, target, args=(), **kw):
-            self.target, self.args = target, args
-
-        def start(self):
-            self.target(*self.args)
-
-    monkeypatch.setattr(cookies.threading, "Thread", _Thread)
+    monkeypatch.setattr(cookies.threading, "Thread", _InlineThread)
     return calls
 
 

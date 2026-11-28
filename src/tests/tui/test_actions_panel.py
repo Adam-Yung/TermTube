@@ -3,7 +3,6 @@
 from textual.widgets import Tabs
 
 from src import playlist
-from src.tests.tui.test_screen_layout_audit import fake_data, main_app  # noqa: F401  (fixtures)
 
 
 def keys(screen):
@@ -15,7 +14,7 @@ async def open_tab(app, pilot, tab):
     await pilot.pause(0.6)
 
 
-async def test_home_lists_row_actions_and_the_played_toggle_only(main_app):  # noqa: F811
+async def test_home_lists_row_actions_and_the_played_toggle_only(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await pilot.pause(0.6)
         got = keys(main_app.screen)
@@ -23,14 +22,14 @@ async def test_home_lists_row_actions_and_the_played_toggle_only(main_app):  # n
         assert not got & {"m", "D", "u", "Y", "s", "t", "n", "R", "J K", "P", "S", "E"}
 
 
-async def test_history_adds_marks_removal_and_source(main_app):  # noqa: F811
+async def test_history_adds_marks_removal_and_source(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await open_tab(main_app, pilot, "history")
         got = keys(main_app.screen)
         assert {"m", "D", "s"} <= got and "Y" not in got and not got & {"Z", "t", "n"}
 
 
-async def test_search_adds_sort_and_type(main_app):  # noqa: F811
+async def test_search_adds_sort_and_type(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         main_app.screen._show_search_results("alpha")
         await pilot.pause(0.6)
@@ -38,7 +37,7 @@ async def test_search_adds_sort_and_type(main_app):  # noqa: F811
         assert {"s", "t", "f"} <= got and not got & {"m", "D", "Z"}
 
 
-async def test_playlist_rows_have_play_actions_and_channel_rows_none(main_app):  # noqa: F811
+async def test_playlist_rows_have_play_actions_and_channel_rows_none(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await pilot.pause(0.6)
         screen = main_app.screen
@@ -52,7 +51,7 @@ async def test_playlist_rows_have_play_actions_and_channel_rows_none(main_app): 
             assert set(hints) & {"v", "a", "e", "d", "p"} == plays and {"y", "b"} <= set(hints)
 
 
-async def test_library_collection_and_playlist_tools(main_app):  # noqa: F811
+async def test_library_collection_and_playlist_tools(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await open_tab(main_app, pilot, "library")
         screen = main_app.screen
@@ -63,7 +62,7 @@ async def test_library_collection_and_playlist_tools(main_app):  # noqa: F811
         assert {"R", "J K", "P", "S", "E", "D", "n"} <= keys(screen)
 
 
-async def test_rail_focus_shows_rail_tools_and_follows_the_cursor(main_app):  # noqa: F811
+async def test_rail_focus_shows_rail_tools_and_follows_the_cursor(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await open_tab(main_app, pilot, "library")
         screen = main_app.screen
@@ -78,7 +77,7 @@ async def test_rail_focus_shows_rail_tools_and_follows_the_cursor(main_app):  # 
         assert ("R", "Rename") in screen.query_one("ActionBar")._action_entries()
 
 
-async def test_undo_appears_after_a_removal(main_app):  # noqa: F811
+async def test_undo_appears_after_a_removal(main_app):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await open_tab(main_app, pilot, "history")
         screen = main_app.screen

@@ -1,9 +1,13 @@
 """A playlist opened from Search or Home: the channel page in playlist mode (header left, videos middle, no tabs)."""
 
+from functools import partial
+from unittest.mock import MagicMock
+
 import pytest
 from textual.widgets import Static
 
 from src import innertube
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.widgets.video_list import VideoListPanel
 
@@ -21,19 +25,24 @@ def vids(n):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
+
+
+def _answer_page(calls, page, playlist_id, token="", **_):
+    calls.append((playlist_id, token))
+    return page
+
+
+def _answer_mix(seen, info, playlist_id, token="", **_):
+    seen.append(playlist_id)
+    return innertube.ChannelPage(vids(3), "tok", info)
 
 
 def serve(monkeypatch, page):
     calls = []
 
-    def fake(playlist_id, token="", **_):
-        calls.append((playlist_id, token))
-        return page
-
-    monkeypatch.setattr(innertube, "fetch_playlist_page", fake)
+    monkeypatch.setattr(innertube, "fetch_playlist_page", partial(_answer_page, calls, page))
     return calls
 
 
@@ -90,11 +99,6 @@ async def test_tabs_sort_and_follow_answer_with_a_reason(app, monkeypatch):
 
 async def test_o_opens_the_owner_channel_and_c_the_channel_of_the_row(app, monkeypatch):
     serve(monkeypatch, innertube.ChannelPage(vids(2), "", INFO))
-    import src.ytdlp as ytdlp
-
-    monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
-    monkeypatch.setattr(innertube, "fetch_channel_page", lambda *a, **k: innertube.ChannelPage([]))
-    monkeypatch.setattr(ytdlp, "fetch_channel_videos", lambda *a, **k: [])
     async with app.run_test(size=(120, 36)) as pilot:
         screen = await open_page(app, pilot)
         await pilot.press("o")
@@ -112,12 +116,8 @@ async def test_o_opens_the_owner_channel_and_c_the_channel_of_the_row(app, monke
 async def test_an_unavailable_playlist_shows_youtubes_reason(app, monkeypatch):
     info = {"playlist_id": "PLhits", "unavailable": "This playlist type is unviewable."}
     serve(monkeypatch, innertube.ChannelPage([], "", info))
-    import src.ytdlp as ytdlp
-
-    def no_ytdlp(*a, **k):
-        raise AssertionError("yt-dlp must not repeat a reason YouTube already gave")
-
-    monkeypatch.setattr(ytdlp, "fetch_page_batch", no_ytdlp)
+    repeated = AssertionError("yt-dlp must not repeat a reason YouTube already gave")
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", MagicMock(side_effect=repeated))
     async with app.run_test(size=(120, 36)) as pilot:
         screen = await open_page(app, pilot)
         assert "unviewable" in str(screen._list()._message.content)
@@ -137,16 +137,9 @@ async def test_a_mix_row_is_read_through_next_and_says_it_has_no_end(app, monkey
     info = {"playlist_id": mix["id"], "title": "Mix - Rick", "owner": "YouTube", "owner_id": "", "video_count": None,
             "view_count": None, "updated": "", "mix": True, "description": "", "thumbnail": ""}
     seen = []
-
-    def fake_mix(playlist_id, token="", **_):
-        seen.append(playlist_id)
-        return innertube.ChannelPage(vids(3), "tok", info)
-
-    def no_browse(*a, **k):
-        raise AssertionError("a Mix is not a browse page")
-
-    monkeypatch.setattr(innertube, "fetch_mix_page", fake_mix)
-    monkeypatch.setattr(innertube, "fetch_playlist_page", no_browse)
+    monkeypatch.setattr(innertube, "fetch_mix_page", partial(_answer_mix, seen, info))
+    monkeypatch.setattr(innertube, "fetch_playlist_page",
+                        MagicMock(side_effect=AssertionError("a Mix is not a browse page")))
     async with app.run_test(size=(120, 36)) as pilot:
         app.push_screen(ChannelScreen("", "", trail=["Home"], playlist=mix))
         await pilot.pause()

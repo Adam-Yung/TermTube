@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+from functools import partial
 from unittest.mock import patch
+
+
+def _detect_under(browsers, apps):
+    """The macOS detection, searching ``apps`` instead of the real application folders."""
+    found = []
+    for name, bundle in browsers._MACOS_APP_BUNDLES.items():
+        if (apps / bundle).exists():
+            found.append({"name": name, "label": browsers._BROWSER_LABELS[name]})
+    return found
 
 
 class TestDetectMacOS:
@@ -17,17 +27,7 @@ class TestDetectMacOS:
 
         from src import browsers
 
-        def patched_detect():
-            found = []
-            search_dirs = [apps]
-            for name, bundle in browsers._MACOS_APP_BUNDLES.items():
-                for base in search_dirs:
-                    if (base / bundle).exists():
-                        found.append({"name": name, "label": browsers._BROWSER_LABELS[name]})
-                        break
-            return found
-
-        with patch.object(browsers, "_detect_macos", patched_detect):
+        with patch.object(browsers, "_detect_macos", partial(_detect_under, browsers, apps)):
             result = browsers.detect_installed_browsers()
 
         assert len(result) == 1
@@ -45,17 +45,7 @@ class TestDetectMacOS:
 
         from src import browsers
 
-        def patched_detect():
-            found = []
-            search_dirs = [apps]
-            for name, bundle in browsers._MACOS_APP_BUNDLES.items():
-                for base in search_dirs:
-                    if (base / bundle).exists():
-                        found.append({"name": name, "label": browsers._BROWSER_LABELS[name]})
-                        break
-            return found
-
-        with patch.object(browsers, "_detect_macos", patched_detect):
+        with patch.object(browsers, "_detect_macos", partial(_detect_under, browsers, apps)):
             result = browsers.detect_installed_browsers()
 
         names = [b["name"] for b in result]
@@ -138,10 +128,7 @@ class TestDetectLinux:
     def test_detects_firefox_on_path(self):
         from src import browsers
 
-        def fake_which(exe):
-            return "/usr/bin/firefox" if exe == "firefox" else None
-
-        with patch("shutil.which", side_effect=fake_which):
+        with patch("shutil.which", side_effect={"firefox": "/usr/bin/firefox"}.get):
             result = browsers._detect_linux()
 
         assert len(result) == 1
@@ -152,10 +139,7 @@ class TestDetectLinux:
 
         available = {"google-chrome", "brave-browser"}
 
-        def fake_which(exe):
-            return f"/usr/bin/{exe}" if exe in available else None
-
-        with patch("shutil.which", side_effect=fake_which):
+        with patch("shutil.which", side_effect={exe: f"/usr/bin/{exe}" for exe in available}.get):
             result = browsers._detect_linux()
 
         names = [b["name"] for b in result]

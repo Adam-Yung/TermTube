@@ -39,17 +39,23 @@ def test_fetch_fails_silent(reply):
         assert innertube.fetch_suggestions("abc") == []
 
 
+class _EndlessReply:
+    status = 200
+
+    def read(self, n=None):
+        return b"x" * n
+
+
+class _EndlessConn:
+    def request(self, *a, **k):
+        pass
+
+    def getresponse(self):
+        return _EndlessReply()
+
+
 def test_request_cuts_an_oversized_body_and_drops_the_connection():
-    class Resp:
-        status = 200
-        def read(self, n=None):
-            return b"x" * n
-
-    class Conn:
-        def request(self, *a, **k): pass
-        def getresponse(self): return Resp()
-
-    with patch.object(innertube, "_connection", return_value=(Conn(), False)), \
+    with patch.object(innertube, "_connection", return_value=(_EndlessConn(), False)), \
             patch.object(innertube, "_drop_connection") as drop:
         status, data = innertube._request("GET", "h", "/p", body=None, headers={}, timeout=2, max_bytes=10)
     assert (status, len(data)) == (200, 10) and drop.called

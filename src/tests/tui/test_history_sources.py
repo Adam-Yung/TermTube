@@ -1,8 +1,12 @@
 """History tab sources: Local, and YouTube (read-only account list through the Home loader)."""
 
+from functools import partial
+from unittest.mock import MagicMock
+
 import pytest
 
 from src import history
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.widgets.video_list import HeaderListItem, VideoListItem, VideoListPanel
 
 ROWS = [
@@ -15,10 +19,9 @@ ROWS = [
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     # The startup Home load sees an empty patched feed and opens this modal; its mount races teardown on slow runners.
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_empty_feed_modal(monkeypatch)
 
 
 @pytest.fixture
@@ -26,15 +29,16 @@ def signed_in(monkeypatch):
     monkeypatch.setattr("src.tui.screens.mixins.feed_loader.resolve_browser", lambda config: "firefox")
 
 
+def _record_fetch(calls, url, config, cache, **kwargs):
+    calls.append((url, kwargs))
+    return [dict(r) for r in ROWS if r and len(r["id"]) == 11]
+
+
 @pytest.fixture
 def fetched(monkeypatch):
     calls = []
 
-    def fake(url, config, cache, **kwargs):
-        calls.append((url, kwargs))
-        return [dict(r) for r in ROWS if r and len(r["id"]) == 11]
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", fake)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", partial(_record_fetch, calls))
     return calls
 
 
@@ -129,10 +133,7 @@ async def test_empty_result_has_a_specific_message(app, signed_in, monkeypatch):
 async def test_sign_in_failure_shows_the_sign_in_message_not_the_update_prompt(app, signed_in, monkeypatch):
     shown = []
 
-    def boom(*a, **k):
-        raise RuntimeError("Sign in to confirm")
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", boom)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", MagicMock(side_effect=RuntimeError("Sign in to confirm")))
     async with app.run_test(size=(100, 30)) as pilot:
         screen = app.screen
         screen._prompt_ytdlp_update = lambda *a: shown.append("update")
@@ -179,12 +180,13 @@ async def test_i_outside_the_youtube_source_only_hints(app):
         assert len(hints) == 1 and not history.all_entries()
 
 
-def test_yt_badge_on_account_rows_and_imported_rows_only():
-    def markup(entry):
-        return VideoListItem({"id": "abcdefghij1", "title": "T", **entry})._build_markup()
+def _markup(entry):
+    return VideoListItem({"id": "abcdefghij1", "title": "T", **entry})._build_markup()
 
-    assert "YT" in markup({"_yt": True}) and "YT" in markup({"source": "yt"})
-    assert "YT" not in markup({"source": "local"})
+
+def test_yt_badge_on_account_rows_and_imported_rows_only():
+    assert "YT" in _markup({"_yt": True}) and "YT" in _markup({"source": "yt"})
+    assert "YT" not in _markup({"source": "local"})
 
 
 async def test_watch_later_is_the_third_source_and_read_only(app, signed_in, fetched):

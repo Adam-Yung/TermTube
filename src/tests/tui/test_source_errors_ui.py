@@ -1,15 +1,17 @@
 """Each typed source error reaches the Home list as its own message; an empty feed still opens the empty modal."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from src.errors import ExtractionFailed, NetworkDown, RateLimited, SignInRequired
+from src.tests.fakes import silence_detail_workers
 from src.tui.widgets.video_list import VideoListPanel
 
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
 
 
 @pytest.mark.parametrize(
@@ -23,10 +25,7 @@ def quiet(monkeypatch, temp_history):
 async def test_typed_errors_show_their_message(app, monkeypatch, exc, expect):
     shown, prompts = [], []
 
-    def boom(*a, **k):
-        raise exc
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", boom)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", MagicMock(side_effect=exc))
     monkeypatch.setattr(VideoListPanel, "set_error_message", lambda self, msg: shown.append(msg))
     monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._prompt_ytdlp_update", lambda *a: prompts.append(a))
     async with app.run_test(size=(100, 30)) as pilot:
@@ -37,10 +36,7 @@ async def test_typed_errors_show_their_message(app, monkeypatch, exc, expect):
 async def test_extraction_error_opens_the_update_prompt_only(app, monkeypatch):
     shown, prompts = [], []
 
-    def boom(*a, **k):
-        raise ExtractionFailed("Unable to extract")
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", boom)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch", MagicMock(side_effect=ExtractionFailed("Unable to extract")))
     monkeypatch.setattr(VideoListPanel, "set_error_message", lambda self, msg: shown.append(msg))
     monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._prompt_ytdlp_update", lambda *a: prompts.append(a))
     async with app.run_test(size=(100, 30)) as pilot:
@@ -61,10 +57,8 @@ async def test_empty_but_ok_feed_still_opens_the_empty_modal(app, monkeypatch):
 
 
 async def test_an_unexpected_error_text_with_brackets_is_shown_as_text(app, monkeypatch):
-    def boom(*a, **k):
-        raise RuntimeError("[youtube] abc123: bad [/x] \\ thing")
-
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", boom)
+    monkeypatch.setattr("src.ytdlp.fetch_page_batch",
+                        MagicMock(side_effect=RuntimeError("[youtube] abc123: bad [/x] \\ thing")))
     async with app.run_test(size=(100, 30)) as pilot:
         for _ in range(100):
             await pilot.pause()

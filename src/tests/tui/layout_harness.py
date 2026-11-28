@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from itertools import combinations
 
 from textual.app import App
+from textual.dom import DOMNode
 from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Button, Input, ListItem, ListView, OptionList, Static
@@ -34,11 +36,11 @@ class Scenario:
 
 
 def _shown(widget: Widget, stop: Widget) -> bool:
-    node: Widget | None = widget
+    node: DOMNode | None = widget
     while node is not None and node is not stop:
         if not node.display:
             return False
-        node = node.parent  # type: ignore[assignment]
+        node = node.parent
     return True
 
 
@@ -83,57 +85,72 @@ def _text_problem(widget: Static) -> str | None:
     return None
 
 
+def _dialog_problems(screen: Screen, box, *, centered_vertically: bool) -> list[str]:
+    area = screen.region
+    problems: list[str] = []
+    if not _inside(box, area):
+        problems.append(f"dialog {box} does not fit the screen {area}")
+    if abs((box.x + box.width / 2) - area.width / 2) > CENTER_TOLERANCE:
+        problems.append(f"dialog not centered horizontally: {box} on {area.width} wide")
+    if centered_vertically and abs((box.y + box.height / 2) - area.height / 2) > CENTER_TOLERANCE:
+        problems.append(f"dialog not centered vertically: {box} on {area.height} high")
+    return problems
+
+
+def _widget_problems(screen: Screen, widget: Widget) -> list[str]:
+    """Protrusion and clipped text of one widget that no scrolling ancestor can bring into view."""
+    problems: list[str] = []
+    area = screen.region
+    if not _inside(widget.region, area):
+        problems.append(f"{_label(widget)} {widget.region} protrudes from the screen")
+    parent = widget.parent
+    contained = isinstance(parent, Widget) and parent is not screen and not _scrolls(parent)
+    if contained and not _inside(widget.region, parent.content_region):
+        problems.append(f"{_label(widget)} {widget.region} protrudes from {_label(parent)} {parent.content_region}")
+    if isinstance(widget, Static) and not isinstance(widget, ListItem):
+        issue = _text_problem(widget)
+        if issue:
+            problems.append(f"{_label(widget)}: {issue}")
+    return problems
+
+
+def _overlap_problems(widgets: list[Widget]) -> list[str]:
+    by_parent: dict[DOMNode, list[Widget]] = {}
+    for widget in widgets:
+        if isinstance(widget, _INTERACTIVE) and widget.parent is not None:
+            by_parent.setdefault(widget.parent, []).append(widget)
+    return [
+        f"{_label(a)} overlaps {_label(b)}"
+        for siblings in by_parent.values()
+        for a, b in combinations(siblings, 2)
+        if a.region.overlaps(b.region)
+    ]
+
+
+def _entry_problems(widgets: list[Widget]) -> list[str]:
+    """Entries of a list that cannot scroll must be drawn inside it."""
+    lists = [w for w in widgets if isinstance(w, ListView) and not _scrolls(w)]
+    return [
+        f"{_label(lv)} entry {item.region} drawn outside the list {lv.content_region}"
+        for lv in lists
+        for item in lv.children
+        if item.display and not _inside(item.region, lv.content_region)
+    ]
+
+
 def audit_screen(screen: Screen, *, dialog: str | None, centered_vertically: bool = True) -> list[str]:
     """Return the layout problems of ``screen`` as strings; empty when it follows the rules."""
     problems: list[str] = []
-    area = screen.region
     widgets = [w for w in screen.walk_children(Widget) if w.region.area and _shown(w, screen)]
-
     if dialog:
         found = screen.query(dialog)
         if not found:
             return [f"dialog {dialog} not found"]
-        box = found.first().region
-        if not _inside(box, area):
-            problems.append(f"dialog {box} does not fit the screen {area}")
-        if abs((box.x + box.width / 2) - area.width / 2) > CENTER_TOLERANCE:
-            problems.append(f"dialog not centered horizontally: {box} on {area.width} wide")
-        if centered_vertically and abs((box.y + box.height / 2) - area.height / 2) > CENTER_TOLERANCE:
-            problems.append(f"dialog not centered vertically: {box} on {area.height} high")
-
+        problems += _dialog_problems(screen, found.first().region, centered_vertically=centered_vertically)
     for widget in widgets:
-        if _scrolled_ancestor(widget, screen):
-            continue
-        if not _inside(widget.region, area):
-            problems.append(f"{_label(widget)} {widget.region} protrudes from the screen")
-        parent = widget.parent
-        if isinstance(parent, Widget) and parent is not screen and not _scrolls(parent):
-            if not _inside(widget.region, parent.content_region):
-                problems.append(
-                    f"{_label(widget)} {widget.region} protrudes from {_label(parent)} {parent.content_region}"
-                )
-        if isinstance(widget, Static) and not isinstance(widget, ListItem):
-            issue = _text_problem(widget)
-            if issue:
-                problems.append(f"{_label(widget)}: {issue}")
-
-    by_parent: dict[Widget, list[Widget]] = {}
-    for widget in widgets:
-        if isinstance(widget, _INTERACTIVE) and widget.parent is not None:
-            by_parent.setdefault(widget.parent, []).append(widget)  # type: ignore[arg-type]
-    for siblings in by_parent.values():
-        for i, a in enumerate(siblings):
-            for b in siblings[i + 1 :]:
-                if a.region.overlaps(b.region):
-                    problems.append(f"{_label(a)} overlaps {_label(b)}")
-
-    for lv in (w for w in widgets if isinstance(w, (ListView, OptionList))):
-        if _scrolls(lv):
-            continue
-        for item in lv.children if isinstance(lv, ListView) else []:
-            if item.display and not _inside(item.region, lv.content_region):
-                problems.append(f"{_label(lv)} entry {item.region} drawn outside the list {lv.content_region}")
-    return problems
+        if not _scrolled_ancestor(widget, screen):
+            problems += _widget_problems(screen, widget)
+    return problems + _overlap_problems(widgets) + _entry_problems(widgets)
 
 
 async def audit_scenario(app: App, pilot, scenario: Scenario, sizes: list[tuple[int, int]]) -> list[str]:
@@ -178,42 +195,63 @@ def _stacked(screen: Screen, ids: list[str]) -> list[str]:
     ]
 
 
-def audit_main(screen: Screen, *, list_id: str, detail_id: str, rail: bool = False) -> list[str]:
-    """Rules for a screen made of bars, a list column and a detail column (``docs/decisions/ui.md``, 2026-11-18)."""
-    problems = audit_screen(screen, dialog=None)
+def _footer_problems(screen: Screen) -> list[str]:
     area = screen.region
-    problems += _stacked(screen, ["AppHeader", "#nav-tabs", "#main-content", "Footer"])
     footer = screen.query_one("Footer").region
     if footer.bottom != area.bottom or not footer.area:
-        problems.append(f"footer {footer} is not the last row of the screen {area}")
-    panel = screen.query_one(list_id)
+        return [f"footer {footer} is not the last row of the screen {area}"]
+    return []
+
+
+def _column_problems(panel: Widget, detail: Widget) -> list[str]:
+    problems: list[str] = []
     if panel.region.width < MIN_LIST_WIDTH:
         problems.append(f"list is {panel.region.width} wide, minimum {MIN_LIST_WIDTH}")
-    detail = screen.query_one(detail_id)
     if detail.display and detail.region.width < MIN_DETAIL_WIDTH:
         problems.append(f"detail panel is {detail.region.width} wide, minimum {MIN_DETAIL_WIDTH}")
     if detail.display and detail.region.height >= 1:
         info = detail.query_one("#video-info")
         if info.display and info.region.height < MIN_INFO_ROWS:
             problems.append(f"detail info has {info.region.height} rows, minimum {MIN_INFO_ROWS}")
+    return problems
+
+
+def _row_problems(panel: Widget) -> list[str]:
+    problems: list[str] = []
     lv = panel.query_one("ListView")
-    for item in lv.children:
-        if item.display and item.region.height and not _inside_x(item.region, lv.region):
+    for item in (i for i in lv.children if i.display and i.region.height):
+        if not _inside_x(item.region, lv.region):
             problems.append(f"row {item.region} not inside the list {lv.region}")
         text = item.query("Static")
-        if item.display and item.region.height and text and text.first().content_region.width < MIN_ROW_TEXT:
+        if text and text.first().content_region.width < MIN_ROW_TEXT:
             problems.append(f"row text has {text.first().content_region.width} cells, minimum {MIN_ROW_TEXT}")
+    return problems
+
+
+def _rail_problems(rail: Widget) -> list[str]:
+    if not rail.display:
+        return []
+    problems = [f"rail is {rail.region.width} wide"] if rail.region.width < 12 else []
+    return problems + [
+        f"rail line '{line.plain}' is wider than {rail.content_region.width} cells"
+        for line in rail.render().split("\n")
+        if line.cell_len > rail.content_region.width
+    ]
+
+
+def audit_main(screen: Screen, *, list_id: str, detail_id: str, rail: bool = False) -> list[str]:
+    """Rules for a screen made of bars, a list column and a detail column (``docs/decisions/ui.md``, 2026-11-18)."""
+    problems = audit_screen(screen, dialog=None)
+    problems += _stacked(screen, ["AppHeader", "#nav-tabs", "#main-content", "Footer"])
+    problems += _footer_problems(screen)
+    panel = screen.query_one(list_id)
+    problems += _column_problems(panel, screen.query_one(detail_id))
+    problems += _row_problems(panel)
     indicator = panel.query_one("PageIndicator")
     if indicator.render().cell_len > indicator.region.width:
         problems.append(f"page indicator '{indicator.render().plain}' wider than its {indicator.region.width} cells")
     if rail:
-        rail_widget = screen.query_one("#library-rail")
-        if rail_widget.display and rail_widget.region.width < 12:
-            problems.append(f"rail is {rail_widget.region.width} wide")
-        if rail_widget.display:
-            for line in rail_widget.render().split("\n"):
-                if line.cell_len > rail_widget.content_region.width:
-                    problems.append(f"rail line '{line.plain}' is wider than {rail_widget.content_region.width} cells")
+        problems += _rail_problems(screen.query_one("#library-rail"))
     return problems
 
 

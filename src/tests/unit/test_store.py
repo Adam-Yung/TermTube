@@ -3,9 +3,12 @@
 import json
 import sys
 import threading
+from functools import partial
+from unittest.mock import MagicMock
 
 from src import store as store_mod
 from src.store import JsonStore
+from src.tests.fakes import run_in_threads
 
 
 def make(path, version=1, migrate=None, default=dict):
@@ -58,15 +61,34 @@ def test_newer_version_is_not_overwritten_silently(tmp_path):
     assert json.loads((tmp_path / "a.json.bad").read_text(encoding="utf-8"))["version"] == 9
 
 
+def _bump(calls, data, from_version):
+    """A migration that adds one and records the version it started from."""
+    calls.append(from_version)
+    return {"n": data["n"] + 1}
+
+
+def _append_25(store, n):
+    for i in range(25):
+        store.update(lambda d: d.append((n, i)) or True)
+
+
+class _HeldFile:
+    """An ``atomic_write`` that fails while another process "holds" the file."""
+
+    held = True
+
+    def __call__(self, path, payload):
+        if self.held:
+            raise PermissionError(13, "held")
+        path.write_bytes(payload)
+
+
 def test_migration_runs_once_and_is_persisted(tmp_path):
     p = tmp_path / "a.json"
     p.write_text('{"version": 1, "data": {"n": 1}}', encoding="utf-8")
     calls = []
 
-    def migrate(data, from_version):
-        calls.append(from_version)
-        return {"n": data["n"] + 1}
-
+    migrate = partial(_bump, calls)
     s = make(p, version=2, migrate=migrate)
     assert s.read(dict) == {"n": 2}
     s.flush()
@@ -79,10 +101,7 @@ def test_failing_migration_keeps_the_file(tmp_path):
     p = tmp_path / "a.json"
     p.write_text('{"version": 1, "data": {}}', encoding="utf-8")
 
-    def boom(data, from_version):
-        raise ValueError("x")
-
-    assert make(p, version=2, migrate=boom).read(dict) == {}
+    assert make(p, version=2, migrate=MagicMock(side_effect=ValueError("x"))).read(dict) == {}
     assert (tmp_path / "a.json.bad").exists()
 
 
@@ -97,13 +116,7 @@ def test_path_can_move_between_calls(tmp_path):
 def test_concurrent_updates_lose_nothing(tmp_path):
     s = make(tmp_path / "a.json", default=list)
 
-    def worker(n):
-        for i in range(25):
-            s.update(lambda d: d.append((n, i)) or True)
-
-    threads = [threading.Thread(target=worker, args=(n,)) for n in range(8)]
-    [t.start() for t in threads]
-    [t.join() for t in threads]
+    run_in_threads(partial(_append_25, s), 8)
     assert len(s.read(list)) == 200
     assert len(json.loads((tmp_path / "a.json").read_text(encoding="utf-8"))["data"]) == 200
 
@@ -135,21 +148,15 @@ def test_failed_sync_write_does_not_raise_tells_once_and_retries_later(tmp_path,
     told = []
     store_mod.set_failure_hook(told.append)
     try:
-        failing = [True]
-
-        def write(path, payload):
-            if failing[0]:
-                raise PermissionError(13, "held")
-            path.write_bytes(payload)
-
+        write = _HeldFile()
         monkeypatch.setattr(store_mod, "atomic_write", write)
         assert s.update(lambda d: d.update(x=1) or True)
         s.update(lambda d: d.update(y=2) or True)
         assert s.read(dict) == {"x": 1, "y": 2} and len(told) == 1 and "a.json" in told[0]
-        failing[0] = False
+        write.held = False
         store_mod.flush_all()
         assert json.loads((tmp_path / "a.json").read_text(encoding="utf-8"))["data"] == {"x": 1, "y": 2}
-        failing[0] = True
+        write.held = True
         s.update(lambda d: d.update(z=3) or True)
         s.update(lambda d: d.update(v=5) or True)
         assert len(told) == 2

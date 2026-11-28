@@ -3,9 +3,10 @@
 from unittest.mock import patch
 
 import pytest
-from textual.worker import WorkerCancelled
 
 from src import channel_bookmarks
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import settle
 from src.tui.screens.channel_screen import ChannelScreen
 
 # A thread calling call_from_thread on a closed app left a coroutine unawaited (fixed in the audio controller).
@@ -21,21 +22,11 @@ def followed(channel_id):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_channels):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._focus_channel", lambda *a: None)
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_once", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_load_content", lambda self, *a: None)
-
-
-async def settle(app, pilot):
-    for _ in range(3):
-        try:
-            await app.workers.wait_for_complete()
-        except WorkerCancelled:
-            pass
-        await pilot.pause()
 
 
 async def test_b_on_the_channel_page_follows_and_unfollows(app):
@@ -87,7 +78,7 @@ async def test_enter_on_a_followed_channel_opens_its_page_and_it_works_without_s
     import src.ytdlp as ytdlp
 
     monkeypatch.setattr(ytdlp, "fetch_subscribed_channels", lambda *a: [])
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_empty_feed_modal(monkeypatch)
     channel_bookmarks.toggle(A, "Rick")
     async with app.run_test(size=(110, 34)) as pilot:
         main = app.screen
@@ -105,7 +96,7 @@ async def test_an_empty_following_list_says_how_to_follow(app, monkeypatch):
     import src.ytdlp as ytdlp
 
     monkeypatch.setattr(ytdlp, "fetch_subscribed_channels", lambda *a: [])
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_empty_feed_modal(monkeypatch)
     async with app.run_test(size=(110, 34)) as pilot:
         main = app.screen
         main.action_goto_tab("subscriptions")

@@ -1,10 +1,13 @@
 """A channel's playlist opened in the channel page: its videos, play all, enqueue all, save locally."""
 
+from functools import partial
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src import innertube, playlist
+from src.errors import NetworkDown
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.screens.channel_screen import ChannelScreen
 
 URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
@@ -21,9 +24,8 @@ def vids(prefix, n):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_once", lambda self: None)
     monkeypatch.setattr(innertube, "fetch_channel_page", lambda *a, **k: innertube.ChannelPage([]))
@@ -36,15 +38,21 @@ async def settle(app, pilot):
         await pilot.pause()
 
 
+def _serve(served, calls, playlist_id, token="", **_):
+    calls.append((playlist_id, token))
+    return served.pop(0) if served else innertube.ChannelPage([])
+
+
+def _fail_on_continuation(first, playlist_id, token="", **_):
+    if token:
+        raise NetworkDown("x")
+    return first
+
+
 async def open_playlist(app, pilot, monkeypatch, pages):
     served = list(pages)
     calls = []
-
-    def fake(playlist_id, token="", **_):
-        calls.append((playlist_id, token))
-        return served.pop(0) if served else innertube.ChannelPage([])
-
-    monkeypatch.setattr(innertube, "fetch_playlist_page", fake)
+    monkeypatch.setattr(innertube, "fetch_playlist_page", partial(_serve, served, calls))
     app.push_screen(ChannelScreen(URL, "Chan"))
     await pilot.pause()
     await settle(app, pilot)
@@ -112,18 +120,11 @@ async def test_bulk_fetches_the_rest_when_only_the_first_pages_are_loaded(app, m
 
 
 async def test_a_gather_that_fails_part_way_enqueues_nothing_and_says_why(app, monkeypatch):
-    from src.errors import NetworkDown
-
     first = innertube.ChannelPage(vids("a", 20), "T1")
     async with app.run_test(size=(110, 34)) as pilot:
         screen, calls = await open_playlist(app, pilot, monkeypatch, [first])
 
-        def fail(playlist_id, token="", **_):
-            if token:
-                raise NetworkDown("x")
-            return first
-
-        monkeypatch.setattr(innertube, "fetch_playlist_page", fail)
+        monkeypatch.setattr(innertube, "fetch_playlist_page", partial(_fail_on_continuation, first))
         app.audio.enqueue_many = MagicMock(return_value=0)
         hints = []
         monkeypatch.setattr(ChannelScreen, "_hint", lambda self, msg, severity="warning": hints.append(msg))

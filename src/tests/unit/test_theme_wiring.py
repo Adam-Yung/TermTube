@@ -7,12 +7,14 @@ from collections import Counter
 from pathlib import Path
 
 from textual.dom import DOMNode
-from textual.widgets import Footer, ProgressBar  # noqa: F401  (imported so their subclasses are registered)
+from textual.widgets import Footer, ProgressBar
 
 import src.tui
 
 TUI = Path(__file__).resolve().parents[2] / "tui"
 THEME_PREFIX = "theme-"
+# textual loads widgets lazily: naming these registers the subclasses the selector scan reads.
+LAZY_WIDGETS = (Footer, ProgressBar)
 
 for _mod in pkgutil.walk_packages(src.tui.__path__, "src.tui."):
     importlib.import_module(_mod.name)

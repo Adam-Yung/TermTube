@@ -25,6 +25,7 @@ import tempfile
 import threading
 import time
 import wave
+from functools import partial
 from pathlib import Path
 
 ROWS, COLS = 40, 130
@@ -236,85 +237,108 @@ def print_app_log(started_at: float) -> None:
         print("\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-60:]))
 
 
+def app_argv(args, app_dir: Path, config: str) -> list[str]:
+    extra = ["--debug"] if args.debug_log else []
+    if not args.launcher:
+        return [args.python, str(app_dir / "src" / "main.py"), "--config", config, *extra]
+    argv = [args.launcher, "--config", config, *extra]
+    return ["cmd.exe", "/c", *argv] if args.launcher.lower().endswith(".cmd") else argv
+
+
+def answering(poll):
+    """The poll result once mpv reports a position and a duration."""
+    result = poll()
+    return result if result[0] is not None and result[1] else None
+
+
+def check_start(session: Session, poll) -> bool:
+    """Home, Library, then ``a``; False when a step the rest depends on failed."""
+    if not step("starts and shows the Home feed from the cache", session.expect(f"{SEED_TITLE} 1", 0, 60)):
+        return False
+    session.pump(1.0)
+
+    mark = session.mark()
+    session.send("F5")
+    if not step("Library tab lists the local file", session.expect(TONE_TITLE, mark, 20)):
+        return False
+
+    mark = session.mark()
+    session.send("a")
+    started = wait_for(partial(answering, poll), 30, session)
+    if not step("a: the app starts real mpv and it answers over IPC", started is not None):
+        return False
+    step("a: the Now Playing bar is drawn", session.expect("Now playing", mark, 10))
+    pos0 = started[0]
+    session.pump(1.5)
+    pos1 = poll()[0]
+    step("audio is advancing", pos1 is not None and pos1 > pos0 + 0.5, f"{pos0:.1f} -> {pos1}")
+    return True
+
+
+def check_pause_and_seek(session: Session, poll) -> None:
+    mark = session.mark()
+    session.send("space")
+    paused = wait_for(lambda: poll()[2], 8, session)
+    step("Space: mpv is paused", bool(paused))
+    step("Space: the screen says PAUSED", session.expect("[PAUSED]", mark, 8))
+    session.send("space")
+    step("Space again: playing", wait_for(lambda: poll()[2] is False, 8, session) is not None)
+
+    before = poll()[0] or 0.0
+    session.send("]")
+    # +5 s must show within 3 s; natural playback alone would add at most about 3 s, so only a real seek passes
+    jumped = wait_for(lambda: (poll()[0] or 0) >= before + 4.5, 3, session, interval=0.15)
+    step("]: seeks forward 5 s", bool(jumped), f"from {before:.1f}")
+
+
+def check_stop_and_quit(session: Session, poll) -> None:
+    mark = session.mark()
+    session.send("x")
+    gone = wait_for(lambda: poll()[0] is None, 10, session)
+    step("x: mpv is stopped", gone is not None)
+    step("x: the action bar returns", session.expect("Actions", mark, 10))
+
+    mark = session.mark()
+    session.send("F4")
+    step("History tab shows the played track", session.expect(TONE_TITLE, mark, 15))
+
+    session.send("\x11")  # Ctrl+Q
+    code = session.term.exit_code(20)
+    step("Ctrl+Q: the app exits with code 0", code == 0, f"exit code {code}")
+    step("no mpv left behind", poll()[0] is None)
+
+
+def finish(session: Session, args, started_at: float) -> None:
+    """Kill the app and, after a failed run, show what it last printed."""
+    still_running = session.term.exit_code(0) is None
+    session.term.kill()
+    if not failures:
+        return
+    print(f"\n(the app was {'still running' if still_running else 'no longer running'} at the end)")
+    print("\n--- last screen output ---")
+    print(ANSI.sub("", session.raw)[-1800:])
+    if args.debug_log:
+        print_app_log(started_at)
+
+
 def run(args, tmp: Path) -> int:
     app_dir = Path(args.app_dir).resolve()
     env = prepare(tmp, app_dir)
     from src import player
+    from src.plat import get_audio_ipc_path
 
-    socket_path = __import__("src.plat", fromlist=["x"]).get_audio_ipc_path()
-    config = str(tmp / "config.yaml")
-    extra = ["--debug"] if args.debug_log else []
+    poll = partial(player.poll_audio_properties, socket_path=get_audio_ipc_path())
     started_at = time.time()
-    if args.launcher:
-        argv = [args.launcher, "--config", config, *extra]
-        if args.launcher.lower().endswith(".cmd"):
-            argv = ["cmd.exe", "/c", *argv]
-    else:
-        argv = [args.python, str(app_dir / "src" / "main.py"), "--config", config, *extra]
+    argv = app_argv(args, app_dir, str(tmp / "config.yaml"))
     terminal = (WindowsTerminal if os.name == "nt" else PosixTerminal)(argv, env, str(app_dir))
     session = Session(terminal)
-
-    def poll():
-        return player.poll_audio_properties(socket_path=socket_path)
-
     try:
-        if not step("starts and shows the Home feed from the cache", session.expect(f"{SEED_TITLE} 1", 0, 60)):
+        if not check_start(session, poll):
             return 1
-        session.pump(1.0)
-
-        mark = session.mark()
-        session.send("F5")
-        if not step("Library tab lists the local file", session.expect(TONE_TITLE, mark, 20)):
-            return 1
-
-        mark = session.mark()
-        session.send("a")
-        started = wait_for(lambda: (lambda r: r if r[0] is not None and r[1] else None)(poll()), 30, session)
-        if not step("a: the app starts real mpv and it answers over IPC", started is not None):
-            return 1
-        step("a: the Now Playing bar is drawn", session.expect("Now playing", mark, 10))
-        pos0 = started[0]
-        session.pump(1.5)
-        pos1 = poll()[0]
-        step("audio is advancing", pos1 is not None and pos1 > pos0 + 0.5, f"{pos0:.1f} -> {pos1}")
-
-        mark = session.mark()
-        session.send("space")
-        paused = wait_for(lambda: poll()[2], 8, session)
-        step("Space: mpv is paused", bool(paused))
-        step("Space: the screen says PAUSED", session.expect("[PAUSED]", mark, 8))
-        session.send("space")
-        step("Space again: playing", wait_for(lambda: poll()[2] is False, 8, session) is not None)
-
-        before = poll()[0] or 0.0
-        session.send("]")
-        # +5 s must show within 3 s; natural playback alone would add at most about 3 s, so only a real seek passes
-        jumped = wait_for(lambda: (poll()[0] or 0) >= before + 4.5, 3, session, interval=0.15)
-        step("]: seeks forward 5 s", bool(jumped), f"from {before:.1f}")
-
-        mark = session.mark()
-        session.send("x")
-        gone = wait_for(lambda: poll()[0] is None, 10, session)
-        step("x: mpv is stopped", gone is not None)
-        step("x: the action bar returns", session.expect("Actions", mark, 10))
-
-        mark = session.mark()
-        session.send("F4")
-        step("History tab shows the played track", session.expect(TONE_TITLE, mark, 15))
-
-        session.send("\x11")  # Ctrl+Q
-        code = terminal.exit_code(20)
-        step("Ctrl+Q: the app exits with code 0", code == 0, f"exit code {code}")
-        step("no mpv left behind", poll()[0] is None)
+        check_pause_and_seek(session, poll)
+        check_stop_and_quit(session, poll)
     finally:
-        still_running = terminal.exit_code(0) is None
-        terminal.kill()
-        if failures:
-            print(f"\n(the app was {'still running' if still_running else 'no longer running'} at the end)")
-            print("\n--- last screen output ---")
-            print(ANSI.sub("", session.raw)[-1800:])
-            if args.debug_log:
-                print_app_log(started_at)
+        finish(session, args, started_at)
     print(f"\n{'OK: all steps passed' if not failures else 'FAILED: ' + ', '.join(failures)}")
     return 1 if failures else 0
 

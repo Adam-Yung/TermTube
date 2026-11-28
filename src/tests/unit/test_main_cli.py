@@ -1,6 +1,8 @@
 """Tests for the command-line entry points in src/main.py."""
 
+import builtins
 import sys
+from functools import partial
 
 import pytest
 
@@ -24,6 +26,12 @@ def test_help_lists_clear_history(capsys):
     assert "--clear-history" in capsys.readouterr().out
 
 
+def _deny_app_import(real_import, name, *args, **kwargs):
+    if name == "src.tui.app":
+        raise PermissionError(1, "is owned by another user", "/tmp/termtube-evil")
+    return real_import(name, *args, **kwargs)
+
+
 def test_untrusted_ipc_dir_prints_one_plain_line_and_exits_one(monkeypatch, capsys, tmp_path):
     from src.config import Config
 
@@ -33,16 +41,7 @@ def test_untrusted_ipc_dir_prints_one_plain_line_and_exits_one(monkeypatch, caps
     monkeypatch.setattr("src.config.Config", lambda *a, **k: cfg)
     monkeypatch.delitem(sys.modules, "src.tui.app", raising=False)
 
-    import builtins
-
-    real_import = builtins.__import__
-
-    def deny(name, *args, **kwargs):
-        if name == "src.tui.app":
-            raise PermissionError(1, "is owned by another user", "/tmp/termtube-evil")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", deny)
+    monkeypatch.setattr(builtins, "__import__", partial(_deny_app_import, builtins.__import__))
     with pytest.raises(SystemExit) as exit_info:
         main.main()
     err = capsys.readouterr().err

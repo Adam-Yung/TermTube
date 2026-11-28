@@ -3,8 +3,6 @@
 import pytest
 from textual.widgets import ListView, Tabs
 
-from src.tests.tui.test_screen_layout_audit import fake_data, main_app  # noqa: F401  (fixtures)
-
 # (tab, keys that open the dialog)
 OPENERS = [
     ("home", "enter"),
@@ -22,7 +20,7 @@ OPENERS = [
 
 
 @pytest.mark.parametrize(("tab", "key"), OPENERS, ids=lambda v: str(v))
-async def test_escape_returns_focus_to_the_list_and_keeps_the_cursor(main_app, tab, key):  # noqa: F811
+async def test_escape_returns_focus_to_the_list_and_keeps_the_cursor(main_app, tab, key):
     async with main_app.run_test(size=(120, 40)) as pilot:
         await pilot.pause(0.6)
         if tab != "home":

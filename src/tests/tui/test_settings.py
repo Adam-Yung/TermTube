@@ -6,6 +6,7 @@ import pytest
 import yaml
 from textual.widgets import Input
 
+from src.tests.fakes import silence_detail_workers
 from src.tui.screens.quality_modal import QualityModal
 from src.tui.screens.settings_modal import SettingsModal, _Row
 from src.tui.settings_fields import FIELDS, SECTIONS
@@ -14,8 +15,7 @@ from src.tui.settings_fields import FIELDS, SECTIONS
 @pytest.fixture(autouse=True)
 def isolated(monkeypatch, tmp_path):
     monkeypatch.setattr("src.history.HISTORY_PATH", tmp_path / "history.json")
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     monkeypatch.setattr("src.browsers.detect_installed_browsers", lambda: [{"name": "firefox", "label": "Firefox"}])
     monkeypatch.setattr("src.tui.screens.settings_modal.detect_installed_browsers",
                         lambda: [{"name": "firefox", "label": "Firefox"}])

@@ -2,11 +2,13 @@
 
 import json
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
 from src import cache as cache_mod
 from src.strings import text
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 
 
 def _entries(n, prefix):
@@ -28,9 +30,8 @@ class _Cursor:
 
 @pytest.fixture(autouse=True)
 def _quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
 
 
 def _seed_cache(app, age_s):
@@ -88,10 +89,7 @@ async def test_a_failed_revalidation_is_silent(app, monkeypatch):
     _seed_cache(app, 700)
     cursor = _Cursor([])
 
-    def boom(*a, **k):
-        raise RuntimeError("down")
-
-    cursor.take = boom
+    cursor.take = MagicMock(side_effect=RuntimeError("down"))
     _install(monkeypatch, cursor)
     async with app.run_test(size=(100, 30)) as pilot:
         await pilot.pause(0.6)

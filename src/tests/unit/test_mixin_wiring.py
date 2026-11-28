@@ -22,11 +22,8 @@ from src.tui.screens.queue_screen import QueueScreen
 
 HOSTS = [MainScreen, ChannelScreen, QueueScreen]
 
-# name -> class that must win on each host. Every other duplicate across the MRO is a failure.
-# Screens refine a mixin's default (calling super() where it extends it); PlaylistToolsMixin and LibraryRailMixin
-# refine ListToolsMixin because the Library tab owns playlists and the rail; on_key handlers all run (Textual
-# dispatches each class's own handler until one calls prevent_default), ListToolsMixin first so an open
-# removal question swallows the key.
+# name -> class that must win on each host; any other duplicate across the MRO fails. PlaylistTools and LibraryRail
+# refine ListTools (the Library tab owns both); ListToolsMixin.on_key runs first so a removal question eats the key.
 OVERRIDES = {
     "MainScreen": {
         "_tool_actions": "MainScreen",
@@ -139,27 +136,25 @@ def test_empty_hook_allow_list_has_no_stale_entries(host):
         assert inspect.isfunction(fn) and _is_empty(fn), f"{hosted}.{name} is no longer empty"
 
 
+def _self_attributes(cls, context: type[ast.expr_context]) -> set[str]:
+    """The ``self.x`` names the class's source reads (``ast.Load``) or assigns (``ast.Store``)."""
+    return {
+        node.attr
+        for node in ast.walk(_tree(cls))
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "self"
+        and isinstance(node.ctx, context)
+    }
+
+
 @pytest.mark.parametrize("host", HOSTS, ids=lambda h: h.__name__)
 def test_every_self_attribute_a_mixin_uses_exists_on_its_host(host):
     """A mixin's contract (``Needs _worker_start ...``) is met when each ``self.x`` it reads resolves on the host."""
-    assigned = set()
-    for cls in _own(host):
-        for node in ast.walk(_tree(cls)):
-            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "self":
-                if isinstance(node.ctx, ast.Store):
-                    assigned.add(node.attr)
+    assigned = set().union(*(_self_attributes(cls, ast.Store) for cls in _own(host)))
     missing = {}
     for cls in _own(host):
-        for node in ast.walk(_tree(cls)):
-            if (
-                isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Name)
-                and node.value.id == "self"
-                and isinstance(node.ctx, ast.Load)
-                and node.attr not in assigned
-                and not hasattr(host, node.attr)
-            ):
-                missing.setdefault(cls.__name__, set()).add(node.attr)
+        gone = {name for name in _self_attributes(cls, ast.Load) - assigned if not hasattr(host, name)}
+        if gone:
+            missing[cls.__name__] = gone
     assert not missing, f"{host.__name__} lacks what its classes use: {missing}"
 
 

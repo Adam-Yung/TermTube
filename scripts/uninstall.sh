@@ -71,7 +71,6 @@ echo -e "${BOLD}└$(printf '─%.0s' $(seq 1 $_box_width))┘${RESET}"
 echo ""
 
 items_to_remove=()
-sizes=()
 
 check_item() {
     local path="$1" label="$2"
@@ -156,11 +155,11 @@ echo -e "  ${BOLD}Removing…${RESET}"
 remove_item() {
     local path="$1" label="$2"
     if [[ -L "$path" ]]; then
-        rm -f "$path" && success "Removed symlink: $label" || warn "Could not remove: $path"
+        if rm -f "$path"; then success "Removed symlink: $label"; else warn "Could not remove: $path"; fi
     elif [[ -d "$path" ]]; then
-        rm -rf "$path" && success "Removed: $label" || warn "Could not remove: $path"
+        if rm -rf "$path"; then success "Removed: $label"; else warn "Could not remove: $path"; fi
     elif [[ -f "$path" ]]; then
-        rm -f "$path" && success "Removed: $label" || warn "Could not remove: $path"
+        if rm -f "$path"; then success "Removed: $label"; else warn "Could not remove: $path"; fi
     fi
 }
 

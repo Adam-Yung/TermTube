@@ -11,6 +11,7 @@ The end-to-end check: the real app, in a real pseudo-terminal, playing real audi
 
 ## Notes
 
+- `check_start` returns False when a step the rest depends on fails; `finish` then prints the last screen output.
 - The child's `COLUMNS` and `LINES` are pinned to the pty size (130x40). They override the pty's real size for Textual and for `shutil.get_terminal_size`, and a parent such as pytest sets them to 80x24; without the pin the app drew an 80x24 layout with no action bar and three screen steps failed while mpv steps passed.
 - `--debug-log` starts the app with `--debug` and, on failure, prints the tail of the newest log it wrote (the app's own account of why something failed). CI passes it. Output is forced to UTF-8: the screen holds box-drawing and emoji, and a Windows console codec crashed the failure printout once.
 - `--app-dir` is both where the app is launched from and where `src` is imported for seeding and IPC, so the installed copy tests itself. On Windows the harness must run in a Python with `pywinpty` and `pywin32` (the CI job installs `pywinpty` into the installed venv).

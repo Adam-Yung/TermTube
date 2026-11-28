@@ -6,14 +6,14 @@ from unittest.mock import patch
 import pytest
 
 from src import history, playlist
+from src.tests.fakes import silence_detail_workers
 from src.tui.screens.nav_modal import NavModal
 from src.tui.widgets.video_list import VideoListItem, VideoListPanel
 
 
 @pytest.fixture(autouse=True)
 def no_detail_network(monkeypatch, temp_playlists):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
 
 
 def add(directory, vid, ext="mp4", **info):

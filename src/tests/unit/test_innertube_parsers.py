@@ -1,4 +1,5 @@
 import json
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +12,16 @@ FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 def load(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _first_then(key, first, rest, url, payload, **_):
+    """``first`` for the request that carries ``key``, ``rest`` for the continuation."""
+    return first if key in payload else rest
+
+
+def _noting_post(order, page, url, payload, **_):
+    order.append("post")
+    return page if "query" in payload else None
 
 
 def test_search_parses_videos_and_skips_non_videos():
@@ -26,18 +37,13 @@ def test_search_parses_videos_and_skips_non_videos():
 
 def test_search_follows_continuation_until_count():
     page = load("innertube_search.json")
-    calls = []
-
-    def fake(url, payload, **_):
-        calls.append(payload)
-        return page if "query" in payload else {
-            "onResponseReceivedCommands": [{"appendContinuationItemsAction": {"continuationItems": [
-                {"itemSectionRenderer": {"contents": [
-                    {"videoRenderer": {"videoId": "AAAAAAAAAAA", "title": {"simpleText": "next"}}}]}}]}}]}
-
-    with patch.object(innertube, "_post_json", side_effect=fake):
+    more = {"onResponseReceivedCommands": [{"appendContinuationItemsAction": {"continuationItems": [
+        {"itemSectionRenderer": {"contents": [
+            {"videoRenderer": {"videoId": "AAAAAAAAAAA", "title": {"simpleText": "next"}}}]}}]}}]}
+    with patch.object(innertube, "_post_json", side_effect=partial(_first_then, "query", page, more)) as post:
         results = innertube.search("lofi", count=4)
     assert [r["id"] for r in results][-1] == "AAAAAAAAAAA"
+    calls = [c.args[1] for c in post.call_args_list]
     assert "continuation" in calls[1] and "query" not in calls[1]
 
 
@@ -96,26 +102,16 @@ def test_ytdlp_search_uses_innertube_then_falls_back(tmp_path, monkeypatch):
 def test_search_reports_first_page_before_fetching_more():
     page = load("innertube_search.json")
     order = []
-
-    def fake(url, payload, **_):
-        order.append("post")
-        return page if "query" in payload else None
-
-    with patch.object(innertube, "_post_json", side_effect=fake):
+    with patch.object(innertube, "_post_json", side_effect=partial(_noting_post, order, page)):
         innertube.search("x", count=50, on_first_batch=lambda e: order.append(f"first:{len(e)}"))
     assert order == ["post", "first:3", "post"]
 
 
 def test_channel_playlists_parse_fixture_and_follow_continuation():
     first, more = load("innertube_playlists.json"), load("innertube_playlists_more.json")
-    calls = []
-
-    def fake(url, payload, **_):
-        calls.append(payload)
-        return first if "browseId" in payload else more
-
-    with patch.object(innertube, "_post_json", side_effect=fake):
+    with patch.object(innertube, "_post_json", side_effect=partial(_first_then, "browseId", first, more)) as post:
         entries = innertube.fetch_channel_playlists("UC_x5XG1OV2P6uZZ5FSM9Ttw")
+    calls = [c.args[1] for c in post.call_args_list]
     assert len(entries) == 5 and "continuation" in calls[1] and "browseId" not in calls[1]
     pl = entries[0]
     assert pl["id"].startswith("PL") and pl["title"] == "Building with Gemini"
@@ -333,95 +329,3 @@ def test_channel_info_carries_video_count_join_date_and_the_tabs_the_channel_has
     with patch.object(innertube, "_post_json", return_value=browse):
         info = innertube.fetch_channel_info(url)
     assert info["tabs"] == ["videos", "live", "playlists"]
-
-
-def test_playlist_page_parses_videos_with_their_channel_and_returns_the_token():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos.json")) as post:
-        page = innertube.fetch_playlist_page("PLabc")
-    assert post.call_args.args[1]["browseId"] == "VLPLabc"
-    first, second = page.entries
-    assert page.token == "PL-TOKEN"
-    assert first["id"] == "PPPPPPPPPPP" and first["title"] == "First track" and first["duration"] == 245
-    assert first["uploader"] == "Other Channel" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
-    assert first["channel_url"].endswith(first["channel_id"]) and first["thumbnail"].endswith("hq.jpg")
-    assert second["id"] == "QQQQQQQQQQQ" and "channel_id" not in second
-
-
-def test_playlist_continuation_sends_only_the_token_and_failure_is_empty():
-    more = load("innertube_channel_videos_more.json")
-    with patch.object(innertube, "_post_json", return_value=more) as post:
-        innertube.fetch_playlist_page("PLabc", "TOK")
-    assert post.call_args.args[1]["continuation"] == "TOK" and "browseId" not in post.call_args.args[1]
-    with patch.object(innertube, "_post_json", return_value=None):
-        assert innertube.fetch_playlist_page("PLabc") == innertube.ChannelPage([])
-
-
-def test_playlist_page_parses_the_lockup_layout_recorded_from_youtube():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos_lockup.json")):
-        page = innertube.fetch_playlist_page("PLRPUpQa70I6A")
-    first, second = page.entries
-    assert first["id"] == "cv8tEbKtEvk" and first["title"].endswith("Gemini Live") and first["duration"] == 126
-    assert first["uploader"] == "Google for Developers" and first["channel_id"] == "UC_x5XG1OV2P6uZZ5FSM9Ttw"
-    assert second["id"] == "ID6vEy94j7c"
-    assert page.token.startswith("4qmFsgIx")
-
-
-def test_playlist_first_page_carries_the_header_recorded_from_youtube():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_page_header.json")):
-        page = innertube.fetch_playlist_page("PLBTanuC8SLeZUH4mYXFvRbDfxTMKvNLHJ")
-    info = page.info
-    assert info["title"].startswith("Lofi Music 2027") and info["description"].startswith("Lofi Music 2027")
-    assert (info["owner"], info["owner_id"]) == ("Hitsify", "UCnFrtWHPWzuvzMwwJLv9dnA")
-    assert (info["video_count"], info["view_count"], info["updated"]) == (50, 62909, "Updated 4 days ago")
-    assert info["thumbnail"].startswith("https://i.ytimg.com/vi/GgVcgbtHY9k/")
-    assert info["playlist_id"] == "PLBTanuC8SLeZUH4mYXFvRbDfxTMKvNLHJ" and len(page.entries) == 2
-
-
-def test_a_continuation_page_has_no_header():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_videos_lockup.json")):
-        assert innertube.fetch_playlist_page("PLx", "tok").info is None
-
-
-def test_an_unviewable_playlist_reports_youtubes_own_reason():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_playlist_unviewable.json")):
-        page = innertube.fetch_playlist_page("RDdQw4w9WgXcQ")
-    assert page.entries == []
-    assert page.info == {"playlist_id": "RDdQw4w9WgXcQ", "unavailable": "This playlist type is unviewable."}
-
-
-def test_a_mix_loads_through_next_with_the_playlist_id_alone():
-    sent = []
-
-    def fake(url, payload, **_):
-        sent.append((url.rsplit("/", 1)[-1].split("?")[0], payload.get("playlistId"), payload.get("videoId")))
-        return load("innertube_mix_next.json")
-
-    with patch.object(innertube, "_post_json", fake):
-        page = innertube.fetch_mix_page("RDdQw4w9WgXcQ")
-    assert sent == [("next", "RDdQw4w9WgXcQ", None)]
-    first = page.entries[0]
-    assert first["id"] == "dQw4w9WgXcQ" and first["duration"] == 214 and first["channel_id"].startswith("UC")
-    assert first["uploader"] == "Rick Astley" and first["thumbnail"].startswith("https://")
-    assert page.info["title"].startswith("Mix - Rick Astley") and page.info["owner"] == "YouTube"
-    assert page.info["video_count"] is None and page.info["mix"] is True and len(page.entries) == 3
-
-
-def test_a_mix_continues_from_its_last_video_and_stays_endless():
-    with patch.object(innertube, "_post_json", return_value=load("innertube_mix_next.json")):
-        page = innertube.fetch_mix_page("RDdQw4w9WgXcQ")
-    sent = []
-
-    def fake(url, payload, **_):
-        sent.append(payload)
-        return load("innertube_mix_next.json")
-
-    with patch.object(innertube, "_post_json", fake):
-        more = innertube.fetch_mix_page("RDdQw4w9WgXcQ", page.token)
-    assert sent[0]["videoId"] == page.entries[-1]["id"] and sent[0]["playlistId"] == "RDdQw4w9WgXcQ"
-    assert more.token and more.info is None
-
-
-def test_a_mix_that_needs_an_account_reports_it():
-    with patch.object(innertube, "_post_json", return_value={"contents": {}}):
-        page = innertube.fetch_mix_page("RDMM")
-    assert page.entries == [] and page.info["unavailable"] and page.info["playlist_id"] == "RDMM"

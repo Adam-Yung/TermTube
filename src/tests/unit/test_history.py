@@ -1,6 +1,7 @@
 """Tests for src/history.py: local watch history."""
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -136,9 +137,7 @@ class TestPersistence:
         assert _disk(temp_history)["version"] == 2
 
     def test_a_failed_write_does_not_raise_and_keeps_the_entry(self, temp_history, monkeypatch):
-        def locked(*args):
-            raise PermissionError("file is held open by another process")
-
+        locked = MagicMock(side_effect=PermissionError("file is held open by another process"))
         monkeypatch.setattr(store, "atomic_write", locked)
         history.add({"id": "AAAAAAAAAAA", "title": "t"})
         store.flush_all()

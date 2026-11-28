@@ -7,6 +7,7 @@ from textual.content import Content
 
 from src import fuzzy, library_query, playlist
 from src.search_stack import SearchStack
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.fmt import escape_markup, fmt_day_group
 from src.tui.widgets.video_list import VideoListItem, VideoListPanel
 
@@ -40,9 +41,8 @@ def big(n=5000):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history, temp_playlists):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: [])
 
 

@@ -10,10 +10,33 @@ Tests cover:
 from __future__ import annotations
 
 import threading
+import time
+from functools import partial
 from http.cookiejar import CookieJar
 from unittest.mock import MagicMock, patch
 
+from src.tests.fakes import run_in_threads
+
 # ── resolve_browser ──────────────────────────────────────────────────────────
+
+def _slow_extract(jar, browser):
+    time.sleep(0.05)
+    return jar
+
+
+def _fetch_after(barrier, fetch, config, results, _n):
+    barrier.wait()
+    results.append(fetch(config))
+
+
+class _BareYdl:
+    """The part of YoutubeDL that ``_make_ydl`` touches when it attaches cookies."""
+
+    cookiejar = None
+
+    def __init__(self, opts):
+        pass
+
 
 class TestResolveBrowser:
     def test_returns_none_for_none_string(self):
@@ -114,31 +137,15 @@ class TestGetSharedCookiejar:
         import src.cookies as mod
         fake_jar = CookieJar()
         config = MagicMock()
-        call_count = {"n": 0}
-
-        def slow_extract(browser):
-            call_count["n"] += 1
-            import time
-            time.sleep(0.05)
-            return fake_jar
-
         results = []
         barrier = threading.Barrier(5)
 
-        def worker():
-            barrier.wait()
-            r = mod.get_cookiejar(config)
-            results.append(r)
-
         with patch.object(mod, "resolve_browser", return_value="chrome"), \
-             patch("yt_dlp.cookies.extract_cookies_from_browser", side_effect=slow_extract):
-            threads = [threading.Thread(target=worker) for _ in range(5)]
-            for t in threads:
-                t.start()
-            for t in threads:
-                t.join()
+             patch("yt_dlp.cookies.extract_cookies_from_browser",
+                   side_effect=partial(_slow_extract, fake_jar)) as extract:
+            run_in_threads(partial(_fetch_after, barrier, mod.get_cookiejar, config, results), 5)
 
-        assert call_count["n"] == 1
+        assert extract.call_count == 1
         assert all(r is fake_jar for r in results)
 
 
@@ -158,13 +165,8 @@ class TestMakeYdl:
         fake_jar = MagicMock()  # plain MagicMock is truthy
         config = MagicMock()
 
-        class FakeYDL:
-            cookiejar = None
-            def __init__(self, opts):
-                pass
-
         with patch.object(mod, "get_cookiejar", return_value=fake_jar), \
-             patch("yt_dlp.YoutubeDL", FakeYDL):
+             patch("yt_dlp.YoutubeDL", _BareYdl):
             result = mod._make_ydl({}, config, auth=True)
         assert result.cookiejar is fake_jar
 
@@ -172,13 +174,8 @@ class TestMakeYdl:
         import src.ytdlp as mod
         config = MagicMock()
 
-        class FakeYDL:
-            cookiejar = None
-            def __init__(self, opts):
-                pass
-
         with patch.object(mod, "get_cookiejar", return_value=None), \
-             patch("yt_dlp.YoutubeDL", FakeYDL):
+             patch("yt_dlp.YoutubeDL", _BareYdl):
             result = mod._make_ydl({}, config, auth=True)
         assert result.cookiejar is None
 

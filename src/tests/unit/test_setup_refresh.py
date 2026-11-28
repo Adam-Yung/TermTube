@@ -20,7 +20,8 @@ def world(tmp_path):
     (repo / "scripts").mkdir(parents=True)
     (repo / "src" / "tui").mkdir(parents=True)
     (repo / "assets").mkdir()
-    shutil.copy(SETUP, repo / "scripts" / "setup.sh")
+    for name in ("setup.sh", "setup-shortcut.sh"):
+        shutil.copy(SETUP.with_name(name), repo / "scripts" / name)
     (repo / "src" / "new.py").write_text("new", encoding="utf-8")
     (repo / "src" / "tui" / "app.py").write_text("app", encoding="utf-8")
     (repo / "src" / "__pycache__").mkdir()

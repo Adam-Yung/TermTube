@@ -3,6 +3,7 @@
 import pytest
 from textual.widgets import Static
 
+from src.tests.fakes import silence_detail_workers
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.widgets.channel_info_panel import _collapse, _stats
 
@@ -30,8 +31,7 @@ def test_stats_use_whichever_of_count_and_join_date_exist():
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_once", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_load", lambda self: None)

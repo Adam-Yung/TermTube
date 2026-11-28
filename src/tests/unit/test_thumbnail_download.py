@@ -4,7 +4,10 @@ import io
 import os
 import ssl
 import urllib.error
+from functools import partial
 from unittest.mock import MagicMock, patch
+
+from PIL import Image
 
 from src import thumbnail_http
 from src.config import Config
@@ -37,17 +40,26 @@ def test_ssl_failure_gives_up_by_default(tmp_path):
     assert not dest.exists()
 
 
+def _refuses_verified(calls, req, timeout, context):
+    calls.append(context.verify_mode)
+    if context.verify_mode != ssl.CERT_NONE:
+        raise ssl.SSLError("bad cert")
+    return _response(b"x" * 500)
+
+
+def _refuses_query_urls(tried, url, dest, timeout=8, *, insecure=False):
+    """A downloader that fails on the extractor's signed URL and writes a JPEG for any other."""
+    tried.append(url)
+    if "sqp=" in url:
+        return False
+    Image.new("RGB", (4, 4)).save(dest, "JPEG")
+    return True
+
+
 def test_insecure_opt_in_retries_unverified(tmp_path):
     dest = tmp_path / "t.jpg"
     calls = []
-
-    def fake(req, timeout, context):
-        calls.append(context.verify_mode)
-        if context.verify_mode != ssl.CERT_NONE:
-            raise ssl.SSLError("bad cert")
-        return _response(b"x" * 500)
-
-    with patch("urllib.request.urlopen", side_effect=fake):
+    with patch("urllib.request.urlopen", side_effect=partial(_refuses_verified, calls)):
         assert thumbnail_http.download_thumbnail(URL, str(dest), insecure=True) is True
     assert calls == [ssl.CERT_REQUIRED, ssl.CERT_NONE]
 
@@ -100,15 +112,7 @@ def test_a_refused_extractor_url_falls_back_to_the_plain_id_url(tmp_path, monkey
     monkeypatch.setattr(thumbnail, "THUMB_DIR", tmp_path)
     tried = []
 
-    def fake(url, dest, timeout=8, *, insecure=False):
-        tried.append(url)
-        if "sqp=" in url:
-            return False
-        from PIL import Image
-        Image.new("RGB", (4, 4)).save(dest, "JPEG")
-        return True
-
-    monkeypatch.setattr(thumbnail_http, "download_thumbnail", fake)
+    monkeypatch.setattr(thumbnail_http, "download_thumbnail", partial(_refuses_query_urls, tried))
     path = thumbnail.download("abc123def45", "https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x")
     assert path is not None and path.exists()
     assert tried == ["https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x", URL]

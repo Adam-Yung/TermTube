@@ -1,11 +1,13 @@
 """``v`` ``a`` ``e`` on a playlist row play or queue it from the list; a video run steps with the player's result."""
 
 import threading
+from functools import partial
 from unittest.mock import MagicMock
 
 import pytest
 
 from src import innertube, player, playlist
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.audio_controller import AudioController
 from src.tui.screens.mixins.library_rail import PLAYLIST_VIEW
 from src.tui.screens.watch_modal import WatchModal
@@ -19,9 +21,8 @@ def vids(n, start=0):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     monkeypatch.setattr(WatchModal, "on_mount", lambda self: None)
 
@@ -68,14 +69,15 @@ async def test_e_queues_the_playlist_behind_the_playing_track(app, monkeypatch):
         assert app.audio.entry["id"] == "other000000" and len(app.audio.queue) == 2
 
 
+def _gated_page(release, pid, token="", **_):
+    release.wait(5)
+    return innertube.ChannelPage(vids(2), "")
+
+
 async def test_a_result_that_arrives_after_x_is_dropped(app, monkeypatch):
     release = threading.Event()
 
-    def slow(pid, token="", **_):
-        release.wait(5)
-        return innertube.ChannelPage(vids(2), "")
-
-    monkeypatch.setattr(innertube, "fetch_playlist_page", slow)
+    monkeypatch.setattr(innertube, "fetch_playlist_page", partial(_gated_page, release))
     async with app.run_test(size=(120, 40)) as pilot:
         screen = await on_row(app, pilot)
         screen.action_audio()

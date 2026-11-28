@@ -1,5 +1,8 @@
 """Typed source errors: classifier table, yt-dlp raising, and the InnerTube-to-yt-dlp fallback ladder."""
 
+from functools import partial
+from unittest.mock import MagicMock
+
 import pytest
 import yt_dlp
 
@@ -57,17 +60,22 @@ class _Ydl:
         return self.info
 
 
-@pytest.fixture
-def extract(monkeypatch):
-    monkeypatch.setattr(ytdlp, "_RETRY_DELAY_S", 0)
-    monkeypatch.setattr(ytdlp, "invalidate", lambda: calls.append("invalidate"))
-    calls = []
+class _Extract:
+    """Runs ``_extract_videos`` over a given YoutubeDL and records cache invalidations."""
 
-    def run(ydl):
-        monkeypatch.setattr(ytdlp, "_make_ydl", lambda *a, **k: ydl)
+    def __init__(self, monkeypatch):
+        self.monkeypatch, self.calls = monkeypatch, []
+
+    def __call__(self, ydl):
+        self.monkeypatch.setattr(ytdlp, "_make_ydl", lambda *a, **k: ydl)
         return ytdlp._extract_videos("u", None, _Cache(), count=5, skip_ids=set(), auth=True)
 
-    run.calls = calls
+
+@pytest.fixture
+def extract(monkeypatch):
+    run = _Extract(monkeypatch)
+    monkeypatch.setattr(ytdlp, "_RETRY_DELAY_S", 0)
+    monkeypatch.setattr(ytdlp, "invalidate", partial(run.calls.append, "invalidate"))
     return run
 
 
@@ -97,10 +105,7 @@ def test_an_honestly_empty_feed_is_an_empty_list(extract):
 
 
 def test_search_falls_back_to_ytdlp_when_innertube_errors(monkeypatch):
-    def boom(*a, **k):
-        raise NetworkDown("x")
-
-    monkeypatch.setattr(innertube, "search", boom)
+    monkeypatch.setattr(innertube, "search", MagicMock(side_effect=NetworkDown("x")))
     entry = {"id": "abcdefghij1", "title": "t"}
     monkeypatch.setattr(ytdlp, "_extract_videos", lambda *a, **k: ([entry], ["abcdefghij1"]))
     monkeypatch.setattr(feed_cache, "cached_entries", lambda *a: None)
@@ -109,10 +114,7 @@ def test_search_falls_back_to_ytdlp_when_innertube_errors(monkeypatch):
 
 
 def test_filtered_search_does_not_fall_back_and_surfaces_the_error(monkeypatch):
-    def boom(*a, **k):
-        raise RateLimited("x")
-
-    monkeypatch.setattr(innertube, "search", boom)
+    monkeypatch.setattr(innertube, "search", MagicMock(side_effect=RateLimited("x")))
     monkeypatch.setattr(feed_cache, "cached_entries", lambda *a: None)
     with pytest.raises(RateLimited):
         ytdlp.fetch_search_batch("q", None, _Cache(), sort="date")

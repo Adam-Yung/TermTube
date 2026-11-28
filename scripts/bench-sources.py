@@ -12,11 +12,12 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from functools import partial
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src import innertube  # noqa: E402
+from src import innertube
 
 VIDEOS = ["dQw4w9WgXcQ", "kJQP7kiw5Fk", "9bZkp7q19f0"]
 CHANNEL = "UCuAXFkgsw1L7xaCfnd5JJOw"
@@ -72,29 +73,43 @@ def ytdlp_resolve(video_id: str, fmt: str = "ba/b", client: str | None = None, s
     import yt_dlp
 
     with yt_dlp.YoutubeDL(_stream_opts(fmt, client, skip_manifests)) as ydl:
-        return _resolved(ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False))
+        return _resolved(ydl.extract_info(_watch_url(video_id), download=False))
+
+
+def _watch_url(video_id: str) -> str:
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
+def _resolve_next(ids, **options) -> bool:
+    return ytdlp_resolve(next(ids), **options)
+
+
+def _fresh(runs: int, **options):
+    """A case that resolves the next sample video with a new YoutubeDL each call."""
+    return partial(_resolve_next, iter(VIDEOS * runs), **options)
+
+
+def _extract_next(ydl, ids) -> bool:
+    return _resolved(ydl.extract_info(_watch_url(next(ids)), download=False))
+
+
+def _warmed(runs: int):
+    """A case that resolves the sample videos through one already used YoutubeDL."""
+    import yt_dlp
+
+    ydl = yt_dlp.YoutubeDL(_stream_opts("ba/b", None, False))
+    ydl.extract_info(_watch_url(VIDEOS[0]), download=False)
+    return partial(_extract_next, ydl, iter(VIDEOS * runs))
 
 
 def stream_variants(runs: int) -> None:
     """Time yt-dlp stream-resolve variants over the sample videos (slow: about 3 s per resolve)."""
-    import yt_dlp
-
-    def fresh(**kw):
-        ids = iter(VIDEOS * runs)
-        return lambda: ytdlp_resolve(next(ids), **kw)
-
-    def warmed():
-        ydl = yt_dlp.YoutubeDL(_stream_opts("ba/b", None, False))
-        ydl.extract_info(f"https://www.youtube.com/watch?v={VIDEOS[0]}", download=False)
-        ids = iter(VIDEOS * runs)
-        return lambda: _resolved(ydl.extract_info(f"https://www.youtube.com/watch?v={next(ids)}", download=False))
-
     cases = [
-        ("baseline: fresh YoutubeDL, ba/b", fresh()),
-        ("(a) warmed reused YoutubeDL, ba/b", warmed()),
-        ("(b) format 140/251", fresh(fmt="140/251")),
-        ("skip dash+hls manifests", fresh(skip_manifests=True)),
-        *[(f"(c) player_client={c}", fresh(client=c)) for c in ("web_safari", "tv", "ios", "mweb")],
+        ("baseline: fresh YoutubeDL, ba/b", _fresh(runs)),
+        ("(a) warmed reused YoutubeDL, ba/b", _warmed(runs)),
+        ("(b) format 140/251", _fresh(runs, fmt="140/251")),
+        ("skip dash+hls manifests", _fresh(runs, skip_manifests=True)),
+        *[(f"(c) player_client={c}", _fresh(runs, client=c)) for c in ("web_safari", "tv", "ios", "mweb")],
     ]
     print(f"{'yt-dlp variant':44} {'n':>3} {'ok':>3} {'p50 ms':>8} {'max ms':>8}")
     for name, fn in cases:

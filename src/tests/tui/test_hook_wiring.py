@@ -4,9 +4,12 @@ Each test spies on the real method through the class (so a shadowing mixin makes
 screen through its actions, keys and messages.
 """
 
+from functools import partialmethod
+
 import pytest
 from textual.widgets import Tabs
 
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.main_screen import MainScreen
 from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
@@ -18,20 +21,20 @@ URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
 
 @pytest.fixture(autouse=True)
 def _quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
+
+
+def _record_call(self, calls, forward, *args, **kwargs):
+    calls.append((args, kwargs))
+    return forward(self, *args, **kwargs) if forward else None
 
 
 def spy(monkeypatch, cls, name, *, through=False):
     """Record calls to ``cls.name``; with ``through`` the real method still runs."""
     real, calls = getattr(cls, name), []
 
-    def wrapper(self, *args, **kwargs):
-        calls.append((args, kwargs))
-        return real(self, *args, **kwargs) if through else None
-
-    monkeypatch.setattr(cls, name, wrapper)
+    monkeypatch.setattr(cls, name, partialmethod(_record_call, calls, real if through else None))
     return calls
 
 

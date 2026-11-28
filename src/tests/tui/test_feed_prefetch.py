@@ -5,6 +5,7 @@ import threading
 import pytest
 
 from src.errors import RateLimited
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
 
 
 def _entries(n, prefix):
@@ -33,9 +34,8 @@ class _Cursor:
 
 @pytest.fixture(autouse=True)
 def _quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
 
 
 async def _setup(app, pilot, pages, cursor):

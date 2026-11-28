@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from textual.widgets import Static
 
+from src.tests.fakes import silence_detail_workers
 from src.tui.fmt import fmt_breadcrumb
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.main_screen import MainScreen
@@ -23,8 +24,7 @@ def test_breadcrumb_joins_and_collapses_the_middle():
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
+    silence_detail_workers(monkeypatch)
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_start_content_once", lambda self: None)
     monkeypatch.setattr(ChannelScreen, "_load_content", lambda self, *a: None)

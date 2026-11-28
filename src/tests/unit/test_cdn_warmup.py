@@ -93,11 +93,9 @@ class TestWaitForStreamUrlReady:
         ev = threading.Event()
         streams._cdn_ready_events[key] = ev
 
-        def set_after_delay():
-            time.sleep(0.3)
-            ev.set()
-
-        threading.Thread(target=set_after_delay, daemon=True).start()
+        timer = threading.Timer(0.3, ev.set)
+        timer.daemon = True
+        timer.start()
 
         t0 = time.time()
         streams.wait_for_stream_url_ready("vid1", "ba/b")
@@ -152,19 +150,13 @@ class TestProbeCdnReady:
         ev = threading.Event()
         streams._cdn_ready_events[key] = ev
 
-        call_count = [0]
         mock_resp = MagicMock()
         mock_resp.read.return_value = b'\x00'
+        refused = urllib.error.URLError("Connection refused")
 
-        def side_effect(*args, **kwargs):
-            call_count[0] += 1
-            if call_count[0] <= 2:
-                raise urllib.error.URLError("Connection refused")
-            return mock_resp
-
-        with patch('urllib.request.urlopen', side_effect=side_effect):
+        with patch('urllib.request.urlopen', side_effect=[refused, refused, mock_resp]) as urlopen:
             with patch('time.sleep'):  # skip actual sleeps in test
                 streams._probe_cdn_ready("https://cdn.example.com/stream", key)
 
         assert ev.is_set()
-        assert call_count[0] == 3
+        assert urlopen.call_count == 3

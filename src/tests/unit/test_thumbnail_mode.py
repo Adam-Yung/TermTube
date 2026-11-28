@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from src.config import Config
@@ -24,6 +26,28 @@ def test_pixel_images_enabled(tmp_path, monkeypatch, capable, fmt, expected):
     assert thumbnail_widget.pixel_images_enabled(config) is expected
 
 
+class _App:
+    def __init__(self, config) -> None:
+        self.config = config
+
+    def call_from_thread(self, fn, *args):
+        fn(*args)
+
+
+class _Target:
+    def __init__(self, calls) -> None:
+        self.calls = calls
+
+    def set_thumbnail_ansi(self, vid, ansi):
+        self.calls.append(("ansi", vid, ansi))
+
+    def set_thumbnail_image(self, vid, path):
+        self.calls.append(("image", vid))
+
+    def set_thumbnail_placeholder(self):
+        self.calls.append(("placeholder",))
+
+
 def test_loader_renders_blocks_when_symbols_chosen(tmp_path, monkeypatch):
     from src.tui import thumb_loader
 
@@ -33,28 +57,9 @@ def test_loader_renders_blocks_when_symbols_chosen(tmp_path, monkeypatch):
 
     calls: list[tuple] = []
 
-    class App:
-        def __init__(self) -> None:
-            self.config = config
-
-        def call_from_thread(self, fn, *args):
-            fn(*args)
-
-    class Target:
-        def set_thumbnail_ansi(self, vid, ansi):
-            calls.append(("ansi", vid, ansi))
-
-        def set_thumbnail_image(self, vid, path):
-            calls.append(("image", vid))
-
-        def set_thumbnail_placeholder(self):
-            calls.append(("placeholder",))
-
-    def no_pixel(*a, **k):
-        raise AssertionError("pixel path used although symbols was chosen")
-
-    monkeypatch.setattr(thumb_loader.thumbnail, "ensure_thumb_jpeg", no_pixel)
+    monkeypatch.setattr(thumb_loader.thumbnail, "ensure_thumb_jpeg",
+                        MagicMock(side_effect=AssertionError("pixel path used although symbols was chosen")))
     monkeypatch.setattr(thumb_loader.thumbnail, "render_pil_halfblock", lambda *a, **k: "ART")
     vid = "sym" + "x" * 8
-    thumb_loader.load_thumbnail(App(), Target(), vid, entry={"id": vid}, is_current=lambda: True)
+    thumb_loader.load_thumbnail(_App(config), _Target(calls), vid, entry={"id": vid}, is_current=lambda: True)
     assert calls == [("ansi", vid, "ART")]

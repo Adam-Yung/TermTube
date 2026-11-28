@@ -1,5 +1,7 @@
 """Library filter tokens: `key:value` on top of free text; invalid tokens fall back to free text."""
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from src import library_query
@@ -73,17 +75,12 @@ def test_invalid_tokens_degrade_to_free_text(text):
 
 
 def test_pl_token_uses_one_membership_lookup_and_only_when_asked():
-    calls = []
-
-    def membership():
-        calls.append(1)
-        return {"a": ["Late night"], "b": ["Work", "Late shift"]}
-
+    membership = MagicMock(return_value={"a": ["Late night"], "b": ["Work", "Late shift"]})
     assert ids("pl:late", membership) == ["a", "b"]
     assert ids("pl:work", membership) == ["b"]
-    assert len(calls) == 2
+    assert membership.call_count == 2
     ids("jazz", membership)
-    assert len(calls) == 2
+    assert membership.call_count == 2
 
 
 def test_free_text_ranks_best_match_first_when_tokens_filter_the_rest():

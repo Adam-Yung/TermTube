@@ -24,3 +24,5 @@ Terminal.app always starts the user's login shell, so their rc files run first, 
 - Other multiplexers (screen, zellij) are not special-cased; the typed command goes into them.
 - A shell whose startup runs a child process the whole time delays the typing until the timeout.
 - Tested by hand with the plain shell and with a tmux auto-attach (fake `termtube`); no automated test, because it opens real Terminal windows. `TERMTUBE_LAUNCH_NOOPEN=1` plus `TERMTUBE_LAUNCH_TTY` lets a test point it at an existing tty.
+
+Reviewed: 246af469

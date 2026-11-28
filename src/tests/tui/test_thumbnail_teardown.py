@@ -1,6 +1,7 @@
 """A thumbnail worker finishing after its panel is gone must not raise (CI saw WorkerFailed from it)."""
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 
 async def test_thumbnail_setters_are_no_ops_after_the_widget_is_removed(app):
@@ -31,9 +32,6 @@ def test_the_thumbnail_worker_is_a_no_op_when_its_screen_is_gone():
 
     from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 
-    def gone():
-        raise NoMatches("No nodes match '#detail-panel'")
-
-    host = SimpleNamespace(_detail=gone, app=None)
+    host = SimpleNamespace(_detail=MagicMock(side_effect=NoMatches("No nodes match '#detail-panel'")), app=None)
     body = inspect.unwrap(DetailFocusMixin._thumb_worker)
     assert body(host, "AAAAAAAAAAA", {"id": "AAAAAAAAAAA"}, 0) is None  # raised NoMatches before the fix

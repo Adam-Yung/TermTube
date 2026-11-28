@@ -1,9 +1,12 @@
 """Every list loader against every typed source error and a raw exception with markup-looking text."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from textual.worker import WorkerCancelled
 
 from src.errors import ExtractionFailed, NetworkDown, RateLimited, SignInRequired
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import settle
 from src.tui.widgets.video_list import VideoListPanel
 
 RAW = "boom [x] [/y] \\"
@@ -19,27 +22,14 @@ ENTRIES = [{"id": f"vid{i:08d}", "title": f"Video {i}", "uploader": "Chan", "dur
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
     monkeypatch.setattr("src.tui.screens.mixins.feed_loader.resolve_browser", lambda cfg: "chrome")
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: ENTRIES)
 
 
-async def settle(app, pilot):
-    for _ in range(3):
-        try:
-            await app.workers.wait_for_complete()
-        except WorkerCancelled:
-            pass
-        await pilot.pause()
-
-
 def raiser(exc):
-    def boom(*a, **k):
-        raise exc
-
-    return boom
+    return MagicMock(side_effect=exc)
 
 
 def message(screen) -> str:

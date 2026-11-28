@@ -1,65 +1,16 @@
 """Every main-screen tab and the channel screen keep the layout rules at the sizes in ``layout_harness``."""
 
-import json
+from functools import partial
 
 import pytest
 from textual.widgets import Tabs
 
-from src import channel_bookmarks, history, playlist
+from src import channel_bookmarks, playlist
 from src.innertube import ChannelPage
+from src.tests.tui.layout_data import LONG, long_entries
 from src.tests.tui.layout_harness import MAIN_SIZES, ScreenScenario, audit_screen_scenario, settle
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.queue_screen import QueueScreen
-
-LONG = "A rather long video title that goes on and on to test how a list row copes with a narrow column"
-
-
-def _entries(count=40, **extra):
-    return [
-        {"id": f"vid{i:08d}", "title": f"{LONG} {i}", "uploader": "A Channel With A Long Name Indeed",
-         "duration": 3700, "view_count": 1234567, "upload_date": "20250101", "description": "d " * 200, **extra}
-        for i in range(count)
-    ]
-
-
-def _channels(count=30):
-    return [{"id": f"UC{i:020d}", "title": f"Channel number {i}", "channel": f"Channel number {i}", "_is_channel": True,
-             "subscriber_count": 123456, "video_count": 321, "channel_url": f"https://www.youtube.com/channel/UC{i}"}
-            for i in range(count)]
-
-
-@pytest.fixture
-def fake_data(monkeypatch, tmp_path, temp_history, temp_channels, temp_playlists):
-    """Fake feeds, history, library files and playlists; nothing leaves the process."""
-    monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: _entries())
-    monkeypatch.setattr("src.ytdlp.fetch_subscribed_channels", lambda *a, **k: _channels())
-    monkeypatch.setattr("src.ytdlp.fetch_search_batch", lambda query, *a, count=50, **k: _entries(count))
-    monkeypatch.setattr("src.tui.screens.mixins.feed_loader.resolve_browser", lambda config: "firefox")
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a, **k: None)
-    for entry in _entries(12):
-        history.add(entry)
-    videos, audio = tmp_path / "vid", tmp_path / "aud"
-    for directory, ext, kind in ((videos, "mp4", "v"), (audio, "mp3", "a")):
-        directory.mkdir()
-        for i in range(8):
-            vid = f"{kind}{i:010d}"
-            (directory / f"{vid}.{ext}").write_bytes(b"x" * 5)
-            sidecar = {"id": vid, "title": f"{LONG} {vid}", "uploader": "Alpha", "duration": 100,
-                       "upload_date": "20260101"}
-            (directory / f"{vid}.info.json").write_text(json.dumps(sidecar), encoding="utf-8")
-    monkeypatch.setitem  # noqa: B018  (config is set through the app below)
-    return videos, audio
-
-
-@pytest.fixture
-def main_app(app, fake_data):
-    videos, audio = fake_data
-    app.config._data["video_dir"], app.config._data["audio_dir"] = str(videos), str(audio)
-    for i in range(3):
-        playlist.create(f"Playlist number {i}", _entries(4))
-    return app
 
 
 async def _tab(app, pilot, tab):
@@ -67,21 +18,19 @@ async def _tab(app, pilot, tab):
     await pilot.pause(0.6)
 
 
-def _tab_scenario(name, tab):
-    async def setup(app, pilot):
-        await _tab(app, pilot, tab)
+async def _view(app, pilot, *, tab, view):
+    await _tab(app, pilot, tab)
+    if tab == "library":
+        app.screen._select_collection(view)
+    await pilot.pause(0.6)
 
-    return ScreenScenario(name, setup)
+
+def _tab_scenario(name, tab):
+    return ScreenScenario(name, partial(_tab, tab=tab))
 
 
 def _view_scenario(name, tab, view):
-    async def setup(app, pilot):
-        await _tab(app, pilot, tab)
-        if tab == "library":
-            app.screen._select_collection(view)
-        await pilot.pause(0.6)
-
-    return ScreenScenario(name, setup)
+    return ScreenScenario(name, partial(_view, tab=tab, view=view))
 
 
 async def _search(app, pilot):
@@ -117,7 +66,7 @@ async def _empty_following(app, pilot):
 
 async def _many_playlists(app, pilot):
     for i in range(40):
-        playlist.create(f"Another playlist number {i}", _entries(2))
+        playlist.create(f"Another playlist number {i}", long_entries(2))
     await _tab(app, pilot, "library")
     await pilot.pause(0.4)
 
@@ -156,22 +105,31 @@ CHANNEL_URL = "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw"
 LONG_DESC = "\n".join(f"Description line {n} " + "word " * 30 for n in range(1, 12))
 
 
-def _channel_scenario(name, tab=None, *, expand=False, entries=None):
-    async def setup(app, pilot):
-        screen = app.screen
-        screen._info_panel().update_info(
-            {"channel": "A Channel With A Long Name Indeed", "description": LONG_DESC, "video_count": 442,
-             "subscriber_count": 1234567, "channel_url": CHANNEL_URL, "joined": "Joined Mar 3, 2011"}
-        )
-        if tab:
-            screen.query_one("#ch-tabs", Tabs).active = tab
-            await settle(pilot, lambda: [] if screen._current_tab == tab else ["tab"])
-        screen._show_first_page(screen._content_session, ChannelPage(entries or _entries(30)))
-        if expand:
-            await pilot.press("i")
-        await pilot.pause(0.5)
+async def _show_channel(app, pilot, *, tab, expand, entries):
+    screen = app.screen
+    screen._info_panel().update_info(
+        {"channel": "A Channel With A Long Name Indeed", "description": LONG_DESC, "video_count": 442,
+         "subscriber_count": 1234567, "channel_url": CHANNEL_URL, "joined": "Joined Mar 3, 2011"}
+    )
+    if tab:
+        screen.query_one("#ch-tabs", Tabs).active = tab
+        await settle(pilot, partial(_tab_problems, screen, tab))
+    screen._show_first_page(screen._content_session, ChannelPage(entries or long_entries(30)))
+    if expand:
+        await pilot.press("i")
+    await pilot.pause(0.5)
 
-    return ScreenScenario(name, setup)
+
+def _tab_problems(screen, tab) -> list[str]:
+    return [] if screen._current_tab == tab else ["tab"]
+
+
+def _pushed_problems(app, screen_class) -> list[str]:
+    return [] if isinstance(app.screen, screen_class) else ["not pushed"]
+
+
+def _channel_scenario(name, tab=None, *, expand=False, entries=None):
+    return ScreenScenario(name, partial(_show_channel, tab=tab, expand=expand, entries=entries))
 
 
 CHANNEL_SCENARIOS = [
@@ -191,24 +149,24 @@ async def test_channel_screen_layout(main_app, scenario, monkeypatch):
         monkeypatch.setattr(ChannelScreen, name, lambda self: None)
     async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
         main_app.push_screen(ChannelScreen(CHANNEL_URL, "Chan"))
-        await settle(pilot, lambda: [] if isinstance(main_app.screen, ChannelScreen) else ["not pushed"])
+        await settle(pilot, partial(_pushed_problems, main_app, ChannelScreen))
         problems = await audit_screen_scenario(
             main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
         )
     assert not problems, "\n".join(problems)
 
 
+async def _show_playlist(app, pilot, *, header):
+    screen = app.screen
+    screen._show_first_page(screen._content_session, ChannelPage(long_entries(30), "tok", header))
+    await pilot.pause(0.5)
+
+
 def _playlist_scenario(name, *, info=None):
     header = {"playlist_id": "PLx", "title": "A Playlist With A Long Name Indeed " * 2, "description": LONG_DESC,
               "owner": "Some Owner", "owner_id": "UCx", "video_count": 442, "view_count": 1234567,
               "updated": "Updated 4 days ago", "thumbnail": ""} if info is None else info
-
-    async def setup(app, pilot):
-        screen = app.screen
-        screen._show_first_page(screen._content_session, ChannelPage(_entries(30), "tok", header))
-        await pilot.pause(0.5)
-
-    return ScreenScenario(name, setup)
+    return ScreenScenario(name, partial(_show_playlist, header=header))
 
 
 @pytest.mark.parametrize("scenario", [_playlist_scenario("playlist-page"),
@@ -219,27 +177,27 @@ async def test_playlist_page_layout(main_app, scenario, monkeypatch):
         monkeypatch.setattr(ChannelScreen, name, lambda self: None)
     async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
         main_app.push_screen(ChannelScreen("", "", trail=["Search"], playlist={"id": "PLx", "title": "Hits"}))
-        await settle(pilot, lambda: [] if isinstance(main_app.screen, ChannelScreen) else ["not pushed"])
+        await settle(pilot, partial(_pushed_problems, main_app, ChannelScreen))
         problems = await audit_screen_scenario(
             main_app, pilot, scenario, MAIN_SIZES, list_id="#ch-video-list", detail_id="#ch-detail-panel"
         )
     assert not problems, "\n".join(problems)
 
 
+async def _show_queue(app, pilot, *, entries):
+    audio = app.audio
+    audio._play_pending, audio._entry, audio._queue = True, entries[0], list(entries[1:])
+    app.screen._rebuild()
+    await pilot.pause(0.5)
+
+
 async def test_queue_page_layout(main_app, monkeypatch):
-    entries = _entries(60)
-
-    async def setup(app, pilot):
-        audio = app.audio
-        audio._play_pending, audio._entry, audio._queue = True, entries[0], list(entries[1:])
-        app.screen._rebuild()
-        await pilot.pause(0.5)
-
+    entries = long_entries(60)
     async with main_app.run_test(size=MAIN_SIZES[-1]) as pilot:
         main_app.push_screen(QueueScreen())
-        await settle(pilot, lambda: [] if isinstance(main_app.screen, QueueScreen) else ["not pushed"])
+        await settle(pilot, partial(_pushed_problems, main_app, QueueScreen))
         problems = await audit_screen_scenario(
-            main_app, pilot, ScreenScenario("queue-page", setup), MAIN_SIZES,
+            main_app, pilot, ScreenScenario("queue-page", partial(_show_queue, entries=entries)), MAIN_SIZES,
             list_id="#queue-video-list", detail_id="#queue-detail-panel",
         )
     assert not problems, "\n".join(problems)

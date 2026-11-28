@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import sys
 import threading
-from unittest.mock import MagicMock, patch
+from functools import partial
+from unittest.mock import patch
 
 import pytest
 
@@ -23,6 +24,7 @@ from src.downloads import (
     download_audio_with_progress,
     download_video_with_progress,
 )
+from src.tests.fakes import download_config, downloading_with, mock_ydl
 
 
 class TestMakeProgressHook:
@@ -121,69 +123,34 @@ class TestMakePostprocessorHook:
 class TestDownloadVideoWithProgress:
     """Test download_video_with_progress with mocked YoutubeDL."""
 
-    def _fake_config(self, tmp_path):
-        cfg = MagicMock()
-        cfg.video_dir = tmp_path / "videos"
-        cfg.audio_dir = tmp_path / "audio"
-        cfg.video_format = "%(title)s.%(ext)s"
-        cfg.audio_format = "%(title)s.%(ext)s"
-        cfg.preferred_quality = "1080"
-        cfg.cookies_file = None
-        return cfg
-
     def test_returns_true_on_success(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 0
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl()):
             result = download_video_with_progress("abc123def45", config)
         assert result is True
 
     def test_returns_false_on_failure(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 1
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl(1)):
             result = download_video_with_progress("abc123def45", config)
         assert result is False
 
     def test_returns_false_on_download_error(self, tmp_path):
         import yt_dlp
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.side_effect = yt_dlp.utils.DownloadError("fail")
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
+        config = download_config(tmp_path)
+        ydl = mock_ydl()
+        ydl.download.side_effect = yt_dlp.utils.DownloadError("fail")
 
-        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        with downloading_with(ydl):
             result = download_video_with_progress("abc123def45", config)
         assert result is False
 
     def test_quality_format_override(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 0
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        captured_opts = {}
-        def capture_ydl(opts):
-            captured_opts.update(opts)
-            return mock_ydl
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl()) as built:
             download_video_with_progress("abc123def45", config, quality_format="bestvideo+bestaudio/best")
 
+        captured_opts = built.opts
         assert captured_opts.get('format') == "bestvideo+bestaudio/best"
         assert captured_opts.get('merge_output_format') == 'mp4'
 
@@ -191,55 +158,24 @@ class TestDownloadVideoWithProgress:
 class TestDownloadAudioWithProgress:
     """Test download_audio_with_progress with mocked YoutubeDL."""
 
-    def _fake_config(self, tmp_path):
-        cfg = MagicMock()
-        cfg.video_dir = tmp_path / "videos"
-        cfg.audio_dir = tmp_path / "audio"
-        cfg.audio_format = "%(title)s.%(ext)s"
-        cfg.preferred_quality = "best"
-        cfg.cookies_file = None
-        return cfg
-
     def test_returns_true_on_success(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 0
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl()):
             result = download_audio_with_progress("xyz789ghj12", config)
         assert result is True
 
     def test_returns_false_on_failure(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 1
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", return_value=mock_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl(1)):
             result = download_audio_with_progress("xyz789ghj12", config)
         assert result is False
 
     def test_audio_opts_correct(self, tmp_path):
-        config = self._fake_config(tmp_path)
-        mock_ydl = MagicMock()
-        mock_ydl.download.return_value = 0
-        mock_ydl.__enter__ = MagicMock(return_value=mock_ydl)
-        mock_ydl.__exit__ = MagicMock(return_value=False)
-
-        captured_opts = {}
-        def capture_ydl(opts):
-            captured_opts.update(opts)
-            return mock_ydl
-
-        with patch("src.downloads.yt_dlp.YoutubeDL", side_effect=capture_ydl), \
-             patch("src.downloads.base_opts", return_value={}):
+        config = download_config(tmp_path)
+        with downloading_with(mock_ydl()) as built:
             download_audio_with_progress("xyz789ghj12", config)
 
+        captured_opts = built.opts
         assert captured_opts.get('format') == 'bestaudio/best'
         assert captured_opts.get('writeinfojson') is True
         assert captured_opts.get('writethumbnail') is True
@@ -260,48 +196,38 @@ class TestPhaseConstants:
         assert PHASE_POSTPROCESS == -3.0
 
 
+def _report_one_step(opts, results, urls):
+    opts["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 1, "total_bytes": 10})
+    results.append("finished")
+    return 0
+
+
+def _ydl_that_reports_progress(results, opts):
+    ydl = mock_ydl()
+    ydl.download.side_effect = partial(_report_one_step, opts, results)
+    return ydl
+
+
 class TestCancelHandle:
-    def _config(self, tmp_path):
-        cfg = MagicMock()
-        cfg.video_dir, cfg.audio_dir = tmp_path / "v", tmp_path / "a"
-        cfg.video_format = cfg.audio_format = "%(title)s.%(ext)s"
-        cfg.preferred_quality = "best"
-        return cfg
-
-    def _ydl_that_reports_progress(self, results):
-        def factory(opts):
-            ydl = MagicMock()
-            ydl.__enter__ = MagicMock(return_value=ydl)
-            ydl.__exit__ = MagicMock(return_value=False)
-
-            def download(urls):
-                opts["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 1, "total_bytes": 10})
-                results.append("finished")
-                return 0
-
-            ydl.download.side_effect = download
-            return ydl
-        return factory
-
     def test_setting_the_handle_aborts_the_download(self, tmp_path):
         import threading
 
         cancel, results = threading.Event(), []
         cancel.set()
-        with patch("src.downloads.yt_dlp.YoutubeDL", self._ydl_that_reports_progress(results)), \
+        with patch("src.downloads.yt_dlp.YoutubeDL", partial(_ydl_that_reports_progress, results)), \
              patch("src.downloads.base_opts", return_value={}):
-            assert download_video_with_progress("abc123def45", self._config(tmp_path), cancel=cancel) is False
-            assert download_audio_with_progress("abc123def45", self._config(tmp_path), cancel=cancel) is False
+            assert download_video_with_progress("abc123def45", download_config(tmp_path), cancel=cancel) is False
+            assert download_audio_with_progress("abc123def45", download_config(tmp_path), cancel=cancel) is False
         assert results == []
 
     def test_an_unset_handle_lets_it_finish(self, tmp_path):
         import threading
 
         results = []
-        with patch("src.downloads.yt_dlp.YoutubeDL", self._ydl_that_reports_progress(results)), \
+        with patch("src.downloads.yt_dlp.YoutubeDL", partial(_ydl_that_reports_progress, results)), \
              patch("src.downloads.base_opts", return_value={}):
             assert download_video_with_progress(
-                "abc123def45", self._config(tmp_path), cancel=threading.Event()
+                "abc123def45", download_config(tmp_path), cancel=threading.Event()
             ) is True
         assert results == ["finished"]
 

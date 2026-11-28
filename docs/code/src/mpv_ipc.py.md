@@ -46,5 +46,5 @@ unsolicited event lines on the same socket, so replies are matched by `request_i
 
 ## Known limits
 
-- The Windows pipe path is tested only against fake `pywin32` modules (`src/tests/unit/test_mpv_pipe.py`); the Unix path by `src/tests/integration/test_mpv_ipc.py`.
+- Tests cover the Windows pipe path against fake `pywin32` modules (`src/tests/unit/test_mpv_pipe.py`) and the Unix path in `src/tests/integration/test_mpv_ipc.py`. The Windows CI job also drives a real mpv over the pipe with `scripts/smoke-ipc.py`.
 - The reply read on Unix returns once a newline arrives, so one extra queued event line can be left in the stream. Request-id matching makes the polling path immune.

@@ -4,7 +4,6 @@ import pytest
 
 from src import playlist
 from src.tests.tui.layout_harness import SIZES, SMALL_SIZE, Scenario, audit_scenario
-from src.tui.audio_controller import AudioController
 from src.tui.screens.channel_tab_modal import ChannelTabModal
 from src.tui.screens.download_modal import DownloadModal
 from src.tui.screens.download_picker_modal import DownloadPickerModal
@@ -57,22 +56,9 @@ SCENARIOS = [
 ]
 
 
-@pytest.fixture
-def quiet(app, temp_playlists, monkeypatch):
-    """The app with Home's startup load and the thumbnail/focus workers silenced."""
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a, **k: None)
-    monkeypatch.setattr(DownloadModal, "_start_download", lambda self: None)
-    monkeypatch.setattr(WatchModal, "_launch_video", lambda self: None)
-    monkeypatch.setattr(WatchModal, "_poll_mpv", lambda self: None)
-    monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
-    return app
-
-
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
-async def test_modal_layout(quiet, scenario):
+async def test_modal_layout(quiet_app, scenario):
     sizes = SIZES + ([SMALL_SIZE] if scenario.small else [])
-    async with quiet.run_test(size=SIZES[0]) as pilot:
-        problems = await audit_scenario(quiet, pilot, scenario, sizes)
+    async with quiet_app.run_test(size=SIZES[0]) as pilot:
+        problems = await audit_scenario(quiet_app, pilot, scenario, sizes)
     assert not problems, "\n".join(problems)

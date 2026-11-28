@@ -1,15 +1,21 @@
 """Scripted journeys through the real screens with fake data: what the user sees at each step."""
 
 import threading
+from functools import partial, partialmethod
 
 import pytest
 import yaml
+from textual.content import Content
 from textual.widgets import Input
-from textual.worker import WorkerCancelled
 
 from src import history, playlist
+from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import settle, until
 from src.tui.audio_controller import AudioController
+from src.tui.screens.name_modal import NameModal
 from src.tui.screens.queue_screen import QueueScreen
+from src.tui.screens.search_modal import SearchModal
+from src.tui.screens.settings_modal import _Row
 from src.tui.widgets.video_list import VideoListPanel
 
 
@@ -22,28 +28,10 @@ def rows(prefix, n):
 
 @pytest.fixture(autouse=True)
 def quiet(monkeypatch, temp_history, temp_playlists):
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_focus", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.mixins.detail_focus.DetailFocusMixin._kick_thumb", lambda *a: None)
-    monkeypatch.setattr("src.tui.screens.main_screen.MainScreen._show_empty_feed_modal", lambda *a: None)
+    silence_detail_workers(monkeypatch)
+    silence_empty_feed_modal(monkeypatch)
     monkeypatch.setattr(AudioController, "_launch_worker", lambda *a, **k: None)
     monkeypatch.setattr("src.tui.audio_controller.cleanup_ipc", lambda path: None)
-
-
-async def settle(app, pilot):
-    for _ in range(3):
-        try:
-            await app.workers.wait_for_complete()
-        except WorkerCancelled:
-            pass
-        await pilot.pause()
-
-
-async def until(pilot, check):
-    for _ in range(200):
-        if check():
-            return
-        await pilot.pause()
-    raise AssertionError("condition never became true")
 
 
 def panel_of(app) -> VideoListPanel:
@@ -54,13 +42,14 @@ def shown(app) -> list[str]:
     return [e["id"] for e in panel_of(app).visited_entries()]
 
 
+def _more_rows(extended, panel):
+    extended.set()
+    return rows("more", 20)
+
+
 async def test_home_journey_load_page_extend_toggle_played_refresh(app, monkeypatch):
     fetches, extended = [], threading.Event()
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: fetches.append(1) or rows("home", 100))
-
-    def more(panel):
-        extended.set()
-        return rows("more", 20)
 
     async with app.run_test(size=(100, 30)) as pilot:
         await settle(app, pilot)
@@ -68,7 +57,7 @@ async def test_home_journey_load_page_extend_toggle_played_refresh(app, monkeypa
         size = panel.page_size
         assert shown(app)[:2] == [e["id"] for e in rows("home", 2)] and panel.current_page == 1
         pages = panel.total_pages
-        screen._fetch_next_batch = more
+        screen._fetch_next_batch = partial(_more_rows, extended)
         assert pages >= 4
         for _ in range(pages - 3):  # up to the third-to-last page: nothing is requested yet
             await pilot.press("l")
@@ -136,17 +125,19 @@ async def test_quit_journey_flushes_history_and_stops_audio(app, monkeypatch, tm
     assert rows("g", 1)[0]["id"] in on_disk
 
 
+def _goto(modal, key):
+    """Put the settings cursor on the row of ``key``."""
+    lv = modal._list
+    row = next(c for c in lv.children if isinstance(c, _Row) and c.fld.key == key)
+    lv.index = list(lv.children).index(row)
+
+
 async def test_settings_journey_theme_rows_per_page_and_suggestions_persist(app, monkeypatch):
     from src.config import Config
-    from src.tui.screens.settings_modal import SettingsModal, _Row
+    from src.tui.screens.settings_modal import SettingsModal
 
     monkeypatch.setattr("src.tui.screens.settings_modal.detect_installed_browsers", lambda: [])
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: rows("s", 60))
-
-    def goto(modal, key):
-        lv = modal._list
-        row = next(c for c in lv.children if isinstance(c, _Row) and c.fld.key == key)
-        lv.index = list(lv.children).index(row)
 
     async with app.run_test(size=(110, 50)) as pilot:
         await settle(app, pilot)
@@ -156,18 +147,18 @@ async def test_settings_journey_theme_rows_per_page_and_suggestions_persist(app,
         await pilot.pause()
         modal = app.screen
         assert isinstance(modal, SettingsModal)
-        goto(modal, "search_suggestions")
+        _goto(modal, "search_suggestions")
         before = app.config.search_suggestions_enabled
         await pilot.press("enter")
         await pilot.pause()
         assert app.config.search_suggestions_enabled is (not before)
-        goto(modal, "theme")
+        _goto(modal, "theme")
         await pilot.press("enter")
         await pilot.pause(0.2)
         await pilot.press("j", "j", "enter")
         await pilot.pause(0.2)
         assert app.config.theme == "ocean" and app.has_class("theme-ocean")
-        goto(modal, "rows_per_page")
+        _goto(modal, "rows_per_page")
         await pilot.press("enter")
         modal.query_one("#settings-input", Input).value = "35"
         await pilot.press("enter")
@@ -184,8 +175,6 @@ async def test_settings_journey_theme_rows_per_page_and_suggestions_persist(app,
 
 
 async def test_history_journey_play_resume_marker_remove_undo_source_switch_import(app, monkeypatch):
-    from textual.content import Content
-
     from src.tui.widgets.video_list import VideoListItem
 
     yt = rows("yt", 4)
@@ -223,43 +212,44 @@ async def test_history_journey_play_resume_marker_remove_undo_source_switch_impo
         assert {e["id"] for e in history.all_entries()} == {first["id"], *(e["id"] for e in yt)}
 
 
+def _search_results(calls, query, config, cache, *, count=50, on_first_batch=None, sort="relevance", kind="all", **_):
+    calls.append((query, sort, kind))
+    return [
+        {
+            "id": f"{query[:3]}{i:08d}", "title": f"{query} {'cat' if i % 2 else 'dog'} {i}",
+            "uploader": "Chan", "channel_url": "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
+        }
+        for i in range(30)
+    ]
+
+
+async def _search_for(app, pilot, text):
+    await pilot.press("slash")
+    await pilot.pause()
+    assert isinstance(app.screen, SearchModal)
+    await pilot.press(*text, "enter")
+    await settle(app, pilot)
+
+
 async def test_search_journey_query_sort_type_channel_back_filter(app, monkeypatch):
     from src import innertube
     from src.tui.screens.channel_screen import ChannelScreen
-    from src.tui.screens.search_modal import SearchModal
     from src.tui.screens.sort_modal import SortModal
 
     calls = []
 
-    def results(query, config, cache, *, count=50, on_first_batch=None, sort="relevance", kind="all", **_):
-        calls.append((query, sort, kind))
-        return [
-            {
-                "id": f"{query[:3]}{i:08d}", "title": f"{query} {'cat' if i % 2 else 'dog'} {i}",
-                "uploader": "Chan", "channel_url": "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
-            }
-            for i in range(30)
-        ]
-
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: [])
-    monkeypatch.setattr("src.ytdlp.fetch_search_batch", results)
+    monkeypatch.setattr("src.ytdlp.fetch_search_batch", partial(_search_results, calls))
     monkeypatch.setattr(ChannelScreen, "_load_channel_info", lambda self: None)
     monkeypatch.setattr(innertube, "fetch_channel_page", lambda *a, **k: innertube.ChannelPage(rows("ch", 3)))
-
-    async def search(text):
-        await pilot.press("slash")
-        await pilot.pause()
-        assert isinstance(app.screen, SearchModal)
-        await pilot.press(*text, "enter")
-        await settle(app, pilot)
 
     async with app.run_test(size=(110, 34)) as pilot:
         await settle(app, pilot)
         screen = app.screen
-        await search("alpha")
+        await _search_for(app, pilot, "alpha")
         assert screen._current_tab == "search" and calls[-1] == ("alpha", "relevance", "all")
         assert shown(app)[0].startswith("alp")
-        await search("beta")
+        await _search_for(app, pilot, "beta")
         assert shown(app)[0].startswith("bet") and "alpha" in str(panel_of(app)._breadcrumb.content)
         await pilot.press("s")
         await pilot.pause()
@@ -297,10 +287,19 @@ def add_download(directory, vid, ext, size=5):
     (directory / f"{vid}.info.json").write_text(json.dumps(sidecar), encoding="utf-8")
 
 
-async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(app, monkeypatch, tmp_path):
-    from textual.content import Content
+def _record_question(bar, questions, show, question):
+    questions.append(Content.from_markup(question).plain)
+    show(bar, question)
 
-    from src.tui.screens.name_modal import NameModal
+
+async def _name_it(app, pilot, name):
+    assert isinstance(app.screen, NameModal)
+    app.screen.query_one("#name-input", Input).value = name
+    await app.screen.query_one("#name-input", Input).action_submit()
+    await settle(app, pilot)
+
+
+async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(app, monkeypatch, tmp_path):
     from src.tui.widgets.action_bar import ActionBar
 
     videos, audio = tmp_path / "vid", tmp_path / "aud"
@@ -310,19 +309,7 @@ async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(a
     app.config._data["video_dir"], app.config._data["audio_dir"] = str(videos), str(audio)
     monkeypatch.setattr("src.ytdlp.fetch_page_batch", lambda *a, **k: [])
     questions = []
-    real_prompt = ActionBar.show_prompt
-
-    def spy(self, question):
-        questions.append(Content.from_markup(question).plain)
-        real_prompt(self, question)
-
-    monkeypatch.setattr(ActionBar, "show_prompt", spy)
-
-    async def name_it(name):
-        assert isinstance(app.screen, NameModal)
-        app.screen.query_one("#name-input", Input).value = name
-        await app.screen.query_one("#name-input", Input).action_submit()
-        await settle(app, pilot)
+    monkeypatch.setattr(ActionBar, "show_prompt", partialmethod(_record_question, questions, ActionBar.show_prompt))
 
     async with app.run_test(size=(120, 40)) as pilot:
         await settle(app, pilot)
@@ -338,7 +325,7 @@ async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(a
         assert shown(app) == ["a1"]
         await pilot.press("n")  # a playlist from the rail
         await pilot.pause()
-        await name_it("Mix")
+        await _name_it(app, pilot, "Mix")
         record = playlist.list_playlists()[0]
         pview = f"playlist:{record['id']}"
         assert screen._current_tab == pview and shown(app) == []
@@ -370,7 +357,7 @@ async def test_library_journey_rail_playlist_reorder_remove_undo_rename_delete(a
         assert sorted(i["id"] for i in playlist.get(record["id"])["items"]) == ["v1", "v2"]
         await pilot.press("R")
         await pilot.pause()
-        await name_it("Mix tape")
+        await _name_it(app, pilot, "Mix tape")
         assert playlist.get(record["id"])["name"] == "Mix tape"
         screen._select_collection("library:video", focus_list=True)  # delete a downloaded row: the question lists it
         await settle(app, pilot)

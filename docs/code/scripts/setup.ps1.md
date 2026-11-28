@@ -20,4 +20,4 @@ Builds before 2026-05 put code directly in `%LOCALAPPDATA%\TermTube`, which is a
 
 ## Limits
 
-- Not run by tests; needs a manual run on Windows.
+- The test suite does not run it; the Windows CI job installs with `-NoPrompt` (`.github/workflows/test.yml`). Interactive prompts need a manual run on Windows.

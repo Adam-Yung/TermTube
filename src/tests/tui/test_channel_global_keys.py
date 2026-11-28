@@ -1,6 +1,7 @@
 """Key-conflicts plan: channel page keys ? , / q, the relabelled menu entry, audio keys in the download modal."""
 
 import threading
+from functools import partial
 from unittest.mock import patch
 
 from src.strings import text
@@ -89,15 +90,16 @@ async def test_the_open_menu_shows_the_override_label(app):
         assert any(text("item_actions.menu_play_audio") in label for label in labels)
 
 
+def _blocked_download(release, video_id, config, *, cancel, **kwargs):
+    release.wait(5)
+    return False
+
+
 async def test_space_and_x_reach_the_audio_during_a_download(app):
     release = threading.Event()
 
-    def slow_download(video_id, config, *, cancel, **kwargs):
-        release.wait(5)
-        return False
-
     async with app.run_test(size=(110, 34)) as pilot:
-        with patch("src.downloads.download_video_with_progress", slow_download), \
+        with patch("src.downloads.download_video_with_progress", partial(_blocked_download, release)), \
                 patch.object(app.audio, "toggle_audio_pause") as pause, patch.object(app.audio, "stop_audio") as stop:
             app.push_screen(DownloadModal(ENTRY["id"], ENTRY))
             await pilot.pause(0.3)
