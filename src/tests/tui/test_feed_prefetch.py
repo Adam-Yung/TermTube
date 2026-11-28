@@ -6,7 +6,7 @@ import pytest
 
 from src.errors import RateLimited
 from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
-from src.tests.tui.waits import until
+from src.tests.tui.waits import settle, until
 
 
 def _entries(n, prefix):
@@ -40,8 +40,8 @@ def _quiet(monkeypatch):
 
 
 async def _setup(app, pilot, pages, cursor):
+    await settle(app, pilot)  # a late Home load would replace the seeded rows
     screen = app.screen
-    await pilot.pause(0.3)
     panel = screen._list()
     panel.clear_and_set_loading()
     panel.add_entries(1, _entries(pages * panel.page_size, "seed"))

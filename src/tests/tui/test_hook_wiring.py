@@ -10,6 +10,7 @@ import pytest
 from textual.widgets import Tabs
 
 from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import settle
 from src.tui.screens.channel_screen import ChannelScreen
 from src.tui.screens.main_screen import MainScreen
 from src.tui.screens.mixins.feed_loader import FeedLoaderMixin
@@ -50,8 +51,8 @@ async def reach_page(pilot, panel, page):
 
 
 async def seed(app, pilot, tab, pages):
+    await settle(app, pilot)  # a late Home load would replace the seeded rows
     screen = app.screen
-    await pilot.pause(0.3)
     panel = screen._list()
     panel.clear_and_set_loading()
     panel.add_entries(1, rows(pages * panel.page_size))
