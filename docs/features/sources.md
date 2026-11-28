@@ -3,6 +3,21 @@
 TermTube asks the cheapest source that can answer, and falls back one step when it cannot. Public data goes through YouTube's own web API
 ("InnerTube", anonymous, 0.1 to 1 s); only what truly needs yt-dlp uses yt-dlp (2 to 3 s).
 
+## The source ladder
+
+Each operation takes the first rung that returns the fields the UI reads, and keeps the next as fallback:
+
+1. disk or memory cache;
+2. derived from the video id, no request (thumbnail URLs);
+3. a public static endpoint (`i.ytimg.com`, SponsorBlock);
+4. InnerTube, anonymous;
+5. yt-dlp.
+
+A faster source is adopted only if the benchmark (`scripts/bench-sources.py`) shows it clearly faster (p50 at least 2x for a new rung, 1.5x for a
+yt-dlp variant), it returns every field the UI reads, and the slower one stays wired as fallback. No authenticated InnerTube.
+
+## Sources by data
+
 | Data | Source | Account | Fallback | Cached |
 |---|---|---|---|---|
 | **YouTube history** (History tab, `Y`) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out, or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
@@ -22,6 +37,7 @@ TermTube asks the cheapest source that can answer, and falls back one step when 
 
 Notes:
 
+- **Subscriptions lists channels, not a video feed** (owner's choice): `Enter` opens the channel page.
 - **Why not yt-dlp for everything?** It starts a Python extractor and a JavaScript solver per call: about 3 s for a stream URL, 3 to 14 times
   slower than InnerTube for what InnerTube can serve (`docs/guides/benchmarks.md`).
 - **Why no account on InnerTube?** The web API never receives your cookies; only the yt-dlp calls for the account feeds (Home, subscriptions, YouTube history, Watch Later) do ([accounts-and-cookies.md](accounts-and-cookies.md)).

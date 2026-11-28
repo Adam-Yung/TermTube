@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The pre-commit gate from AGENTS.md: byte-compile, ruff, unit and TUI tests, doc mirrors, doc links, dead code.
+# The pre-commit gate from AGENTS.md: byte-compile, ruff, unit and TUI tests, dead code, ratchets, doc gate.
 # Prints GATE-OK only if every step passed.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -16,7 +16,7 @@ ruff_bin="${RUFF:-.venv/bin/ruff}"
 [[ -n $ruff_bin ]] || { echo "ruff not found: install it (pip install -r requirements-dev.txt)" >&2; exit 1; }
 "$ruff_bin" check .
 "$py" -m pytest -q src/tests/unit src/tests/integration src/tests/tui
-scripts/check-doc-mirrors.sh
-"$py" scripts/check-doc-links.py
 "$py" scripts/check-dead-code.py
+# The gates judge text, not platform behaviour: the pipeline runs them on Linux only (DESLOP_GATES=0 elsewhere).
+if [[ ${DESLOP_GATES:-1} == 1 ]]; then PYTHON="$py" scripts/gate/run.sh; else echo "gates: skipped (DESLOP_GATES=0)"; fi
 echo GATE-OK

@@ -1,4 +1,4 @@
-"""Keys that cannot act say why, once; other keys still work (docs/plans/2026-11-15-key-conflicts-PLAN.md)."""
+"""Keys that cannot act say why, once; other keys still work (docs/features/keybindings.md)."""
 
 from unittest.mock import patch
 

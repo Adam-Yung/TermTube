@@ -46,3 +46,6 @@ htmlcov/
 .claude/
 .cursor/*
 !.cursor/rules/
+
+# Pinned gate analyzers
+node_modules/

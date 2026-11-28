@@ -1,6 +1,6 @@
 # `scripts/bench-sources.py`
 
-Times the ladder rungs from `docs/plans/2026-11-15-optimization-PLAN.md` and prints p50 and max per operation. Results and what they mean:
+Times the ladder rungs from `docs/features/sources.md` and prints p50 and max per operation. Results and what they mean:
 `docs/guides/benchmarks.md`.
 
 - `--streams` times only the yt-dlp resolve variants (fresh, warmed and reused, `140/251`, manifest skip, `player_client` choices) with the production options from `ytdlp.base_opts`. A variant's `ok` column matters more than its time: clients that need a PO token fail fast and look quick.

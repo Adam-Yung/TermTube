@@ -24,14 +24,20 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the doc gate compares commit history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -r requirements-dev.txt
+      - name: Pinned gate analyzers
+        if: runner.os == 'Linux'
+        run: npm ci --ignore-scripts --prefix scripts/gate/lint && shellcheck --version
       - run: scripts/verify.sh
         shell: bash
         env:
           TERM: xterm-256color
+          DESLOP_GATES: ${{ runner.os == 'Linux' && '1' || '0' }}
 
   # Layer 2: the app as a user gets it. Real installer, real launcher, real mpv, the real TUI in a real pseudo-terminal.
   # Hermetic: no YouTube. See docs/guides/ci.md for what a green run proves.

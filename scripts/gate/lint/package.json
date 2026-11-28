@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Pinned analyzers for the de-slop gates",
+  "devDependencies": {
+    "jscpd": "5.4.3"
+  }
+}

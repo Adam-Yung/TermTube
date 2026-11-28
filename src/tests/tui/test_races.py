@@ -330,11 +330,11 @@ async def test_the_queue_page_follows_a_queue_that_empties_and_a_track_that_chan
         controller = app.audio
         controller._play_pending, controller._entry, controller._queue = True, a, [b, c, d]
         app.push_screen(QueueScreen())
-        await pilot.pause(0.3)
+        await pilot.pause()
         page = app.screen
+        await until(pilot, lambda: page._selected_entry() is a)  # rows mount late on a loaded machine
         await pilot.press("down", "down", "down")
-        await pilot.pause(0.2)
-        assert page._selected_entry() is d
+        await until(pilot, lambda: page._selected_entry() is d)
         controller.remove_queued(2)
         controller.remove_queued(1)
         controller.remove_queued(0)

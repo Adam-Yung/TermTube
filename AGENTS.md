@@ -55,11 +55,11 @@ Distinct places for distinct purposes. `docs/README.md` has the map.
 - **`docs/features/<name>.md`** — one file per feature, describing its design as it exists today (not a history).
 - **`docs/code/<mirror-of-source-path>.md`** — one file per source file, at the identical relative path: `src/player.py` is documented at
   `docs/code/src/player.py.md`. This is where "why is this function doing X" is answered when it is too specific for a feature doc.
-  Covered: every file under `src/` except `src/tests/` and empty `__init__.py`, every file under `scripts/`, and the launchers
+  Covered: every file under `src/` except `src/tests/` and empty `__init__.py`, every file under `scripts/` except the vendored `scripts/gate/`, and the launchers
   `termtube` and `termtube.cmd`.
 - **`docs/decisions/<topic>.md`** — append-only dated log of decisions made during implementation.
-- **`docs/guides/`** — how to run, debug and check the product. **`docs/plans/`** — intent for work not yet built.
-  **`docs/history/`** — finished reviews and drafts.
+- **`docs/guides/`** — how to run, debug and check the product. **`docs/plans/`** — intent for work not yet built;
+  a finished plan is deleted (git keeps it).
 - Top level of `docs/`: `README.md`, `status.md`, `todo.md`, `glossary.md` only.
 
 **Rule for agents:** before answering "why does this code do X", read the file's `docs/code/` mirror and any relevant
@@ -71,9 +71,9 @@ change. If you cannot, say so; do not leave it silently stale.
 **Doc drift:** a mirror that disagrees with its source, noticed while working on something else, is flagged to the user, not silently fixed,
 unless the fix is trivial and your change depends on it.
 
-**Mechanical checks** (run by `scripts/verify.sh`): `scripts/check-doc-mirrors.sh` (a mirror per source file, a source per mirror),
-`scripts/check-doc-links.py` (every `docs/...` path mentioned exists), `scripts/check-dead-code.py` (no unused imports, no unreferenced
-function, method or class).
+**Mechanical checks** (run by `scripts/verify.sh`): `scripts/check-dead-code.py` (no unused imports, no unreferenced function, method or class) and `scripts/gate/run.sh`:
+ratchets that only shrink (structure, duplication, dead code, mirror freshness, doc size, expiry, growth) and the doc gate (brief, a mirror
+per source file, links).
 
 ### What a mirror contains
 
@@ -120,7 +120,7 @@ No AI slop:
 
 - **Every feature gets automated tests before it is done.** Manual verification alone does not count.
 - Test behavior, not source text: no `inspect.getsource` assertions.
-- **Every commit is gated on `scripts/verify.sh`** (unit and TUI tests, doc mirrors, doc links, dead-code check, ruff, byte-compile), green, run
+- **Every commit is gated on `scripts/verify.sh`** (unit and TUI tests, dead-code check, gates, ruff, byte-compile), green, run
   immediately before the commit. If it fails, fix or revert; do not commit past it.
 - Tests never touch the network, the real browser profile, the keychain, or the real `~/.config` / `~/.cache`. Use the fixtures in
   `src/tests/conftest.py`.

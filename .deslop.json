@@ -1,0 +1,5 @@
+{
+  "exclude": ["scripts/gate"],
+  "gates": ["structure", "duplication", "deadcode", "mirror-fresh", "doc-size", "expiry", "growth"],
+  "baseline_dir": "scripts/gate/baselines"
+}

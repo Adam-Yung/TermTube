@@ -1,7 +1,6 @@
 # Status
 
 **Last updated:** 2026-11-27. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 8 of 8 on 2026-11-23 (now also a playlist page and a Mix).
-The log of how it got here (restructure, optimization steps, measurements): [history/2026-11-16-status-log.md](history/2026-11-16-status-log.md).
 
 ## What exists
 
@@ -45,7 +44,6 @@ The log of how it got here (restructure, optimization steps, measurements): [his
 ## Known limits
 
 - InnerTube fetch errors become empty results; callers then fall back to yt-dlp.
-- `sponsorblock.py` still falls back to an unverified TLS context when certifi and the system store both fail to build (separate from the thumbnail setting, which is now opt-in).
 - A sign-in failure on Home or Subscriptions shows the empty-feed dialog, not a "sign in again" message.
 - History stores slim records, including for rows played from the Library. The Library index (`library.json`) is slim too.
 

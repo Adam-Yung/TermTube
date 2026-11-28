@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Time each rung of the source ladder (docs/plans/2026-11-15-optimization-PLAN.md) against public YouTube endpoints.
+"""Time each rung of the source ladder (docs/features/sources.md) against public YouTube endpoints.
 
 Anonymous: no cookies, no browser profile. Makes about 60 small requests plus a few yt-dlp metadata
 resolves (no media is downloaded).

@@ -15,7 +15,7 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 4. **Audio transport lives on keys that nothing else uses.** `Space` pause, `x` stop, `[`/`]` seek ±5 s, `{`/`}` ±10 s, `0`–`9` seek to
    0–90 %, `>` next track, `<` previous track. They work from any list because audio is background playback.
 5. **One key, one action.** No key is "listen or seek" or "stop or subscribe".
-   **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first. Open decisions: `docs/plans/2026-11-15-key-conflicts-PLAN.md`.
+   **A key that cannot act says why** (a short notice, at most once per 2 s): not a video, nothing playing, queue empty, already playing this track, live stream, already downloaded, no URL. **Keys that cannot work together are refused with a hint, not run.** While audio plays, `v` / `V` do nothing but say so (video and audio would overlap); stop audio with `x` first.
 6. **`D` always means "remove this from where I am looking"** and asks once, in the action bar, saying what it will remove. `y` confirms;
    every other key cancels and does nothing else. A tab that cannot remove says why. `u` undoes the last removal for 30 s (entries only; files are never undone).
    `Q` is unbound.

@@ -139,7 +139,7 @@ what each file is for: `docs/code/<path>.md`.
 | Live YouTube still parses | `.venv/bin/python scripts/canary-live.py` | ~5 s | network |
 | Source speeds | `.venv/bin/python scripts/bench-sources.py` | ~1 min | network |
 
-`verify.sh` runs: byte-compile, `ruff check .` (`ruff.toml`), all tests, `check-doc-mirrors.sh`, `check-doc-links.py`, `check-dead-code.py`. It uses
+`verify.sh` runs: byte-compile, `ruff check .` (`ruff.toml`), all tests, `check-dead-code.py`, `scripts/gate/run.sh` (needs `shellcheck` and `npm ci --ignore-scripts --prefix scripts/gate/lint`). It uses
 `$RUFF`, else `.venv/bin/ruff`, else `ruff` on PATH. Never trust a piped exit code: look for the literal `GATE-OK`.
 The tests never touch the network, your browser profile or your real config and cache. The same checks run on GitHub for Linux, macOS and Windows;
 what a green run proves: [ci.md](ci.md).
