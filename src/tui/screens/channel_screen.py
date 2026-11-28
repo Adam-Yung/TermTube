@@ -85,6 +85,7 @@ class ChannelScreen(
         self._current_tab = "ch-tab-videos"
         self._sort = "date"
         self._init_channel_content()
+        self._info_avatar_session = 0  # only the newest avatar load may draw
         self._shown_tabs: tuple[str, ...] = _DEFAULT_TABS
         self._init_detail_focus()
 

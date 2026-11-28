@@ -1,6 +1,8 @@
 """Shared pytest fixtures for TermTube test suite."""
 
+import socket
 import sys
+from functools import partial
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -198,3 +200,15 @@ def mock_mpv_ipc():
     with patch("src.player.send_ipc_command") as mock_send, \
          patch("src.player.poll_audio_properties", return_value=(10.0, 300.0, False)) as mock_poll:
         yield mock_send, mock_poll
+
+
+def _resolve_local_only(resolve, host, *args, **kwargs):
+    if host not in (None, "", "localhost", "127.0.0.1", "::1"):
+        raise socket.gaierror(f"tests may not use the network (tried {host})")
+    return resolve(host, *args, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def no_network(monkeypatch):
+    """Tests never reach the network: only this machine's names resolve."""
+    monkeypatch.setattr(socket, "getaddrinfo", partial(_resolve_local_only, socket.getaddrinfo))

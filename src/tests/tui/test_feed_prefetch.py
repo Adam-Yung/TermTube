@@ -6,6 +6,7 @@ import pytest
 
 from src.errors import RateLimited
 from src.tests.fakes import silence_detail_workers, silence_empty_feed_modal
+from src.tests.tui.waits import until
 
 
 def _entries(n, prefix):
@@ -57,8 +58,7 @@ async def test_reaching_the_second_to_last_page_prefetches_once(app):
     async with app.run_test(size=(100, 30)) as pilot:
         screen, panel = await _setup(app, pilot, 3, cursor)
         screen.action_page_next()
-        await pilot.pause(0.2)
-        assert panel.current_page == 2
+        await until(pilot, lambda: panel.current_page == 2)  # a slow machine turns the page late
         assert "loading 80 more" in panel._status_note()
         screen.action_page_next()
         screen.action_goto_end()
