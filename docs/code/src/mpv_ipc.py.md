@@ -42,7 +42,8 @@ socket is shared by all of them.
 
 `poll` asks for `time-pos`, `duration` and `pause` in one round trip, tagged with `request_id` 0 to 2. mpv also emits
 unsolicited event lines on the same socket, so replies are matched by `request_id`, never by order. Unix reads until all three arrive or the
-1 s socket timeout hits. Missing values come back as `None` (`paused` is `False`). Without `pywin32` the Windows path returns nothing.
+1 s socket timeout hits. A poll that times out drops the pooled socket: its late replies would otherwise answer the next poll, which
+reuses the ids. Missing values come back as `None` (`paused` is `False`). Without `pywin32` the Windows path returns nothing.
 
 ## Known limits
 

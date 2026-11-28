@@ -10,6 +10,7 @@ import json
 import socket
 import threading
 from collections.abc import Callable, Iterator
+from functools import partial
 from typing import Any
 
 from src.plat import IS_WINDOWS
@@ -22,6 +23,7 @@ _ipc_locks_lock = threading.Lock()
 
 
 _IPC_LOCKS_MAX = 20
+_POLL_TIMEOUT = 1.0
 
 PollResult = tuple[float | None, float | None, bool]  # time_pos, duration, is_paused
 
@@ -236,7 +238,7 @@ def _extract_poll_results(results: dict[int, dict]) -> PollResult:
     )
 
 
-def _exchange_poll(s: socket.socket) -> PollResult:
+def _exchange_poll(s: socket.socket, socket_path: str) -> PollResult:
     s.sendall(_poll_payload())
     buf = b""
     results: dict[int, dict] = {}
@@ -244,13 +246,14 @@ def _exchange_poll(s: socket.socket) -> PollResult:
         while len(results) < len(_POLL_PROPS):
             buf = _collect_replies(buf + _recv(s), results)
     except TimeoutError:
-        pass
+        # Late replies would answer the next poll, which reuses the request ids.
+        drop_socket(socket_path)
     return _extract_poll_results(results)
 
 
 def _poll_audio_properties_batched(*, socket_path: str) -> PollResult:
     """Unix: batch all three requests on the persistent socket connection."""
-    return _on_socket(socket_path, 1.0, _exchange_poll) or _NOTHING_POLLED
+    return _on_socket(socket_path, _POLL_TIMEOUT, partial(_exchange_poll, socket_path=socket_path)) or _NOTHING_POLLED
 
 
 def _poll_results_from(handle) -> PollResult:

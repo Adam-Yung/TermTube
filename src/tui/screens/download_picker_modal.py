@@ -8,6 +8,7 @@ from textual.widgets import ListItem, ListView, Static
 
 from src.downloads import QUALITY_CHOICES
 from src.strings import text
+from src.tui.fmt import escape_markup
 
 _VIDEO_DL_QUALITY = QUALITY_CHOICES
 _AUDIO_DL_QUALITY = [
@@ -46,7 +47,7 @@ class DownloadPickerModal(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="dlpick-dialog", classes="dialog"):
             if self._title:
-                t = self._title[:55]
+                t = escape_markup(self._title[:55])
                 yield Static(f"[bold]{t}[/bold]", id="dlpick-video-title", markup=True)
             yield Static(text("download_picker_modal.header"), id="dlpick-header", markup=False)
             yield Static(text("download_picker_modal.sub_type"), id="dlpick-sub", markup=False)

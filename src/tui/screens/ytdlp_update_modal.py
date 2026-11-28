@@ -7,6 +7,7 @@ from textual.screen import ModalScreen
 from textual.widgets import ListItem, ListView, Static
 
 from src.strings import text
+from src.tui.fmt import escape_markup
 
 
 class YtdlpUpdateModal(ModalScreen[str]):
@@ -27,7 +28,7 @@ class YtdlpUpdateModal(ModalScreen[str]):
             )
             body = text("ytdlp_update_modal.body")
             if self._error_detail:
-                body += text("ytdlp_update_modal.detail", detail=self._error_detail[:120])
+                body += text("ytdlp_update_modal.detail", detail=escape_markup(self._error_detail[:120]))
             yield Static(body, id="ytdlp-update-body", markup=True)
             yield ListView(
                 ListItem(Static(text("ytdlp_update_modal.update")), id="ytdlp-update-yes"),
