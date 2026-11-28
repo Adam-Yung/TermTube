@@ -6,7 +6,7 @@ Local watch history: videos played through this TUI, not the Google account's hi
 ## Invariants
 
 - Records are slim: `id, title, uploader, channel_id, duration, thumbnail` (a URL), `view_count, upload_date` (list rows show views and
-  age), plus `watched_at, plays, seconds, resume_s, source`. `_slim` drops everything else, so playing a Library row never stores its
+  age), plus `watched_at, plays, seconds, resume_s, source`. `slim` drops everything else, so playing a Library row never stores its
   sidecar, description or formats. `seconds` and `resume_s` are kept across replays and written by `record_progress` (see `src/progress.py`).
 - `add(entry, config)` is called on the UI thread (audio progress) and from the video modal's worker. It updates the in-memory list
   synchronously under the store lock and defers the disk write (debounced, flushed at exit); a failed write is logged and the entry stays in memory.
@@ -14,6 +14,7 @@ Local watch history: videos played through this TUI, not the Google account's hi
 - The v1 file (a bare list of full entries with `_watched_at`) migrates on first load: slimmed, `plays` 1, then saved as v2.
 - `all_entries()` returns a shallow copy: safe to hold, the dicts are shared.
 - Entry ids fall back to `webpage_url_basename`; an entry with neither is ignored.
+- Each write is a module function bound with `partial` and run by `JsonStore.update`; its return value both says "save" and carries the result (records removed, rows imported).
 
 `slim(entry, vid, keys=_KEPT)` is public: the Library index reuses it with a longer key list, so a row played from the Library is stored as slim as any other.
 

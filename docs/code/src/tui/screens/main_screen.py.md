@@ -1,6 +1,8 @@
 # src/tui/screens/main_screen.py
 
-The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `PlaylistToolsMixin`, `LibraryRailMixin`, `ListToolsMixin`, `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioBarMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, search, subscription rows, the header spinner counter, and quit.
+The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It is thin; behaviour lives in the mixins, in MRO order `PlaylistToolsMixin`, `LibraryRailMixin`, `ListToolsMixin`, `ListNavMixin`, `DetailFocusMixin`, `ItemActionsMixin`, `AudioBarMixin`, `FeedLoaderMixin`, `DebugLogMixin` (wiring map: `docs/features/architecture.md`). The screen itself owns tabs, the per-view tools and removals, the header spinner counter, and quit. Search and the history sort are `SearchTabMixin`, channel rows `SubscriptionRowsMixin`, the feed and startup dialogs `FeedPromptsMixin`, Help/Settings `AppPagesMixin`.
+
+`_VIEW_TOOLS` lists the tools a view has regardless of focus. View ids and their tabs are in `tui/views.py`.
 
 ## Tabs
 
@@ -30,7 +32,7 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 ## List tools
 
 `ListToolsMixin` comes first in the MRO so its `on_key` can swallow keys while a remove question is open. `_removals()` is the per-view table of remove handlers (History, the three Library collections, playlists). `action_nav_back` clears a kept filter first, then on Library moves focus from the list to the rail, then on Search pops the previous query.
-- `_search` is a `SearchStack`. `_show_search_results` saves the page and row of the results being left (`_save_search_position`, also when switching tabs), pushes the query and shows it through `_show_search_frame`. `action_nav_back` pops it only on the Search tab. The saved position is applied once by `FeedLoaderMixin._finish_search_load` after the (cached) results load.
+- `_search` is a `SearchStack`. `_show_search_results` saves the page and row of the results being left (`_save_search_position`, also when switching tabs), pushes the query and shows it through `_show_search_frame`. `action_nav_back` pops it only on the Search tab. The saved position is applied once by `ListSourcesMixin._finish_search_load` after the (cached) results load.
 
 - `s` / `t` (`action_search_sort`, `action_search_type`) open the shared `SortModal` with the search sort or type options and write the choice to the current `SearchFrame` (`set_filter`), then `_show_search_frame` reloads (own cache entry per sort and type). Off the Search tab they only hint. Enter on a playlist row of a Search result hints "Press b to open the playlist in the browser" (`b` opens the page); channel rows open the channel page as on Subscriptions.
 

@@ -101,11 +101,14 @@ class Cache:
         "fragments",
     })
 
+    def _without_fat(self, entry: Entry) -> dict:
+        return {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
+
     def put_video(self, entry: Entry) -> None:
         vid = entry.get("id") or entry.get("webpage_url_basename")
         if not vid:
             return
-        slim = {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
+        slim = self._without_fat(entry)
         slim["_cached_at"] = time.time()
         path = VIDEO_DIR / f"{vid}.json"
         with _write_lock:
@@ -132,31 +135,26 @@ class Cache:
         except (json.JSONDecodeError, OSError):
             return None
 
-    def get_feed(self, key: str) -> list[str] | None:
-        """Video ids of a feed, or None if missing or past its TTL (default 1 h)."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        if not path.exists():
-            return None
+    def _read_feed(self, key: str) -> tuple[dict, float] | None:
+        """The feed file and its age in seconds; None if it is missing, past its TTL (default 1 h) or old-format."""
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads((CACHE_DIR / f"feed_{key}.json").read_text(encoding="utf-8"))
             age = time.time() - data.get("_cached_at", 0)
-            if age > self._ttl.get(key, 3600) or data.get("format") != FEED_FORMAT:
-                return None
-            return data.get("ids", [])
         except (json.JSONDecodeError, OSError):
             return None
+        if age > self._ttl.get(key, 3600) or data.get("format") != FEED_FORMAT:
+            return None
+        return data, age
+
+    def get_feed(self, key: str) -> list[str] | None:
+        """Video ids of a feed, or None if missing or past its TTL."""
+        feed = self._read_feed(key)
+        return feed[0].get("ids", []) if feed else None
 
     def feed_age(self, key: str) -> float | None:
         """Seconds since the feed was cached, or None if it is missing or past its TTL."""
-        path = CACHE_DIR / f"feed_{key}.json"
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            age = time.time() - data.get("_cached_at", 0)
-        except (json.JSONDecodeError, OSError):
-            return None
-        if data.get("format") != FEED_FORMAT:
-            return None
-        return age if age <= self._ttl.get(key, 3600) else None
+        feed = self._read_feed(key)
+        return feed[1] if feed else None
 
     def is_feed_fresh(self, key: str) -> bool:
         """True if the feed cache exists and is within TTL."""
@@ -228,13 +226,14 @@ class Cache:
         """Suppress a video now. Past 2000 suppressed ids the oldest are evicted down to 1500."""
         self._load_suppressed()
         with self._suppression_lock:
-            if video_id not in self._suppressed:
-                self._suppressed[video_id] = None
-                if len(self._suppressed) > 2000:
-                    while len(self._suppressed) > 1500:
-                        self._suppressed.popitem(last=False)
-                self._save_suppressed()
-                logger.debug("cache.suppress_video %s", video_id)
+            if video_id in self._suppressed:
+                return
+            self._suppressed[video_id] = None
+            if len(self._suppressed) > 2000:
+                while len(self._suppressed) > 1500:
+                    self._suppressed.popitem(last=False)
+            self._save_suppressed()
+            logger.debug("cache.suppress_video %s", video_id)
 
     def is_suppressed(self, video_id: str) -> bool:
         self._load_suppressed()
@@ -263,18 +262,10 @@ class Cache:
     def put_home_stash(self, entries: list[Entry]) -> None:
         """Write up to ``_STASH_SIZE`` entries; the caller backfills so the next boot gets a full page."""
         slim = entries[: self._STASH_SIZE]
-        try:
-            with _write_lock:
-                _atomic_write(
-                    self._stash_path,
-                    json.dumps(
-                        {"_cached_at": time.time(), "entries": slim},
-                        ensure_ascii=False,
-                    ),
-                )
-            logger.debug("cache.put_home_stash: %d entries", len(slim))
-        except OSError:
-            pass
+        with _write_lock:
+            payload = json.dumps({"_cached_at": time.time(), "entries": slim}, ensure_ascii=False)
+            _atomic_write(self._stash_path, payload)
+        logger.debug("cache.put_home_stash: %d entries", len(slim))
 
     def clear_home_stash(self) -> None:
         """Delete the stash file."""
@@ -332,7 +323,7 @@ class Cache:
             entry = self.get_video_raw(video_id)
         if entry is None:
             return
-        entry = {k: v for k, v in entry.items() if k not in self._FAT_FIELDS}
+        entry = self._without_fat(entry)
         dest = PLAYLIST_VIDEO_DIR / f"{video_id}.json"
         with _write_lock:
             _atomic_write(dest, json.dumps(entry, ensure_ascii=False))

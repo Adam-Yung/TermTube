@@ -12,6 +12,19 @@ from src.strings import text
 from src.tui.fmt import escape_markup
 
 
+class _PlaylistRow(ListItem):
+    """One playlist, with what toggling it needs."""
+
+    def __init__(self, pid: str, name: str, *, member: bool, selected: bool, count: int) -> None:
+        check = "[#44ff44]✓[/] " if member else "  "
+        mark = "[#ffcc00]●[/] " if selected else "  "
+        label = f"{mark}{check}[bold]{escape_markup(name)}[/bold]  " + text("playlist_modal.row_count", count=count)
+        super().__init__(Static(label, markup=True))
+        self.pid = pid
+        self.playlist_name = name
+        self.member = member
+
+
 class PlaylistModal(ModalScreen[None]):
     """Modal to add/remove a video from playlists, or create a new one."""
 
@@ -61,50 +74,42 @@ class PlaylistModal(ModalScreen[None]):
             lv.append(ListItem(Static(text("playlist_modal.empty"), markup=True)))
             return
         for pl in playlists:
-            member = any(i["id"] == self._video_id for i in pl["items"])
-            check = "[#44ff44]✓[/] " if member else "  "
-            mark = "[#ffcc00]●[/] " if pl["id"] in self._pending else "  "
-            count = len(pl["items"])
-            item = ListItem(
-                Static(
-                    f"{mark}{check}[bold]{escape_markup(pl['name'])}[/bold]  "
-                    + text("playlist_modal.row_count", count=count),
-                    markup=True,
+            lv.append(
+                _PlaylistRow(
+                    pl["id"],
+                    pl["name"],
+                    member=any(i["id"] == self._video_id for i in pl["items"]),
+                    selected=pl["id"] in self._pending,
+                    count=len(pl["items"]),
                 )
             )
-            item._pl_id = pl["id"]  # type: ignore[attr-defined]
-            item._pl_name = pl["name"]  # type: ignore[attr-defined]
-            item._pl_member = member  # type: ignore[attr-defined]
-            lv.append(item)
         lv.index = min(index, len(playlists) - 1)
 
     def action_select_row(self) -> None:
         """Space: select or unselect the highlighted playlist for the next Enter."""
         item = self.query_one("#playlist-list", ListView).highlighted_child
-        pid = getattr(item, "_pl_id", None)
-        if pid is not None:
-            self._pending ^= {pid}
+        if isinstance(item, _PlaylistRow):
+            self._pending ^= {item.pid}
             self._refresh_list()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Enter: flip membership for every selected playlist, or for the highlighted one when none is selected."""
-        rows = [i for i in self.query_one("#playlist-list", ListView).children if hasattr(i, "_pl_id")]
-        chosen = [i for i in rows if i._pl_id in self._pending] or [event.item]  # type: ignore[attr-defined]
-        if not hasattr(event.item, "_pl_id"):
+        if not isinstance(event.item, _PlaylistRow):
             return
-        for item in chosen:
-            self._toggle(item._pl_id, item._pl_name, item._pl_member)  # type: ignore[attr-defined]
+        rows = self.query_one("#playlist-list", ListView).query_children(_PlaylistRow)
+        for row in [r for r in rows if r.pid in self._pending] or [event.item]:
+            self._toggle(row)
         self._pending.clear()
         self._sync_pins()
         self._refresh_list()
 
-    def _toggle(self, pid: str, name: str, member: bool) -> None:
-        if member:
-            playlist.remove_items(pid, [self._video_id])
-            self.app.notify(text("playlist_modal.removed", name=escape_markup(name)))
+    def _toggle(self, row: _PlaylistRow) -> None:
+        if row.member:
+            playlist.remove_items(row.pid, [self._video_id])
+            self.app.notify(text("playlist_modal.removed", name=escape_markup(row.playlist_name)))
         else:
-            playlist.add_items(pid, [self._entry])
-            self.app.notify(text("playlist_modal.added", name=escape_markup(name)))
+            playlist.add_items(row.pid, [self._entry])
+            self.app.notify(text("playlist_modal.added", name=escape_markup(row.playlist_name)))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         name = event.value.strip()

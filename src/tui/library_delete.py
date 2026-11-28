@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from src import library
 from src.entries import Entry
 from src.strings import text
@@ -33,15 +35,16 @@ def ask(entries: list[Entry]) -> tuple[str, dict[str, str]]:
     return text("library_delete.choose_form", title=title, parts=parts), choices
 
 
+def _delete(roots: list, entries: list[Entry], choice: str) -> list[Entry]:
+    """The entries whose files went; ``choice`` is the form to delete (a single yes means both)."""
+    return [e for e in entries if not library.safe_delete(e, roots, choice or "both").failed]
+
+
 def removal(config, kind: str = "") -> Removal:
     """Library removal for the collection ``kind`` (`video`, `audio` or all): files are deleted outright, no undo."""
     roots = [config.video_dir, config.audio_dir]
-
-    def remove(entries: list[Entry], choice: str) -> list[Entry]:
-        return [e for e in entries if not library.safe_delete(e, roots, choice or "both").failed]
-
     return Removal(
-        remove=remove,
+        remove=partial(_delete, roots),
         restore=lambda _entries: None,
         reload=lambda: library.of_kind(library.all_entries(config.video_dir, config.audio_dir), kind),
         noun="item",

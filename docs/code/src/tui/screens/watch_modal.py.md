@@ -16,7 +16,7 @@
 ## Invariants
 
 - `_stopped` is set before anything is torn down. The launcher checks it after resolution and before each attempt, and `_end` uses it to avoid dismissing twice.
-- The auto-skip pointer (`_sb_next_idx`) only moves forward; segments are sorted by start.
+- The auto-skip pointer (`SegmentSkipper`) only moves forward; segments are sorted by start.
 - The IPC socket and temp input.conf are cleaned up on every exit path (`_cleanup_ipc`).
 - Dismissing from the worker thread goes through `call_from_thread`; the screen may already be gone, so failures are swallowed.
 
@@ -39,3 +39,5 @@ The progress bar needs mpv's IPC to answer; until it does the modal shows "Buffe
 ## Resume and watch time
 
 `_launch_video` asks `progress.start_offset` for the saved position and passes it to `_build_command`, which adds `--start` through `player.start_args`; a "Resuming at m:ss" notice follows. A `ProgressTracker` is created next to `history.add` (first spawn) and fed from `_poll_mpv_threaded`; it is finished when `run_mpv_with_retries` returns, whatever the outcome, with `completed` only for exit code 0 (end of file). Rules: `docs/code/src/progress.py.md`.
+
+The mpv command line and the per-attempt retry rule are in `watch_command.py`. The progress bar (`widgets/segment_bar.py`) and the SponsorBlock pointer (`segment_skip.py`) are shared with the audio side. A poll that skips a segment does not redraw.

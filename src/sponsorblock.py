@@ -158,23 +158,28 @@ def _hash_prefix(video_id: str) -> str:
     return hashlib.sha256(video_id.encode()).hexdigest()[:_HASH_PREFIX_LEN]
 
 
+def _parse_segment(item: object) -> Segment | None:
+    seg = item.get("segment") if isinstance(item, dict) else None
+    if not (isinstance(seg, list) and len(seg) == 2):
+        return None
+    category = item.get("category", "sponsor")
+    try:
+        return Segment(start=float(seg[0]), end=float(seg[1]), category=category)
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_segments(data: object, video_id: str) -> list[Segment]:
     """Segments of ``video_id`` from a hash-prefix response, which lists every video in the bucket."""
-    segments: list[Segment] = []
     if not isinstance(data, list):
-        return segments
-    for video in data:
-        if not isinstance(video, dict) or video.get("videoID") != video_id:
-            continue
-        for item in video.get("segments") or []:
-            seg = item.get("segment") if isinstance(item, dict) else None
-            if isinstance(seg, list) and len(seg) == 2:
-                category = item.get("category", "sponsor")
-                try:
-                    segments.append(Segment(start=float(seg[0]), end=float(seg[1]), category=category))
-                except (TypeError, ValueError):
-                    continue
-    return segments
+        return []
+    items = (
+        item
+        for video in data
+        if isinstance(video, dict) and video.get("videoID") == video_id
+        for item in video.get("segments") or []
+    )
+    return [segment for segment in map(_parse_segment, items) if segment]
 
 
 def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[Segment]:
@@ -213,16 +218,18 @@ def fetch_segments(video_id: str, categories: list[str] | None = None) -> list[S
     return segments
 
 
+def _fetch_and_report(video_id: str, categories: list[str], on_done: Callable[[list[Segment]], None]) -> None:
+    on_done(fetch_segments(video_id, categories))
+
+
 def fetch_segments_async(
     video_id: str,
     categories: list[str],
     on_done: Callable[[list[Segment]], None],
 ) -> threading.Thread:
     """Fetch segments on a daemon thread and pass them, sorted by start, to ``on_done``."""
-
-    def run() -> None:
-        on_done(fetch_segments(video_id, categories))
-
-    thread = threading.Thread(target=run, daemon=True, name="sponsorblock")
+    thread = threading.Thread(
+        target=_fetch_and_report, args=(video_id, categories, on_done), daemon=True, name="sponsorblock"
+    )
     thread.start()
     return thread

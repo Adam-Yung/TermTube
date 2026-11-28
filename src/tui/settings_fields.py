@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 
 from src.config import MAX_ROWS_PER_PAGE, MIN_ROWS_PER_PAGE, Config
@@ -69,16 +70,18 @@ def parse_template(text: str) -> str:
     return text
 
 
+def _parse_bounded(low: int, high: int, unit: str, text: str) -> int:
+    try:
+        value = int(text.strip())
+    except ValueError:
+        raise Refused(t("settings_fields.int_not_number")) from None
+    if not low <= value <= high:
+        raise Refused(t("settings_fields.int_range", low=low, high=high, unit=unit))
+    return value
+
+
 def parse_int(low: int, high: int, unit: str = "") -> Callable[[str], int]:
-    def parse(text: str) -> int:
-        try:
-            value = int(text.strip())
-        except ValueError:
-            raise Refused(t("settings_fields.int_not_number")) from None
-        if not low <= value <= high:
-            raise Refused(t("settings_fields.int_range", low=low, high=high, unit=unit))
-        return value
-    return parse
+    return partial(_parse_bounded, low, high, unit)
 
 
 def parse_categories(text: str) -> list[str]:

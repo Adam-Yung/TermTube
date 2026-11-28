@@ -88,7 +88,7 @@ def isolated_sponsorblock_cache(tmp_path_factory, monkeypatch):
 @pytest.fixture(autouse=True)
 def no_keychain_reads(monkeypatch):
     """TLS contexts must not shell out to the real macOS keychain during tests."""
-    monkeypatch.setattr("src.plat._macos_keychain_pem", lambda: "")
+    monkeypatch.setattr("src.thumbnail_http._macos_keychain_pem", lambda: "")
 
 
 @pytest.fixture

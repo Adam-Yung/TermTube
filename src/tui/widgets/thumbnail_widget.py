@@ -13,9 +13,8 @@ from textual.widgets import Static
 from src.plat import IS_WINDOWS
 from src.strings import text
 
-# textual_image probes the terminal at import time, so it must be imported before Textual
-# starts its I/O threads (src/main.py does). Pixel images are off inside tmux (passthrough
-# flickers) unless MYYOUTUBE_IMAGES=1.
+# textual_image probes the terminal at import, so src/main.py imports it before Textual starts its I/O threads.
+# Pixel images are off inside tmux (passthrough flickers) unless MYYOUTUBE_IMAGES=1.
 _IN_TMUX = bool(os.environ.get("TMUX")) and not IS_WINDOWS
 _FORCE_IMAGES = os.environ.get("MYYOUTUBE_IMAGES") == "1"
 

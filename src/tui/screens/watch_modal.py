@@ -4,6 +4,7 @@ import itertools
 import os
 import subprocess
 import time
+from functools import partial
 
 from textual import work
 from textual.app import ComposeResult
@@ -26,6 +27,10 @@ from src.progress import ProgressTracker, start_offset
 from src.sponsorblock import Segment, fetch_segments_async
 from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
+from src.tui.screens.watch_command import VideoCommand, build_command
+from src.tui.segment_skip import SegmentSkipper
+from src.tui.urls import watch_url
+from src.tui.widgets.segment_bar import EMPTY_COLOR, SegmentBar
 
 _DEFAULT_FORMAT = "bv+ba/b"
 _run_sockets = itertools.count(1)
@@ -38,6 +43,7 @@ def _run_socket() -> str:
 
 
 _RUN_RESULTS = {0: "ended", player_mod.EXIT_NEXT: "next", player_mod.EXIT_PREV: "prev"}
+_PROGRESS_COLOR = "#6666ff"
 
 
 class WatchModal(ModalScreen[str]):
@@ -64,18 +70,15 @@ class WatchModal(ModalScreen[str]):
         self._position = position
         self._entry = entry
         self._ytdl_format = ytdl_format
-        self._proc: subprocess.Popen | None = None  # type: ignore[type-arg]
+        self._proc: subprocess.Popen[bytes] | None = None
         self._stopped = False
         self._buffering_since: float = 0.0
-        self._segments: list[Segment] = []
-        self._sb_next_idx: int = 0  # sorted pointer for O(1) segment scan
+        self._skipper = SegmentSkipper()
+        self._bar = SegmentBar()
         self._dur: float = 0.0
         self._poll_timer = None
         self._socket = _run_socket() if position else get_video_ipc_path()
         self._tracker: ProgressTracker | None = None
-        self._segment_cols: list[bool] = []
-        self._segment_cols_width: int = 0
-        self._segment_cols_dur: float = 0.0
 
     def compose(self) -> ComposeResult:
         title = self._entry.get("title") or text("watch_modal.unknown_title")
@@ -103,8 +106,6 @@ class WatchModal(ModalScreen[str]):
 
     @work(thread=True, exclusive=True, group="video_player")
     def _launch_video(self) -> None:
-        from src import streams
-
         vid = self._entry.get("id", "")
         local_path = self._entry.get("_local_path")
         title = self._entry.get("title", "")
@@ -122,15 +123,7 @@ class WatchModal(ModalScreen[str]):
 
         urls: list[str] | None = [local_path] if local_path else None  # a local file is played directly, no ytdl
         if not local_path and vid and config:
-            urls, _ = streams.resolve_for_playback(
-                vid,
-                config,
-                fmt,
-                cancelled=lambda: self._stopped,
-                on_resolving=lambda: self.app.call_from_thread(
-                    self.app.notify, text("watch_modal.resolving"), timeout=5
-                ),
-            )
+            urls = self._resolve_urls(vid, config, fmt)
             if self._stopped:
                 return
 
@@ -143,33 +136,52 @@ class WatchModal(ModalScreen[str]):
             return
 
         input_conf = player_mod.write_input_conf(sequence=self._position is not None)
-        page_url = local_path or f"https://www.youtube.com/watch?v={vid}"
+        page_url = local_path or watch_url(vid)
         cookie_args = config.browser_cookie_args() if config else []
         start = start_offset(self._entry, config) if config else None
         if start:
             self.app.call_from_thread(self.app.notify, text("watch_modal.resuming", time=fmt_clock(start)), timeout=3)
 
-        def build(stream_urls: list[str] | None) -> list[str]:
-            return self._build_command(mpv_exe, input_conf, title, stream_urls, page_url, fmt, cookie_args, start)
-
-        current = urls
-
-        def build_cmd(attempt: int) -> list[str]:
-            nonlocal current
-            if attempt > 1 and not local_path and vid and config:
-                current = streams.re_resolve(vid, config, fmt) or current
-            return build(current)
-
-        def on_spawn(proc: subprocess.Popen, attempt: int) -> None:
-            self._proc = proc
-            if attempt == 1:
-                history.add(self._entry, getattr(self.app, "config", None))
-                self._tracker = ProgressTracker(self._entry)
-
+        build = partial(
+            self._build_command, mpv_exe, input_conf, title,
+            page_url=page_url, fmt=fmt, cookie_args=cookie_args, start=start,
+        )
+        refresh = None
+        if not local_path and vid and config:
+            refresh = partial(self._re_resolve, vid, config, fmt)
         outcome = player_mod.run_mpv_with_retries(
-            build_cmd, headless=False, is_stale=lambda: self._stopped, on_spawn=on_spawn
+            VideoCommand(build, urls, refresh),
+            headless=False,
+            is_stale=lambda: self._stopped,
+            on_spawn=self._on_spawn,
         )
         self._finish(outcome, input_conf, title)
+
+    def _resolve_urls(self, vid: str, config, fmt: str) -> list[str] | None:
+        from src import streams
+
+        urls, _ = streams.resolve_for_playback(
+            vid,
+            config,
+            fmt,
+            cancelled=lambda: self._stopped,
+            on_resolving=lambda: self.app.call_from_thread(
+                self.app.notify, text("watch_modal.resolving"), timeout=5
+            ),
+        )
+        return urls
+
+    @staticmethod
+    def _re_resolve(vid: str, config, fmt: str) -> list[str] | None:
+        from src import streams
+
+        return streams.re_resolve(vid, config, fmt)
+
+    def _on_spawn(self, proc: subprocess.Popen[bytes], attempt: int) -> None:
+        self._proc = proc
+        if attempt == 1:
+            history.add(self._entry, getattr(self.app, "config", None))
+            self._tracker = ProgressTracker(self._entry)
 
     def _finish(self, outcome: player_mod.MpvOutcome, input_conf: str, title: str) -> None:
         """After mpv: save progress, clean up and dismiss with what happened."""
@@ -199,9 +211,8 @@ class WatchModal(ModalScreen[str]):
                     pass
 
     def _set_segments(self, segments: list[Segment]) -> None:
-        self._segments = segments
-        self._sb_next_idx = 0
-        self._segment_cols = []
+        self._skipper = SegmentSkipper(segments)
+        self._bar.set_segments(segments)
 
     def _build_command(
         self,
@@ -214,29 +225,10 @@ class WatchModal(ModalScreen[str]):
         cookie_args: list[str],
         start: float | None = None,
     ) -> list[str]:
-        cmd = [
-            exe,
-            f"--input-conf={input_conf}",
-            f"--input-ipc-server={self._socket}",
-            "--no-terminal",
-            "--really-quiet",
-            "--msg-level=all=no",
-            "--cache=yes",
-            "--demuxer-max-bytes=150M",
-            *player_mod.start_args(start),
-        ]
-        if title:
-            cmd += [f"--title={title}", f"--force-media-title={title}"]
-        if urls:
-            cmd.append("--no-ytdl")
-            if len(urls) == 2:
-                cmd.append(f"--audio-file={urls[1]}")
-            return cmd + ["--", urls[0]]
-        cmd.append(f"--ytdl-format={fmt}")
-        raw = player_mod.cookie_args_to_ytdl_raw(cookie_args)
-        if raw:
-            cmd.append(f"--ytdl-raw-options={raw}")
-        return cmd + ["--", page_url]
+        return build_command(
+            exe, input_conf=input_conf, socket_path=self._socket, title=title, urls=urls,
+            page_url=page_url, fmt=fmt, cookie_args=cookie_args, start=start,
+        )
 
     def _fail_launch(self, message: str) -> None:
         self.app.call_from_thread(self.app.notify, message, severity="error")
@@ -266,105 +258,55 @@ class WatchModal(ModalScreen[str]):
     def _poll_mpv_threaded(self) -> None:
         pos, dur, paused = player_mod.poll_audio_properties(socket_path=self._socket)
         if pos is not None and dur and float(dur) > 0:
-            pos_f = float(pos)
-            dur_f = float(dur)
-            self._dur = dur_f
-            if self._tracker:
-                self._tracker.tick(pos_f, dur_f)
-            # Segments are sorted by start; the pointer only moves forward.
-            config = getattr(self.app, "config", None)
-            if config and config.sponsorblock_auto_skip and self._segments:
-                segs = self._segments
-                while self._sb_next_idx < len(segs) and segs[self._sb_next_idx].end <= pos_f:
-                    self._sb_next_idx += 1
-                if self._sb_next_idx < len(segs):
-                    seg = segs[self._sb_next_idx]
-                    if seg.start <= pos_f < seg.end:
-                        self._sb_next_idx += 1
-                        skip_dur = int(seg.end - seg.start)
-                        self._ipc(["seek", seg.end, "absolute"])
-                        self.app.call_from_thread(
-                            self.notify,
-                            text("watch_modal.skipped", category=seg.category, seconds=skip_dur),
-                            timeout=3,
-                        )
-                        return
-
-            def _update_ui():
-                try:
-                    bar_width = max(8, (self.query_one("#watch-dialog").size.width or 60) - 6)
-                    self.query_one("#np-progress", Static).update(
-                        self._render_bar(pos_f, dur_f, bar_width)
-                    )
-                    pause_indicator = text("watch_modal.paused") if paused else ""
-                    self.query_one("#np-time", Static).update(
-                        f"{fmt_clock(pos_f)}  /  {fmt_clock(dur_f)}{pause_indicator}"
-                    )
-                except Exception:
-                    pass
-
-            self.app.call_from_thread(_update_ui)
+            self._on_position(float(pos), float(dur), paused)
         elif self._buffering_since > 0:
             wait_s = int(time.monotonic() - self._buffering_since)
             buf_text = text("watch_modal.buffering_wait" if wait_s > 0 else "watch_modal.buffering", seconds=wait_s)
-            def _update_buf():
-                try:
-                    self.query_one("#np-time", Static).update(buf_text)
-                except Exception:
-                    pass
-            self.app.call_from_thread(_update_buf)
+            self.app.call_from_thread(self._show_buffering, buf_text)
+
+    def _on_position(self, pos: float, dur: float, paused: bool) -> None:
+        """Poll thread: record progress, then either skip a sponsor segment or redraw."""
+        self._dur = dur
+        if self._tracker:
+            self._tracker.tick(pos, dur)
+        if not self._skip_sponsor_segment(pos):
+            self.app.call_from_thread(self._show_position, pos, dur, paused)
+
+    def _skip_sponsor_segment(self, pos: float) -> bool:
+        config = getattr(self.app, "config", None)
+        if not (config and config.sponsorblock_auto_skip):
+            return False
+        segment = self._skipper.take(pos)
+        if segment is None:
+            return False
+        self._ipc(["seek", segment.end, "absolute"])
+        self.app.call_from_thread(
+            self.notify,
+            text("watch_modal.skipped", category=segment.category, seconds=int(segment.end - segment.start)),
+            timeout=3,
+        )
+        return True
+
+    def _show_position(self, pos: float, dur: float, paused: bool) -> None:
+        try:
+            bar_width = max(8, (self.query_one("#watch-dialog").size.width or 60) - 6)
+            self.query_one("#np-progress", Static).update(self._render_bar(pos, dur, bar_width))
+            pause_indicator = text("watch_modal.paused") if paused else ""
+            self.query_one("#np-time", Static).update(f"{fmt_clock(pos)}  /  {fmt_clock(dur)}{pause_indicator}")
+        except Exception:
+            pass
+
+    def _show_buffering(self, message: str) -> None:
+        try:
+            self.query_one("#np-time", Static).update(message)
+        except Exception:
+            pass
 
     def _render_bar(self, pos: float, dur: float, width: int) -> str:
         width = max(4, width)
         if dur <= 0:
-            return f"[#2a2a40]{'─' * width}[/#2a2a40]"
-        frac = min(pos / dur, 1.0)
-        filled = int(frac * width)
-        progress_color = "#6666ff"
-        sponsor_color = "#22c55e"
-        sponsor_dim = "#166534"
-
-        if not self._segments:
-            empty = width - filled
-            return (
-                f"[{progress_color}]{'█' * filled}[/{progress_color}]"
-                f"[#2a2a40]{'░' * empty}[/#2a2a40]"
-            )
-
-        if (
-            self._segment_cols_width != width
-            or self._segment_cols_dur != dur
-            or len(self._segment_cols) != width
-        ):
-            cols: list[bool] = []
-            for col in range(width):
-                t = (col / width) * dur
-                cols.append(any(s.start <= t < s.end for s in self._segments))
-            self._segment_cols = cols
-            self._segment_cols_width = width
-            self._segment_cols_dur = dur
-
-        parts: list[str] = []
-        prev_color: str | None = None
-        run: list[str] = []
-        for col in range(width):
-            in_segment = self._segment_cols[col]
-            if col < filled:
-                c = sponsor_color if in_segment else progress_color
-                char = "█"
-            else:
-                c = sponsor_dim if in_segment else "#2a2a40"
-                char = "░"
-            if c != prev_color:
-                if run:
-                    parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
-                run = [char]
-                prev_color = c
-            else:
-                run.append(char)
-        if run and prev_color:
-            parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
-        return "".join(parts)
+            return f"[{EMPTY_COLOR}]{'─' * width}[/{EMPTY_COLOR}]"
+        return self._bar.render(pos, dur, width, _PROGRESS_COLOR)
 
     def _ipc(self, cmd: list) -> None:
         player_mod.send_ipc_command({"command": cmd}, socket_path=self._socket)

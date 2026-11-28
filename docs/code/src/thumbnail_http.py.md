@@ -1,0 +1,5 @@
+# src/thumbnail_http.py
+
+The one HTTP fetch for thumbnail images, with its TLS contexts. Split from `src/plat.py`. Caller: `ui.thumbnail.download`.
+
+- `download_thumbnail` fetches only http(s) URLs, reads at most 2 MB, and gives up on a certificate error. Its verified context also trusts the macOS keychains (`_macos_keychain_pem`: public certificates read once through `/usr/bin/security`; empty elsewhere), because a Python with its own CA bundle (conda, python.org) does not know a company's TLS-inspection root, which fails every inspected image host (`i.ytimg.com` on a Palo Alto firewall). `VERIFY_X509_STRICT` is cleared in that case since inspection roots often lack the key identifiers Python 3.13 requires; the chain and host name are still checked. Tests stub the keychain read. With `insecure=True` (config `insecure_thumbnails`, default off) it retries once without verification, for corporate MITM proxies; acceptable only because thumbnails are public CDN images, never reuse it for anything that carries credentials. `ui.thumbnail.download` decodes the file before keeping it.

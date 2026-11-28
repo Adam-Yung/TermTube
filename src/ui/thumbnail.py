@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 import shutil
-import time
 from pathlib import Path
 
 from src import logger
 from src.cache import CACHE_DIR, THUMB_DIR
 from src.entries import Entry
+from src.plat import prune_dir
 
 RENDERED_DIR = CACHE_DIR / "rendered"
 
@@ -29,38 +29,53 @@ def _thumb_path(video_id: str) -> Path:
     return THUMB_DIR / f"{video_id}.jpg"
 
 
-def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
-    """Find the thumbnail yt-dlp wrote next to a downloaded file and copy it into the cache."""
-    own = entry.get("_thumb_path")  # the library index already knows the image next to the file
-    if own and Path(own).exists():
-        dest = _thumb_path(video_id)
-        if dest.exists():
-            return dest
-        try:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(own, dest)
-            return dest
-        except OSError:
-            return Path(own)
+def _into_cache(video_id: str, source: Path) -> Path:
+    """The cached copy of ``source`` (made if absent), or ``source`` itself when it cannot be copied."""
+    dest = _thumb_path(video_id)
+    if dest.exists():
+        return dest
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, dest)
+        return dest
+    except OSError:
+        return source
+
+
+def _beside_media(entry: Entry) -> Path | None:
+    """The image yt-dlp wrote next to the downloaded file."""
     local_path = entry.get("_local_path")
     if not local_path:
         return None
     media = Path(local_path)
     if not media.exists():
         return None
-    for ext in (".jpg", ".webp", ".png"):
-        candidate = media.with_suffix(ext)
-        if candidate.exists():
-            dest = _thumb_path(video_id)
-            if dest.exists():
-                return dest
-            try:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(str(candidate), str(dest))
-                return dest
-            except OSError:
-                return candidate
-    return None
+    candidates = (media.with_suffix(ext) for ext in (".jpg", ".webp", ".png"))
+    return next((c for c in candidates if c.exists()), None)
+
+
+def _resolve_local_thumb(video_id: str, entry: Entry) -> Path | None:
+    """Find the thumbnail of a downloaded file and copy it into the cache."""
+    own = entry.get("_thumb_path")  # the library index already knows the image next to the file
+    source = Path(own) if own and Path(own).exists() else _beside_media(entry)
+    return _into_cache(video_id, source) if source else None
+
+
+def _fetch_candidate(video_id: str, url: str, dest: Path, insecure: bool) -> bool:
+    """Download one URL to ``dest``; True when it left a decodable image there."""
+    from src.thumbnail_http import download_thumbnail
+
+    try:
+        if not download_thumbnail(url, str(dest), insecure=insecure):
+            logger.debug("Thumbnail download failed for %s: %s", video_id, url.split("?")[0])
+            return False
+        if validate_thumb(dest):
+            logger.debug("Downloaded thumbnail for %s", video_id)
+            return True
+        logger.debug("Thumbnail for %s is not a decodable image; dropped", video_id)
+    except Exception as exc:
+        logger.debug("Thumbnail download error for %s: %s", video_id, exc)
+    return False
 
 
 def download(video_id: str, url: str, *, insecure: bool = False) -> Path | None:
@@ -75,23 +90,14 @@ def download(video_id: str, url: str, *, insecure: bool = False) -> Path | None:
     except OSError as exc:
         logger.debug("Thumbnail cache dir create failed for %s: %s", video_id, exc)
         return None
-    from src.plat import download_thumbnail
 
     # The extractor's URL can be a signed variant the CDN refuses; the plain id URL needs no signature.
     urls = [url]
     if _VIDEO_ID.fullmatch(video_id) and _YTIMG_URL.format(video_id) != url:
         urls.append(_YTIMG_URL.format(video_id))
     for candidate in urls:
-        try:
-            if download_thumbnail(candidate, str(dest), insecure=insecure):
-                if validate_thumb(dest):
-                    logger.debug("Downloaded thumbnail for %s", video_id)
-                    return dest
-                logger.debug("Thumbnail for %s is not a decodable image; dropped", video_id)
-            else:
-                logger.debug("Thumbnail download failed for %s: %s", video_id, candidate.split("?")[0])
-        except Exception as exc:
-            logger.debug("Thumbnail download error for %s: %s", video_id, exc)
+        if _fetch_candidate(video_id, candidate, dest, insecure):
+            return dest
         dest.unlink(missing_ok=True)
     return None
 
@@ -131,6 +137,38 @@ def validate_thumb(path: Path | None) -> bool:
         return False
 
 
+def _source_image(video_id: str, entry: Entry, insecure: bool) -> Path | None:
+    """The image to render: cached, next to the downloaded file, else downloaded."""
+    local = _thumb_path(video_id)
+    if local.exists():
+        return local
+    local = _resolve_local_thumb(video_id, entry)
+    if local:
+        return local
+    url = best_thumb_url(entry)
+    if not url:
+        logger.debug("render_pil_halfblock: no URL for %s", video_id)
+        return None
+    return download(video_id, url, insecure=insecure)
+
+
+def _halfblock_row(img, y: int, cols: int) -> str:
+    row = ""
+    for x in range(cols):
+        r1, g1, b1 = img.getpixel((x, y))
+        r2, g2, b2 = img.getpixel((x, y + 1))
+        row += f"\x1b[38;2;{r1};{g1};{b1}m\x1b[48;2;{r2};{g2};{b2}m\u2580"
+    return row + "\x1b[0m"
+
+
+def _halfblock_art(path: Path, cols: int, rows: int) -> str:
+    from PIL import Image as _PILImage
+
+    img = _PILImage.open(path).convert("RGB")
+    img = img.resize((cols, rows * 2), _PILImage.LANCZOS)
+    return "\n".join(_halfblock_row(img, y, cols) for y in range(0, rows * 2, 2))
+
+
 def render_pil_halfblock(
     video_id: str,
     entry: Entry,
@@ -150,35 +188,12 @@ def render_pil_halfblock(
         except OSError:
             pass
 
-    local = _thumb_path(video_id)
-    if not local.exists():
-        local = _resolve_local_thumb(video_id, entry)
-    if not local:
-        url = best_thumb_url(entry)
-        if not url:
-            logger.debug("render_pil_halfblock: no URL for %s", video_id)
-            return ""
-        local = download(video_id, url, insecure=insecure)
+    local = _source_image(video_id, entry, insecure)
     if not local or not local.exists():
         return ""
 
     try:
-        from PIL import Image as _PILImage
-        img = _PILImage.open(local).convert("RGB")
-        img = img.resize((cols, rows * 2), _PILImage.LANCZOS)
-        lines: list[str] = []
-        for y in range(0, rows * 2, 2):
-            row = ""
-            for x in range(cols):
-                r1, g1, b1 = img.getpixel((x, y))
-                r2, g2, b2 = img.getpixel((x, y + 1))
-                row += (
-                    f"\x1b[38;2;{r1};{g1};{b1}m"
-                    f"\x1b[48;2;{r2};{g2};{b2}m"
-                    "\u2580"
-                )
-            lines.append(row + "\x1b[0m")
-        ansi = "\n".join(lines)
+        ansi = _halfblock_art(local, cols, rows)
     except Exception as exc:
         logger.debug("PIL halfblock render failed for %s: %s", video_id, exc)
         return ""
@@ -218,24 +233,6 @@ def prune_old_rendered(max_age_days: int = 7, max_count: int = 600) -> None:
     """Delete cached rendered ANSI files older than max_age_days, then cap to max_count."""
     if not RENDERED_DIR.exists():
         return
-    cutoff = time.time() - max_age_days * 86400
-    files: list[tuple[float, Path]] = []
-    deleted = 0
-    for f in RENDERED_DIR.glob("*.ansi"):
-        try:
-            mtime = f.stat().st_mtime
-            if mtime < cutoff:
-                f.unlink(missing_ok=True)
-                deleted += 1
-            else:
-                files.append((mtime, f))
-        except OSError:
-            pass
-    capped = 0
-    if len(files) > max_count:
-        files.sort()
-        for _, f in files[: len(files) - max_count]:
-            f.unlink(missing_ok=True)
-            capped += 1
-    logger.debug("prune_old_rendered: %d expired, %d capped, %d kept",
-                 deleted, capped, max(0, len(files) - capped))
+    expired, capped = prune_dir(RENDERED_DIR, "*.ansi", max_age_days, max_count)
+    kept = sum(1 for _ in RENDERED_DIR.glob("*.ansi"))
+    logger.debug("prune_old_rendered: %d expired, %d capped, %d kept", expired, capped, kept)

@@ -6,7 +6,7 @@ import ssl
 import urllib.error
 from unittest.mock import MagicMock, patch
 
-from src import plat
+from src import thumbnail_http
 from src.config import Config
 from src.ui import thumbnail
 
@@ -32,7 +32,7 @@ def _png() -> bytes:
 def test_ssl_failure_gives_up_by_default(tmp_path):
     dest = tmp_path / "t.jpg"
     with patch("urllib.request.urlopen", side_effect=ssl.SSLError("bad cert")) as opened:
-        assert plat.download_thumbnail(URL, str(dest)) is False
+        assert thumbnail_http.download_thumbnail(URL, str(dest)) is False
     assert opened.call_count == 1
     assert not dest.exists()
 
@@ -48,27 +48,27 @@ def test_insecure_opt_in_retries_unverified(tmp_path):
         return _response(b"x" * 500)
 
     with patch("urllib.request.urlopen", side_effect=fake):
-        assert plat.download_thumbnail(URL, str(dest), insecure=True) is True
+        assert thumbnail_http.download_thumbnail(URL, str(dest), insecure=True) is True
     assert calls == [ssl.CERT_REQUIRED, ssl.CERT_NONE]
 
 
 def test_url_error_about_certificate_also_gives_up(tmp_path):
     err = urllib.error.URLError(ssl.SSLCertVerificationError("certificate verify failed"))
     with patch("urllib.request.urlopen", side_effect=err) as opened:
-        assert plat.download_thumbnail(URL, str(tmp_path / "t.jpg")) is False
+        assert thumbnail_http.download_thumbnail(URL, str(tmp_path / "t.jpg")) is False
     assert opened.call_count == 1
 
 
 def test_body_over_two_megabytes_is_refused(tmp_path):
     dest = tmp_path / "t.jpg"
-    with patch("urllib.request.urlopen", return_value=_response(b"x" * (plat._THUMB_MAX_BYTES + 5))):
-        assert plat.download_thumbnail(URL, str(dest)) is False
+    with patch("urllib.request.urlopen", return_value=_response(b"x" * (thumbnail_http._THUMB_MAX_BYTES + 5))):
+        assert thumbnail_http.download_thumbnail(URL, str(dest)) is False
     assert not dest.exists()
 
 
 def test_only_http_urls_are_fetched(tmp_path):
     with patch("urllib.request.urlopen") as opened:
-        assert plat.download_thumbnail("file:///etc/passwd", str(tmp_path / "t.jpg")) is False
+        assert thumbnail_http.download_thumbnail("file:///etc/passwd", str(tmp_path / "t.jpg")) is False
     opened.assert_not_called()
 
 
@@ -108,14 +108,14 @@ def test_a_refused_extractor_url_falls_back_to_the_plain_id_url(tmp_path, monkey
         Image.new("RGB", (4, 4)).save(dest, "JPEG")
         return True
 
-    monkeypatch.setattr(plat, "download_thumbnail", fake)
+    monkeypatch.setattr(thumbnail_http, "download_thumbnail", fake)
     path = thumbnail.download("abc123def45", "https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x")
     assert path is not None and path.exists()
     assert tried == ["https://i.ytimg.com/vi/abc123def45/hq720.jpg?sqp=x", URL]
 
 
 def test_the_keychain_certificates_join_the_verified_context(monkeypatch):
-    monkeypatch.setattr(plat, "_macos_keychain_pem", lambda: "not a certificate")
-    ctx = plat._ssl_context_verified()  # unparsable input is ignored, verification stays on
+    monkeypatch.setattr(thumbnail_http, "_macos_keychain_pem", lambda: "not a certificate")
+    ctx = thumbnail_http._ssl_context_verified()  # unparsable input is ignored, verification stays on
     assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
     assert not ctx.verify_flags & getattr(ssl, "VERIFY_X509_STRICT", 0)

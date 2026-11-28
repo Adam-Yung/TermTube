@@ -44,7 +44,7 @@ A missing or GUI-only mpv (mpv.net on Windows) is a launch failure, not a retry.
 - stores `progress`, which a screen created mid-playback reads in `_sync_player_bar` so its bar does not restart at "Buffering";
 - broadcasts `PlayerStateUpdated`.
 
-SponsorBlock auto-skip runs in the poll thread: `_segment_idx` walks the sorted segments and a seek command jumps past the segment containing the current position.
+SponsorBlock auto-skip runs in the poll thread: a `SegmentSkipper` walks the sorted segments and a seek command jumps past the segment containing the current position.
 
 ## Stop
 
@@ -60,3 +60,7 @@ SponsorBlock auto-skip runs in the poll thread: `_segment_idx` walks the sorted 
 `move_queued`, `remove_queued`, `insert_queued` (undo) and `play_queued` `clear_queue` (returns what it removed, for undo) and `_start` (drops the track being started, so nothing is both playing and queued) are the only queue edits besides enqueue/skip/stop; the public ones broadcast `AudioQueueChanged` through `_queue_changed`. Indexes are positions in the *upcoming* queue; the playing track is never in it, so it cannot be removed (the queue page says `>` or `x`). `play_queued(i)` plays that track now and keeps the ones before it, like `a` keeps the queue. `insert_queued` ignores an entry that is playing or queued, so undo cannot create a duplicate.
 
 A `ProgressTracker` is created on the first poll of a session, next to `history.add`, and fed from `_publish_progress`. It is finished in `_reset_playback` (every stop, switch and failure) and with `completed=True` from `_on_finished`, which clears the resume point. `_play_with_retries` asks `progress.start_offset` once and puts `--start` in every attempt's command, with a "Resuming at m:ss" notice. See `docs/code/src/progress.py.md`.
+
+## Files
+
+This file holds playback state, start/stop, polling, SponsorBlock and completion. The queue operations are `AudioQueueMixin` (`audio_queue.py`) and the launch thread is `AudioLaunchMixin` (`audio_launch.py`). `fetch_segments_async` and `cleanup_ipc` stay here because tests replace them by this module's name.

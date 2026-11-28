@@ -6,3 +6,5 @@
 - Loading runs in the `playlist_row` worker group. Staleness is `AudioController.claim()` / `intent`: any later play, stop, previous or claim drops the result. A natural track change does not, so a playlist asked for near the end of a song still starts.
 - A video run also needs the screen that asked to still be on top; audio starts wherever the user has gone.
 - `_watch_run` chains one `WatchModal` per video through the dismiss result. It stops after three failures in a row: offline, every item would fail and each one asks YouTube three times.
+
+`_on_run_item_done` gets the dismiss result of each player in a run.

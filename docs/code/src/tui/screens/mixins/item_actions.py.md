@@ -23,3 +23,5 @@ Video playback (`WatchModal`) suspends the app and runs mpv in the foreground (`
 `panel_hints()` feeds the Actions panel (`ActionBar._action_entries`): Enter and the row actions for the highlighted row (a channel row only gets copy URL and browser; a playlist row also video, audio and queue), then `keymap.tool_hints(_tool_actions())`. A screen overrides `_tool_actions` to say which tools apply (`MainScreen`: by tab, removal support, rail focus, undo; `ChannelScreen`: follow, and play/queue/save inside a playlist) and calls `_refresh_actions` when the row, the focus or the tab changes.
 
 - `_open_playlist(entry)` pushes `ChannelScreen(..., playlist=entry)` with `_crumbs()` as the trail. `action_watch`, `action_audio` and `action_audio_enqueue` first call `_use_playlist` (`playlist_rows.py`), which handles a playlist row.
+
+`on_video_list_panel_activated` lives here for all three screens (Enter on a row is `action_activate`).

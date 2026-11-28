@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import sys
 import threading
 import time
@@ -11,11 +10,17 @@ from collections.abc import Callable
 
 import yt_dlp
 
-from src import innertube, logger
+from src import channel_ref, feed_cache, innertube, logger
 from src.cache import Cache
 from src.cookies import get_cookiejar, invalidate
 from src.entries import ChannelEntry, Entry, PlaylistEntry, VideoEntry
 from src.errors import SignInRequired, SourceError, classify
+from src.flat_entries import (
+    FlatBatch,
+    channel_info_row,
+    collect_channel_playlists,
+    subscribed_channel_row,
+)
 from src.plat import get_deps_bin
 
 
@@ -79,8 +84,6 @@ def cancel_all() -> None:
 
 _MAX_RETRIES = 1
 _RETRY_DELAY_S = 2.0
-_MIN_FEED_COUNT = 15
-_MIN_SEARCH_COUNT = 5
 MAX_SEARCH_RESULTS = 200
 
 FEED_URLS = {
@@ -90,71 +93,23 @@ FEED_URLS = {
     "yt_watchlater": "https://www.youtube.com/playlist?list=WL",
 }
 
-_VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
-
-def _is_playable_video(entry: VideoEntry) -> bool:
-    """A flat entry with an 11-character video id (anything else, including a malformed row, is skipped)."""
-    if not isinstance(entry, dict) or not isinstance(entry.get("id"), str) or not _VIDEO_ID_RE.match(entry["id"]):
-        return False
-    return entry.get("_type", "video") not in ("playlist", "channel")
-
-
-_LIST_PARAM_RE = re.compile(r"^https?://(?:www\.|m\.)?youtube\.com/playlist\?(?:.*&)?list=([\w-]+)")
-
-
-def playlist_row(entry: dict) -> dict | None:
-    """A flat Home entry that is a playlist or Mix (yt-dlp: ``ie_key`` ``YoutubeTab``, a ``playlist?list=`` url) as a
-    list row, or None for anything else. Home only: the other account feeds list videos."""
-    if not isinstance(entry, dict) or entry.get("ie_key") != "YoutubeTab":
-        return None
-    match = _LIST_PARAM_RE.match(str(entry.get("url") or ""))
-    if not match:
-        return None
-    playlist_id = match.group(1)
-    row = {k: v for k, v in entry.items() if k not in ("ie_key",)}
-    row.update(
-        id=playlist_id, url=f"https://www.youtube.com/playlist?list={playlist_id}", _is_playlist=True, _type="playlist"
-    )
-    row["webpage_url"] = row["url"]
-    row["_playlist_name"] = row.get("title") or ""
-    if not row.get("thumbnail"):
-        from src.ui.thumbnail import best_thumb_url
-        row["thumbnail"] = best_thumb_url(row) or ""
-    return row
-
-
-def _normalise_entry(entry: VideoEntry) -> VideoEntry:
-    """Ensure flat-playlist entries have 'thumbnail' and 'webpage_url' fields."""
-    entry.setdefault("webpage_url", f"https://www.youtube.com/watch?v={entry.get('id', '')}")
-    if not entry.get("thumbnail"):
-        from src.ui.thumbnail import best_thumb_url
-        url = best_thumb_url(entry)
-        if url:
-            entry["thumbnail"] = url
-    return entry
-
-
-def _cached_entries(
-    cache: Cache, key: str, skip_ids: set[str], count: int, minimum: int
-) -> list[VideoEntry] | None:
-    """Entries of the cached feed ``key`` minus ``skip_ids``, or None if too few are usable."""
-    cached_ids = cache.get_feed(key)
-    if not cached_ids or len(cached_ids) < minimum:
-        return None
-    results: list[VideoEntry] = []
-    for vid_id in cached_ids:
-        if vid_id in skip_ids:
-            continue
-        if len(results) >= count:
-            break
-        entry = cache.get_video_raw(vid_id)
-        if entry:
-            results.append(entry)
-    if len(results) >= minimum:
-        logger.debug("cache hit for '%s' (%d entries)", key, len(results))
-        return results
-    return None
+def _extract_once(url: str, opts: dict, config, batch: FlatBatch, count: int, cancel: threading.Event,
+                  *, auth: bool) -> tuple[bool, SourceError | None]:
+    """One extraction into ``batch``: (yt-dlp returned no listing at all, the typed error if it failed)."""
+    try:
+        with _make_ydl(opts, config, auth=auth) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if info is None:
+                return True, None
+            batch.read(info, count, cancel)
+    except yt_dlp.utils.DownloadError as exc:
+        logger.debug("extract %s error: %s", url, exc)
+        failure = classify(exc)
+        if auth and isinstance(failure, SignInRequired):
+            invalidate()
+        return False, failure
+    return False, None
 
 
 def _extract_videos(
@@ -176,52 +131,23 @@ def _extract_videos(
     Returns ``(entries, ids)``. ``on_first_batch`` fires once, when ``first_batch_size`` entries exist.
     """
     opts = _flat_opts(count + len(skip_ids))
-    results: list[VideoEntry] = []
-    all_ids: list[str] = []
-
     cancel = new_cancel_event()
     failure: SourceError | None = None
     try:
         for attempt in range(_MAX_RETRIES + 1):
-            failure = None
-            results = []
-            all_ids = []
-            try:
-                with _make_ydl(opts, config, auth=auth) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info is None:
-                        break
-                    for entry in (info.get('entries') or []):
-                        if cancel.is_set() or len(results) >= count:
-                            break
-                        if not _is_playable_video(entry):
-                            continue
-                        _normalise_entry(entry)
-                        vid = entry.get("id", "")
-                        if vid in skip_ids:
-                            continue
-                        cache.put_video(entry)
-                        all_ids.append(vid)
-                        results.append(entry)
-                        if on_first_batch and len(results) == first_batch_size:
-                            on_first_batch(list(results))
-                            on_first_batch = None
-            except yt_dlp.utils.DownloadError as exc:
-                logger.debug("extract %s error: %s", url, exc)
-                failure = classify(exc)
-                if auth and isinstance(failure, SignInRequired):
-                    invalidate()
-
-            if results or attempt >= _MAX_RETRIES:
+            # A retry only follows an empty batch, so ``on_first_batch`` cannot have fired yet.
+            batch = FlatBatch(cache, skip_ids, on_first_batch, first_batch_size)
+            no_listing, failure = _extract_once(url, opts, config, batch, count, cancel, auth=auth)
+            if no_listing or batch.entries or attempt >= _MAX_RETRIES:
                 break
             logger.debug("extract %s: empty result, retrying (%d/%d)", url, attempt + 1, _MAX_RETRIES)
             time.sleep(_RETRY_DELAY_S)
     finally:
         release_cancel_event(cancel)
-    if failure and not results:
+    if failure and not batch.entries:
         raise failure
-    logger.debug("source: yt-dlp (%d entries)", len(results))
-    return results, all_ids
+    logger.debug("source: yt-dlp (%d entries)", len(batch.entries))
+    return batch.entries, batch.ids
 
 
 def fetch_page_batch(
@@ -246,7 +172,7 @@ def fetch_page_batch(
     """
     skip_ids = skip_ids or set()
     if feed_key:
-        cached = _cached_entries(cache, feed_key, skip_ids, count, _MIN_FEED_COUNT)
+        cached = feed_cache.cached_entries(cache, feed_key, skip_ids, count, feed_cache.MIN_FEED_COUNT)
         if cached is not None:
             logger.debug("source: cache (%d entries for %s)", len(cached), feed_key)
             return cached
@@ -254,32 +180,16 @@ def fetch_page_batch(
     logger.debug("fetch_page_batch: fetching %s (count=%d, skip=%d)", url, count, len(skip_ids))
     if cursor is not None:
         results = cursor.take(count, skip_ids, on_first_batch=on_first_batch, first_batch_size=first_batch_size)
-        if feed_key and len(cursor.ids) >= _MIN_FEED_COUNT:
+        if feed_key and len(cursor.ids) >= feed_cache.MIN_FEED_COUNT:
             cache.put_feed(feed_key, list(cursor.ids))
         return results
     results, all_ids = _extract_videos(
         url, config, cache, count=count, skip_ids=skip_ids,
         on_first_batch=on_first_batch, first_batch_size=first_batch_size, auth=auth,
     )
-    if feed_key and len(all_ids) >= _MIN_FEED_COUNT:
+    if feed_key and len(all_ids) >= feed_cache.MIN_FEED_COUNT:
         cache.put_feed(feed_key, all_ids)
     return results
-
-
-def _search_cache_key(query: str, sort: str, kind: str) -> str:
-    return "search_" + hashlib.md5(f"{query.lower().strip()}|{sort}|{kind}".encode()).hexdigest()[:10]
-
-
-def _remember_search(cache: Cache, key: str, skip_ids: set[str], new_ids: list[str]) -> None:
-    """Store the id list of a search; an extension batch is appended to the ids already cached under ``key``."""
-    ids = new_ids
-    if skip_ids:
-        known = cache.get_feed(key)
-        if not known:  # the order of what is already shown is unknown: leave the next load to refetch
-            return
-        ids = known + [i for i in new_ids if i not in known]
-    if len(ids) >= _MIN_SEARCH_COUNT:
-        cache.put_feed(key, ids)
 
 
 def fetch_search_batch(
@@ -300,8 +210,8 @@ def fetch_search_batch(
     with the first page, never for a cache hit. yt-dlp is the fallback only for the plain search.
     """
     skip_ids = skip_ids or set()
-    cache_key = _search_cache_key(query, sort, kind)
-    cached = _cached_entries(cache, cache_key, skip_ids, MAX_SEARCH_RESULTS, _MIN_SEARCH_COUNT)
+    cache_key = feed_cache.search_cache_key(query, sort, kind)
+    cached = feed_cache.cached_entries(cache, cache_key, skip_ids, MAX_SEARCH_RESULTS, feed_cache.MIN_SEARCH_COUNT)
     if cached is not None:
         logger.debug("source: cache (%d search results)", len(cached))
         return cached
@@ -327,19 +237,8 @@ def fetch_search_batch(
             f"ytsearch{count + len(skip_ids)}:{query}", config, cache, count=count, skip_ids=skip_ids,
             on_first_batch=on_first_batch,
         )
-    _remember_search(cache, cache_key, skip_ids, all_ids)
+    feed_cache.remember_search(cache, cache_key, skip_ids, all_ids)
     return results
-
-
-_CH_SUFFIX_RE = re.compile(
-    r"/(videos|shorts|streams|playlists|community|about|featured|membership|store)(/.*)?$",
-    re.IGNORECASE,
-)
-
-
-def _normalise_channel_url(url: str) -> str:
-    """Strip any existing channel-tab path component from a YouTube channel URL."""
-    return _CH_SUFFIX_RE.sub("", url.rstrip("/"))
 
 
 def fetch_channel_info(channel_url: str, config, cache: Cache) -> dict | None:
@@ -349,13 +248,17 @@ def fetch_channel_info(channel_url: str, config, cache: Cache) -> dict | None:
     if cached:
         return cached
 
-    info = innertube.fetch_channel_info(_normalise_channel_url(channel_url))
+    info = innertube.fetch_channel_info(channel_ref.base_url(channel_url))
     if info:
         info["_cache_key"] = cache_key
         cache.put_video(info)
         return info
     logger.debug("InnerTube channel info failed for %s; falling back to yt-dlp", channel_url)
 
+    return _channel_info_from_ytdlp(channel_url, cache, cache_key)
+
+
+def _channel_info_from_ytdlp(channel_url: str, cache: Cache, cache_key: str) -> dict | None:
     opts = base_opts()
     opts['extract_flat'] = 'in_playlist'
     opts['playlist_items'] = '0'
@@ -365,26 +268,7 @@ def fetch_channel_info(channel_url: str, config, cache: Cache) -> dict | None:
             data = ydl.extract_info(channel_url, download=False)
         if not data:
             return None
-
-        thumbs = data.get("thumbnails") or []
-        avatar_url = ""
-        for t in reversed(thumbs):
-            if t.get("id") == "avatar_uncropped":
-                avatar_url = t.get("url", "")
-                break
-        if not avatar_url:
-            avatar_url = thumbs[-1].get("url", "") if thumbs else data.get("thumbnail", "")
-
-        info = {
-            "_cache_key": cache_key,
-            "channel_url": channel_url,
-            "channel": data.get("channel") or data.get("uploader") or data.get("title", ""),
-            "channel_id": data.get("channel_id") or data.get("uploader_id", ""),
-            "description": data.get("description", ""),
-            "subscriber_count": data.get("channel_follower_count"),
-            "thumbnail": avatar_url,
-            "uploader_url": data.get("uploader_url", ""),
-        }
+        info = {"_cache_key": cache_key, **channel_info_row(data, channel_url)}
         cache.put_video(info)
         return info
     except Exception as exc:
@@ -401,7 +285,7 @@ def fetch_channel_videos(
     count: int = 80,
 ) -> list[VideoEntry]:
     """Video entries from a channel. ``sort`` is ``date`` or ``views``."""
-    url = _normalise_channel_url(channel_url) + ("/videos?sort=p" if sort == "views" else "/videos")
+    url = channel_ref.base_url(channel_url) + ("/videos?sort=p" if sort == "views" else "/videos")
     logger.debug("fetch_channel_videos: url=%s sort=%s", url, sort)
     try:
         return fetch_page_batch(url, config, cache, count=count)
@@ -417,7 +301,7 @@ def fetch_channel_playlists(
     *,
     count: int = 80,
 ) -> list[PlaylistEntry]:
-    url = _normalise_channel_url(channel_url) + "/playlists"
+    url = channel_ref.base_url(channel_url) + "/playlists"
     logger.debug("fetch_channel_playlists: url=%s", url)
 
     results: list[PlaylistEntry] = []
@@ -427,19 +311,7 @@ def fetch_channel_playlists(
             info = ydl.extract_info(url, download=False)
             if info is None:
                 return results
-            for entry in (info.get('entries') or []):
-                if cancel.is_set() or len(results) >= count:
-                    break
-                if entry is None:
-                    continue
-                if entry.get("_type", "") not in ("playlist", "url") and not entry.get("id"):
-                    continue
-                _normalise_entry(entry)
-                pid = entry.get("id", "")
-                if pid:
-                    entry.setdefault("_is_playlist", True)
-                    entry.setdefault("_playlist_name", entry.get("title", pid))
-                results.append(entry)
+            collect_channel_playlists(results, info, count, cancel)
     except yt_dlp.utils.DownloadError as exc:
         logger.debug("fetch_channel_playlists error: %s", exc)
     finally:
@@ -482,6 +354,16 @@ def fetch_subscribed_channels(config, cache: Cache) -> list[ChannelEntry]:
     return results
 
 
+def _keep_channels(results: list[ChannelEntry], info: dict | None, cache: Cache, cancel: threading.Event) -> None:
+    for data in ((info or {}).get('entries') or []):
+        if cancel.is_set():
+            return
+        entry = subscribed_channel_row(data)
+        if entry:
+            cache.put_video(entry)
+            results.append(entry)
+
+
 def _list_subscribed_channels(opts: dict, config, cache: Cache) -> list[ChannelEntry]:
     """One authenticated pass over the subscriptions channel list; raises ``DownloadError``."""
     results: list[ChannelEntry] = []
@@ -489,28 +371,7 @@ def _list_subscribed_channels(opts: dict, config, cache: Cache) -> list[ChannelE
     try:
         with _make_ydl(opts, config, auth=True) as ydl:
             info = ydl.extract_info("https://www.youtube.com/feed/channels", download=False)
-            for data in ((info or {}).get('entries') or []):
-                if cancel.is_set():
-                    break
-                if data is None:
-                    continue
-                cid = data.get("id") or data.get("channel_id") or ""
-                if not cid:
-                    continue
-                name = data.get("title") or data.get("channel") or data.get("uploader") or cid
-                ch_url = data.get("url") or data.get("channel_url") or ""
-                entry = {
-                    "id": cid, "title": name, "channel": name,
-                    "channel_url": ch_url, "channel_id": cid,
-                    "uploader": name, "uploader_url": ch_url,
-                    "subscriber_count": data.get("channel_follower_count"),
-                    "video_count": data.get("playlist_count"),
-                    "thumbnail": data.get("thumbnail") or "",
-                    "description": data.get("description") or "",
-                    "_is_channel": True,
-                }
-                cache.put_video(entry)
-                results.append(entry)
+            _keep_channels(results, info, cache, cancel)
     finally:
         release_cancel_event(cancel)
     return results

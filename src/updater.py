@@ -9,6 +9,7 @@ import sys
 import tempfile
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 from src.plat import IS_WINDOWS
@@ -83,82 +84,84 @@ def _swap_dir(extracted: Path, install_dir: Path, subdir: str) -> None:
         shutil.rmtree(str(dst_old))
 
 
+def _download_release(zip_url: str, tag: str, tmp_dir: Path) -> Path | None:
+    """Download and unpack the release into ``tmp_dir``; the extracted project folder, or None if there is none."""
+    zip_path = tmp_dir / "release.zip"
+    req = urllib.request.Request(zip_url, headers={"User-Agent": "TermTube-Updater/1.0"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        zip_path.write_bytes(resp.read())
+
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(tmp_dir)
+
+    # GitHub names the folder TermTube-<tag without leading v>.
+    extracted = tmp_dir / f"TermTube-{tag.lstrip('v')}"
+    if extracted.exists():
+        return extracted
+    return next((d for d in tmp_dir.iterdir() if d.is_dir() and d.name != "__MACOSX"), None)
+
+
+def _install_requirements(install_dir: Path, req_file: Path) -> None:
+    if IS_WINDOWS:
+        pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
+    else:
+        pip_exe = install_dir / ".venv" / "bin" / "pip3"
+    if pip_exe.exists() and req_file.exists():
+        subprocess.run([str(pip_exe), "install", "-r", str(req_file), "--quiet"], check=False)
+
+
+def _apply_release(install_dir: Path, tag: str, zip_url: str, say: Callable[[str], None]) -> bool:
+    """Swap in the release ``tag``. False (reported through ``say``) when anything fails."""
+    tmp_dir = Path(tempfile.mkdtemp(prefix="termtube_appupdate_"))
+    try:
+        extracted = _download_release(zip_url, tag, tmp_dir)
+        if extracted is None:
+            say("  [!] Could not find extracted directory.")
+            return False
+        for subdir in ("src", "scripts"):
+            _swap_dir(extracted, install_dir, subdir)
+        _install_requirements(install_dir, extracted / "requirements.txt")
+        (install_dir / "VERSION").write_text(tag, encoding="utf-8")
+        say(f"  [ok] app: updated to {tag}")
+        return True
+    except Exception as exc:
+        say(f"  [!] App update failed: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp_dir), ignore_errors=True)
+
+
 def update_app_code(install_dir: Path, *, verbose: bool = False) -> bool:
     """Replace src/ and scripts/ with the latest GitHub release.
 
     A VERSION of "dev" is never overwritten. True if up to date or updated.
     """
-    if verbose:
-        _safe_print("  Checking for TermTube app updates...")
+    say = _safe_print if verbose else _silent
+    say("  Checking for TermTube app updates...")
 
     result = _github_latest_release(_GITHUB_REPO)
     if result is None:
-        if verbose:
-            _safe_print("  [!] Could not reach GitHub to check for updates.")
+        say("  [!] Could not reach GitHub to check for updates.")
         return False
 
     latest_tag, zip_url = result
     installed = _read_installed_version(install_dir)
 
     if installed == "dev":
-        if verbose:
-            _safe_print("  [ok] app: dev install — skipping auto-update.")
+        say("  [ok] app: dev install — skipping auto-update.")
         return True
 
     if installed == latest_tag:
-        if verbose:
-            _safe_print(f"  [ok] app: already on {latest_tag}")
+        say(f"  [ok] app: already on {latest_tag}")
         return True
 
-    if verbose:
-        _safe_print(f"  app: {installed or 'unknown'} → {latest_tag}")
-        _safe_print("  Downloading update...")
+    say(f"  app: {installed or 'unknown'} → {latest_tag}")
+    say("  Downloading update...")
+    return _apply_release(install_dir, latest_tag, zip_url, say)
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="termtube_appupdate_"))
-    zip_path = tmp_dir / "release.zip"
-    try:
-        req = urllib.request.Request(zip_url, headers={"User-Agent": "TermTube-Updater/1.0"})
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            zip_path.write_bytes(resp.read())
 
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(tmp_dir)
-
-        # GitHub names the folder TermTube-<tag without leading v>.
-        extracted = tmp_dir / f"TermTube-{latest_tag.lstrip('v')}"
-        if not extracted.exists():
-            candidates = [d for d in tmp_dir.iterdir() if d.is_dir() and d.name != "__MACOSX"]
-            extracted = candidates[0] if candidates else None
-        if extracted is None or not extracted.exists():
-            if verbose:
-                _safe_print("  [!] Could not find extracted directory.")
-            return False
-
-        for subdir in ("src", "scripts"):
-            _swap_dir(extracted, install_dir, subdir)
-
-        req_file = extracted / "requirements.txt"
-        if IS_WINDOWS:
-            pip_exe = install_dir / ".venv" / "Scripts" / "pip.exe"
-        else:
-            pip_exe = install_dir / ".venv" / "bin" / "pip3"
-        if pip_exe.exists() and req_file.exists():
-            subprocess.run(
-                [str(pip_exe), "install", "-r", str(req_file), "--quiet"],
-                check=False,
-            )
-
-        (install_dir / "VERSION").write_text(latest_tag, encoding="utf-8")
-        if verbose:
-            _safe_print(f"  [ok] app: updated to {latest_tag}")
-        return True
-
-    except Exception as exc:
-        if verbose:
-            _safe_print(f"  [!] App update failed: {exc}")
-        return False
-    finally:
-        shutil.rmtree(str(tmp_dir), ignore_errors=True)
+def _silent(msg: str) -> None:
+    """The ``say`` of a quiet run."""
 
 
 def _safe_print(msg: str) -> None:
@@ -174,29 +177,21 @@ def run_all_updates(verbose: bool = False) -> bool:
     from src.bootstrap import install_all
 
     install_dir = Path(__file__).parent.parent
+    say = _safe_print if verbose else _silent
 
-    if verbose:
-        _safe_print("  Re-downloading all tools from GitHub releases...")
-
+    say("  Re-downloading all tools from GitHub releases...")
     success = install_all(force=True)
 
-    if verbose:
-        _safe_print("  Updating yt-dlp via pip...")
-    ytdlp_ok = update_ytdlp(verbose=verbose)
-    if ytdlp_ok and verbose:
-        _safe_print(f"  [ok] yt-dlp {get_ytdlp_version() or 'updated'}")
-    if not ytdlp_ok:
+    say("  Updating yt-dlp via pip...")
+    if not update_ytdlp(verbose=verbose):
         success = False
+    elif verbose:
+        _safe_print(f"  [ok] yt-dlp {get_ytdlp_version() or 'updated'}")
 
     if not update_app_code(install_dir, verbose=verbose):
         success = False
 
-    if verbose:
-        if success:
-            _safe_print("  All tools updated successfully.")
-        else:
-            _safe_print("  Some updates failed -- check output above.")
-
+    say("  All tools updated successfully." if success else "  Some updates failed -- check output above.")
     return success
 
 

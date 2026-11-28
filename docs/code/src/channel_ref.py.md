@@ -6,3 +6,4 @@ the `id` form: a handle or legacy name needs a network lookup (`innertube.resolv
 
 Callers: `innertube.resolve_channel_id` (skips the lookup when the URL has the id) and `ChannelScreen._channel_id`.
 The id must be `UC` plus 22 characters; a shorter id is treated as no id, so a malformed URL falls through to the yt-dlp path.
+`base_url` drops a channel tab path (`/videos`, `/playlists`, ...); `ytdlp` adds the tab it wants to the result.

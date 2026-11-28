@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 
 from textual import work
 
@@ -76,17 +77,20 @@ class PlaylistRowsMixin:
         """Play ``videos[index]`` in the video player, then its neighbour, until stopped or past the end."""
         from src.tui.screens.watch_modal import WatchModal
 
-        def done(result: str | None) -> None:
-            step = _STEPS.get(result or "")
-            failed = failures + 1 if result == "failed" else 0
-            if step is None or failed >= _MAX_FAILURES:
-                return
-            following = max(0, index + step)
-            if following >= len(videos):
-                self.notify(text("playlist_rows.finished"), timeout=4)
-                return
-            self._watch_run(videos, following, failed)
-
         entry: Entry = videos[index]
         logger.info("watch %s (%d of %d)", entry.get("id", "?"), index + 1, len(videos))
-        self.app.push_screen(WatchModal(entry, position=(index + 1, len(videos))), done)
+        self.app.push_screen(
+            WatchModal(entry, position=(index + 1, len(videos))),
+            partial(self._on_run_item_done, videos, index, failures),
+        )
+
+    def _on_run_item_done(self, videos: list[Entry], index: int, failures: int, result: str | None) -> None:
+        step = _STEPS.get(result or "")
+        failed = failures + 1 if result == "failed" else 0
+        if step is None or failed >= _MAX_FAILURES:
+            return
+        following = max(0, index + step)
+        if following >= len(videos):
+            self.notify(text("playlist_rows.finished"), timeout=4)
+            return
+        self._watch_run(videos, following, failed)

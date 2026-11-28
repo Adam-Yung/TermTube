@@ -2,221 +2,29 @@
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 
 from textual.app import ComposeResult
-from textual.binding import Binding
-from textual.events import Click
 from textual.message import Message
 from textual.widget import Widget
-from textual.widgets import Input, ListItem, ListView, LoadingIndicator, Static
+from textual.widgets import ListItem, ListView, LoadingIndicator, Static
 
 from src import fuzzy, logger
 from src.config import DEFAULT_ROWS_PER_PAGE
 from src.entries import Entry
 from src.strings import text
-from src.tui.fmt import escape_markup, fmt_age, fmt_clock, fmt_duration, fmt_subscribers, fmt_views
-from src.tui.widgets.action_bar import THEME_COLORS
+from src.tui.fmt import escape_markup
+from src.tui.widgets.list_cursor import ListCursorMixin
+from src.tui.widgets.list_filter import FilterBar, ListFilterMixin, paginate
+from src.tui.widgets.list_footer import ListFooterMixin
 from src.tui.widgets.page_indicator import PageIndicator
+from src.tui.widgets.video_rows import HeaderListItem, VideoListItem
 
 _MAX_PAGES_IN_MEMORY = 30
-
-
-_DL_BADGES = {
-    "video": "badge_dl_video",
-    "audio": "badge_dl_audio",
-    "both": "badge_dl_both",
-    "": "badge_dl_remote",
-}
-
-
-def _paginate(entries: list[Entry], size: int) -> dict[int, list[Entry]]:
-    return {n + 1: entries[i:i + size] for n, i in enumerate(range(0, len(entries), size))}
-
-
 _MAX_MESSAGE = 400  # a raw exception text can be a whole page of HTML
 
 
-class _ItemClicked(Message):
-    def __init__(self, entry: Entry) -> None:
-        super().__init__()
-        self.entry = entry
-
-
-class _ItemDoubleClicked(Message):
-    def __init__(self, entry: Entry) -> None:
-        super().__init__()
-        self.entry = entry
-
-def _fmt_watched(ts: float | None) -> str:
-    if not ts:
-        return ""
-    delta = time.time() - ts
-    if delta < 60:
-        return text("video_list.watched_now")
-    if delta < 3600:
-        return text("video_list.watched_minutes", count=int(delta / 60))
-    if delta < 86400:
-        return text("video_list.watched_hours", count=int(delta / 3600))
-    if delta < 86400 * 30:
-        return text("video_list.watched_days", count=int(delta / 86400))
-    return text("video_list.watched_months", count=int(delta / (86400 * 30)))
-
-
-class HeaderListItem(ListItem):
-    """A group label between rows (a day in History). Disabled, so the cursor never lands on it."""
-
-    def __init__(self, label: str) -> None:
-        super().__init__(disabled=True)
-        self._label = label
-
-    def compose(self) -> ComposeResult:
-        yield Static(f"[bold #888888]{escape_markup(self._label)}[/bold #888888]", markup=True)
-
-
-class FilterBar(Input):
-    """One-line filter field at the foot of the list. Esc posts ``Cancelled``."""
-
-    DEFAULT_CSS = """
-    FilterBar, FilterBar:focus {
-        display: none;
-        dock: bottom;
-        height: 1;
-        margin-bottom: 1;
-        padding: 0 1;
-        border: none;
-    }
-    """
-    BINDINGS = [Binding("escape", "cancel", show=False)]
-
-    class Cancelled(Message):
-        pass
-
-    def action_cancel(self) -> None:
-        self.post_message(self.Cancelled())
-
-
-class VideoListItem(ListItem):
-    def __init__(self, entry: Entry, *, marked: bool = False, playing: bool = False) -> None:
-        super().__init__()
-        self.entry = entry
-        self.marked = marked
-        self.playing = playing
-        self._cached_markup: str = ""
-
-    def set_marked(self, marked: bool) -> None:
-        self.marked = marked
-        self.refresh_markup()
-
-    def refresh_markup(self) -> None:
-        self._cached_markup = self._build_markup()
-        try:
-            self.query_one(Static).update(self._cached_markup)
-        except Exception:
-            pass
-
-    def compose(self) -> ComposeResult:
-        self._cached_markup = self._build_markup()
-        yield Static(self._cached_markup, markup=True, shrink=True)
-
-    def on_click(self, event: Click) -> None:
-        event.stop()
-        event.prevent_default()
-        self.post_message(_ItemClicked(self.entry))
-
-    def on_double_click(self, event: Click) -> None:
-        event.stop()
-        event.prevent_default()
-        if isinstance(self.parent, ListView):
-            self.parent.index = self.parent.children.index(self)
-        self.post_message(_ItemDoubleClicked(self.entry))
-
-    def _build_markup(self) -> str:
-        try:
-            theme = self.app.config.theme
-        except Exception:
-            theme = "crimson"
-
-        theme_color = THEME_COLORS.get(theme, "#ff6666")
-
-        entry = self.entry
-        title = entry.get("title") or text("video_list.untitled")
-        channel = entry.get("uploader") or entry.get("channel") or ""
-        duration = fmt_duration(entry.get("duration"))
-        views = fmt_views(entry.get("view_count"))
-        age = fmt_age(entry.get("upload_date")) or entry.get("published_text", "")
-        watched = _fmt_watched(entry.get("watched_at"))
-
-        local_type = entry.get("_local_type", "")
-        has_audio = entry.get("_has_audio", False)
-        is_playlist = entry.get("_is_playlist", False)
-        is_channel = entry.get("_is_channel", False)
-
-        if is_channel:
-            ch_name = (entry.get("channel") or entry.get("title") or entry.get("uploader")
-                       or text("video_list.channel_fallback"))
-            if len(ch_name) > 50:
-                ch_name = ch_name[:47] + "..."
-            subs = fmt_subscribers(entry.get("subscriber_count"))
-            vcnt = entry.get("video_count")
-            parts = [
-                text("video_list.subscribers", count=subs) if subs else "",
-                text("video_list.videos", count=vcnt) if vcnt else "",
-            ]
-            line2 = "  [dim]·[/dim]  ".join(f"[dim]{p}[/dim]" for p in parts if p)
-            line1 = f"[bold white]{escape_markup(ch_name)}[/bold white] [{theme_color}]📺[/{theme_color}]"
-            return f"{line1}\n{line2}" if line2 else line1
-
-        if self.playing:
-            badge = text("video_list.badge_playing")
-        elif entry.get("_missing_file"):
-            badge = text("video_list.badge_file_missing")
-        elif is_playlist:
-            badge = text("video_list.badge_playlist")
-        elif "_dl" in entry:
-            badge = text(f"video_list.{_DL_BADGES[entry['_dl']]}")
-        elif local_type == "video" and has_audio:
-            badge = text("video_list.badge_video_audio")
-        elif local_type == "video":
-            badge = text("video_list.badge_video")
-        elif local_type == "audio":
-            badge = text("video_list.badge_audio")
-        elif entry.get("_yt") or entry.get("source") == "yt":
-            badge = text("video_list.badge_youtube")
-        else:
-            badge = ""
-
-        if len(title) > 68:
-            title = title[:65] + "…"
-
-        mark = f"[bold {theme_color}]●[/bold {theme_color}] " if self.marked else ""
-        line1 = f"{mark}[bold white]{escape_markup(title)}[/bold white]{badge}"
-
-        meta_parts = []
-        if channel:
-            meta_parts.append(f"[{theme_color}]{escape_markup(channel)}[/{theme_color}]")
-        if is_playlist and entry.get("playlist_count"):
-            meta_parts.append(f"[dim]{text('video_list.videos', count=entry['playlist_count'])}[/dim]")
-        if duration:
-            meta_parts.append(f"[dim]{duration}[/dim]")
-        if views:
-            meta_parts.append(f"[dim]{views}[/dim]")
-        if age:
-            meta_parts.append(f"[dim]{age}[/dim]")
-        if watched:
-            meta_parts.append(f"[#6699cc]{watched}[/#6699cc]")
-        resume = entry.get("resume_s")
-        if resume and entry.get("duration"):
-            meta_parts.append(f"[#6bff6b]▶ {fmt_clock(resume)} / {duration}[/#6bff6b]")
-        if (entry.get("plays") or 0) > 1:
-            meta_parts.append(f"[dim]×{entry['plays']}[/dim]")
-
-        line2 = "  [dim]·[/dim]  ".join(meta_parts) if meta_parts else ""
-        return f"{line1}\n{line2}" if line2 else line1
-
-
-class VideoListPanel(Widget):
+class VideoListPanel(ListCursorMixin, ListFilterMixin, ListFooterMixin, Widget):
     """Pages of ``page_size`` entries (``rows_per_page``, latched at each list load), deduplicated by id across pages.
 
     ``_pages`` always holds every loaded entry. While a filter is active the list shows ``_filtered_pages``
@@ -287,18 +95,6 @@ class VideoListPanel(Widget):
         self._lv.focus()
 
     @property
-    def selected_entry(self) -> Entry | None:
-        if self._lv.index is None:
-            return None
-        try:
-            child = self._lv.highlighted_child
-            if isinstance(child, VideoListItem):
-                return child.entry
-        except Exception:
-            pass
-        return None
-
-    @property
     def page_size(self) -> int:
         return self._page_size
 
@@ -321,10 +117,6 @@ class VideoListPanel(Widget):
         """Entries held in the full set (not the filtered one)."""
         return sum(len(p) for p in self._pages.values())
 
-    @property
-    def filter_active(self) -> bool:
-        return bool(self._filter)
-
     def _view_pages(self) -> dict[int, list[Entry]]:
         return self._filtered_pages if self._filter else self._pages
 
@@ -343,23 +135,23 @@ class VideoListPanel(Widget):
                 self._seen_ids.add(vid)
             deduped.append(entry)
         self._pages[page_num] = deduped
-        if evict and len(self._pages) > _MAX_PAGES_IN_MEMORY:
-            anchor = self._anchor_page if self._filter else self._current_page
-            keep_min = max(1, anchor - 2)
-            keep_max = anchor + 2
-            for pn in sorted(self._pages.keys()):
-                if len(self._pages) <= _MAX_PAGES_IN_MEMORY:
-                    break
-                if pn < keep_min or pn > keep_max:
-                    evicted = self._pages.pop(pn)
-                    for e in evicted:
-                        eid = e.get("id", "")
-                        if eid:
-                            self._seen_ids.discard(eid)
+        if evict:
+            self._evict_far_pages()
         if self._filter:
             self._rebuild_filtered()
         self._update_page_indicator()
         logger.debug("video_list: added page %d (%d entries)", page_num, len(deduped))
+
+    def _evict_far_pages(self) -> None:
+        """Over the cap, drop pages more than two away from the one in view, forgetting their ids."""
+        if len(self._pages) <= _MAX_PAGES_IN_MEMORY:
+            return
+        anchor = self._anchor_page if self._filter else self._current_page
+        keep_min = max(1, anchor - 2)
+        keep_max = anchor + 2
+        far = [pn for pn in sorted(self._pages) if pn < keep_min or pn > keep_max]
+        for pn in far[: len(self._pages) - _MAX_PAGES_IN_MEMORY]:
+            self._seen_ids.difference_update(e.get("id", "") for e in self._pages.pop(pn) if e.get("id", ""))
 
     def load_page(
         self, page_num: int, *, cursor: str = "first", focus_id: str | None = None, focus: bool = True
@@ -503,14 +295,7 @@ class VideoListPanel(Widget):
 
     def update_entry_by_id(self, vid_id: str, entry: Entry) -> None:
         """Replace an entry (held page and visible row) with its enriched version."""
-        for pn, page_entries in self._pages.items():
-            for i, e in enumerate(page_entries):
-                if e.get("id") == vid_id:
-                    self._pages[pn][i] = entry
-                    break
-            else:
-                continue
-            break
+        self._replace_held(vid_id, entry)
         if self._filter:
             self._rebuild_filtered()
 
@@ -520,11 +305,25 @@ class VideoListPanel(Widget):
         item.entry = entry
         item.refresh_markup()
 
+    def _replace_held(self, vid_id: str, entry: Entry) -> None:
+        for page_entries in self._pages.values():
+            for i, held in enumerate(page_entries):
+                if held.get("id") == vid_id:
+                    page_entries[i] = entry
+                    return
+
     def add_entries(self, start_page: int, entries: list[Entry], *, evict: bool = True) -> None:
         """Add ``entries`` as consecutive ``page_size`` pages starting at ``start_page``."""
         size = self._page_size
         for n, i in enumerate(range(0, len(entries), size)):
             self.add_page(start_page + n, entries[i:i + size], evict=evict)
+
+    def append_pages(self, entries: list[Entry], show: bool) -> None:
+        """Add a fetched extension after the full set; with ``show`` land on its first page."""
+        first = self.next_page_number
+        self.add_entries(first, entries)
+        if show and not self.load_page(first):
+            self.finish_loading()
 
     @property
     def seen_ids(self) -> set[str]:
@@ -534,35 +333,9 @@ class VideoListPanel(Widget):
         """Entries of every held page, in page order."""
         return [e for pn in sorted(self._pages) for e in self._pages[pn]]
 
-    def focus_list(self) -> None:
-        self._lv.focus()
-
-    def list_has_focus(self) -> bool:
-        return self.app.focused is self._lv
-
-    def cursor_down(self) -> None:
-        self._lv.action_cursor_down()
-
-    def cursor_up(self) -> None:
-        self._lv.action_cursor_up()
-
-    def cursor_first(self) -> None:
-        for i, child in enumerate(self._lv.children):
-            if isinstance(child, VideoListItem):
-                self._lv.index = i
-                return
-
-    def cursor_last(self) -> None:
-        if len(self._lv):
-            self._lv.index = len(self._lv) - 1
-
     def set_playing(self, vid: str | None) -> None:
         """Badge this id as now playing from the next render on."""
         self._playing_id = vid
-
-    def set_matcher(self, matcher: Callable[[list[Entry], str], list[Entry]] | None) -> None:
-        """How the filter ranks entries for the view being loaded; None restores the plain free-text match."""
-        self._matcher = matcher or fuzzy.rank
 
     def set_view_options(self, *, group_by: Callable[[Entry], str] | None = None, show_count: bool = False) -> None:
         """Day headers (`group_by` returns a row's label) and the footer item count. Reset on every view change."""
@@ -572,7 +345,7 @@ class VideoListPanel(Widget):
 
     def replace_entries(self, entries: list[Entry], *, focus_id: str | None = None) -> None:
         """Swap the full entry set (after a removal or undo), keeping the filter, marks and, if possible, the page."""
-        self._pages = _paginate(entries, self._page_size)
+        self._pages = paginate(entries, self._page_size)
         self._seen_ids = {e["id"] for e in entries if e.get("id")}
         self._marked &= self._seen_ids
         if self._filter:
@@ -597,179 +370,3 @@ class VideoListPanel(Widget):
             if any(e.get("id") == vid for e in page_entries):
                 return pn
         return None
-
-    def open_filter(self) -> bool:
-        """Show the filter bar and focus it. False when there is nothing loaded to filter."""
-        if self._is_loading or not self._pages:
-            return False
-        self._filter_bar.display = True
-        self._filter_bar.focus()
-        return True
-
-    def close_filter(self) -> None:
-        """Drop the filter, hide the bar and return focus to the list, the cursor staying on the same video."""
-        self._drop_filter()
-        self._reset_filter()
-        self._lv.focus()
-
-    def _reset_filter(self) -> None:
-        self._filter = ""
-        self._filtered_pages = {}
-        if hasattr(self, "_filter_bar"):
-            self._filter_bar.value = ""
-            self._filter_bar.display = False
-
-    def _apply_filter(self, query: str) -> None:
-        if not query:
-            self._drop_filter()
-            return
-        if not self._filter:
-            self._anchor_page = self._current_page
-        self._filter = query
-        self._rebuild_filtered()
-        if self._filtered_pages:
-            self.load_page(1, focus=False)
-        else:
-            self._current_page = 1
-            self._render_rows([])
-            self._update_page_indicator()
-
-    def _drop_filter(self) -> None:
-        if not self._filter:
-            return
-        selected = self.selected_entry
-        sid = selected.get("id") if selected else None
-        self._filter = ""
-        self._filtered_pages = {}
-        page = self._page_of(sid) or min(self._anchor_page, max(self._pages, default=1))
-        self.load_page(max(page, 1), focus_id=sid, focus=False)
-
-    def _rebuild_filtered(self) -> None:
-        matched = self._matcher(self.visited_entries(), self._filter)
-        self._filtered_pages = _paginate(matched, self._page_size)
-
-    def toggle_mark(self, entry: Entry) -> None:
-        vid = entry.get("id", "")
-        if not vid:
-            return
-        marked = vid not in self._marked
-        self._marked.add(vid) if marked else self._marked.discard(vid)
-        item = self._items_by_id.get(vid)
-        if item is not None:
-            item.set_marked(marked)
-        self._update_page_indicator()
-
-    def mark_page(self) -> None:
-        """Mark every row of the shown page; when all are marked already, unmark them."""
-        ids = [e["id"] for e in self._view_pages().get(self._current_page, []) if e.get("id")]
-        mark = not all(i in self._marked for i in ids)
-        for vid in ids:
-            self._marked.add(vid) if mark else self._marked.discard(vid)
-            item = self._items_by_id.get(vid)
-            if item is not None:
-                item.set_marked(mark)
-        self._update_page_indicator()
-
-    def marked_entries(self) -> list[Entry]:
-        """Marked rows of the full set (also those on other pages), in list order."""
-        return [e for e in self.visited_entries() if e.get("id") in self._marked]
-
-    def _status_note(self) -> str:
-        shown = sum(len(p) for p in self._view_pages().values())
-        total = sum(len(p) for p in self._pages.values())
-        parts = []
-        if self._filter:
-            parts.append(text("video_list.status_matches", shown=shown, total=total))
-        elif self._show_count:
-            parts.append(text("video_list.status_total", total=total))
-        if self._marked:
-            parts.append(text("video_list.status_marked", count=len(self._marked)))
-        if self._played_shown:
-            parts.append(text("video_list.status_played_shown"))
-        elif self._hidden:
-            parts.append(text("video_list.status_hidden", count=self._hidden))
-        if self._notice:
-            parts.append(self._notice)
-        if self._progress:
-            parts.append(self._progress)
-        return "  ·  ".join(parts)
-
-    def set_hidden(self, count: int, *, showing: bool = False) -> None:
-        """Footer count of rows kept out of the list (Home hides played videos); ``showing`` says they are shown."""
-        self._hidden, self._played_shown = count, showing
-        self._update_page_indicator()
-
-    def set_notice(self, text: str) -> None:
-        """A standing footer note that is not about work in flight (``↑ 4 new · r to refresh``); empty clears it."""
-        self._notice = text
-        self._update_page_indicator()
-
-    def set_progress(self, text: str) -> None:
-        """Extra footer text for work in flight (more pages loading); empty clears it."""
-        self._progress = text
-        self._update_page_indicator()
-
-    def on_input_changed(self, event: Input.Changed) -> None:
-        event.stop()
-        query = event.value.strip()
-        if query != self._filter:
-            self._apply_filter(query)
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        event.stop()
-        if not self._filter:
-            self._filter_bar.display = False
-        self._lv.focus()
-
-    def on_filter_bar_cancelled(self, event: FilterBar.Cancelled) -> None:
-        event.stop()
-        self.close_filter()
-
-    def _update_page_indicator(self) -> None:
-        try:
-            current = max(self._current_page, 1)
-            total = max(self.total_pages, current)
-            next_ready = (self._current_page + 1) in self._view_pages()
-            self._page_indicator.update_state(
-                current=current,
-                total=total,
-                next_ready=next_ready,
-                note=self._status_note(),
-            )
-        except Exception:
-            pass
-
-    def on__item_clicked(self, msg: _ItemClicked) -> None:
-        highlighted = self._lv.highlighted_child
-        already_focused = (
-            isinstance(highlighted, VideoListItem)
-            and highlighted.entry.get("id") == msg.entry.get("id")
-        )
-        if already_focused:
-            self.post_message(self.Activated(msg.entry))
-        else:
-            for i, child in enumerate(self._lv.children):
-                if isinstance(child, VideoListItem) and child.entry.get("id") == msg.entry.get("id"):
-                    self._lv.index = i
-                    break
-
-    def on__item_double_clicked(self, msg: _ItemDoubleClicked) -> None:
-        self.post_message(self.Activated(msg.entry))
-
-    def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        if event.item and isinstance(event.item, VideoListItem):
-            self.post_message(self.Selected(event.item.entry))
-
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if isinstance(event.item, VideoListItem):
-            self.post_message(self.Activated(event.item.entry))
-
-    def on_page_indicator_prev_page(self, event: PageIndicator.PrevPage) -> None:
-        event.stop()
-        if self.can_go_prev():
-            self.post_message(self.PageChangeRequested(-1))
-
-    def on_page_indicator_next_page(self, event: PageIndicator.NextPage) -> None:
-        event.stop()
-        if self.can_go_next():
-            self.post_message(self.PageChangeRequested(+1))

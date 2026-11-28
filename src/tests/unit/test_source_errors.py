@@ -3,7 +3,7 @@
 import pytest
 import yt_dlp
 
-from src import innertube, ytdlp
+from src import feed_cache, innertube, ytdlp
 from src.errors import ExtractionFailed, NetworkDown, RateLimited, SignInRequired, classify
 
 
@@ -103,8 +103,8 @@ def test_search_falls_back_to_ytdlp_when_innertube_errors(monkeypatch):
     monkeypatch.setattr(innertube, "search", boom)
     entry = {"id": "abcdefghij1", "title": "t"}
     monkeypatch.setattr(ytdlp, "_extract_videos", lambda *a, **k: ([entry], ["abcdefghij1"]))
-    monkeypatch.setattr(ytdlp, "_cached_entries", lambda *a: None)
-    monkeypatch.setattr(ytdlp, "_remember_search", lambda *a: None)
+    monkeypatch.setattr(feed_cache, "cached_entries", lambda *a: None)
+    monkeypatch.setattr(feed_cache, "remember_search", lambda *a: None)
     assert ytdlp.fetch_search_batch("q", None, _Cache()) == [entry]
 
 
@@ -113,7 +113,7 @@ def test_filtered_search_does_not_fall_back_and_surfaces_the_error(monkeypatch):
         raise RateLimited("x")
 
     monkeypatch.setattr(innertube, "search", boom)
-    monkeypatch.setattr(ytdlp, "_cached_entries", lambda *a: None)
+    monkeypatch.setattr(feed_cache, "cached_entries", lambda *a: None)
     with pytest.raises(RateLimited):
         ytdlp.fetch_search_batch("q", None, _Cache(), sort="date")
 

@@ -10,8 +10,7 @@ All OS branching lives here: config/cache/log directories, mpv IPC endpoints, cl
 - `prune_dir(dir, pattern, max_age_days, max_count)` is the one pruner (age by mtime, then oldest beyond a count): cache housekeeping, SponsorBlock files and the debug log directory use it.
 - Managed tools: `get_deps_dir()` is `~/.local/termtube-deps` (`%LOCALAPPDATA%\termtube-deps`); `get_deps_bin()` is its `bin` subdirectory; `is_tool_installed(name)` checks only there, never `PATH`. `src/main.py` prepends that bin to `PATH` at startup; `src/bootstrap.py` installs into it.
 - IPC: three endpoints (`termtube-mpv`, `-audio`, `-video`). Unix sockets live in `$XDG_RUNTIME_DIR`, else `/tmp/termtube-<uid>/` created `0700`, so another local user cannot connect to the player. `private_dir` is the one creator for such directories (IPC and the debug log dir): 0700, and it raises `PermissionError` for a symlink, a non-directory or a directory owned by another user, and tightens a loose directory of ours. `_ipc_path` therefore fails closed: no socket is bound in an untrusted directory. `player.py` computes `IPC_SOCKET` at import, so such a directory stops the app at start with that error. Windows uses named pipes (`\\.\pipe\...`), which need no cleanup; `cleanup_ipc` is a no-op there.
-- `ProcessRegistry` is the only list of children that must die with the app. Everything spawned for playback registers; `kill_all` (SIGTERM, shared wait, SIGKILL) runs from `main._emergency_cleanup`. See [docs/decisions/concurrency.md](../../decisions/concurrency.md).
-- `download_thumbnail` fetches only http(s) URLs, reads at most 2 MB, and gives up on a certificate error. Its verified context also trusts the macOS keychains (`_macos_keychain_pem`: public certificates read once through `/usr/bin/security`; empty elsewhere), because a Python with its own CA bundle (conda, python.org) does not know a company's TLS-inspection root, which fails every inspected image host (`i.ytimg.com` on a Palo Alto firewall). `VERIFY_X509_STRICT` is cleared in that case since inspection roots often lack the key identifiers Python 3.13 requires; the chain and host name are still checked. Tests stub the keychain read. With `insecure=True` (config `insecure_thumbnails`, default off) it retries once without verification, for corporate MITM proxies; acceptable only because thumbnails are public CDN images, never reuse it for anything that carries credentials. `ui.thumbnail.download` decodes the file before keeping it.
+- `ProcessRegistry` is the only list of children that must die with the app. Everything spawned for playback registers; `kill_all` (SIGTERM, one shared wait budget, SIGKILL) runs from `main._emergency_cleanup`. See [docs/decisions/concurrency.md](../../decisions/concurrency.md).
 
 ## Platform quirks
 
@@ -21,5 +20,4 @@ All OS branching lives here: config/cache/log directories, mpv IPC endpoints, cl
 
 ## Known limits
 
-- `get_popen_kwargs` is an alias of `get_subprocess_flags`, kept because screens import both names.
 - `_INSTALL_HINTS["yt-dlp"]` is the same pip command on every OS (yt-dlp is a library in TermTube's venv). Only `mpv` hints are shown in practice.

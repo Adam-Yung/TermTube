@@ -7,6 +7,7 @@ Items are slim snapshots (the same slimmer as history, `history.slim`), so a pla
 ## Rules
 
 - Every call is one `read` or `update` under the store lock; two threads cannot lose each other's change. Reads return deep copies.
+- Each change is a module function bound with `partial`. The `_x_items` ones take one playlist record and run through `_mutate`, which stamps `updated` and saves only on a truthy result.
 - Playlists are addressed by **id**; the name is a label. Names are unique case-insensitively (`create` and `rename` return `None` / `False`
   and change nothing otherwise; renaming to the same name in another case is allowed).
 - **Migration v1 to v2** (`_migrate`, run by the store on first load of an old file): `{name: [ids]}` becomes records with fresh ids. The old

@@ -1,15 +1,17 @@
 # src/tui/widgets/video_list.py
 
+`VideoListPanel` holds pages and rendering. Its other parts are mixins: cursor and click messages (`list_cursor.py`), filter (`list_filter.py`), marks and footer (`list_footer.py`). Row widgets are `video_rows.py`, their text `row_markup.py`. `HeaderListItem`, `VideoListItem` and `FilterBar` are importable from this module.
+
 The paged list. Entries live in `_pages` (page number to entries, `page_size` = `rows_per_page`, 20 by default); the `ListView` shows one page. Everything that fetches (`FeedLoaderMixin`, `ChannelScreen`) pushes pages in; this widget never fetches.
 
 ## Invariants
 
 - **Dedup by id across pages.** `_seen_ids` drops an entry already held in any page. Entries without an id are never deduplicated. Evicting a page removes its ids, so they can come back.
 - **Memory cap.** Beyond 30 pages, pages farther than 2 from the current one are evicted, oldest first, unless the caller passes `evict=False` (local lists, which cannot refetch).
-- **Paging contract.** `load_page` returns False when the page is not held. `can_go_next`/`can_go_prev` are False while loading. `show_next_page_loading` bumps `_current_page` to the page about to arrive and shows the spinner; the caller then calls `add_entries` and `load_page` (see `FeedLoaderMixin._append_pages`).
+- **Paging contract.** `load_page` returns False when the page is not held. `can_go_next`/`can_go_prev` are False while loading. `show_next_page_loading` bumps `_current_page` to the page about to arrive and shows the spinner; the caller then calls `add_entries` and `load_page` (`append_pages` does both).
 - **Stash.** `_max_visited_page` is the highest page the user opened. `all_unseen_entries` returns pages above it; `visited_entries` returns every held page. `FeedLoaderMixin._save_feed_stash` builds the next launch's first page from them (see the stash/paging model in `docs/code/src/tui/screens/mixins/feed_loader.py.md`).
 - **Selection message.** `ListView.Highlighted` becomes `VideoListPanel.Selected` (cursor moved); Enter and double-click become `Activated`. A single click on the highlighted row activates; on another row it only moves the highlight.
-- `update_entry_by_id` swaps an enriched entry into its page and rebuilds the visible row markup, so metadata that arrives after the row was drawn shows up without reloading the page. `settings_modal.py` also rebuilds rows (`_build_markup`) after a theme change.
+- `update_entry_by_id` swaps an enriched entry into its page and rebuilds the visible row markup, so metadata that arrives after the row was drawn shows up without reloading the page. `settings_modal.py` also repaints rows (`refresh_markup`) after a theme change.
 
 ## Filter, marks, headers
 
@@ -23,18 +25,6 @@ The paged list. Entries live in `_pages` (page number to entries, `page_size` = 
 - `set_progress(text)` adds in-flight work ("loading 30 more…") to the footer note; `clear_and_set_loading` clears it.
 - `replace_entries(entries, focus_id)` swaps the full set after a removal or undo and keeps filter, marks and page.
 
-## Row markup
-
-`VideoListItem._build_markup` handles four row kinds: channel (Subscriptions), playlist, library item (badges from `_local_type`/`_has_audio`) and video. The `_is_*` and `_local_*` keys are set by the loaders and `library.py`.
-
-A row flagged `_missing_file` shows a red `⚠ file missing` badge instead of the video/audio badge.
-
-`set_playing(id)` badges that row as now playing (the queue page); it is a panel attribute, not an entry key, so nothing leaks into the cache.
-
-`set_matcher(fn)` swaps how the filter ranks entries (default `fuzzy.rank`); the feed loader sets it per view. Rows with `_dl` (playlist items) show a download badge: `⬇ video`, `⬇ audio`, `⬇ both` or `☁` for stream only.
-
-A row with `_yt` (account list) or `source == "yt"` (imported into local history) shows a `YT` badge after the download badges.
-
-History rows (records with `resume_s`, `plays`) add `▶ 2:05 / 10:00` (where playback resumes, over the length) and `×N` (plays, from the second) to the meta line. Both come from fields already on the row, so a list of thousands pays two dict lookups per row.
+`set_matcher(fn)` swaps how the filter ranks entries (default `fuzzy.rank`); the feed loader sets it per view.
 
 `set_breadcrumb`, `set_empty_message` and `set_error_message` escape their text (a raw exception such as `[youtube] id: ... [/x]` crashed the markup parser) and `set_error_message` cuts it at 400 characters; they hide the list and show `#list-message`, a wrapping Static, so a long message (or the multi-line "Feed loading failed" notice) is not cut to the breadcrumb's single line. `load_page`, `clear_and_set_loading` and `show_next_page_loading` hide it again.

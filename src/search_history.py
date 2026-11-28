@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from functools import partial
 
 from src.fuzzy import rank_strings
 from src.plat import get_config_dir
@@ -19,14 +20,14 @@ def add(query: str, config=None) -> None:
     query = query.strip()
     if not query or (config is not None and not config.search_history_enabled):
         return
+    _store.update(partial(_put_first, query=query), defer=True)
+
+
+def _put_first(data: list, query: str) -> bool:
     key = query.casefold()
-
-    def apply(data: list) -> bool:
-        data[:] = [{"q": query, "at": time.time()}] + [r for r in data if r.get("q", "").casefold() != key]
-        del data[MAX_QUERIES:]
-        return True
-
-    _store.update(apply, defer=True)
+    data[:] = [{"q": query, "at": time.time()}] + [r for r in data if r.get("q", "").casefold() != key]
+    del data[MAX_QUERIES:]
+    return True
 
 
 def remove(query: str) -> None:

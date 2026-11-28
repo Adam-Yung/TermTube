@@ -4,31 +4,15 @@ from src import library, playlist
 from src.entries import Entry
 from src.strings import text
 from src.tui.layout import NARROW_BELOW
+from src.tui.views import PLAYLIST_VIEW, RAIL_TABS, default_rail_views, playlist_of, tab_of
 from src.tui.widgets.library_rail import NEW_PLAYLIST, LibraryRail, RailItem
 from src.tui.widgets.video_list import FilterBar
 
-LIBRARY_VIEWS = ("library", "library:video", "library:audio")
-PLAYLIST_VIEW = "playlist:"
-ACCOUNT_VIEWS = {"history:yt": "yt_history", "history:wl": "yt_watchlater"}
-"""History-tab sources read from the account (read-only), each with its feed key."""
-HISTORY_SOURCES = ("history", *ACCOUNT_VIEWS)
-SUBSCRIPTION_SOURCES = ("subscriptions", "following")
-RAIL_TABS = ("library", "history", "subscriptions")
-"""Tabs with a left rail: each rail entry is one source of the tab."""
 _COLLECTIONS = (
     ("library", "library_rail.all_downloads", ""),
     ("library:video", "library_rail.videos", "video"),
     ("library:audio", "library_rail.audio", "audio"),
 )
-
-
-def tab_of(view: str) -> str:
-    """The tab a view belongs to: Library collections and playlists live on `library`, History sources on `history`."""
-    if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
-        return "library"
-    if view in SUBSCRIPTION_SOURCES:
-        return "subscriptions"
-    return "history" if view in HISTORY_SOURCES else view
 
 
 class LibraryRailMixin:
@@ -41,7 +25,7 @@ class LibraryRailMixin:
     """
 
     def _init_library_rail(self) -> None:
-        self._rail_views = {"library": "library", "history": "history", "subscriptions": "subscriptions"}
+        self._rail_views = default_rail_views()
         self._library_counts: dict[str, int] = {"": 0, "video": 0, "audio": 0}
 
     def _rail(self) -> LibraryRail:
@@ -53,24 +37,29 @@ class LibraryRailMixin:
     def _rail_playlist(self) -> dict | None:
         """The playlist record under the rail cursor, or None when the cursor is on another entry."""
         item = self._rail().highlighted
-        if item is None or not item.view.startswith(PLAYLIST_VIEW):
-            return None
-        return playlist.get(item.view.removeprefix(PLAYLIST_VIEW))
+        pid = playlist_of(item.view) if item else None
+        return playlist.get(pid) if pid is not None else None
 
     def _rail_view(self) -> str:
         return self._rail_views.get(tab_of(self._current_tab), "")
 
     def _rail_items(self) -> list[RailItem]:
-        tab = tab_of(self._current_tab)
-        if tab == "history":
-            from src import history
+        """The sources of the current rail tab."""
+        builders = {"history": self._history_rail_items, "subscriptions": self._subscription_rail_items}
+        return builders.get(tab_of(self._current_tab), self._library_rail_items)()
 
-            return [RailItem("history", text("history_rail.local"), len(history.all_entries())),
-                    RailItem("history:yt", text("history_rail.youtube")),
-                    RailItem("history:wl", text("history_rail.watch_later"))]
-        if tab == "subscriptions":
-            return [RailItem("subscriptions", text("subscriptions_rail.subscribed")),
-                    RailItem("following", text("subscriptions_rail.following"))]
+    def _history_rail_items(self) -> list[RailItem]:
+        from src import history
+
+        return [RailItem("history", text("history_rail.local"), len(history.all_entries())),
+                RailItem("history:yt", text("history_rail.youtube")),
+                RailItem("history:wl", text("history_rail.watch_later"))]
+
+    def _subscription_rail_items(self) -> list[RailItem]:
+        return [RailItem("subscriptions", text("subscriptions_rail.subscribed")),
+                RailItem("following", text("subscriptions_rail.following"))]
+
+    def _library_rail_items(self) -> list[RailItem]:
         counts = self._library_counts
         items = [RailItem(view, text(label_key), counts[key]) for view, label_key, key in _COLLECTIONS]
         items += [RailItem(f"{PLAYLIST_VIEW}{p['id']}", p["name"], len(p["items"])) for p in playlist.list_playlists()]
@@ -103,7 +92,8 @@ class LibraryRailMixin:
         self._load_view(view)
         if view == "following":
             self._list().set_breadcrumb(text("subscriptions_rail.following_crumb"))
-        record = playlist.get(view.removeprefix(PLAYLIST_VIEW)) if view.startswith(PLAYLIST_VIEW) else None
+        pid = playlist_of(view)
+        record = playlist.get(pid) if pid is not None else None
         if record:
             self._list().set_breadcrumb(text("library_rail.playlist_crumb", name=record["name"]))
         if focus_list:
@@ -136,10 +126,10 @@ class LibraryRailMixin:
         if tab_of(self._current_tab) != "library":
             return
         self._library_counts = library.counts(library.all_entries(self.app.config.video_dir, self.app.config.audio_dir))
-        shown = self._current_tab.removeprefix(PLAYLIST_VIEW) if self._current_tab.startswith(PLAYLIST_VIEW) else None
+        shown = playlist_of(self._current_tab)
         gone = shown is not None and playlist.get(shown) is None
         if gone:
-            self._rail_views = {"library": "library", "history": "history", "subscriptions": "subscriptions"}
+            self._rail_views = default_rail_views()
         self._refresh_rail()
         if gone:
             self._select_collection("library", focus_list=not self._rail_focused())
@@ -148,7 +138,8 @@ class LibraryRailMixin:
         """Rows of a Library collection or playlist; playlist rows carry their download state."""
         from src.tui.screens.mixins.playlist_tools import item_entries
 
-        if view.startswith(PLAYLIST_VIEW):
-            return item_entries(view.removeprefix(PLAYLIST_VIEW), self.app.cache, self.app.config)
+        pid = playlist_of(view)
+        if pid is not None:
+            return item_entries(pid, self.app.cache, self.app.config)
         config = self.app.config
         return library.of_kind(library.all_entries(config.video_dir, config.audio_dir), view.partition(":")[2])

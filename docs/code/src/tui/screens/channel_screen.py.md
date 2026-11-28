@@ -1,5 +1,7 @@
 # src/tui/screens/channel_screen.py
 
+The screen keeps composition, tabs, key actions and `_call_ui`. The left column and breadcrumb are `ChannelHeaderMixin`; loading, fetching and paging are `ChannelContentMixin`; tab ids and labels are `channel_tabs.py`.
+
 Pushed on top of `MainScreen` for one channel: info column (`ChannelInfoPanel`), a tab bar (Videos, Shorts, Live, Playlists) and list in the middle, `DetailPanel` on the right. It reuses `ListNavMixin`, `DetailFocusMixin` and `ItemActionsMixin`; it has no audio of its own (`AudioBarMixin` mirrors `app.audio`).
 
 ## Audio
@@ -35,7 +37,7 @@ Groups are per node, so this screen's `ch_thumb` does not interact with `MainScr
 - The channel id comes from `channel_ref.channel_id` on the URL, then from the loaded info, then from one `innertube.resolve_channel_id` lookup on the worker (cached in `_resolved_id`; an `/@handle` URL has no id until then).
 - Videos sorted by date, Shorts and Live use `innertube.fetch_channel_page`. An empty first page of Videos falls back to yt-dlp (`ytdlp.fetch_channel_videos`); Shorts and Live have no fallback ("No content found."). Other sorts always use yt-dlp and return one batch with no continuation. Entries from InnerTube get the channel name filled in (`_label`).
 - Playlists use `innertube.fetch_channel_playlists` (up to 80, one shot) under the same rule (id known, else or on empty, `ytdlp.fetch_channel_playlists`).
-- **Prefetch.** `ChannelPager` (`src/channel_pager.py`) holds the continuation token. `_maybe_prefetch` runs after the first page, after every page change and after every applied extension; it fetches when the user is on the second-to-last held page and never while a filter is active. Paging past the last page while a fetch runs sets `_pending_show` so the batch is shown the moment it lands. The footer note ("loading 30 more…", "first 200 shown") goes through `VideoListPanel.set_progress`. Pages are appended with `FeedLoaderMixin._append_pages`, as Home does, so the page after a 30-entry batch is partly filled (20 + 10 rows).
+- **Prefetch.** `ChannelPager` (`src/channel_pager.py`) holds the continuation token. `_maybe_prefetch` runs after the first page, after every page change and after every applied extension; it fetches when the user is on the second-to-last held page and never while a filter is active. Paging past the last page while a fetch runs sets `_pending_show` so the batch is shown the moment it lands. The footer note ("loading 30 more…", "first 200 shown") goes through `VideoListPanel.set_progress`. Pages are appended with `VideoListPanel.append_pages`, as Home does, so the page after a 30-entry batch is partly filled (20 + 10 rows).
 - Avatar ids are `ch_<channel_id>` (`_avatar_id`), distinct from video ids, so `ThumbnailWidget`'s stale-id guard also covers channel switches.
 
 ## Tabs

@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 import src.ytdlp as ytdlp
-from src import innertube
+from src import feed_cache, innertube
 from src.search_stack import SearchStack
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
@@ -95,7 +95,7 @@ def test_each_sort_and_type_has_its_own_cache_entry(temp_cache):
         ytdlp.fetch_search_batch("q", None, temp_cache, kind="channel")
         ytdlp.fetch_search_batch("q", None, temp_cache, sort="date")
     assert seen == [("relevance", "all"), ("date", "all"), ("relevance", "channel")]
-    keys = {ytdlp._search_cache_key("q", s, k) for s in ("relevance", "date") for k in ("all", "channel")}
+    keys = {feed_cache.search_cache_key("q", s, k) for s in ("relevance", "date") for k in ("all", "channel")}
     assert len(keys) == 4
 
 
@@ -121,4 +121,4 @@ def test_no_ytdlp_fallback_for_a_filtered_search(temp_cache, monkeypatch):
 def test_extension_without_a_cached_list_does_not_store_a_partial_one(temp_cache):
     with patch.object(ytdlp.innertube, "search", return_value=_rows(10, 50)):
         ytdlp.fetch_search_batch("q", None, temp_cache, skip_ids={f"id{i:09d}" for i in range(50)})
-    assert temp_cache.get_feed(ytdlp._search_cache_key("q", "relevance", "all")) is None
+    assert temp_cache.get_feed(feed_cache.search_cache_key("q", "relevance", "all")) is None

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from functools import partial
 
 from src.entries import Entry
 from src.plat import get_config_dir
@@ -53,22 +54,25 @@ def add(entry: Entry, config=None) -> None:
     limit = config.history_max if config is not None else _DEFAULT_MAX
     record = slim(entry, vid)
 
-    def apply(data: list) -> bool:
-        previous = next((e for e in data if e.get("id") == vid), None)
-        if previous and not record["duration"]:
-            record["duration"] = previous.get("duration")
-        record.update(
-            watched_at=time.time(),
-            plays=(previous.get("plays", 1) if previous else 0) + 1,
-            seconds=previous.get("seconds", 0) if previous else 0,
-            resume_s=previous.get("resume_s") if previous else None,
-            source="local",
-        )
-        data[:] = [record] + [e for e in data if e.get("id") != vid]
-        del data[limit:]
-        return True
+    _store.update(partial(_put_first, record=record, limit=limit), defer=True)
 
-    _store.update(apply, defer=True)
+
+def _put_first(data: list, record: dict, limit: int) -> bool:
+    """Make ``record`` the newest, carrying over what the previous record of the video counted."""
+    vid = record["id"]
+    previous = next((e for e in data if e.get("id") == vid), None)
+    if previous and not record["duration"]:
+        record["duration"] = previous.get("duration")
+    record.update(
+        watched_at=time.time(),
+        plays=(previous.get("plays", 1) if previous else 0) + 1,
+        seconds=previous.get("seconds", 0) if previous else 0,
+        resume_s=previous.get("resume_s") if previous else None,
+        source="local",
+    )
+    data[:] = [record] + [e for e in data if e.get("id") != vid]
+    del data[limit:]
+    return True
 
 
 def get(vid: str) -> Entry | None:
@@ -81,17 +85,19 @@ def record_progress(vid: str, *, resume_s: int | None, watched: float, duration:
 
     A video with no record (history off, or removed meanwhile) is left alone. The disk write is deferred.
     """
-    def apply(data: list) -> bool:
-        record = next((e for e in data if e.get("id") == vid), None)
-        if record is None:
-            return False
-        record["resume_s"] = resume_s
-        record["seconds"] = round((record.get("seconds") or 0) + watched, 1)
-        if duration and not record.get("duration"):
-            record["duration"] = int(duration)
-        return True
+    progress = partial(_set_progress, vid=vid, resume_s=resume_s, watched=watched, duration=duration)
+    _store.update(progress, defer=True)
 
-    _store.update(apply, defer=True)
+
+def _set_progress(data: list, vid: str, resume_s: int | None, watched: float, duration: float | None) -> bool:
+    record = next((e for e in data if e.get("id") == vid), None)
+    if record is None:
+        return False
+    record["resume_s"] = resume_s
+    record["seconds"] = round((record.get("seconds") or 0) + watched, 1)
+    if duration and not record.get("duration"):
+        record["duration"] = int(duration)
+    return True
 
 
 def flush() -> None:
@@ -108,30 +114,44 @@ def ordered(entries: list[Entry], sort: str) -> list[Entry]:
     return entries
 
 
+def _remove(data: list, wanted: set[str]) -> list[Entry]:
+    removed = [dict(e) for e in data if e.get("id") in wanted]
+    data[:] = [e for e in data if e.get("id") not in wanted]
+    return removed
+
+
 def remove_many(ids: list[str]) -> list[Entry]:
     """Drop videos from the history. Returns copies of the records removed (for undo)."""
-    wanted = set(ids)
-    removed: list[Entry] = []
+    return _store.update(partial(_remove, wanted=set(ids)), defer=True)
 
-    def apply(data: list) -> bool:
-        removed.extend(dict(e) for e in data if e.get("id") in wanted)
-        data[:] = [e for e in data if e.get("id") not in wanted]
-        return bool(removed)
 
-    _store.update(apply, defer=True)
-    return removed
+def _put_back(data: list, records: list[Entry]) -> bool:
+    present = {e.get("id") for e in data}
+    back = [dict(r) for r in records if r.get("id") not in present]
+    data.extend(back)
+    data.sort(key=lambda e: e.get("watched_at") or 0, reverse=True)
+    return bool(back)
 
 
 def restore(records: list[Entry]) -> None:
     """Put removed records back in `watched_at` order. A video watched again since stays as its newer record."""
-    def apply(data: list) -> bool:
-        present = {e.get("id") for e in data}
-        back = [dict(r) for r in records if r.get("id") not in present]
-        data.extend(back)
-        data.sort(key=lambda e: e.get("watched_at") or 0, reverse=True)
-        return bool(back)
+    _store.update(partial(_put_back, records=records), defer=True)
 
-    _store.update(apply, defer=True)
+
+def _append_imported(data: list, entries: list[Entry], limit: int) -> int:
+    present = {e.get("id") for e in data}
+    added = 0
+    for entry in entries:
+        vid = entry.get("id")
+        if not vid or vid in present:
+            continue
+        present.add(vid)
+        record = slim(entry, vid)
+        record.update(watched_at=None, plays=0, seconds=0, resume_s=None, source="yt")
+        data.append(record)
+        added += 1
+    del data[limit:]
+    return added
 
 
 def import_entries(entries: list[Entry], config=None) -> int:
@@ -142,25 +162,7 @@ def import_entries(entries: list[Entry], config=None) -> int:
     day header, and are the first to fall off the `history_max` cap.
     """
     limit = config.history_max if config is not None else _DEFAULT_MAX
-    added = 0
-
-    def apply(data: list) -> bool:
-        nonlocal added
-        present = {e.get("id") for e in data}
-        for entry in entries:
-            vid = entry.get("id")
-            if not vid or vid in present:
-                continue
-            present.add(vid)
-            record = slim(entry, vid)
-            record.update(watched_at=None, plays=0, seconds=0, resume_s=None, source="yt")
-            data.append(record)
-            added += 1
-        del data[limit:]
-        return bool(added)
-
-    _store.update(apply)
-    return added
+    return _store.update(partial(_append_imported, entries=entries, limit=limit))
 
 
 def clear() -> None:

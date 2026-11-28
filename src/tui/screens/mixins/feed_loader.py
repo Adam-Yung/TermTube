@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
+from functools import partial
 
 from textual import work
 from textual._context import NoActiveAppError
@@ -10,18 +12,14 @@ from src.cookies import resolve_browser
 from src.entries import Entry
 from src.errors import ExtractionFailed, SourceError, classify
 from src.strings import text
-from src.tui.fmt import escape_markup, fmt_day_group
-from src.tui.screens.mixins.library_rail import ACCOUNT_VIEWS, LIBRARY_VIEWS, PLAYLIST_VIEW
+from src.tui.fmt import escape_markup
+from src.tui.screens.mixins.feed_paging import FeedPagingMixin
+from src.tui.screens.mixins.feed_rows import BATCH_FETCH_COUNT, FIRST_BATCH_COUNT, pages_for, tag_yt
+from src.tui.screens.mixins.list_sources import ListSourcesMixin, matcher_for
+from src.tui.views import ACCOUNT_VIEWS, CHANNEL_TABS, FEED_TABS
 from src.tui.widgets.video_list import VideoListPanel
 
-BATCH_FETCH_COUNT = 80
-FIRST_BATCH_COUNT = 15
-SEARCH_FETCH_COUNT = 50
 _MIN_CACHED_FEED = 15
-
-FEED_TABS = ("home",)
-PAGED_TABS = ("home", "search", *ACCOUNT_VIEWS)
-CHANNEL_TABS = ("subscriptions",)
 
 _loading = threading.local()
 """Per loader thread: the ``_feed_session`` its view started under (read by ``_ui``)."""
@@ -30,63 +28,66 @@ _EMPTY_ACCOUNT = {
     "yt_history": "feed_loader.empty_yt_history",
     "yt_watchlater": "feed_loader.empty_watch_later",
 }
-_EMPTY_LIBRARY = {
-    "library": "feed_loader.empty_library",
-    "library:video": "feed_loader.empty_library_video",
-    "library:audio": "feed_loader.empty_library_audio",
-}
 _ACCOUNT_TITLES = {"yt_history": "feed_loader.title_yt_history", "yt_watchlater": "feed_loader.title_watch_later"}
 
-
-def _day_label(entry: Entry) -> str:
-    return fmt_day_group(entry.get("watched_at"))
+Visible = Callable[[list[Entry]], list[Entry]]
 
 
-def _library_matcher(entries: list[Entry], query: str) -> list[Entry]:
-    from src import library_query, playlist
+class _ProgressiveFetch:
+    """Shows a feed's first batch while the rest of the fetch runs, then adds the remainder after it."""
 
-    return library_query.rank(entries, query, playlist.membership)
+    def __init__(self, call, panel: VideoListPanel, visible: Visible, *, stash_shown: bool, prefetch) -> None:
+        self._call = call
+        self._panel = panel
+        self._visible = visible
+        self._stash_shown = stash_shown
+        self._prefetch = prefetch
+        self._first_page = 2 if stash_shown else 1
+        self._shown_ids: set[str] = set()
+        self._pages_used = 0
+
+    def on_first_batch(self, entries: list[Entry]) -> None:
+        batch = self._visible(entries)
+        if not batch:
+            return
+        self._shown_ids.update(e["id"] for e in batch if e.get("id"))
+        self._pages_used = pages_for(len(batch), self._panel.page_size)
+        self._call(self._panel.add_entries, self._first_page, batch)
+        if not self._stash_shown:
+            self._call(self._panel.load_page, 1)
+            self._prefetch(batch[0])
+        self._call(self._panel.finish_loading)
+
+    def add_rest(self, fetched: list[Entry]) -> None:
+        if self._pages_used:
+            rest = [e for e in fetched if e.get("id") not in self._shown_ids]
+            if rest:
+                self._call(self._panel.add_entries, self._first_page + self._pages_used, rest)
+            return
+        self._call(self._panel.add_entries, self._first_page, fetched)
+        if not self._stash_shown:
+            self._call(self._panel.load_page, 1)
+        self._call(self._panel.finish_loading)
 
 
-def _matcher_for(view: str):
-    """The filter for a view: Library views understand `key:value` tokens, other views plain text."""
-    return _library_matcher if view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW) else None
-
-
-def feed_key_of(view: str) -> str | None:
-    """The yt-dlp feed key of a view backed by a feed (Home, an account source), else None."""
-    return ACCOUNT_VIEWS.get(view) or (view if view in FEED_TABS else None)
-
-
-def _tag_yt(entries: list[Entry]) -> list[Entry]:
-    """Copies of account rows marked `_yt` (they show the YT badge); the cached originals stay untouched."""
-    return [{**e, "_yt": True} for e in entries]
-
-
-def _pages_for(count: int, page_size: int) -> int:
-    return -(-count // page_size)
-
-
-class FeedLoaderMixin:
+class FeedLoaderMixin(ListSourcesMixin, FeedPagingMixin):
     """Loads each tab's entries into the ``VideoListPanel`` and keeps paging ahead of the user.
 
     Needs ``_current_tab``, ``_search`` (a ``SearchStack``), ``_feed_session``, ``_log``, ``_worker_start`` and
     ``_worker_end`` from the screen, plus ``_show_empty_feed_modal``, ``_prompt_ytdlp_update`` and
-    ``_cancel_removal_prompt``.
+    ``_cancel_removal_prompt``. Home and account feeds load here; the other views in ``ListSourcesMixin``.
     Tab loads run in the exclusive ``feed_loader`` group and paging in ``feed_extend``, so neither cancels
     the other; ``_feed_session`` makes any result (load or paging) from before a view change a no-op.
     """
 
     _feed_cursor = None
-    _extending_session: int | None = None
-    _pending_show = False
     _show_played = False
     _hidden_ids: set[str] = set()
 
     def _load_view(self, view: str) -> None:
         self._log(f"[dim]Loading {view}…[/dim]")
         self._list().clear_and_set_loading()
-        self._list().set_matcher(_matcher_for(view))
+        self._list().set_matcher(matcher_for(view))
         detail = self._detail()
         detail.clear()
         if view not in CHANNEL_TABS:
@@ -100,53 +101,40 @@ class FeedLoaderMixin:
         self._pending_show = False
         self._stream_view(view, self._feed_session)
 
+    def _adopt_loader_session(self, session: int) -> None:
+        """Called first thing on a loader thread: ``_ui`` calls from it are dropped once the view moved on."""
+        _loading.session = session
+
     def _ui(self, fn, *args, **kwargs):
         """Run ``fn`` on the UI thread from a loader thread, unless the view that loader began for is gone."""
-        session = _loading.session
-
-        def run():
-            if session == self._feed_session:
-                return fn(*args, **kwargs)
-
         try:
-            return self.app.call_ui(run)
+            return self.app.call_ui(self._run_for_session, _loading.session, partial(fn, *args, **kwargs))
         except NoActiveAppError:  # the app quit while this loader thread ran
             return None
 
+    def _run_for_session(self, session: int, call: Callable):
+        if session == self._feed_session:
+            return call()
+
     @work(thread=True, exclusive=True, group="feed_loader")
     def _stream_view(self, view: str, session: int) -> None:
-        _loading.session = session
+        self._adopt_loader_session(session)
         panel = self._list()
         self._worker_start()
         try:
-            if view in FEED_TABS:
-                self._load_feed(view, panel)
-            elif view in ACCOUNT_VIEWS:
-                self._load_account_feed(view, panel)
-            elif view in CHANNEL_TABS:
-                self._load_subscriptions(panel)
-            elif view == "search":
-                self._load_search(panel)
-            elif view == "history":
-                from src import history
-
-                recent = self._history_sort == "recent"
-                self._ui(
-                    lambda: panel.set_view_options(group_by=_day_label if recent else None, show_count=True)
-                )
-                entries = history.ordered(history.all_entries(), self._history_sort)
-                if not entries and not self.app.config.history_enabled:
-                    self._ui(panel.set_empty_message, text("feed_loader.history_off"))
-                    return
-                self._load_simple_list(panel, entries, text("feed_loader.empty_history"))
-            elif view == "following":
-                self._load_following(panel)
-            elif view in LIBRARY_VIEWS or view.startswith(PLAYLIST_VIEW):
-                self._load_collection(view, panel)
+            if loader := self._view_loader(view):
+                loader(panel)
         except Exception as exc:
             self._report_failure(view, panel, exc)
         finally:
             self._worker_end()
+
+    def _view_loader(self, view: str) -> Callable[[VideoListPanel], None] | None:
+        if view in FEED_TABS:
+            return partial(self._load_feed, view)
+        if view in ACCOUNT_VIEWS:
+            return partial(self._load_account_feed, view)
+        return self._source_loader(view)
 
     def _report_failure(self, view: str, panel: VideoListPanel, exc: Exception) -> None:
         """Show the typed message for a failed load; the update prompt only for a real extraction failure."""
@@ -161,12 +149,6 @@ class FeedLoaderMixin:
         else:
             self._ui(panel.set_error_message, text("feed_loader.error", message=err.message))
         self._ui(self._log, f"[red]Error in {view}: {escape_markup(msg)}[/red]")
-
-    def _show_pages(self, panel: VideoListPanel, entries: list[Entry], *, evict: bool = True) -> None:
-        call = self._ui
-        call(lambda: panel.add_entries(1, entries, evict=evict))
-        call(lambda: panel.load_page(1, focus=not self._rail_focused()))
-        call(panel.finish_loading)
 
     def _load_account_feed(self, view: str, panel: VideoListPanel) -> None:
         """A read-only History source from the account: needs a browser, else the same loader as Home."""
@@ -186,53 +168,30 @@ class FeedLoaderMixin:
         import src.ytdlp as ytdlp
 
         cache = self.app.cache
-        call = self._ui
-
+        home = feed_key == "home"
         account = feed_key in ACCOUNT_VIEWS.values()
 
         hidden: set[str] = set()
-        if feed_key == "home":
+        if home:
             self._ui(self._reset_hidden, hidden)
+        visible = partial(self._visible_rows, feed_key, hidden)
 
-        def visible(entries: list[Entry]) -> list[Entry]:
-            if account:
-                return _tag_yt(entries)
-            if feed_key != "home":
-                return entries
-            return self._hide_played(entries, hidden)
-
-        age = cache.feed_age(feed_key) if feed_key == "home" else None
+        age = cache.feed_age(feed_key) if home else None
         stale = age is not None and age > self.app.config.cache_ttl("home_revalidate")
 
-        stash = visible(cache.get_home_stash() or []) if feed_key == "home" else []
+        stash = visible(cache.get_home_stash() or []) if home else []
         stash_ids = {e["id"] for e in stash if e.get("id")}
         if stash:
-            self._show_pages(panel, stash)
-            logger.stage("stash shown")
-            self._eager_prefetch(stash[0])
-        first_page = 2 if stash else 1
+            self._show_stash(panel, stash)
 
         if stash and self._show_cached_feed(feed_key, panel, stash_ids, visible):
             if stale:
                 self._revalidate(feed_key, panel, visible)
             return
 
-        shown_ids: set[str] = set()
-        pages_used = 0
-
-        def on_first_batch(entries: list[Entry]) -> None:
-            nonlocal pages_used
-            batch = visible(entries)
-            if not batch:
-                return
-            shown_ids.update(e["id"] for e in batch if e.get("id"))
-            pages_used = _pages_for(len(batch), panel.page_size)
-            call(panel.add_entries, first_page, batch)
-            if not stash:
-                call(panel.load_page, 1)
-                self._eager_prefetch(batch[0])
-            call(panel.finish_loading)
-
+        progress = _ProgressiveFetch(
+            self._ui, panel, visible, stash_shown=bool(stash), prefetch=self._eager_prefetch
+        )
         cursor = self._open_cursor(feed_key)
         if cursor is None:
             return
@@ -244,7 +203,7 @@ class FeedLoaderMixin:
                 skip_ids=stash_ids,
                 count=BATCH_FETCH_COUNT,
                 feed_key=feed_key,
-                on_first_batch=on_first_batch,
+                on_first_batch=progress.on_first_batch,
                 first_batch_size=FIRST_BATCH_COUNT,
                 auth=True,
                 cursor=cursor,
@@ -252,20 +211,12 @@ class FeedLoaderMixin:
         )
         if not fetched and not stash:
             if account:
-                call(panel.set_empty_message, text(_EMPTY_ACCOUNT[feed_key]))
+                self._ui(panel.set_empty_message, text(_EMPTY_ACCOUNT[feed_key]))
             else:
-                call(self._show_empty_feed_modal, feed_key)
+                self._ui(self._show_empty_feed_modal, feed_key)
             return
 
-        if pages_used:
-            rest = [e for e in fetched if e.get("id") not in shown_ids]
-            if rest:
-                call(panel.add_entries, first_page + pages_used, rest)
-        else:
-            call(panel.add_entries, first_page, fetched)
-            if not stash:
-                call(panel.load_page, 1)
-            call(panel.finish_loading)
+        progress.add_rest(fetched)
 
         if stale and not cursor.ids:
             self._revalidate(feed_key, panel, visible)
@@ -274,6 +225,19 @@ class FeedLoaderMixin:
             cache.prune_video_cache_fifo(100)
         except Exception as exc:
             logger.debug("video cache prune: %s", exc)
+
+    def _visible_rows(self, feed_key: str, hidden: set[str], entries: list[Entry]) -> list[Entry]:
+        """The rows of a feed as shown: account rows are badged, Home drops the played ones."""
+        if feed_key in ACCOUNT_VIEWS.values():
+            return tag_yt(entries)
+        if feed_key != "home":
+            return entries
+        return self._hide_played(entries, hidden)
+
+    def _show_stash(self, panel: VideoListPanel, stash: list[Entry]) -> None:
+        self._show_pages(panel, stash)
+        logger.stage("stash shown")
+        self._eager_prefetch(stash[0])
 
     def _reset_hidden(self, hidden: set[str]) -> None:
         self._hidden_ids = hidden
@@ -289,7 +253,7 @@ class FeedLoaderMixin:
         self._ui(lambda: self._list().set_hidden(len(hidden)))
         return kept
 
-    def _revalidate(self, feed_key: str, panel: VideoListPanel, visible) -> None:
+    def _revalidate(self, feed_key: str, panel: VideoListPanel, visible: Visible) -> None:
         """Stale-while-revalidate: read the feed again behind the cached rows and only announce what is new.
 
         The rows under the cursor never change; ``r`` reloads from the refreshed cache. Failures stay silent.
@@ -309,7 +273,9 @@ class FeedLoaderMixin:
         except Exception as exc:
             logger.debug("revalidate %s: %s", feed_key, exc)
 
-    def _show_cached_feed(self, feed_key: str, panel: VideoListPanel, stash_ids: set[str], visible) -> bool:
+    def _show_cached_feed(
+        self, feed_key: str, panel: VideoListPanel, stash_ids: set[str], visible: Visible
+    ) -> bool:
         """Fill pages 2+ from the disk cache when it is fresh. False if there was nothing to show."""
         cache = self.app.cache
         if not cache.is_feed_fresh(feed_key):
@@ -334,17 +300,18 @@ class FeedLoaderMixin:
         vid = entry.get("id", "")
         if not vid or vid.startswith("__"):
             return
-        config = self.app.config
+        threading.Thread(
+            target=self._prefetch_first_row, args=(vid, self.app.config), daemon=True, name="eager-prefetch"
+        ).start()
 
-        def run() -> None:
-            from src import streams
+    @staticmethod
+    def _prefetch_first_row(vid: str, config) -> None:
+        from src import streams
 
-            try:
-                streams.prefetch_stream_url(vid, config)
-            except Exception as exc:
-                logger.debug("eager prefetch %s: %s", vid, exc)
-
-        threading.Thread(target=run, daemon=True, name="eager-prefetch").start()
+        try:
+            streams.prefetch_stream_url(vid, config)
+        except Exception as exc:
+            logger.debug("eager prefetch %s: %s", vid, exc)
 
     def _save_feed_stash(self, feed_key: str) -> None:
         """Keep one page of unseen entries for the next launch, topped up from visited pages."""
@@ -364,83 +331,6 @@ class FeedLoaderMixin:
                 logger.debug("stash: saved %d entries", len(stash))
         except Exception as exc:
             logger.debug("stash save: %s", exc)
-
-    def _load_subscriptions(self, panel: VideoListPanel) -> None:
-        import src.ytdlp as ytdlp
-
-        entries = ytdlp.fetch_subscribed_channels(self.app.config, self.app.cache)
-        if not entries:
-            self._ui(self._show_empty_feed_modal, "subscriptions")
-            return
-        self._ui(self._detail().set_channel_mode)
-        self._show_pages(panel, entries)
-
-    def _load_following(self, panel: VideoListPanel) -> None:
-        from src import channel_bookmarks
-
-        entries = channel_bookmarks.entries()
-        if not entries:
-            self._ui(panel.set_empty_message, text("feed_loader.empty_following"))
-            return
-        self._ui(self._detail().set_channel_mode)
-        self._show_pages(panel, entries, evict=False)
-
-    def _load_search(self, panel: VideoListPanel) -> None:
-        import src.ytdlp as ytdlp
-
-        if not self._search.query:
-            self._ui(panel.set_empty_message, text("feed_loader.search_prompt"))
-            return
-        call = self._ui
-        shown: list[Entry] = []
-
-        def on_first_batch(entries: list[Entry]) -> None:
-            shown.extend(entries)
-            call(panel.add_entries, 1, entries)
-            call(panel.load_page, 1)
-            call(panel.finish_loading)
-
-        entries = ytdlp.fetch_search_batch(
-            self._search.query, self.app.config, self.app.cache,
-            count=SEARCH_FETCH_COUNT, on_first_batch=on_first_batch,
-            sort=self._search.sort, kind=self._search.kind,
-        )
-        if not shown:
-            self._show_pages(panel, entries)
-        else:
-            shown_ids = {e.get("id") for e in shown}
-            rest = [e for e in entries if e.get("id") not in shown_ids]
-            if rest:
-                call(panel.add_entries, 1 + _pages_for(len(shown), panel.page_size), rest)
-        if entries:
-            call(self._finish_search_load, panel)
-
-    def _finish_search_load(self, panel: VideoListPanel) -> None:
-        """Back to the page and row the user left this search on (when they are held), and the back hint."""
-        page, focus_id = self._search.take_position()
-        if page > 1 or focus_id:
-            panel.load_page(page, focus_id=focus_id)
-        panel.set_breadcrumb(self._search.breadcrumb())
-
-    def _load_simple_list(self, panel: VideoListPanel, entries: list[Entry], empty: str) -> None:
-        if not entries:
-            self._ui(panel.set_empty_message, empty)
-            return
-        self._show_pages(panel, entries, evict=False)
-
-    def _load_collection(self, view: str, panel: VideoListPanel) -> None:
-        """A Library collection or a playlist. Library loads also refresh the rail's counts."""
-        if view.startswith(PLAYLIST_VIEW):
-            if not (entries := self._collection_entries(view)):
-                self._ui(panel.set_empty_message, text("feed_loader.empty_playlist"))
-                return
-        else:
-            from src import library
-
-            config = self.app.config
-            self._ui(self._set_library_counts, library.counts(library.all_entries(config.video_dir, config.audio_dir)))
-            entries = self._collection_entries(view)
-        self._load_simple_list(panel, entries, text(_EMPTY_LIBRARY.get(view, _EMPTY_LIBRARY["library"])))
 
     def _open_cursor(self, feed_key: str):
         """A lazy listing of the feed for this view (it opens on the first ``take``). None if the view changed."""
@@ -464,126 +354,3 @@ class FeedLoaderMixin:
         cursor, self._feed_cursor = self._feed_cursor, None
         if cursor is not None:
             cursor.close()
-
-    def _can_extend(self) -> bool:
-        """Feeds grow only when the list shows the full set: a filter works on what is loaded."""
-        if self._current_tab not in PAGED_TABS or self._list().filter_active:
-            return False
-        cursor = self._feed_cursor
-        return not (cursor is not None and feed_key_of(self._current_tab) and cursor.exhausted)
-
-    def _on_page_shown(self) -> None:
-        """Prefetch: a feed grows when the user reaches its second-to-last page, Search at its last."""
-        panel = self._list()
-        lead = 1 if feed_key_of(self._current_tab) else 0
-        if panel.current_page >= panel.total_pages - lead and not panel.is_loading and self._can_extend():
-            self._request_extension(show=False)
-
-    def _on_past_last_page(self) -> None:
-        if self._can_extend():
-            self._request_extension(show=True)
-
-    def _request_extension(self, *, show: bool) -> None:
-        """Start one extension, or when one is in flight only make its result show as soon as it lands."""
-        panel, session = self._list(), self._feed_session
-        if self._extending_session == session:
-            if show and not self._pending_show:
-                self._pending_show = True
-                panel.show_next_page_loading()
-            return
-        self._extending_session = session
-        more = SEARCH_FETCH_COUNT if self._current_tab == "search" else BATCH_FETCH_COUNT
-        panel.set_progress(text("feed_loader.loading_more", count=more))
-        self._extend_feed(show=show, session=session)
-
-    @work(thread=True, exclusive=True, group="feed_extend")
-    def _extend_feed(self, *, show: bool, session: int) -> None:
-        """Fetch the next batch of pages. With ``show`` the user is waiting on it. Dropped if the view changed."""
-        _loading.session = session
-        panel = self._list()
-        call = self.app.call_from_thread
-        if show:
-            call(self._show_waiting, session, panel)
-        self._worker_start()
-        try:
-            entries = self._fetch_next_batch(panel)
-            call(self._apply_extension, session, panel, entries, show)
-        except Exception as exc:
-            logger.debug("extend feed: %s", exc)
-            call(self._extension_failed, session, panel, classify(exc).message)
-        finally:
-            self._worker_end()
-
-    def _show_waiting(self, session: int, panel: VideoListPanel) -> None:
-        if session == self._feed_session and not self._pending_show:
-            self._pending_show = True
-            panel.show_next_page_loading()
-
-    def _fetch_next_batch(self, panel: VideoListPanel) -> list[Entry]:
-        import src.ytdlp as ytdlp
-
-        config, cache, tab = self.app.config, self.app.cache, self._current_tab
-        skip = panel.seen_ids
-        if feed_key := feed_key_of(tab):
-            cursor = self._feed_cursor or self._open_cursor(feed_key)
-            if cursor is None:
-                return []
-            out: list[Entry] = []
-            for _ in range(3):
-                got = cursor.take(BATCH_FETCH_COUNT, skip)
-                skip = skip | {e["id"] for e in got}
-                if tab in ACCOUNT_VIEWS:
-                    got = _tag_yt(got)
-                elif tab == "home":
-                    got = self._hide_played(got, self._hidden_ids)
-                out += got
-                if out or cursor.exhausted or cursor.closed:
-                    break
-            return out
-        if tab == "search" and self._search.query:
-            count = min(SEARCH_FETCH_COUNT, ytdlp.MAX_SEARCH_RESULTS - len(skip))
-            if count <= 0:
-                return []
-            return ytdlp.fetch_search_batch(
-                self._search.query, config, cache, skip_ids=skip, count=count,
-                sort=self._search.sort, kind=self._search.kind,
-            )
-        return []
-
-    def _extension_done(self, session: int, panel: VideoListPanel) -> bool:
-        """Common end of an extension on the UI thread. False when the view changed meanwhile."""
-        if self._extending_session == session:
-            self._extending_session = None
-        if session != self._feed_session:
-            return False
-        panel.set_progress("")
-        return True
-
-    def _extension_failed(self, session: int, panel: VideoListPanel, message: str) -> None:
-        was_waiting = self._pending_show
-        if self._extension_done(session, panel):
-            self._pending_show = False
-            panel.set_progress(text("feed_loader.error", message=message))
-            if was_waiting:
-                panel.load_page(panel.total_pages, cursor="last")
-                self._hint(message)
-
-    def _apply_extension(self, session: int, panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
-        if not self._extension_done(session, panel):
-            return
-        show = show or self._pending_show
-        self._pending_show = False
-        if not entries:
-            if show:
-                panel.load_page(panel.total_pages, cursor="last")
-            return
-        self._append_pages(panel, entries, show)
-        panel.set_progress(text("feed_loader.loaded_count", count=panel.loaded_count))
-        self._on_page_shown()
-
-    @staticmethod
-    def _append_pages(panel: VideoListPanel, entries: list[Entry], show: bool) -> None:
-        first = panel.next_page_number
-        panel.add_entries(first, entries)
-        if show and not panel.load_page(first):
-            panel.finish_loading()

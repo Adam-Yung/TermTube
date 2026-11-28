@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 import webbrowser
+from collections.abc import Callable
+from functools import partial
 
 from src import logger
 from src.entries import Entry
@@ -11,13 +13,11 @@ from src.strings import text
 from src.tui import keymap
 from src.tui.fmt import escape_markup
 from src.tui.screens.mixins.playlist_rows import PlaylistRowsMixin
+from src.tui.urls import watch_url
+from src.tui.widgets.video_list import VideoListPanel
 
 _HINT_REPEAT_S = 2.0
 _PLAYABLE_ACTIONS = {"watch", "watch_quality", "audio", "audio_quality", "audio_enqueue"}
-
-
-def watch_url(video_id: str) -> str:
-    return f"https://www.youtube.com/watch?v={video_id}"
 
 
 def _is_video(entry: Entry | None) -> bool:
@@ -109,6 +109,9 @@ class ItemActionsMixin(PlaylistRowsMixin):
         self._hint(text("item_actions.audio_blocks_video"))
         return True
 
+    def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
+        self.action_activate()
+
     def action_activate(self) -> None:
         entry = self._selected_entry()
         if entry:
@@ -120,13 +123,14 @@ class ItemActionsMixin(PlaylistRowsMixin):
     def _open_action_menu(self, entry: Entry) -> None:
         from src.tui.screens.video_action_modal import VideoActionModal
 
-        def on_action(action: str | None) -> None:
-            if action:
-                getattr(self, f"action_{action}")()
-
         self.app.push_screen(
-            VideoActionModal(entry, hide=self._hidden_menu_actions(entry), labels=self._menu_labels()), on_action
+            VideoActionModal(entry, hide=self._hidden_menu_actions(entry), labels=self._menu_labels()),
+            self._run_menu_action,
         )
+
+    def _run_menu_action(self, action: str | None) -> None:
+        if action:
+            getattr(self, f"action_{action}")()
 
     def _playable_entry(self) -> Entry | None:
         entry = self._selected_entry()
@@ -158,14 +162,14 @@ class ItemActionsMixin(PlaylistRowsMixin):
         logger.info("watch %s", entry.get("id", "?"))
         self.app.push_screen(WatchModal(entry, ytdl_format=ytdl_format))
 
-    def _pick_quality(self, *, audio_only: bool, then) -> None:
+    def _pick_quality(self, *, audio_only: bool, then: Callable[[str], None]) -> None:
         from src.tui.screens.quality_modal import QualityModal
 
-        def on_pick(fmt: str | None) -> None:
-            if fmt is not None:
-                then(fmt)
+        self.app.push_screen(QualityModal(audio_only=audio_only), partial(self._on_quality_picked, then))
 
-        self.app.push_screen(QualityModal(audio_only=audio_only), on_pick)
+    def _on_quality_picked(self, then: Callable[[str], None], fmt: str | None) -> None:
+        if fmt is not None:
+            then(fmt)
 
     def action_audio(self) -> None:
         if self._use_playlist("audio"):
@@ -196,23 +200,28 @@ class ItemActionsMixin(PlaylistRowsMixin):
             self.app.audio.enqueue_audio(entry)
             self._sync_player_bar()
 
+    def _audio_or_hint(self) -> bool:
+        """True while background audio plays; otherwise the key says why it did nothing."""
+        if self.app.audio.is_playing:
+            return True
+        self._hint(text("item_actions.nothing_playing"), "information")
+        return False
+
     def action_audio_skip(self) -> None:
-        audio = self.app.audio
-        if not audio.is_playing:
-            self._hint(text("item_actions.nothing_playing"), "information")
-        elif not audio.queue:
+        if not self._audio_or_hint():
+            return
+        if not self.app.audio.queue:
             self._hint(text("item_actions.queue_empty"), "information")
         else:
-            audio.skip_audio()
+            self.app.audio.skip_audio()
 
     def action_audio_prev(self) -> None:
-        audio = self.app.audio
-        if not audio.is_playing:
-            self._hint(text("item_actions.nothing_playing"), "information")
-        elif not audio.has_previous:
+        if not self._audio_or_hint():
+            return
+        if not self.app.audio.has_previous:
             self._hint(text("item_actions.no_previous"), "information")
         else:
-            audio.previous_audio()
+            self.app.audio.previous_audio()
 
     def action_audio_queue(self) -> None:
         from src.tui.screens.queue_screen import QueueScreen
@@ -220,16 +229,12 @@ class ItemActionsMixin(PlaylistRowsMixin):
         self.app.push_screen(QueueScreen())
 
     def action_audio_pause(self) -> None:
-        if not self.app.audio.is_playing:
-            self._hint(text("item_actions.nothing_playing"), "information")
-            return
-        self.app.audio.toggle_audio_pause()
+        if self._audio_or_hint():
+            self.app.audio.toggle_audio_pause()
 
     def action_audio_stop(self) -> None:
-        if not self.app.audio.is_playing:
-            self._hint(text("item_actions.nothing_playing"), "information")
-            return
-        self.app.audio.stop_audio()
+        if self._audio_or_hint():
+            self.app.audio.stop_audio()
 
     def action_audio_seek(self, seconds: float) -> None:
         self.app.audio.seek_audio(seconds)
@@ -249,30 +254,30 @@ class ItemActionsMixin(PlaylistRowsMixin):
             return
         from src.tui.screens.download_picker_modal import DownloadPickerModal
 
-        def on_pick(result: tuple[str, str] | None) -> None:
-            if result is not None:
-                kind, fmt = result
-                self._download(entry, audio_only=kind == "audio", fmt=fmt)
-
         self.app.push_screen(
-            DownloadPickerModal(title=entry.get("title", entry.get("id", ""))), on_pick
+            DownloadPickerModal(title=entry.get("title", entry.get("id", ""))), partial(self._on_download_picked, entry)
         )
+
+    def _on_download_picked(self, entry: Entry, result: tuple[str, str] | None) -> None:
+        if result is not None:
+            kind, fmt = result
+            self._download(entry, audio_only=kind == "audio", fmt=fmt)
 
     def _download(self, entry: Entry, *, audio_only: bool, fmt: str) -> None:
         from src.tui.screens.download_modal import DownloadModal
 
         title = entry.get("title", entry.get("id", ""))
         key = "item_actions.downloaded_audio" if audio_only else "item_actions.downloaded_video"
-
-        def on_done(success: bool | None) -> None:
-            if success:
-                self.notify(text(key, title=escape_markup(title[:40])), timeout=5)
-            else:
-                self.notify(text("item_actions.download_failed"), severity="warning", timeout=4)
-
         self.app.push_screen(
-            DownloadModal(entry.get("id", ""), entry, audio_only=audio_only, fmt=fmt), on_done
+            DownloadModal(entry.get("id", ""), entry, audio_only=audio_only, fmt=fmt),
+            partial(self._on_download_done, key, title),
         )
+
+    def _on_download_done(self, key: str, title: str, success: bool | None) -> None:
+        if success:
+            self.notify(text(key, title=escape_markup(title[:40])), timeout=5)
+        else:
+            self.notify(text("item_actions.download_failed"), severity="warning", timeout=4)
 
     def action_channel(self) -> None:
         entry = self._selected_entry()
@@ -308,10 +313,10 @@ class ItemActionsMixin(PlaylistRowsMixin):
             return
         from src.tui.screens.playlist_modal import PlaylistModal
 
-        def on_done(_: None) -> None:
-            self._detail().refresh_playlists(entry.get("id", ""))
+        self.app.push_screen(PlaylistModal(entry), partial(self._on_playlists_closed, entry))
 
-        self.app.push_screen(PlaylistModal(entry), on_done)
+    def _on_playlists_closed(self, entry: Entry, _result: None) -> None:
+        self._detail().refresh_playlists(entry.get("id", ""))
 
     def action_copy_url(self) -> None:
         url = _page_url(self._selected_entry())

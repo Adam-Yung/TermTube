@@ -12,3 +12,5 @@ The table behind the Settings screen: one `Field` per setting (key, label, kind,
 - Value ranges (`rows_per_page` 10..50, `history_max` 50..5000) mirror the clamps in `Config`; a value typed outside them is refused, a value hand-edited into the YAML is clamped on read.
 - Cache TTLs accept 60 s to 30 days. `cache_ttl.subscriptions` has no row: nothing reads it yet (see `docs/features/configuration.md`).
 - `browser_status` is the Account section's "In use" line; it asks `Config.resolved_browser`, the same resolver mpv's cookie flags use.
+
+`parse_int` returns the shared bounded parser bound to its limits.

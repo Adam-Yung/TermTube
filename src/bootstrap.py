@@ -6,25 +6,16 @@ import gzip
 import json
 import os
 import platform
-import re
 import shutil
 import stat
 import sys
 import tarfile
 import tempfile
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
 import zipfile
 from pathlib import Path
 
 from src.plat import get_deps_bin, get_deps_dir, is_tool_installed
-
-try:
-    import ssl
-except ImportError:
-    ssl = None  # type: ignore[assignment]
+from src.release_download import download, github_latest_tag
 
 
 def _detect_platform() -> tuple[str, str]:
@@ -55,6 +46,8 @@ def _detect_platform() -> tuple[str, str]:
 
 OS_NAME, ARCH = _detect_platform()
 
+_MPV_FALLBACK = "v0.39.0"  # used when the GitHub API is rate-limited
+
 
 def _versions_file() -> Path:
     return get_deps_dir() / "versions.json"
@@ -76,171 +69,31 @@ def _write_versions(data: dict) -> None:
     vf.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-_MAX_RETRIES = 3
-_RETRY_DELAY = 2  # seconds
-
-
-def _classify_download_error(exc: Exception) -> tuple[str, str]:
-    """Return (brief_reason, category); category is 'ssl', 'timeout', 'connection' or 'other'."""
-    exc_str = str(exc)
-
-    if isinstance(exc, urllib.error.URLError) and hasattr(exc, 'reason'):
-        reason = exc.reason
-        if isinstance(reason, Exception):
-            exc_str = str(reason)
-            exc = reason
-
-    if ssl is not None:
-        if isinstance(exc, ssl.SSLCertVerificationError):
-            return "SSL certificate verification failed", "ssl"
-        if isinstance(exc, ssl.SSLError):
-            return f"SSL error: {exc_str}", "ssl"
-    if "CERTIFICATE_VERIFY_FAILED" in exc_str.upper() or "SSL" in exc_str.upper():
-        return f"SSL/TLS error: {exc_str}", "ssl"
-
-    if isinstance(exc, TimeoutError | OSError) and "timed out" in exc_str.lower():
-        return "Connection timed out", "timeout"
-    if isinstance(exc, urllib.error.URLError) and "timed out" in exc_str.lower():
-        return "Connection timed out", "timeout"
-
-    if "refused" in exc_str.lower():
-        return "Connection refused", "connection"
-    if "reset" in exc_str.lower():
-        return "Connection reset", "connection"
-    if "network is unreachable" in exc_str.lower():
-        return "Network is unreachable", "connection"
-
-    return exc_str, "other"
-
-
-def _print_download_guidance(dep_name: str, brief_error: str, category: str) -> None:
-    lines = ["", f"  ⚠ Failed to download {dep_name}: {brief_error}", "", "  Possible fixes:"]
-    if category == "ssl":
-        lines += [
-            "    • You may be behind a corporate proxy/firewall that intercepts HTTPS",
-            "    • Disconnect from VPN or corporate network and retry",
-        ]
-    elif category == "timeout":
-        lines += ["    • Check your internet connection", "    • Disconnect from VPN/proxy and retry"]
-    elif category == "connection":
-        lines += [
-            "    • Check your internet connection and firewall settings",
-            "    • Disconnect from VPN/proxy and retry",
-        ]
-    else:
-        lines.append("    • Check your internet connection")
-
-    if OS_NAME == "macos":
-        lines.append(f"    • Install manually via Homebrew: brew install {dep_name}")
-    elif OS_NAME == "linux":
-        lines.append(f"    • Install manually via your package manager (e.g. apt install {dep_name})")
-
-    lines += ["    • Run: termtube --update  (to retry later)", ""]
-    print("\n".join(lines), file=sys.stderr, flush=True)
-
-
-def _download(url: str, dest: Path, *, desc: str = "", retries: int = _MAX_RETRIES) -> bool:
-    """Download url to dest with retries. True on success.
-
-    Writes a .tmp sibling and os.replace()s it, so an interrupted download never clobbers an existing binary.
-    """
-    label = desc or url.split("/")[-1]
-    tmp_dest = dest.with_suffix(dest.suffix + ".tmp")
-
-    for attempt in range(1, retries + 1):
-        if attempt > 1:
-            print(f"    Retry {attempt}/{retries}...", flush=True)
-            time.sleep(_RETRY_DELAY * attempt)
-
-        print(f"    Downloading {label}...", flush=True)
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "TermTube-Bootstrap/1.0"})
-            with urllib.request.urlopen(req, timeout=300) as resp:
-                total = int(resp.headers.get("Content-Length", 0))
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                downloaded = 0
-                with open(tmp_dest, "wb") as f:
-                    while chunk := resp.read(65536):
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total > 0 and sys.stdout.isatty():
-                            pct = downloaded * 100 // total
-                            print(f"\r    Downloading {label}... {pct}%", end="", flush=True)
-                if sys.stdout.isatty():
-                    print(f"\r    Downloading {label}... done ({downloaded // 1024 // 1024}MB)", flush=True)
-                else:
-                    print(f"    Downloaded {label} ({downloaded // 1024 // 1024}MB)", flush=True)
-
-            if total > 0 and downloaded < total:
-                print(f"    [!] Incomplete download: got {downloaded} of {total} bytes", flush=True)
-                tmp_dest.unlink(missing_ok=True)
-                if attempt == retries:
-                    return False
-                continue
-
-            os.replace(tmp_dest, dest)
-            return True
-        except (urllib.error.URLError, OSError, TimeoutError) as exc:
-            tmp_dest.unlink(missing_ok=True)
-            brief, category = _classify_download_error(exc)
-            print(flush=True)
-            print(f"    [!] Download failed: {brief}", flush=True)
-            if attempt == retries:
-                _print_download_guidance(label, brief, category)
-                return False
-
-    return False
-
-
 def _make_executable(path: Path) -> None:
     """chmod +x; no-op on Windows."""
     if OS_NAME != "windows":
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def _tag_from_api(owner: str, repo: str) -> str | None:
-    """Latest tag from the GitHub API. Uses ``GITHUB_TOKEN`` if set (the token goes to api.github.com only)."""
-    headers = {"User-Agent": "TermTube-Bootstrap/1.0"}
-    token = os.environ.get("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(f"https://api.github.com/repos/{owner}/{repo}/releases/latest", headers=headers)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read()).get("tag_name")
+def _install_binary(source: Path, bin_dir: Path, name: str) -> None:
+    dest = bin_dir / name
+    shutil.move(str(source), str(dest))
+    _make_executable(dest)
 
 
-def _tag_from_redirect(owner: str, repo: str) -> str | None:
-    """Latest tag from where ``/releases/latest`` redirects (``.../releases/tag/<tag>``); not API rate-limited."""
-    req = urllib.request.Request(
-        f"https://github.com/{owner}/{repo}/releases/latest", headers={"User-Agent": "TermTube-Bootstrap/1.0"}
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        match = re.search(r"/releases/tag/([^/?#]+)$", resp.geturl())
-    return urllib.parse.unquote(match.group(1)) if match else None
+def _extract_tar(archive: Path, mode: str, into: str) -> None:
+    with tarfile.open(archive, mode) as tf:
+        tf.extractall(into, filter="data" if hasattr(tarfile, "data_filter") else None)
 
 
-def _github_latest_tag(owner: str, repo: str) -> str | None:
-    """Latest release tag: the API first, then the release page's redirect when the API is rate-limited or down."""
-    try:
-        tag = _tag_from_api(owner, repo)
-        if tag:
-            return tag
-    except (urllib.error.URLError, OSError, TimeoutError, ValueError) as exc:
-        brief = _classify_download_error(exc)[0]
-        print(f"    [!] GitHub API request failed ({brief}); trying the release page", flush=True)
-    try:
-        return _tag_from_redirect(owner, repo)
-    except (urllib.error.URLError, OSError, TimeoutError) as exc:
-        brief, category = _classify_download_error(exc)
-        print(f"    [!] GitHub release lookup failed: {brief}", file=sys.stderr, flush=True)
-        if category == "ssl":
-            print("    (Likely behind a corporate proxy — see error guidance below)", file=sys.stderr, flush=True)
-        return None
+def _extract_zip(archive: Path, into: str) -> None:
+    with zipfile.ZipFile(archive) as zf:
+        zf.extractall(into)
 
 
 def _install_deno(bin_dir: Path) -> str | None:
     """Install Deno from GitHub releases. Returns the tag or None."""
-    tag = _github_latest_tag("denoland", "deno")
+    tag = github_latest_tag("denoland", "deno")
     if not tag:
         print("    [!] Could not determine latest Deno version", flush=True)
         return None
@@ -256,23 +109,49 @@ def _install_deno(bin_dir: Path) -> str | None:
 
     with tempfile.TemporaryDirectory(prefix="termtube_deno_") as tmp:
         zip_path = Path(tmp) / asset
-        if not _download(url, zip_path, desc=f"Deno {tag}"):
+        if not download(url, zip_path, desc=f"Deno {tag}"):
             return None
-
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(tmp)
-
+        _extract_zip(zip_path, tmp)
         exe_name = "deno.exe" if OS_NAME == "windows" else "deno"
         src = Path(tmp) / exe_name
         if not src.exists():
             print(f"    [!] {exe_name} not found in archive", flush=True)
             return None
-
-        dest = bin_dir / exe_name
-        shutil.move(str(src), str(dest))
-        _make_executable(dest)
+        _install_binary(src, bin_dir, exe_name)
 
     return tag
+
+
+def _ffmpeg_asset() -> str:
+    """The BtbN build for this Linux or Windows machine."""
+    arm = ARCH == "aarch64"
+    if OS_NAME == "linux":
+        return f"ffmpeg-master-latest-{'linuxarm64' if arm else 'linux64'}-gpl.tar.xz"
+    return f"ffmpeg-master-latest-{'winarm64' if arm else 'win64'}-gpl.zip"
+
+
+def _extract_ffmpeg(archive: Path, into: str) -> bool:
+    if not archive.name.endswith(".tar.xz"):
+        _extract_zip(archive, into)
+        return True
+    try:
+        _extract_tar(archive, "r:xz", into)
+    except tarfile.CompressionError:
+        print("    [!] xz decompression not available (missing lzma module).", flush=True)
+        print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev, then rebuild)", flush=True)
+        return False
+    return True
+
+
+def _install_found(tree: Path, bin_dir: Path, base_name: str) -> bool:
+    """Move ``base_name`` from the unpacked ``tree`` (preferably from a ``bin`` folder) into ``bin_dir``."""
+    exe_name = f"{base_name}.exe" if OS_NAME == "windows" else base_name
+    found = list(tree.rglob(f"bin/{exe_name}")) or list(tree.rglob(exe_name))
+    if not found:
+        print(f"    [!] {exe_name} not found in archive", flush=True)
+        return False
+    _install_binary(found[0], bin_dir, exe_name)
+    return True
 
 
 def _install_ffmpeg(bin_dir: Path) -> str | None:
@@ -280,60 +159,37 @@ def _install_ffmpeg(bin_dir: Path) -> str | None:
     if OS_NAME == "macos":
         return _install_ffmpeg_macos(bin_dir)
 
-    base_url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest"
-
-    arm = ARCH == "aarch64"
-    if OS_NAME == "linux":
-        asset = f"ffmpeg-master-latest-{'linuxarm64' if arm else 'linux64'}-gpl.tar.xz"
-    else:
-        asset = f"ffmpeg-master-latest-{'winarm64' if arm else 'win64'}-gpl.zip"
-
-    url = f"{base_url}/{asset}"
+    asset = _ffmpeg_asset()
+    url = f"https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/{asset}"
 
     with tempfile.TemporaryDirectory(prefix="termtube_ffmpeg_") as tmp:
         archive_path = Path(tmp) / asset
-        if not _download(url, archive_path, desc="ffmpeg (static)"):
+        if not download(url, archive_path, desc="ffmpeg (static)"):
             return None
-
-        if asset.endswith(".tar.xz"):
-            try:
-                with tarfile.open(archive_path, "r:xz") as tf:
-                    tf.extractall(tmp, filter="data" if hasattr(tarfile, "data_filter") else None)
-            except tarfile.CompressionError:
-                print("    [!] xz decompression not available (missing lzma module).", flush=True)
-                print("    On Ubuntu/Debian: sudo apt install python3-lzma (or liblzma-dev, then rebuild)", flush=True)
-                return None
-        else:
-            with zipfile.ZipFile(archive_path) as zf:
-                zf.extractall(tmp)
-
-        tmp_path = Path(tmp)
-        installed_count = 0
-        for base_name in ("ffmpeg", "ffprobe"):
-            exe_name = f"{base_name}.exe" if OS_NAME == "windows" else base_name
-            found = list(tmp_path.rglob(f"bin/{exe_name}"))
-            if not found:
-                found = list(tmp_path.rglob(exe_name))
-            if found:
-                dest = bin_dir / exe_name
-                shutil.move(str(found[0]), str(dest))
-                _make_executable(dest)
-                installed_count += 1
-            else:
-                print(f"    [!] {exe_name} not found in archive", flush=True)
-
-        if installed_count == 0:
+        if not _extract_ffmpeg(archive_path, tmp):
+            return None
+        installed = [_install_found(Path(tmp), bin_dir, name) for name in ("ffmpeg", "ffprobe")]
+        if not any(installed):
             return None
 
     return "master-latest"
 
 
+def _gunzip_binary(gz_path: Path, dest: Path) -> bool:
+    try:
+        with gzip.open(gz_path, "rb") as gz_in, open(dest, "wb") as f_out:
+            shutil.copyfileobj(gz_in, f_out)
+    except Exception as exc:
+        print(f"    [!] Failed to decompress {dest.name}: {exc}", flush=True)
+        dest.unlink(missing_ok=True)
+        return False
+    _make_executable(dest)
+    return True
+
+
 def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
     """Install ffmpeg on macOS from eugeneware/ffmpeg-static .gz binaries; falls back to evermeet.cx."""
-    tag = _github_latest_tag("eugeneware", "ffmpeg-static")
-    if not tag:
-        tag = "b6.1.1"
-
+    tag = github_latest_tag("eugeneware", "ffmpeg-static") or "b6.1.1"
     arch_suffix = "darwin-arm64" if ARCH == "aarch64" else "darwin-x64"
 
     for tool in ("ffmpeg", "ffprobe"):
@@ -342,19 +198,10 @@ def _install_ffmpeg_macos(bin_dir: Path) -> str | None:
 
         with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
             gz_path = Path(tmp) / asset
-            if not _download(url, gz_path, desc=f"{tool} (macOS {arch_suffix})"):
+            if not download(url, gz_path, desc=f"{tool} (macOS {arch_suffix})"):
                 return _install_ffmpeg_macos_evermeet(bin_dir)
-
-            dest = bin_dir / tool
-            try:
-                with gzip.open(gz_path, "rb") as gz_in:
-                    with open(dest, "wb") as f_out:
-                        shutil.copyfileobj(gz_in, f_out)
-            except Exception as exc:
-                print(f"    [!] Failed to decompress {tool}: {exc}", flush=True)
-                dest.unlink(missing_ok=True)
+            if not _gunzip_binary(gz_path, bin_dir / tool):
                 return None
-            _make_executable(dest)
 
     return tag
 
@@ -365,19 +212,16 @@ def _install_ffmpeg_macos_evermeet(bin_dir: Path) -> str | None:
         url = f"https://evermeet.cx/ffmpeg/get/{tool}/zip"
         with tempfile.TemporaryDirectory(prefix=f"termtube_{tool}_") as tmp:
             zip_path = Path(tmp) / f"{tool}.zip"
-            if not _download(url, zip_path, desc=f"{tool} (evermeet.cx)"):
+            if not download(url, zip_path, desc=f"{tool} (evermeet.cx)"):
                 print("    [!] All ffmpeg sources failed.", flush=True)
                 print("    Install manually: brew install ffmpeg", flush=True)
                 return None
-            with zipfile.ZipFile(zip_path) as zf:
-                zf.extractall(tmp)
+            _extract_zip(zip_path, tmp)
             src = Path(tmp) / tool
             if not src.exists():
                 print(f"    [!] {tool} not found in archive", flush=True)
                 return None
-            dest = bin_dir / tool
-            shutil.move(str(src), str(dest))
-            _make_executable(dest)
+            _install_binary(src, bin_dir, tool)
     return "evermeet-latest"
 
 
@@ -402,79 +246,81 @@ def _link_system_mpv(bin_dir: Path, system_mpv: Path) -> str | None:
     return "system"
 
 
+def _use_system_mpv(bin_dir: Path) -> str | None:
+    """Linux: link the distro's mpv, or print how to install one."""
+    system = shutil.which("mpv")
+    if system:
+        return _link_system_mpv(bin_dir, Path(system))
+    print("    mpv: no static Linux build available.", flush=True)
+    print("    Install via your package manager:", flush=True)
+    print("      Ubuntu/Debian: sudo apt install mpv", flush=True)
+    print("      Fedora:        sudo dnf install mpv", flush=True)
+    print("      Arch:          sudo pacman -S mpv", flush=True)
+    return None
+
+
+def _mpv_asset(tag: str) -> str:
+    """The mpv release archive for this macOS or Windows machine."""
+    if OS_NAME != "macos":
+        return f"mpv-{tag}-{'aarch64' if ARCH == 'aarch64' else 'x86_64'}-pc-windows-msvc.zip"
+    mac_ver = platform.mac_ver()[0]
+    mac_major = int(mac_ver.split('.')[0]) if mac_ver else 15
+    return f"mpv-{tag}-macos-{mac_major}-{'arm' if ARCH == 'aarch64' else 'intel'}.zip"
+
+
+def _place_mpv_macos(tmp: str, bin_dir: Path) -> bool:
+    """Copy mpv out of the unpacked .app. It links @executable_path/lib/, so bin/mpv and bin/lib stay together."""
+    inner_tar = Path(tmp) / "mpv.tar.gz"
+    if inner_tar.exists():
+        _extract_tar(inner_tar, "r:gz", tmp)
+    macos_dir = next((p for p in Path(tmp).rglob("MacOS") if p.is_dir() and (p / "mpv").exists()), None)
+    if macos_dir is None:
+        print("    [!] mpv binary not found in .app bundle", flush=True)
+        return False
+    dest = bin_dir / "mpv"
+    shutil.copy2(str(macos_dir / "mpv"), str(dest))
+    _make_executable(dest)
+    src_lib = macos_dir / "lib"
+    if src_lib.is_dir():
+        dest_lib = bin_dir / "lib"
+        if dest_lib.exists():
+            shutil.rmtree(str(dest_lib))
+        shutil.copytree(str(src_lib), str(dest_lib))
+    return True
+
+
+def _place_mpv_windows(tmp: str, bin_dir: Path) -> bool:
+    found = list(Path(tmp).rglob("mpv.exe"))
+    if not found:
+        print("    [!] mpv.exe not found in archive", flush=True)
+        return False
+    shutil.move(str(found[0]), str(bin_dir / "mpv.exe"))
+    return True
+
+
 def _install_mpv(bin_dir: Path) -> str | None:
     """Install mpv (macOS .app bundle, Windows zip). Linux has no static build: accepts a system mpv."""
-    _MPV_FALLBACK = "v0.39.0"  # used when the GitHub API is rate-limited
-
     if OS_NAME == "linux":
-        system = shutil.which("mpv")
-        if system:
-            return _link_system_mpv(bin_dir, Path(system))
-        print("    mpv: no static Linux build available.", flush=True)
-        print("    Install via your package manager:", flush=True)
-        print("      Ubuntu/Debian: sudo apt install mpv", flush=True)
-        print("      Fedora:        sudo dnf install mpv", flush=True)
-        print("      Arch:          sudo pacman -S mpv", flush=True)
-        return None
+        return _use_system_mpv(bin_dir)
 
-    tag = _github_latest_tag("mpv-player", "mpv")
+    tag = github_latest_tag("mpv-player", "mpv")
     if not tag:
         print(f"    [!] GitHub API unavailable — using fallback mpv {_MPV_FALLBACK}", flush=True)
         tag = _MPV_FALLBACK
 
-    if OS_NAME == "macos":
-        mac_ver = platform.mac_ver()[0]
-        mac_major = int(mac_ver.split('.')[0]) if mac_ver else 15
-        if ARCH == "aarch64":
-            asset = f"mpv-{tag}-macos-{mac_major}-arm.zip"
-        else:
-            asset = f"mpv-{tag}-macos-{mac_major}-intel.zip"
-    else:
-        asset = f"mpv-{tag}-{'aarch64' if ARCH == 'aarch64' else 'x86_64'}-pc-windows-msvc.zip"
-
+    asset = _mpv_asset(tag)
     url = f"https://github.com/mpv-player/mpv/releases/download/{tag}/{asset}"
 
     with tempfile.TemporaryDirectory(prefix="termtube_mpv_") as tmp:
         zip_path = Path(tmp) / asset
-        if not _download(url, zip_path, desc=f"mpv {tag}"):
+        if not download(url, zip_path, desc=f"mpv {tag}"):
             return None
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(tmp)
-
-        if OS_NAME == "macos":
-            # The binary links @executable_path/lib/, so bin/mpv and bin/lib must stay together.
-            inner_tar = Path(tmp) / "mpv.tar.gz"
-            if inner_tar.exists():
-                with tarfile.open(inner_tar, "r:gz") as tf:
-                    tf.extractall(tmp, filter="data" if hasattr(tarfile, "data_filter") else None)
-            macos_dir = None
-            for p in Path(tmp).rglob("MacOS"):
-                if p.is_dir() and (p / "mpv").exists():
-                    macos_dir = p
-                    break
-            if macos_dir is None:
-                print("    [!] mpv binary not found in .app bundle", flush=True)
-                return None
-            dest = bin_dir / "mpv"
-            shutil.copy2(str(macos_dir / "mpv"), str(dest))
-            _make_executable(dest)
-            src_lib = macos_dir / "lib"
-            if src_lib.is_dir():
-                dest_lib = bin_dir / "lib"
-                if dest_lib.exists():
-                    shutil.rmtree(str(dest_lib))
-                shutil.copytree(str(src_lib), str(dest_lib))
-        else:
-            exe_name = "mpv.exe"
-            found = list(Path(tmp).rglob(exe_name))
-            if not found:
-                print(f"    [!] {exe_name} not found in archive", flush=True)
-                return None
-            dest = bin_dir / exe_name
-            shutil.move(str(found[0]), str(dest))
+        _extract_zip(zip_path, tmp)
+        place = _place_mpv_macos if OS_NAME == "macos" else _place_mpv_windows
+        if not place(tmp, bin_dir):
+            return None
 
     return tag
-
 
 
 TOOLS = {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rich.markup import escape
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -83,7 +84,7 @@ class SearchModal(ModalScreen[str | None]):
         self._refresh(self.query_one("#search-input", Input).value)
 
     def _refresh(self, typed: str) -> None:
-        enabled = self.app.config.search_history_enabled  # type: ignore[attr-defined]
+        enabled = self.app.config.search_history_enabled
         self._local = search_history.matching(typed)[:_MAX_ROWS] if enabled else []
         self._merge()
 
@@ -101,21 +102,19 @@ class SearchModal(ModalScreen[str | None]):
         if self._debounce is not None:
             self._debounce.stop()
             self._debounce = None
-        if not self.app.config.search_suggestions_enabled or len(typed) < _MIN_SUGGEST_CHARS:  # type: ignore[attr-defined]
+        if not self.app.config.search_suggestions_enabled or len(typed) < _MIN_SUGGEST_CHARS:
             self._remote = []
             return
         seq = self._seq
         self._debounce = self.set_timer(_DEBOUNCE_S, lambda: self._fetch_suggestions(typed, seq))
 
+    @work(thread=True, exclusive=True, group="suggest")
     def _fetch_suggestions(self, typed: str, seq: int) -> None:
-        def work() -> None:
-            try:
-                found = innertube.fetch_suggestions(typed)
-            except Exception:
-                return
-            self.app.call_from_thread(self._apply_suggestions, seq, found)
-
-        self.run_worker(work, thread=True, exclusive=True, group="suggest")
+        try:
+            found = innertube.fetch_suggestions(typed)
+        except Exception:
+            return
+        self.app.call_from_thread(self._apply_suggestions, seq, found)
 
     def _apply_suggestions(self, seq: int, found: list[str]) -> None:
         if seq != self._seq or not self.is_attached:

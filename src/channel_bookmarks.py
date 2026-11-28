@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from functools import partial
 
 from src.channel_ref import is_channel_id
 from src.entries import ChannelEntry
@@ -21,21 +22,17 @@ def toggle(channel_id: str, name: str, avatar: str = "") -> bool:
     """
     if not is_channel_id(channel_id):
         return False
+    return _store.update(partial(_toggle, channel_id=channel_id, name=name, avatar=avatar)) == "followed"
 
-    followed = False
 
-    def apply(data: list) -> bool:
-        nonlocal followed
-        for record in data:
-            if record["id"] == channel_id:
-                data.remove(record)
-                return True
-        data.append({"id": channel_id, "name": name, "avatar": avatar, "added": time.time()})
-        followed = True
-        return True
-
-    _store.update(apply)
-    return followed
+def _toggle(data: list, channel_id: str, name: str, avatar: str) -> str:
+    """Both outcomes are non-empty, so the store saves either way."""
+    for record in data:
+        if record["id"] == channel_id:
+            data.remove(record)
+            return "unfollowed"
+    data.append({"id": channel_id, "name": name, "avatar": avatar, "added": time.time()})
+    return "followed"
 
 
 def entries() -> list[ChannelEntry]:

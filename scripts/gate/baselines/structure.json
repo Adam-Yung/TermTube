@@ -1,86 +1,30 @@
 {
  "comment-block": {
   "scripts/launch-macos.sh": 1,
-  "src/tests/unit/test_mixin_wiring.py": 1,
-  "src/tui/widgets/thumbnail_widget.py": 1
+  "src/tests/unit/test_mixin_wiring.py": 1
  },
  "file-lines": {
   "scripts/setup.sh": 1,
-  "src/bootstrap.py": 1,
-  "src/innertube.py": 1,
-  "src/library.py": 1,
-  "src/plat.py": 1,
-  "src/player.py": 1,
   "src/tests/tui/test_list_tools.py": 1,
-  "src/tests/unit/test_innertube_parsers.py": 1,
-  "src/tui/audio_controller.py": 1,
-  "src/tui/screens/channel_screen.py": 1,
-  "src/tui/screens/main_screen.py": 1,
-  "src/tui/screens/mixins/feed_loader.py": 1,
-  "src/tui/screens/watch_modal.py": 1,
-  "src/tui/widgets/video_list.py": 1,
-  "src/ytdlp.py": 1
+  "src/tests/unit/test_innertube_parsers.py": 1
  },
  "py:C901": {
-  "src/bootstrap.py": 2,
-  "src/feed_cursor.py": 1,
-  "src/innertube.py": 1,
-  "src/main.py": 1,
-  "src/plat.py": 1,
-  "src/player.py": 1,
-  "src/tests/tui/layout_harness.py": 2,
-  "src/tui/screens/download_modal.py": 1,
-  "src/tui/screens/mixins/feed_loader.py": 1,
-  "src/tui/screens/watch_modal.py": 2,
-  "src/tui/widgets/video_list.py": 2,
-  "src/ui/thumbnail.py": 1,
-  "src/updater.py": 1,
-  "src/ytdlp.py": 1
+  "src/tests/tui/layout_harness.py": 2
  },
  "py:PLR0912": {
-  "src/bootstrap.py": 1,
-  "src/feed_cursor.py": 1,
-  "src/innertube.py": 1,
-  "src/main.py": 1,
-  "src/tests/tui/layout_harness.py": 2,
-  "src/tui/screens/mixins/feed_loader.py": 1,
-  "src/tui/widgets/video_list.py": 1,
-  "src/updater.py": 1
+  "src/tests/tui/layout_harness.py": 2
  },
  "py:PLR1702": {
-  "src/bootstrap.py": 8,
-  "src/cache.py": 1,
-  "src/feed_cursor.py": 5,
-  "src/innertube.py": 1,
-  "src/library.py": 1,
-  "src/plat.py": 1,
-  "src/player.py": 7,
-  "src/sponsorblock.py": 1,
-  "src/store.py": 1,
   "src/tests/tui/layout_harness.py": 2,
   "src/tests/tui/test_debug_log_deadlock.py": 1,
   "src/tests/unit/test_cookie_policy.py": 1,
   "src/tests/unit/test_mixin_wiring.py": 1,
-  "src/tests/unit/test_path_correctness.py": 1,
-  "src/tui/screens/watch_modal.py": 1,
-  "src/tui/widgets/video_list.py": 1,
-  "src/ui/thumbnail.py": 1,
-  "src/ytdlp.py": 13
+  "src/tests/unit/test_path_correctness.py": 1
  },
  "py:nested-def": {
   "scripts/bench-sources.py": 2,
   "scripts/e2e-local.py": 1,
   "scripts/smoke-ipc.py": 2,
-  "src/channel_bookmarks.py": 1,
-  "src/downloads.py": 2,
-  "src/history.py": 5,
-  "src/library_query.py": 1,
-  "src/main.py": 4,
-  "src/player.py": 1,
-  "src/playlist.py": 13,
-  "src/search_history.py": 1,
-  "src/sponsorblock.py": 1,
-  "src/strings.py": 1,
   "src/tests/integration/test_ytdlp_download.py": 12,
   "src/tests/tui/test_audio_local_file.py": 1,
   "src/tests/tui/test_channel_global_keys.py": 1,
@@ -117,20 +61,7 @@
   "src/tests/unit/test_store.py": 4,
   "src/tests/unit/test_suggestions.py": 3,
   "src/tests/unit/test_thumbnail_download.py": 2,
-  "src/tests/unit/test_thumbnail_mode.py": 6,
-  "src/tui/audio_controller.py": 3,
-  "src/tui/library_delete.py": 1,
-  "src/tui/screens/channel_screen.py": 3,
-  "src/tui/screens/download_modal.py": 1,
-  "src/tui/screens/main_screen.py": 8,
-  "src/tui/screens/mixins/feed_loader.py": 5,
-  "src/tui/screens/mixins/item_actions.py": 5,
-  "src/tui/screens/mixins/playlist_rows.py": 1,
-  "src/tui/screens/mixins/playlist_tools.py": 6,
-  "src/tui/screens/search_modal.py": 1,
-  "src/tui/screens/settings_modal.py": 1,
-  "src/tui/screens/watch_modal.py": 5,
-  "src/tui/settings_fields.py": 1
+  "src/tests/unit/test_thumbnail_mode.py": 6
  },
  "sh:SC2034": {
   "scripts/setup.sh": 2,
@@ -145,19 +76,12 @@
   "scripts/owner/probe-home.py": 3,
   "scripts/owner/probe-playlist.py": 2,
   "scripts/smoke-ipc.py": 2,
-  "src/bootstrap.py": 1,
-  "src/main.py": 4,
-  "src/plat.py": 3,
   "src/tests/tui/layout_harness.py": 2,
   "src/tests/tui/test_actions_panel.py": 8,
   "src/tests/tui/test_focus_after_modal.py": 2,
   "src/tests/tui/test_races.py": 1,
   "src/tests/tui/test_row_actions.py": 4,
   "src/tests/tui/test_screen_layout_audit.py": 1,
-  "src/tests/unit/test_theme_wiring.py": 1,
-  "src/tui/screens/playlist_modal.py": 5,
-  "src/tui/screens/search_modal.py": 2,
-  "src/tui/screens/settings_modal.py": 11,
-  "src/tui/screens/watch_modal.py": 1
+  "src/tests/unit/test_theme_wiring.py": 1
  }
 }

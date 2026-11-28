@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import yt_dlp  # noqa: E402
 
-from src import ytdlp  # noqa: E402
+from src import flat_entries, ytdlp  # noqa: E402
 from src.config import Config  # noqa: E402
 
 
@@ -37,9 +37,10 @@ def main() -> int:
     print(f"{len(rows)} raw rows")
     for kind, n in kinds.most_common():
         print(f"  {n:3d}  ie_key={kind[0]} _type={kind[1]} url={kind[2]}")
-    kept = [ytdlp.playlist_row(r) for r in rows]
+    kept = [flat_entries.playlist_row(r) for r in rows]
     kept = [k for k in kept if k]
-    print(f"kept as playlist rows: {len(kept)}; playable videos: {sum(ytdlp._is_playable_video(r) for r in rows)}")
+    playable = sum(flat_entries.is_playable_video(r) for r in rows)
+    print(f"kept as playlist rows: {len(kept)}; playable videos: {playable}")
     for k in kept[:5]:
         print("  playlist:", k["id"], k.get("title"))
     return 0

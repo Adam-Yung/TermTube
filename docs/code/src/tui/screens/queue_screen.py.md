@@ -7,3 +7,5 @@
 - **Playing track.** It cannot be moved or removed; `D` says so and `Enter` says it is already playing.
 - **Undo.** `D` and `c` push `(index, entry)` records; `u` re-inserts them in order through `insert_queued`, which refuses an entry that is playing or queued again. The stack is dropped when audio stops and dies with the page.
 - **Keys.** `keymap.QUEUE_PAGE` plus the transport part of `PLAYBACK` and the row actions without `channel` (`c` clears here). The hint line under the list is always shown, because the Actions panel gives way to the player while audio plays.
+
+Help, Settings and Enter come from `AppPagesMixin` and `ItemActionsMixin`.

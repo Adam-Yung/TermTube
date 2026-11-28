@@ -16,6 +16,7 @@ from src.sponsorblock import Segment
 from src.strings import text
 from src.tui.fmt import escape_markup, fmt_clock
 from src.tui.layout import MIN_INFO_ROWS
+from src.tui.widgets.segment_bar import SegmentBar
 
 _WAVE_CHARS = "▁▂▃▄▅▆▇█"
 _COLUMNS = 5
@@ -87,13 +88,10 @@ class ActionBar(Widget):
         self._channel: str = ""
         self._playing: bool = False
         self._queue_len: int = 0
-        self._segments: list[Segment] = []
+        self._bar = SegmentBar()
         self._wave_frame: int = 0
         self._wave_timer = None
         self._buffering_since: float = 0.0
-        self._segment_cols: list[bool] = []
-        self._segment_cols_width: int = 0
-        self._segment_cols_dur: float = 0.0
         self._prompt: str | None = None
         self._actions_height = self._HEIGHT_ACTIONS
 
@@ -170,62 +168,11 @@ class ActionBar(Widget):
     def on_resize(self) -> None:
         self.render_actions()
 
-    def _build_segment_cols(self, width: int, dur: float) -> list[bool]:
-        """Mark the columns that fall inside a SponsorBlock segment."""
-        cols: list[bool] = []
-        for col in range(width):
-            t = (col / width) * dur
-            cols.append(any(s.start <= t < s.end for s in self._segments))
-        return cols
-
-    def _get_segment_cols(self, width: int, dur: float) -> list[bool]:
-        """Cached column map; rebuilt when width, duration or segments change."""
-        if (
-            self._segment_cols_width != width
-            or self._segment_cols_dur != dur
-            or len(self._segment_cols) != width
-        ):
-            self._segment_cols = self._build_segment_cols(width, dur)
-            self._segment_cols_width = width
-            self._segment_cols_dur = dur
-        return self._segment_cols
-
     def _text_bar(self, pos: float, dur: float, width: int) -> str:
         width = max(4, width)
         if dur <= 0:
             return self._wave_bar(width)
-        frac = min(pos / dur, 1.0)
-        filled = int(frac * width)
-        color = self._get_progress_color()
-        sponsor_color = "#22c55e"
-        sponsor_dim = "#166534"
-
-        if not self._segments:
-            empty = width - filled
-            return f"[{color}]{'█' * filled}[/{color}][#2a2a40]{'░' * empty}[/#2a2a40]"
-
-        seg_cols = self._get_segment_cols(width, dur)
-        parts: list[str] = []
-        prev_color: str | None = None
-        run: list[str] = []
-        for col in range(width):
-            in_segment = seg_cols[col]
-            if col < filled:
-                c = sponsor_color if in_segment else color
-                char = "█"
-            else:
-                c = sponsor_dim if in_segment else "#2a2a40"
-                char = "░"
-            if c != prev_color:
-                if run:
-                    parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
-                run = [char]
-                prev_color = c
-            else:
-                run.append(char)
-        if run and prev_color:
-            parts.append(f"[{prev_color}]{''.join(run)}[/{prev_color}]")
-        return "".join(parts)
+        return self._bar.render(pos, dur, width, self._get_progress_color())
 
     def _update_np_keys(self) -> None:
         color = self._get_theme_color()
@@ -241,8 +188,7 @@ class ActionBar(Widget):
         self.query_one("#np-keys", Static).update(keys)
 
     def set_segments(self, segments: list[Segment]) -> None:
-        self._segments = segments
-        self._segment_cols = []
+        self._bar.set_segments(segments)
 
     def refresh_theme(self) -> None:
         """Re-render all Rich-markup elements after a theme change."""
@@ -254,8 +200,7 @@ class ActionBar(Widget):
     def set_actions_mode(self) -> None:
         self._playing = False
         self._queue_len = 0
-        self._segments = []
-        self._segment_cols = []
+        self._bar.set_segments([])
         if self._wave_timer is not None:
             self._wave_timer.stop()
             self._wave_timer = None

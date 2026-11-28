@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import threading
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path, PureWindowsPath
 
 import yt_dlp
@@ -29,31 +30,45 @@ PHASE_NEW_STREAM = -2.0
 PHASE_POSTPROCESS = -3.0
 
 
+def _progress(
+    d: dict,
+    on_progress: Callable[[str, float], None] | None,
+    cancel: threading.Event,
+    on_file: Callable[[str], None] | None,
+) -> None:
+    if cancel.is_set():
+        raise yt_dlp.utils.DownloadError("Cancelled by user")
+    if on_file is not None and d.get('status') == 'finished' and d.get('filename'):
+        on_file(d['filename'])
+    if on_progress is None:
+        return
+    status = d.get('status')
+    if status == 'downloading':
+        total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
+        downloaded = d.get('downloaded_bytes', 0)
+        pct = downloaded / total * 100.0 if total > 0 else -1.0
+        on_progress(d.get('_default_template', ''), pct)
+    elif status == 'finished':
+        on_progress("Post-processing...", PHASE_POSTPROCESS)
+
+
 def _make_progress_hook(
     on_progress: Callable[[str, float], None] | None,
     cancel: threading.Event,
     on_file: Callable[[str], None] | None = None,
 ):
     """Progress hook: forwards to ``on_progress``, reports finished files to ``on_file``, aborts on ``cancel``."""
-    def hook(d: dict) -> None:
-        if cancel.is_set():
-            raise yt_dlp.utils.DownloadError("Cancelled by user")
-        if on_file is not None and d.get('status') == 'finished' and d.get('filename'):
-            on_file(d['filename'])
-        if on_progress is None:
-            return
-        status = d.get('status')
-        if status == 'downloading':
-            total = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-            downloaded = d.get('downloaded_bytes', 0)
-            if total > 0:
-                pct = downloaded / total * 100.0
-            else:
-                pct = -1.0
-            on_progress(d.get('_default_template', ''), pct)
-        elif status == 'finished':
-            on_progress("Post-processing...", PHASE_POSTPROCESS)
-    return hook
+    return partial(_progress, on_progress=on_progress, cancel=cancel, on_file=on_file)
+
+
+def _postprocess(
+    d: dict, on_progress: Callable[[str, float], None] | None, on_file: Callable[[str], None] | None
+) -> None:
+    path = (d.get('info_dict') or {}).get('filepath')
+    if on_file is not None and d.get('status') == 'finished' and path:
+        on_file(path)
+    if on_progress is not None and d.get('status') == 'started':
+        on_progress(f"[{d.get('postprocessor', 'PP')}] Processing...", PHASE_POSTPROCESS)
 
 
 def _make_postprocessor_hook(
@@ -61,16 +76,7 @@ def _make_postprocessor_hook(
     on_file: Callable[[str], None] | None = None,
 ):
     """yt-dlp postprocessor hook reporting merge/extraction as the post-process phase and the files they produce."""
-    def hook(d: dict) -> None:
-        path = (d.get('info_dict') or {}).get('filepath')
-        if on_file is not None and d.get('status') == 'finished' and path:
-            on_file(path)
-        if on_progress is None:
-            return
-        status = d.get('status')
-        if status == 'started':
-            on_progress(f"[{d.get('postprocessor', 'PP')}] Processing...", PHASE_POSTPROCESS)
-    return hook
+    return partial(_postprocess, on_progress=on_progress, on_file=on_file)
 
 
 def check_template(template: str) -> None:

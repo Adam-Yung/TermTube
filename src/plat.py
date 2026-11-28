@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import errno
-import functools
 import glob
 import os
 import shutil
@@ -23,6 +22,9 @@ IS_MACOS = sys.platform == "darwin"
 IS_LINUX = sys.platform.startswith("linux")
 
 
+def _local_appdata() -> Path:
+    return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+
 
 def get_config_dir() -> Path:
     """User configuration directory (~/.config/TermTube or %APPDATA%/TermTube)."""
@@ -35,10 +37,7 @@ def get_config_dir() -> Path:
 
 def get_deps_dir() -> Path:
     """Root directory for TermTube-managed dependencies (deno, ffmpeg, mpv)."""
-    if IS_WINDOWS:
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    else:
-        base = Path.home() / ".local"
+    base = _local_appdata() if IS_WINDOWS else Path.home() / ".local"
     return base / "termtube-deps"
 
 
@@ -101,18 +100,13 @@ def get_cache_dir() -> Path:
     if override:
         return Path(override)
     if IS_WINDOWS:
-        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-        return base / "TermTube" / "cache"
-    else:
-        base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-        return base / "termtube"
+        return _local_appdata() / "TermTube" / "cache"
+    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "termtube"
 
 
 def get_log_dir() -> Path:
     """Log/temp directory under the system temp dir."""
     return Path(tempfile.gettempdir()) / "TermTube"
-
-
 
 
 def private_dir(path: str | Path) -> Path:
@@ -162,49 +156,29 @@ def get_video_ipc_path() -> str:
     return _ipc_path("termtube-mpv-video")
 
 
+def _clipboard_commands() -> list[list[str]]:
+    """The clipboard programs to try, in order."""
+    if IS_WINDOWS:
+        return [["clip.exe"]]
+    if IS_MACOS:
+        return [["pbcopy"]]
+    linux = (["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"])
+    return [cmd for cmd in linux if shutil.which(cmd[0])]
+
+
 def clipboard_copy(text: str) -> bool:
     """Copy text to the system clipboard. Returns True on success."""
-    if IS_WINDOWS:
+    data = text.encode("utf-16le") if IS_WINDOWS else text.encode()
+    for cmd in _clipboard_commands():
         try:
-            subprocess.run(
-                ["clip.exe"],
-                input=text.encode("utf-16le"),
-                check=True,
-                capture_output=True,
-            )
+            subprocess.run(cmd, input=data, check=True, capture_output=True)
             return True
         except (FileNotFoundError, subprocess.CalledProcessError):
-            return False
-
-    if IS_MACOS:
-        try:
-            subprocess.run(
-                ["pbcopy"],
-                input=text.encode(),
-                check=True,
-                capture_output=True,
-            )
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            return False
-
-    for cmd in (
-        ["wl-copy"],
-        ["xclip", "-selection", "clipboard"],
-        ["xsel", "--clipboard", "--input"],
-    ):
-        if shutil.which(cmd[0]):
-            try:
-                subprocess.run(cmd, input=text.encode(), check=True, capture_output=True)
-                return True
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                continue
+            continue
     return False
 
 
-
-
-def get_subprocess_flags(*, headless: bool = False) -> dict:
+def get_popen_kwargs(*, headless: bool = False) -> dict:
     """Popen/run kwargs: new process group on Windows, plus no console window if headless."""
     if not IS_WINDOWS:
         return {}
@@ -213,11 +187,6 @@ def get_subprocess_flags(*, headless: bool = False) -> dict:
     if headless:
         flags |= subprocess.CREATE_NO_WINDOW
     return {"creationflags": flags}
-
-
-def get_popen_kwargs(*, headless: bool = False) -> dict:
-    """Alias of get_subprocess_flags."""
-    return get_subprocess_flags(headless=headless)
 
 
 def terminate_process(proc, *, timeout: float = 3.0) -> None:
@@ -245,96 +214,13 @@ def cleanup_ipc(ipc_path: str) -> None:
         pass
 
 
-
-
-_THUMB_MAX_BYTES = 2 * 1024 * 1024
-
-
-def download_thumbnail(url: str, dest: str, timeout: int = 8, *, insecure: bool = False) -> bool:
-    """Fetch a thumbnail (http or https, at most 2 MB) to dest. True on success.
-
-    A certificate failure is final unless ``insecure`` (config ``insecure_thumbnails``) allows one retry
-    without verification, for MITM proxies on corporate networks. Never reuse that retry for anything but
-    public CDN images.
-    """
-    import ssl
-    import urllib.error
-    import urllib.request
-
-    if not url.lower().startswith(("https://", "http://")):
-        return False
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-
-    for ctx in (_ssl_context_verified(), _ssl_context_unverified()) if insecure else (_ssl_context_verified(),):
-        try:
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                data = resp.read(_THUMB_MAX_BYTES + 1)
-            if not 100 <= len(data) <= _THUMB_MAX_BYTES:
-                return False
-            Path(dest).write_bytes(data)
-            return True
-        except ssl.SSLError:
-            continue
-        except urllib.error.URLError as e:
-            if "SSL" in str(e) or "certificate" in str(e).lower():
-                continue
-            return False
-        except Exception:
-            return False
-    return False
-
-
-@functools.lru_cache(maxsize=1)
-def _macos_keychain_pem() -> str:
-    """Certificates (public parts only) of the macOS keychains, as PEM; "" elsewhere or on any failure.
-
-    Python builds that ship their own CA bundle (conda, python.org) do not know a company's TLS-inspection root,
-    which macOS trusts through the keychain; without it every image host that is inspected fails verification.
-    """
-    if sys.platform != "darwin":
-        return ""
-    pems = []
-    for extra in ([], ["/System/Library/Keychains/SystemRootCertificates.keychain"]):
-        try:
-            done = subprocess.run(
-                ["/usr/bin/security", "find-certificate", "-a", "-p", *extra],
-                capture_output=True, text=True, timeout=15, check=False,
-            )
-        except (OSError, subprocess.SubprocessError):
-            continue
-        pems.append(done.stdout)
-    return "\n".join(pems)
-
-
-def _ssl_context_verified():
-    import ssl
-    ctx = ssl.create_default_context()
-    pem = _macos_keychain_pem()
-    if pem:
-        try:
-            ctx.load_verify_locations(cadata=pem)
-        except ssl.SSLError:
-            pass  # one unparsable certificate: keep the default bundle
-        # Inspection roots often lack key identifiers Python 3.13 insists on; chain and host name are still checked.
-        ctx.verify_flags &= ~getattr(ssl, "VERIFY_X509_STRICT", 0)
-    return ctx
-
-
-def _ssl_context_unverified():
-    import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
-
-
 class ProcessRegistry:
     """Singleton set of child processes (mpv etc.) so every exit path can kill them."""
 
     _instance: ProcessRegistry | None = None
 
     def __init__(self) -> None:
-        self._procs: set[subprocess.Popen] = set()  # type: ignore[type-arg]
+        self._procs: set[subprocess.Popen] = set()
         self._lock = threading.Lock()
 
     @classmethod
@@ -343,11 +229,11 @@ class ProcessRegistry:
             cls._instance = cls()
         return cls._instance
 
-    def register(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+    def register(self, proc: subprocess.Popen) -> None:
         with self._lock:
             self._procs.add(proc)
 
-    def unregister(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+    def unregister(self, proc: subprocess.Popen) -> None:
         with self._lock:
             self._procs.discard(proc)
 
@@ -358,66 +244,79 @@ class ProcessRegistry:
             self._procs.clear()
         if not procs:
             return 0
-
-        killed = 0
+        killed = sum(_terminate_if_running(proc) for proc in procs)
+        _wait_all(procs, timeout)
         for proc in procs:
-            try:
-                if proc.poll() is None:
-                    proc.terminate()
-                    killed += 1
-            except Exception:
-                pass
-
-        deadline = time.monotonic() + timeout
-        for proc in procs:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            try:
-                proc.wait(timeout=max(0.05, remaining / max(len(procs), 1)))
-            except Exception:
-                pass
-
-        for proc in procs:
-            try:
-                if proc.poll() is None:
-                    proc.kill()
-            except Exception:
-                pass
-
+            _kill_if_running(proc)
         return killed
+
+
+def _terminate_if_running(proc: subprocess.Popen) -> bool:
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _wait_all(procs: list[subprocess.Popen], timeout: float) -> None:
+    """Wait for each process in turn, all within one ``timeout``."""
+    deadline = time.monotonic() + timeout
+    for proc in procs:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        try:
+            proc.wait(timeout=max(0.05, remaining / len(procs)))
+        except Exception:
+            pass
+
+
+def _kill_if_running(proc: subprocess.Popen) -> None:
+    try:
+        if proc.poll() is None:
+            proc.kill()
+    except Exception:
+        pass
 
 
 def reap_orphans() -> None:
     """Startup: remove stale mpv sockets and SIGTERM mpv processes left by a crashed instance. No-op on Windows."""
     if IS_WINDOWS:
         return
-    ipc_dir = _unix_ipc_dir()
-    if os.path.isdir(ipc_dir):
-        for sock in glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
-            try:
-                os.unlink(sock)
-            except OSError:
-                pass
+    _remove_stale_sockets()
+    _terminate_orphan_mpv()
 
+
+def _remove_stale_sockets() -> None:
+    ipc_dir = _unix_ipc_dir()
+    if not os.path.isdir(ipc_dir):
+        return
+    for sock in glob.glob(os.path.join(ipc_dir, "termtube-mpv*.sock")):
+        try:
+            os.unlink(sock)
+        except OSError:
+            pass
+
+
+def _terminate_orphan_mpv() -> None:
     try:
-        my_pid = os.getpid()
-        result = subprocess.run(
-            ["pgrep", "-f", "mpv.*termtube-mpv"],
-            capture_output=True, text=True, timeout=3,
-        )
-        for pid_str in result.stdout.strip().split("\n"):
-            pid_str = pid_str.strip()
-            if not pid_str:
-                continue
-            try:
-                pid = int(pid_str)
-                if pid == my_pid:
-                    continue
-                os.kill(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError, ValueError):
-                pass
+        result = subprocess.run(["pgrep", "-f", "mpv.*termtube-mpv"], capture_output=True, text=True, timeout=3)
     except (FileNotFoundError, subprocess.TimeoutExpired):
+        return
+    for line in result.stdout.split():
+        _terminate_pid(line)
+
+
+def _terminate_pid(text_pid: str) -> None:
+    """SIGTERM the process ``text_pid`` names, unless it is this one."""
+    try:
+        pid = int(text_pid)
+        if pid != os.getpid():
+            os.kill(pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, ValueError):
         pass
 
 

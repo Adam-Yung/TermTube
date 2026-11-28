@@ -11,7 +11,7 @@ It replaces the per-module `_load/_save/_lock/_cache` copies.
 - `path` may be a callable so tests can redirect the file; the store reloads when the resolved path changes.
 - Saves go through `plat.atomic_write` (0600, temp file plus `os.replace`). A failed write (sync or deferred) never raises: it logs, keeps
   the data in memory and dirty (and in the atexit set), and calls the hook from `set_failure_hook` once per failing streak (the app turns it
-  into an error notice). `flush` skips data loaded from another path (a test or migration moved the file), so atexit never writes it elsewhere.
+  into an error notice; `_save_failed`). `flush` skips data loaded from another path (a test or migration moved the file), so atexit never writes it elsewhere.
 - Deferred saves are debounced by a daemon timer (`_FLUSH_DELAY`, 0.5 s) so the UI thread never waits for the disk. `flush_all` is registered
   with `atexit`, so quitting (including SIGTERM/SIGHUP through `sys.exit`) loses nothing. A hard kill can lose the last half second.
 - Unreadable content is never discarded silently: invalid JSON, a wrong top-level type, a version newer than the code, or a failing migration

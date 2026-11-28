@@ -22,7 +22,7 @@ requests: no cookies, no browser profile, no media download. Run it from the net
 - **RSS returned HTTP 404 for all three channels tried (superseded: RSS was removed on 2026-11-16, see `docs/decisions/feeds-and-paging.md`)** (the URL is valid: a `UC…` id with `channel_id`, the documented form; a second check the same day also got nothing for the uploads-playlist form `playlist_id=UULF…`. Public reports from late October 2026, including one 404 for the Google Developers channel itself, describe a YouTube-side outage of `feeds/videos.xml`, not a client mistake; reports from May 2026 describe it as working, so it comes and goes) (Rick Astley, Google Developers, YouTube Spotlight) from this network. Do not make
   RSS the primary source for the subscription feed. Plan step 3 changes: try RSS, fall back to InnerTube `/browse` per channel, and keep a
   per-session "RSS is dead" flag so a 404 costs one request, not one per channel.
-- **`i.ytimg.com` fails TLS verification here** (self-signed certificate in the chain, a proxy). `plat.download_thumbnail` already retries
+- **`i.ytimg.com` fails TLS verification here** (self-signed certificate in the chain, a proxy). `thumbnail_http.download_thumbnail` already retries
   without verification for public images. The benchmark does not, so it shows 0; derived thumbnail URLs (step 1) work, but the fetch path
   keeps that retry. Timing of the thumbnail rung is not measured.
 - `/search` is the slowest InnerTube call; its payload is large. Request only the first page and cache by query.

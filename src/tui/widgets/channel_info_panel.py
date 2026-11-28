@@ -37,7 +37,7 @@ def _stats(info: dict) -> str:
 
 
 def playlist_panel_info(info: dict, fallback_title: str = "") -> dict:
-    """A playlist header (``innertube._playlist_info``) in the shape ``update_info`` reads for a channel.
+    """A playlist header (``innertube_pages.playlist_info``) in the shape ``update_info`` reads for a channel.
 
     The title takes the channel name's place, "by Owner" the subscriber line, and the view count and "Updated …" ride
     on the stats line.

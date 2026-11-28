@@ -16,3 +16,5 @@ With the rail focused the target is the playlist under the rail cursor; otherwis
   (saved at once; refused with a hint while a filter is on or at an end), `P`/`S`/`E` play / shuffle / queue the target playlist as audio
   through `AudioController.play_many` / `enqueue_many`. Outside the Library tab each key only says what to open.
 - Names are asked with `NameModal`; a duplicate name (any case) is a hint and changes nothing.
+
+The `Removal` callbacks are methods; the per-playlist ones are bound with the playlist id, so undo targets the playlist it removed from even after the view changed.

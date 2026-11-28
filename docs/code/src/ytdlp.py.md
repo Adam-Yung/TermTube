@@ -25,10 +25,10 @@ Rules that follow:
 
 ## Fetch invariants
 
-- `_extract_videos` is the shared body of `fetch_page_batch` and `fetch_search_batch`. It retries once after 2 s on an empty result or a failure (a failure that survives the retry raises `classify(exc)`; a sign-in failure on an `auth=True` call also invalidates the cookie jar) (YouTube returns an empty first response now and then) and skips entries that are not 11-character video ids or are playlists/channels. The extractor window is `count + len(skip_ids)` (also the `ytsearch<N>:` fallback): `skip_ids` are dropped after extraction, so a window of `count` would return the same rows the caller already has and the second Home batch would be empty.
-- Every accepted entry goes to `cache.put_video`; the id list goes to `cache.put_feed` only when it reaches `_MIN_FEED_COUNT` (15) for feeds or `_MIN_SEARCH_COUNT` (5) for search. A short result is returned but not cached as a feed.
+- `_extract_videos` is the shared body of `fetch_page_batch` and `fetch_search_batch`. It retries once after 2 s on an empty result or a failure (a failure that survives the retry raises `classify(exc)`; a sign-in failure on an `auth=True` call also invalidates the cookie jar) (YouTube returns an empty first response now and then) and skips entries that `flat_entries.is_playable_video` rejects. The extractor window is `count + len(skip_ids)` (also the `ytsearch<N>:` fallback): `skip_ids` are dropped after extraction, so a window of `count` would return the same rows the caller already has and the second Home batch would be empty.
+- Every accepted entry goes to `cache.put_video`; the id list goes to `cache.put_feed` only when it reaches `feed_cache.MIN_FEED_COUNT` (15) for feeds or `MIN_SEARCH_COUNT` (5) for search. A short result is returned but not cached as a feed.
 - `fetch_page_batch(..., cursor=)` reads the network part through a `feed_cursor.FeedCursor` instead of `_extract_videos`, so the caller can continue the same listing later.
-- `_cached_entries` serves a cached feed only if at least the minimum survives `skip_ids` and missing entry files; otherwise the caller refetches.
+- `feed_cache.cached_entries` serves a cached feed only if at least the minimum survives `skip_ids` and missing entry files; otherwise the caller refetches.
 - `on_first_batch` fires once, on the first attempt only, in the worker thread. The caller must marshal to the UI.
 - Each fetch registers a cancel event; the loop checks it per entry. `cancel_all()` (called at exit) sets every event so threads blocked in iteration stop. A call already blocked inside yt-dlp's network read returns when the socket times out (30 s, 60 s for subscribed channels).
 - All fetchers are blocking and meant for `@work(thread=True)` workers.
@@ -43,8 +43,6 @@ it returns nothing. A yt-dlp fallback is logged at debug level. Channel info for
 
 ## Search cache
 
-`fetch_search_batch(query, ..., sort, kind)` keys the cache on `query|sort|kind` (`_search_cache_key`), so each sort and type has its own list. A hit reads up to `MAX_SEARCH_RESULTS` (200) cached ids minus `skip_ids`; `count` only limits a live fetch. An extension fetch (non-empty `skip_ids`) appends its ids to the cached list (`_remember_search`), so restoring a page beyond the first batch (search stack pop) finds them; with no cached list to append to nothing is stored. yt-dlp `ytsearchN:` is the fallback only for relevance/all, since it cannot apply a filter. Extension re-reads the earlier result pages (InnerTube has no cursor kept between calls) and skips them, trading some requests for no state.
+`fetch_search_batch(query, ..., sort, kind)` keys the cache on `query|sort|kind` (`feed_cache.search_cache_key`), so each sort and type has its own list. A hit reads up to `MAX_SEARCH_RESULTS` (200) cached ids minus `skip_ids`; `count` only limits a live fetch. An extension fetch (non-empty `skip_ids`) appends its ids to the cached list (`feed_cache.remember_search`), so restoring a page beyond the first batch (search stack pop) finds them; with no cached list to append to nothing is stored. yt-dlp `ytsearchN:` is the fallback only for relevance/all, since it cannot apply a filter. Extension re-reads the earlier result pages (InnerTube has no cursor kept between calls) and skips them, trading some requests for no state.
 
-## Playlist rows on Home
-
-`playlist_row(entry)` is the one place a flat yt-dlp entry becomes a playlist or Mix list row (`_is_playlist`, `_playlist_name`, `url`, thumbnail); `FeedCursor(playlists=True)` calls it before `_is_playable_video`. `_is_playable_video` still rejects everything that is not an 11-character video id.
+How a flat entry becomes a row is in `src/flat_entries.py`.

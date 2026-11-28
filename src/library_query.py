@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 
 from src import fuzzy, library
 from src.entries import Entry
@@ -108,6 +109,10 @@ def _fields(entry: Entry) -> list[tuple[str, float]]:
     return [(fuzzy.fold(text), _FIELD_WEIGHTS[name]) for name, text in texts.items()]
 
 
+def _names_for(names: dict[str, list[str]], video_id: str) -> list[str]:
+    return names.get(video_id, [])
+
+
 def rank(entries: list[Entry], text: str, membership: Callable[[], dict[str, list[str]]] | None = None) -> list[Entry]:
     """Entries passing every token and matching all free words, best first. Empty ``text`` returns all of them.
 
@@ -118,8 +123,7 @@ def rank(entries: list[Entry], text: str, membership: Callable[[], dict[str, lis
         return list(entries)
     names = membership() if query.uses_playlists and membership else {}
 
-    def playlists(video_id: str) -> list[str]:
-        return names.get(video_id, [])
+    playlists = partial(_names_for, names)
 
     scored: list[tuple[float, int, Entry]] = []
     for index, entry in enumerate(entries):

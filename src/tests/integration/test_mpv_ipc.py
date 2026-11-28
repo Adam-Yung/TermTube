@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.mpv_ipc import _poll_audio_properties_batched
 from src.player import (
-    _poll_audio_properties_batched,
     cookie_args_to_ytdl_raw,
     poll_audio_properties,
     send_ipc_command,
@@ -48,7 +48,7 @@ class TestSendIpcCommand:
         response = {"error": "success", "data": 42.5}
         mock_sock = _make_mock_socket([response])
 
-        with patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             result = send_ipc_command(
                 {"command": ["get_property", "time-pos"]},
                 socket_path="/tmp/test.sock",
@@ -62,7 +62,7 @@ class TestSendIpcCommand:
     def test_payload_ends_with_newline(self):
         mock_sock = _make_mock_socket([{"error": "success", "data": None}])
 
-        with patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             send_ipc_command(
                 {"command": ["cycle", "pause"]},
                 socket_path="/tmp/test.sock",
@@ -75,7 +75,7 @@ class TestSendIpcCommand:
         mock_sock = MagicMock()
         mock_sock.recv.return_value = b""
 
-        with patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             result = send_ipc_command(
                 {"command": ["get_property", "volume"]},
                 socket_path="/tmp/test.sock",
@@ -86,7 +86,7 @@ class TestSendIpcCommand:
     def test_returns_none_on_connection_error(self):
         mock_sock = _make_mock_socket(raise_on_connect=True)
 
-        with patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             result = send_ipc_command(
                 {"command": ["get_property", "time-pos"]},
                 socket_path="/tmp/test.sock",
@@ -97,7 +97,7 @@ class TestSendIpcCommand:
     def test_complex_command_serialization(self):
         mock_sock = _make_mock_socket([{"error": "success"}])
 
-        with patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             send_ipc_command(
                 {"command": ["set_property", "volume", 75]},
                 socket_path="/tmp/test.sock",
@@ -125,8 +125,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.recv.side_effect = [response_bytes, b""]
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             pos, dur, paused = poll_audio_properties(socket_path="/tmp/test.sock")
 
         assert pos == pytest.approx(45.2)
@@ -146,8 +146,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.recv.side_effect = [response_bytes, b""]
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             pos, dur, paused = poll_audio_properties(socket_path="/tmp/test.sock")
 
         assert pos == pytest.approx(10.0)
@@ -158,8 +158,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.connect.side_effect = ConnectionRefusedError("Connection refused")
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             pos, dur, paused = poll_audio_properties(socket_path="/tmp/test.sock")
 
         assert pos is None
@@ -170,8 +170,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.connect.side_effect = FileNotFoundError("Socket not found")
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             pos, dur, paused = poll_audio_properties(socket_path="/tmp/test.sock")
 
         assert pos is None
@@ -192,8 +192,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.recv.side_effect = [response_bytes, b""]
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player._get_persistent_socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc._get_persistent_socket", return_value=mock_sock):
             _poll_audio_properties_batched(socket_path="/tmp/test.sock")
 
         assert mock_sock.sendall.call_count == 1
@@ -214,8 +214,8 @@ class TestPollAudioProperties:
         mock_sock = MagicMock()
         mock_sock.recv.side_effect = [response_bytes, TimeoutError("timed out")]
 
-        with patch("src.player.IS_WINDOWS", False), \
-             patch("src.player.socket.socket", return_value=mock_sock):
+        with patch("src.mpv_ipc.IS_WINDOWS", False), \
+             patch("src.mpv_ipc.socket.socket", return_value=mock_sock):
             pos, dur, paused = _poll_audio_properties_batched(socket_path="/tmp/test.sock")
 
         assert pos == pytest.approx(22.0)

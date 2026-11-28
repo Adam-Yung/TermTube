@@ -15,3 +15,5 @@ Shows one thumbnail with two backends, chosen once at import:
 - The image widget and the status Static are mutually exclusive; `_show_status` hides the image.
 
 See `docs/decisions/thumbnails.md`.
+
+`MYYOUTUBE_IMAGES=1` is the only override for tmux.

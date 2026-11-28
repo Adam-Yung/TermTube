@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import random
+from functools import partial
 
 from src import library, playlist, playlist_fetch
 from src.entries import Entry
 from src.strings import text
 from src.tui.fmt import escape_markup
-from src.tui.screens.mixins.library_rail import PLAYLIST_VIEW as _PLAYLIST_TAB
-from src.tui.screens.mixins.library_rail import tab_of
 from src.tui.screens.mixins.list_tools import Removal
 from src.tui.screens.mixins.playlist_rows import PlaylistLoader
 from src.tui.screens.name_modal import NameModal
+from src.tui.views import PLAYLIST_VIEW as _PLAYLIST_TAB
+from src.tui.views import playlist_of, tab_of
 
 
 def _video_count(count: int) -> str:
@@ -71,8 +72,7 @@ class PlaylistToolsMixin:
 
     def _playlist_id(self) -> str | None:
         """The shown playlist's id, or None on any other view."""
-        tab = self._current_tab
-        return tab.removeprefix(_PLAYLIST_TAB) if tab.startswith(_PLAYLIST_TAB) else None
+        return playlist_of(self._current_tab)
 
     def _target_playlist(self) -> str | None:
         if self._rail_focused():
@@ -107,51 +107,52 @@ class PlaylistToolsMixin:
         return out
 
     def _playlists_removal(self) -> Removal:
-        def remove(targets: list[Entry], _choice: str) -> list[Entry]:
-            gone = [(t, playlist.delete(t["_playlist_id"])) for t in targets if t.get("_playlist_id")]
-            _sync(self.app, {i["id"] for _, rec in gone if rec for i in rec["items"]})
-            return [{**t, "_record": rec} for t, rec in gone if rec]
-
-        def restore(records: list[Entry]) -> None:
-            for rec in (r["_record"] for r in records):
-                if playlist.restore(rec):
-                    _sync(self.app, {i["id"] for i in rec["items"]}, [])
-
         return Removal(
-            remove=remove, restore=restore, reload=lambda: self._collection_entries(self._current_tab),
+            remove=self._delete_playlists, restore=self._restore_playlists,
+            reload=lambda: self._collection_entries(self._current_tab),
             noun="playlist", ask=_delete_question, label=text("playlist_tools.label_playlists"),
         )
 
+    def _delete_playlists(self, targets: list[Entry], _choice: str) -> list[Entry]:
+        gone = [(t, playlist.delete(t["_playlist_id"])) for t in targets if t.get("_playlist_id")]
+        _sync(self.app, {i["id"] for _, rec in gone if rec for i in rec["items"]})
+        return [{**t, "_record": rec} for t, rec in gone if rec]
+
+    def _restore_playlists(self, records: list[Entry]) -> None:
+        for rec in (r["_record"] for r in records):
+            if playlist.restore(rec):
+                _sync(self.app, {i["id"] for i in rec["items"]}, [])
+
     def _items_removal(self, pid: str) -> Removal:
-        def remove(targets: list[Entry], _choice: str) -> list[Entry]:
-            removed = playlist.remove_items(pid, [t["id"] for t in targets])
-            _sync(self.app, [i["id"] for i in removed])
-            return removed
-
-        def restore(records: list[Entry]) -> None:
-            playlist.restore_items(pid, records)
-            _sync(self.app, [r["id"] for r in records], records)
-
         return Removal(
-            remove=remove, restore=restore, reload=lambda: self._collection_entries(_PLAYLIST_TAB + pid),
+            remove=partial(self._remove_items, pid), restore=partial(self._restore_items, pid),
+            reload=partial(self._collection_entries, _PLAYLIST_TAB + pid),
             noun="video", label=text("playlist_tools.label_this_playlist"),
         )
+
+    def _remove_items(self, pid: str, targets: list[Entry], _choice: str) -> list[Entry]:
+        removed = playlist.remove_items(pid, [t["id"] for t in targets])
+        _sync(self.app, [i["id"] for i in removed])
+        return removed
+
+    def _restore_items(self, pid: str, records: list[Entry]) -> None:
+        playlist.restore_items(pid, records)
+        _sync(self.app, [r["id"] for r in records], records)
 
     def action_playlist_new(self) -> None:
         if tab_of(self._current_tab) != "library":
             self._hint(text("playlist_tools.new_tab_hint"), "information")
             return
+        self.app.push_screen(NameModal(text("playlist_tools.new_title")), self._create_playlist)
 
-        def done(name: str | None) -> None:
-            if not name:
-                return
-            record = playlist.create(name)
-            if record is None:
-                self._hint(text("playlist_tools.already_exists", name=name))
-                return
-            self._select_collection(_PLAYLIST_TAB + record["id"], focus_list=not self._rail_focused())
-
-        self.app.push_screen(NameModal(text("playlist_tools.new_title")), done)
+    def _create_playlist(self, name: str | None) -> None:
+        if not name:
+            return
+        record = playlist.create(name)
+        if record is None:
+            self._hint(text("playlist_tools.already_exists", name=name))
+            return
+        self._select_collection(_PLAYLIST_TAB + record["id"], focus_list=not self._rail_focused())
 
     def action_playlist_rename(self) -> None:
         pid = self._target_playlist()
@@ -159,18 +160,19 @@ class PlaylistToolsMixin:
         if record is None:
             self._hint(text("playlist_tools.rename_hint"), "information")
             return
+        self.app.push_screen(
+            NameModal(text("playlist_tools.rename_title"), record["name"]), partial(self._rename_playlist, record)
+        )
 
-        def done(name: str | None) -> None:
-            if not name or name == record["name"]:
-                return
-            if not playlist.rename(record["id"], name):
-                self._hint(text("playlist_tools.already_exists", name=name))
-                return
-            self._refresh_rail()
-            if self._playlist_id() == record["id"]:
-                self._list().set_breadcrumb(text("library_rail.playlist_crumb", name=name))
-
-        self.app.push_screen(NameModal(text("playlist_tools.rename_title"), record["name"]), done)
+    def _rename_playlist(self, record: dict, name: str | None) -> None:
+        if not name or name == record["name"]:
+            return
+        if not playlist.rename(record["id"], name):
+            self._hint(text("playlist_tools.already_exists", name=name))
+            return
+        self._refresh_rail()
+        if self._playlist_id() == record["id"]:
+            self._list().set_breadcrumb(text("library_rail.playlist_crumb", name=name))
 
     def action_playlist_move_down(self) -> None:
         self._move_item(1)

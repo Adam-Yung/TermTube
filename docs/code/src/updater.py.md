@@ -12,6 +12,7 @@ Update paths for `termtube --update` and for the in-app yt-dlp refresh. Policy: 
 
 - `VERSION == "dev"` is never overwritten. `setup.sh` writes `dev` when the checkout has no exact tag, so developer installs are safe.
 - `src/` and `scripts/` are swapped through `<dir>.new` and `<dir>.old` siblings, so a failure mid-copy leaves the old tree in place. `VERSION` is written last.
+- `update_app_code` decides; `_apply_release` downloads, swaps and records, and turns any failure into one `[!]` line. Quiet runs pass `_silent` instead of testing a verbose flag at each line.
 - `_safe_print` degrades to ASCII because Windows consoles on cp1252 cannot encode the arrows.
 
 ## Interface

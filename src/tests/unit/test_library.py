@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from src import library
+from src import library, library_scan
 
 
 @pytest.fixture(autouse=True)
@@ -63,7 +63,7 @@ def test_unchanged_directories_are_served_from_the_cache(tmp_path, monkeypatch):
     audio.mkdir()
     add_video(videos, "one")
     first = library.all_entries(videos, audio)
-    monkeypatch.setattr(library, "_scan_root", lambda *a: pytest.fail("rescanned"))
+    monkeypatch.setattr(library_scan, "scan_root", lambda *a: pytest.fail("rescanned"))
     assert library.all_entries(videos, audio) is first
 
 
@@ -74,11 +74,21 @@ def test_missing_directories_are_empty(tmp_path):
 # ── index: incremental refresh, robustness ──────────────────────────────────────────────────────────────────────
 
 
+class ParseSpy:
+    """Calls the real sidecar parser and records each file name."""
+
+    def __init__(self, real, seen):
+        self.real, self.seen = real, seen
+
+    def __call__(self, path, *args):
+        self.seen.append(os.path.basename(path))
+        return self.real(path, *args)
+
+
 def parsed_ids(monkeypatch):
-    """Record which sidecars `_parse` reads from here on."""
+    """Record which sidecars `parse_sidecar` reads from here on."""
     seen = []
-    real = library._parse
-    monkeypatch.setattr(library, "_parse", lambda path, *a: seen.append(os.path.basename(path)) or real(path, *a))
+    monkeypatch.setattr(library_scan, "parse_sidecar", ParseSpy(library_scan.parse_sidecar, seen))
     return seen
 
 

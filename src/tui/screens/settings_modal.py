@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -68,7 +70,7 @@ class SettingsModal(ModalScreen[None]):
         self._armed: str | None = None
 
     def compose(self) -> ComposeResult:
-        config = self.app.config  # type: ignore[attr-defined]
+        config = self.app.config
         items: list[ListItem] = []
         for section in SECTIONS:
             items.append(_Section(section))
@@ -92,7 +94,7 @@ class SettingsModal(ModalScreen[None]):
     def _text(self, fld: Field) -> str:
         if fld.kind == "action":
             return fld.label
-        return f"{fld.label:<24}{fld.show(self.app.config)}"  # type: ignore[attr-defined]
+        return f"{fld.label:<24}{fld.show(self.app.config)}"
 
     def _say(self, text: str, color: str = "dim") -> None:
         try:
@@ -122,7 +124,7 @@ class SettingsModal(ModalScreen[None]):
 
     def _activate(self, row: _Row) -> None:
         fld = row.fld
-        config = self.app.config  # type: ignore[attr-defined]
+        config = self.app.config
         if fld.kind == "bool":
             self._commit(fld, not fld.read(config))
         elif fld.kind == "choice":
@@ -133,17 +135,17 @@ class SettingsModal(ModalScreen[None]):
             self._run_action(fld)
 
     def _commit(self, fld: Field, value: object) -> None:
-        self.app.config.set(fld.key, value)  # type: ignore[attr-defined]
+        self.app.config.set(fld.key, value)
         self._persist(fld, tr("settings_modal.saved"))
 
     def action_reset_default(self) -> None:
         row = self._list.highlighted_child
         if isinstance(row, _Row) and row.fld.kind in _PLAIN_KINDS:
-            self.app.config.reset(row.fld.key)  # type: ignore[attr-defined]
+            self.app.config.reset(row.fld.key)
             self._persist(row.fld, tr("settings_modal.reset"))
 
     def _persist(self, fld: Field, verb: str) -> None:
-        if self.app.config.save():  # type: ignore[attr-defined]
+        if self.app.config.save():
             self._say(f"{verb} {fld.note}".strip(), "green")
         else:
             self._say(tr("settings_modal.save_failed"), "red")
@@ -157,19 +159,18 @@ class SettingsModal(ModalScreen[None]):
 
     def _pick(self, fld: Field) -> None:
         options = self._browser_options() if fld.key == "browser" else fld.options
-
-        def chosen(value: str | None) -> None:
-            if value is not None:
-                self._commit(fld, value)
-
         self.app.push_screen(
             QualityModal(
                 choices=[(label, value) for value, label in options],
                 title=fld.label,
-                current=str(fld.read(self.app.config)),  # type: ignore[attr-defined]
+                current=str(fld.read(self.app.config)),
             ),
-            chosen,
+            partial(self._on_choice, fld),
         )
+
+    def _on_choice(self, fld: Field, value: str | None) -> None:
+        if value is not None:
+            self._commit(fld, value)
 
     @staticmethod
     def _browser_options() -> list[tuple[str, str]]:
@@ -186,7 +187,7 @@ class SettingsModal(ModalScreen[None]):
     def _begin_edit(self, row: _Row) -> None:
         self._editing = row
         field_input = self.query_one("#settings-input", Input)
-        field_input.value = row.fld.show(self.app.config)  # type: ignore[attr-defined]
+        field_input.value = row.fld.show(self.app.config)
         field_input.display = True
         field_input.focus()
         self._say(f"{row.fld.note + ' ' if row.fld.note else ''}{tr('settings_modal.edit_hint')}")
@@ -210,6 +211,7 @@ class SettingsModal(ModalScreen[None]):
         self._commit(row.fld, value)
 
     def _run_action(self, fld: Field) -> None:
+        """Reload at once; a clear action runs only when the same row is activated twice."""
         if fld.key == "reload":
             self._reload()
         elif self._armed != fld.key:
@@ -217,22 +219,25 @@ class SettingsModal(ModalScreen[None]):
             self._say(tr("settings_modal.confirm", label=fld.label), "yellow")
         else:
             self._armed = None
-            if fld.key == "clear_cache":
-                self._clear_cache()
-            elif fld.key == "clear_history":
-                history.clear()
-                self._say(tr("settings_modal.history_cleared"), "green")
-            elif fld.key == "clear_search_history":
-                search_history.clear()
-                self._say(tr("settings_modal.search_history_cleared"), "green")
+            self._clear(fld.key)
+
+    def _clear(self, key: str) -> None:
+        if key == "clear_cache":
+            self._clear_cache()
+        elif key == "clear_history":
+            history.clear()
+            self._say(tr("settings_modal.history_cleared"), "green")
+        elif key == "clear_search_history":
+            search_history.clear()
+            self._say(tr("settings_modal.search_history_cleared"), "green")
 
     @work(thread=True, exclusive=True, group="settings_clear")
     def _clear_cache(self) -> None:
-        removed = self.app.cache.clear_all()  # type: ignore[attr-defined]
+        removed = self.app.cache.clear_all()
         self.app.call_from_thread(self._say, tr("settings_modal.cache_cleared", count=removed), "green")
 
     def _reload(self) -> None:
-        config = self.app.config  # type: ignore[attr-defined]
+        config = self.app.config
         error = config.reload()
         if error:
             self._say(tr("settings_modal.reload_failed", error=error), "red")
@@ -242,7 +247,7 @@ class SettingsModal(ModalScreen[None]):
         self._say(tr("settings_modal.reloaded", name=config.path.name), "green")
 
     def _apply_theme(self) -> None:
-        theme = self.app.config.theme  # type: ignore[attr-defined]
+        theme = self.app.config.theme
         self.app.remove_class("theme-crimson", "theme-amber", "theme-ocean", "theme-midnight")
         self.app.add_class(f"theme-{theme}")
         self._refresh_live_theme()
@@ -250,11 +255,7 @@ class SettingsModal(ModalScreen[None]):
     def _refresh_live_theme(self) -> None:
         """Re-render Rich-markup widgets that bake the theme color at compose time."""
         for item in self.app.query(VideoListItem):
-            try:
-                item._cached_markup = item._build_markup()
-                item.query_one(Static).update(item._cached_markup)
-            except Exception:
-                pass
+            item.refresh_markup()
         for ab in self.app.query(ActionBar):
             try:
                 ab.refresh_theme()

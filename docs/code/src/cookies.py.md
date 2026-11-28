@@ -4,7 +4,7 @@ Extracts the browser's cookies once and shares the resulting `CookieJar`. Decisi
 
 ## Behavior
 
-- `resolve_browser(config)`: `browser: none` (or empty) returns None, meaning unauthenticated. `auto` or unset picks the first entry from `detect_installed_browsers()` (Firefox first on macOS, since it needs no keychain approval). Any other value is used as given.
+- `resolve_browser(config)` (also behind `Config.resolved_browser`): `browser: none` (or empty) returns None, meaning unauthenticated. `auto` or unset picks the first entry from `detect_installed_browsers()` (Firefox first on macOS, since it needs no keychain approval). Any other value is used as given.
 - `get_cookiejar(config)` extracts on first use and returns the same jar until `invalidate()`. `prewarm(config)` (called after first paint by `MainScreen._prewarm_cookies`) starts one background thread for it when `cookie_prewarm` is on and a browser resolves; otherwise a session that only searches, plays and browses channels never reads it. Only `ytdlp._make_ydl(..., auth=True)` asks for the jar.
 - `_narrow` removes every cookie not on `youtube.com` or `google.com` (including subdomains) right after extraction, in place, so the jar's other cookies never stay in memory. Nothing is written to disk.
 - A yt-dlp error counts as an expired sign-in when `errors.classify(exc)` is `SignInRequired` (markers live only in `src/errors.py`). `ytdlp._extract_videos` and `fetch_subscribed_channels` call `invalidate()` on such an error and retry once (the feed loop's existing retry; a second pass in the subscription list). The markers come from yt-dlp's known messages, not a recorded failure; widen them if a real sign-in error slips through.

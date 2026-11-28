@@ -11,6 +11,7 @@ import yt_dlp
 from src import logger, ytdlp
 from src.cookies import invalidate
 from src.errors import SignInRequired, SourceError, classify
+from src.flat_entries import FlatBatch, is_playable_video, normalise_entry, playlist_row
 
 MAX_FEED_ENTRIES = 1000
 """A cursor stops after this many rows of the feed, so a feed that never ends cannot grow without bound."""
@@ -90,50 +91,53 @@ class FeedCursor:
     def _take(self, count, skip_ids, on_first_batch, first_batch_size) -> list[dict]:
         if self.closed or self.exhausted:
             return []
-        results: list[dict] = []
+        batch = FlatBatch(self._cache, skip_ids, on_first_batch, first_batch_size, ids=self.ids)
         failure: SourceError | None = None
         for attempt in range(ytdlp._MAX_RETRIES + 1):
-            failure = None
-            try:
-                if self._rows is None:
-                    self._open()
-                for entry in self._rows:
-                    if self.closed:
-                        break
-                    self._consumed += 1
-                    row = ytdlp.playlist_row(entry) if self._playlists else None
-                    if row is not None:
-                        entry = row
-                    elif ytdlp._is_playable_video(entry):
-                        ytdlp._normalise_entry(entry)
-                    else:
-                        continue
-                    vid = entry["id"]
-                    if vid in skip_ids:
-                        continue
-                    self._cache.put_video(entry)
-                    self.ids.append(vid)
-                    results.append(entry)
-                    if on_first_batch and len(results) == first_batch_size:
-                        on_first_batch(list(results))
-                        on_first_batch = None
-                    if len(results) >= count or self.closed:
-                        break
-                else:
-                    self.exhausted = True
-                if self._consumed >= MAX_FEED_ENTRIES:
-                    self.exhausted = True
-            except yt_dlp.utils.DownloadError as exc:
-                logger.debug("feed cursor %s error: %s", self.url, exc)
-                failure = classify(exc)
-                if self._auth and isinstance(failure, SignInRequired):
-                    invalidate()
-                self._drop()
-            if results or self.closed or attempt >= ytdlp._MAX_RETRIES or self._consumed:
+            failure = self._attempt(batch, count)
+            if batch.entries or self.closed or attempt >= ytdlp._MAX_RETRIES or self._consumed:
                 break
             self._drop()
             self.exhausted = False
             time.sleep(ytdlp._RETRY_DELAY_S)
-        if failure and not results:
+        if failure and not batch.entries:
             raise failure
-        return results
+        return batch.entries
+
+    def _attempt(self, batch: FlatBatch, count: int) -> SourceError | None:
+        """Open the listing if needed and read from it; the typed error when the extraction failed."""
+        try:
+            if self._rows is None:
+                self._open()
+            self._pull(batch, count)
+        except yt_dlp.utils.DownloadError as exc:
+            logger.debug("feed cursor %s error: %s", self.url, exc)
+            failure = classify(exc)
+            if self._auth and isinstance(failure, SignInRequired):
+                invalidate()
+            self._drop()
+            return failure
+        return None
+
+    def _pull(self, batch: FlatBatch, count: int) -> None:
+        """Advance the open listing until ``batch`` holds ``count``, the feed ends or the cursor is closed."""
+        for entry in self._rows:
+            if self.closed:
+                break
+            self._consumed += 1
+            row = self._shape(entry)
+            if row is None or not batch.add(row):
+                continue
+            if len(batch.entries) >= count or self.closed:
+                break
+        else:
+            self.exhausted = True
+        if self._consumed >= MAX_FEED_ENTRIES:
+            self.exhausted = True
+
+    def _shape(self, entry: dict) -> dict | None:
+        """The list row for one feed entry: a playlist row where those are wanted, a video, or None."""
+        row = playlist_row(entry) if self._playlists else None
+        if row is not None:
+            return row
+        return normalise_entry(entry) if is_playable_video(entry) else None

@@ -14,7 +14,7 @@ from src.plat import (
     get_audio_ipc_path,
     get_cache_dir,
     get_config_dir,
-    get_subprocess_flags,
+    get_popen_kwargs,
     get_video_ipc_path,
     install_hint,
     terminate_process,
@@ -187,13 +187,13 @@ class TestTerminateProcess:
         terminate_process(proc)
 
 
-# ── get_subprocess_flags ──────────────────────────────────────────────────────
+# ── get_popen_kwargs ──────────────────────────────────────────────────────
 
 
 class TestSubprocessFlags:
     def test_unix_returns_empty_dict(self, monkeypatch):
         monkeypatch.setattr("src.plat.IS_WINDOWS", False)
-        result = get_subprocess_flags()
+        result = get_popen_kwargs()
         assert result == {}
 
     def test_windows_returns_creation_flags(self, monkeypatch):
@@ -203,7 +203,7 @@ class TestSubprocessFlags:
             setattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
             setattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
-            result = get_subprocess_flags()
+            result = get_popen_kwargs()
             assert "creationflags" in result
         finally:
             if sys.platform != "win32":

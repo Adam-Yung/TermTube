@@ -12,3 +12,5 @@ Settings in six sections (Playback, Downloads, Data, Account, Display, Config fi
 - `rows_per_page` takes effect at the next list load (`VideoListPanel.clear_and_set_loading`); the row's note says so.
 
 Known limit: no `/` search inside Settings yet; the dialog is a single scrolling list of about 26 rows.
+
+A theme change repaints list rows through `VideoListItem.refresh_markup`.

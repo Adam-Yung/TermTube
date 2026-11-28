@@ -14,3 +14,5 @@ The side-list logic of the Library, History and Subscriptions tabs (`RAIL_TABS`)
 - Narrow terminals: `on_resize` collapses the rail to a docked one-line selector below `NARROW_BELOW` columns (same keys: `Tab`, `j`/`k`, `Enter`).
 - `_collection_entries(view)` is called from loader threads too: it only reads the Library index and `playlists.json`.
 - `ACCOUNT_VIEWS` maps account-backed History sources (`history:yt`, `history:wl`) to their feed keys and `HISTORY_SOURCES` lists every source of the History tab (`history` is Local); `tab_of` maps them all to `history`, so the tab bar stays on History. The rail replaced the `Y` source cycle and the `F` Following key, so there is one way to switch sources on every tab.
+
+View ids and `tab_of` are defined in `tui/views.py`. Each rail tab has its own item builder.

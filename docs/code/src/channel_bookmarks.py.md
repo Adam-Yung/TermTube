@@ -4,4 +4,5 @@ Channels the user follows locally, in `channels.json` through `JsonStore` (versi
 
 - Only a `UC…` id is accepted (`channel_ref.is_channel_id`); a handle returns False and stores nothing, because the id is the stable key.
 - `toggle` follows or unfollows in one store update and returns whether the channel is now followed. `entries` returns list rows (`_is_channel`, `channel_url`, the stored avatar as `thumbnail`), newest follow first, which is why `ChannelScreen` stores the avatar URL when it follows.
+- Store callbacks save on a truthy result, so `_toggle` returns `followed` or `unfollowed`, both of which save.
 - Callers: `ChannelScreen.action_bookmark` (`B`) and `FeedLoaderMixin._load_following` (the Following view). Tests redirect the file with the `temp_channels` fixture.

@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from textual.events import Key
+from textual.widgets import Tab, Tabs
 
 from src.entries import Entry
 from src.tui.keymap import FOCUS_RECLAIM_KEYS
 from src.tui.widgets.video_list import FilterBar, VideoListPanel
+
+
+def lock_tab_bar(tabs: Tabs) -> None:
+    """Tabs switch by key and click only: keyboard focus stays with the list."""
+    tabs.can_focus = False
+    for tab in tabs.query(Tab):
+        tab.can_focus = False
 
 
 class ListNavMixin:

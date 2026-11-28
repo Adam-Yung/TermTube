@@ -14,6 +14,17 @@ _FORMS = (
 )
 
 
+_TAB_SUFFIX = re.compile(
+    r"/(videos|shorts|streams|playlists|community|about|featured|membership|store)(/.*)?$",
+    re.IGNORECASE,
+)
+
+
+def base_url(url: str) -> str:
+    """``url`` without a trailing slash or channel-tab path."""
+    return _TAB_SUFFIX.sub("", url.rstrip("/"))
+
+
 def parse(url: str) -> tuple[str, str] | None:
     """``(form, value)`` for a channel URL, or None. ``form`` is ``id``, ``handle``, ``c`` or ``user``."""
     path = urlparse(url.strip()).path

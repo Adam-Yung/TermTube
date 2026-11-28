@@ -104,17 +104,22 @@ class JsonStore:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 atomic_write(path, payload)
             except OSError as exc:
-                with self._lock:
-                    self._dirty = True
-                    _pending.add(self)
-                logger.warning("%s not saved: %s", path.name, exc)
-                if not self._failing:
-                    self._failing = True
-                    if _failure_hook:
-                        why = exc.strerror or type(exc).__name__
-                        _failure_hook(f"{path.name} could not be saved ({why}); changes stay in memory.")
+                self._save_failed(path, exc)
             else:
                 self._failing = False
+
+    def _save_failed(self, path: Path, exc: OSError) -> None:
+        """Keep the data dirty and tell the user once per failing streak."""
+        with self._lock:
+            self._dirty = True
+            _pending.add(self)
+        logger.warning("%s not saved: %s", path.name, exc)
+        if self._failing:
+            return
+        self._failing = True
+        if _failure_hook:
+            why = exc.strerror or type(exc).__name__
+            _failure_hook(f"{path.name} could not be saved ({why}); changes stay in memory.")
 
     def _schedule(self) -> None:
         _pending.add(self)

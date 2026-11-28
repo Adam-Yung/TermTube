@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from textual import work
@@ -65,56 +67,50 @@ class DownloadModal(ModalScreen[bool]):
 
     @work(thread=True, exclusive=True, group="download")
     def _start_download(self) -> None:
-        import src.downloads as downloads
-
-        app = self.app
-        error_lines: list[str] = []
-
-        def on_progress(line: str, pct: float) -> None:
-            if self._cancelled:
-                return
-            if pct == downloads.PHASE_NEW_STREAM:
-                self.app.call_from_thread(self._switch_to_audio_phase)
-            elif pct == downloads.PHASE_POSTPROCESS:
-                self.app.call_from_thread(self._switch_to_postprocess, line)
-            elif pct >= 0:
-                self.app.call_from_thread(self._update_progress, pct, line)
-            stripped = line.strip()
-            if stripped.startswith("ERROR:") or "error" in stripped.lower():
-                error_lines.append(stripped[:120])
-
+        errors: list[str] = []
         try:
-            if self._audio_only:
-                success = downloads.download_audio_with_progress(
-                    self._video_id,
-                    app.config,
-                    on_progress=on_progress,
-                    cancel=self._cancel_event,
-                    on_file=self._files.append,
-                )
-            else:
-                success = downloads.download_video_with_progress(
-                    self._video_id,
-                    app.config,
-                    quality_format=self._fmt,
-                    on_progress=on_progress,
-                    cancel=self._cancel_event,
-                    on_file=self._files.append,
-                )
+            success = self._run_download(partial(self._on_progress, errors))
         except RuntimeError as exc:
             success = False
-            error_lines.append(str(exc))
+            errors.append(str(exc))
         except Exception as exc:
             success = False
-            error_lines.append(text("download_modal.unexpected_error", error=exc))
+            errors.append(text("download_modal.unexpected_error", error=exc))
         finally:
             from src.ytdlp import release_cancel_event
 
             release_cancel_event(self._cancel_event)
 
         if not self._cancelled:
-            err = error_lines[-1] if error_lines else ""
-            self.app.call_from_thread(self._on_done, success, err)
+            self.app.call_from_thread(self._on_done, success, errors[-1] if errors else "")
+
+    def _run_download(self, on_progress: Callable[[str, float], None]) -> bool:
+        import src.downloads as downloads
+
+        options = {"on_progress": on_progress, "cancel": self._cancel_event, "on_file": self._files.append}
+        if self._audio_only:
+            return downloads.download_audio_with_progress(self._video_id, self.app.config, **options)
+        return downloads.download_video_with_progress(
+            self._video_id, self.app.config, quality_format=self._fmt, **options
+        )
+
+    def _on_progress(self, errors: list[str], line: str, pct: float) -> None:
+        """Download thread: move the dialog on, and keep the lines that read like errors."""
+        if not self._cancelled:
+            self._show_phase(line, pct)
+        stripped = line.strip()
+        if stripped.startswith("ERROR:") or "error" in stripped.lower():
+            errors.append(stripped[:120])
+
+    def _show_phase(self, line: str, pct: float) -> None:
+        import src.downloads as downloads
+
+        if pct == downloads.PHASE_NEW_STREAM:
+            self.app.call_from_thread(self._switch_to_audio_phase)
+        elif pct == downloads.PHASE_POSTPROCESS:
+            self.app.call_from_thread(self._switch_to_postprocess, line)
+        elif pct >= 0:
+            self.app.call_from_thread(self._update_progress, pct, line)
 
     def _switch_to_audio_phase(self) -> None:
         try:

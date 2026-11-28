@@ -1,7 +1,7 @@
 # src/library.py
 
 Data for the Library page: a slim index of the `.info.json` sidecars yt-dlp writes next to each download in `video_dir` and `audio_dir`,
-plus deletion of a row's files. Callers: the library feed loader and the Library removal handler (`all_entries`, `safe_delete`, `forms`,
+plus deletion of a row's files. Walking and parsing the folders is `src/library_scan.py`. Callers: the library feed loader and the Library removal handler (`all_entries`, `safe_delete`, `forms`,
 `form_sizes`, `total_size`), the download modal (`refresh` / `finish_download` after a download), the detail panel and list rows.
 
 ## The index
@@ -10,19 +10,11 @@ plus deletion of a row's files. Callers: the library feed loader and the Library
 title, uploader, channel, channel_id, duration, upload_date, view_count, webpage_url, tags, thumbnail URL and `description` cut to 500
 characters. Never `formats`. It reuses `history.slim` for the common fields, so there is one slimming helper.
 
-`all_entries` rebuilds in one `os.scandir` walk per root (`_walk`; symlinked files and folders are neither followed nor listed). A sidecar whose
-`(mtime, size)` equals its index record is not read; new or changed ones are parsed (`_parse`); records of vanished sidecars drop out. A
-sidecar that is unreadable, is not JSON or has no `id` is skipped with a debug log.
-
-Fields added per entry at build time (never stored): `_sidecar_path`, `_local_type` (`video` or `audio`, by the root the sidecar is in),
-`_local_path` and `_size` (media file with the sidecar's stem in the same folder), `_thumb_path` (image with that stem, `.jpg` preferred),
-`_missing_file=True` when there is a sidecar but no media. Media without a sidecar is not listed. The same id in both roots is one row (video
-row): `_has_audio`, `_audio_path`, `_audio_size`, `_audio_sidecar_path`. When the video file is gone but the audio exists the audio row wins.
-Sorted by `upload_date` descending. Because paths come from the walk, a sidecar cannot point a row at another file.
+`all_entries` rebuilds with `library_scan` (one walk per root; unchanged sidecars are not read; records of vanished sidecars drop out).
 
 ## Cache
 
-`all_entries` also keeps the built list per `(video_dir, audio_dir)` and returns it while `_dir_mtime` (newest mtime over the directories of
+`all_entries` also keeps the built list per `(video_dir, audio_dir)` and returns it while `library_scan.dir_mtime` (newest mtime over the directories of
 each tree) is unchanged. `invalidate_cache()` drops the list; the index still saves the parsing. `refresh(paths)` takes the media files a
 download finished, parses only their sidecars into the index and drops the list. `_lock` serializes rebuilds; call from a worker.
 

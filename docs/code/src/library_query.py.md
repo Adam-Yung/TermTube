@@ -10,3 +10,4 @@ it through `VideoListPanel.set_matcher` and other tabs keep plain `fuzzy.rank`.
 - Free words must all match; fields are title, uploader and channel, tags, description (weights in `_FIELD_WEIGHTS`), scored by `fuzzy.score_tokens`.
   Results are ranked best first, ties keep list order; with only tokens the list order is kept.
 - `pl:` needs `{video id: [playlist names]}`; `rank` takes a callable and calls it once, and only when the query has a `pl:` token.
+  Checks receive a lookup bound to that one result (`_names_for`).

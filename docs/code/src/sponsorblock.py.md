@@ -7,7 +7,7 @@ Fetches SponsorBlock skip segments for a video and caches them on disk. Called t
 - Safe in worker threads. `fetch_segments_async` spawns a daemon thread and calls `on_done` there; the caller marshals to the UI.
 - Disk cache at `<cache>/sb/<video_id>.json`, 24 h TTL by mtime. A failed or empty fetch is cached as `[]`, so a video with no segments (the common case) or a dead API is not re-requested for a day. Corrupt cache files read as a miss. `prune_cache` (called from app housekeeping) deletes files past the TTL, because they are otherwise only dropped when the same video is read again, and caps the directory at 300 files.
 - The request timeout is 3 s: playback must not wait on this service. Any `OSError` (URL, HTTP, timeout, SSL) yields `[]`.
-- The request is `/api/skipSegments/<first 4 hex chars of sha256(video id)>`, so the server sees a bucket shared with many videos, not the video being played. The response lists every video of the bucket; `_parse_segments` keeps only the exact `videoID`. The cache stays per video id on disk.
+- The request is `/api/skipSegments/<first 4 hex chars of sha256(video id)>`, so the server sees a bucket shared with many videos, not the video being played. The response lists every video of the bucket; `_parse_segments` keeps only the exact `videoID` (`_parse_segment` reads one item). The cache stays per video id on disk.
 - Segments are sorted by start. Malformed items are dropped individually.
 
 ## SSL context

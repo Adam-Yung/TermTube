@@ -10,6 +10,7 @@ from src.entries import Entry
 from src.strings import text
 from src.tui import keymap
 from src.tui.messages import AudioQueueChanged, AudioTrackChanged, PlayerStateUpdated
+from src.tui.screens.mixins.app_pages import AppPagesMixin
 from src.tui.screens.mixins.audio_bar import AudioBarMixin
 from src.tui.screens.mixins.detail_focus import DetailFocusMixin
 from src.tui.screens.mixins.item_actions import ItemActionsMixin
@@ -26,7 +27,7 @@ _TRANSPORT = [
 _LIST_NAV = [b for b in keymap.LIST_NAV if not b.action.startswith("tab_")]  # the page has no tabs
 
 
-class QueueScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, Screen):
+class QueueScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixin, AppPagesMixin, Screen):
     """The audio queue as a page: the playing track on top, then the upcoming ones. Edits go through ``app.audio``.
 
     The playing track is shown but cannot be moved or removed (``>`` skips it, ``x`` stops audio).
@@ -100,9 +101,6 @@ class QueueScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixi
     def on_video_list_panel_selected(self, message: VideoListPanel.Selected) -> None:
         self._cursor_id = message.entry.get("id")
         self._focus_video(message.entry)
-
-    def on_video_list_panel_activated(self, message: VideoListPanel.Activated) -> None:
-        self.action_activate()
 
     def on_audio_queue_changed(self, _message: AudioQueueChanged) -> None:
         self._rebuild()
@@ -185,13 +183,3 @@ class QueueScreen(ListNavMixin, DetailFocusMixin, ItemActionsMixin, AudioBarMixi
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
-
-    def action_help(self) -> None:
-        from src.tui.screens.help_screen import HelpScreen
-
-        self.app.push_screen(HelpScreen())
-
-    def action_settings(self) -> None:
-        from src.tui.screens.settings_modal import SettingsModal
-
-        self.app.push_screen(SettingsModal())

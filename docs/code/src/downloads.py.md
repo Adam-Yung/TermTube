@@ -9,6 +9,7 @@ Offline video and audio downloads through yt-dlp, with progress forwarded to the
 - Cancellation works through the progress hook: it raises `DownloadError` once the cancel event is set (`cancel_all()` at exit, or the `cancel` event the caller passes to `download_*_with_progress`; the caller creates it with `ytdlp.new_cancel_event()` so quit still cancels it). The download then returns False. The abort happens at the next progress callback, so a stalled connection ends at the socket timeout.
 - Both kinds write `.info.json` and the thumbnail next to the file; the library screen reads them.
 - Audio is transcoded to MP3 (`FFmpegExtractAudio`, quality 0); video is merged to mp4. Both need the bundled ffmpeg.
+- The yt-dlp hooks are module functions bound with `functools.partial` per download (`_make_progress_hook`, `_make_postprocessor_hook`).
 
 ## Limits
 

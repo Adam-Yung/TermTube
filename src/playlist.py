@@ -7,6 +7,7 @@ import shutil
 import time
 import uuid
 from collections.abc import Callable, Iterable
+from functools import partial
 from typing import Any
 
 from src import logger
@@ -80,18 +81,19 @@ def _find(data: dict, pid: str) -> dict | None:
     return next((p for p in data["playlists"] if p["id"] == pid), None)
 
 
+def _apply_to(data: dict, pid: str, fn: Callable[[dict], Any]) -> Any:
+    record = _find(data, pid)
+    if record is None:
+        return None
+    result = fn(record)
+    if result:
+        record["updated"] = int(time.time())
+    return result
+
+
 def _mutate(pid: str, fn: Callable[[dict], Any]) -> Any:
     """Run ``fn(playlist)`` under the lock; a truthy result marks the playlist updated and saves the file."""
-    def apply(data: dict) -> Any:
-        record = _find(data, pid)
-        if record is None:
-            return None
-        result = fn(record)
-        if result:
-            record["updated"] = int(time.time())
-        return result
-
-    return _store.update(apply)
+    return _store.update(partial(_apply_to, pid=pid, fn=fn))
 
 
 def list_playlists() -> list[dict]:
@@ -105,159 +107,157 @@ def get(pid: str) -> dict | None:
 
 def find_by_name(name: str) -> dict | None:
     key = name.strip().casefold()
+    return _store.read(
+        lambda data: copy.deepcopy(next((p for p in data["playlists"] if p["name"].casefold() == key), None))
+    )
 
-    def found(data: dict) -> dict | None:
-        return copy.deepcopy(next((p for p in data["playlists"] if p["name"].casefold() == key), None))
 
-    return _store.read(found)
+def _create(data: dict, name: str, entries: Iterable[Entry] | None) -> dict | None:
+    if not name or _unique_name(data["playlists"], name) != name:
+        return None
+    now = int(time.time())
+    items = _dedupe([snapshot(e, e["id"], now) for e in entries or [] if e.get("id")])
+    record = _new_record(name, items, now)
+    data["playlists"].append(record)
+    return copy.deepcopy(record)
 
 
 def create(name: str, entries: Iterable[Entry] | None = None) -> dict | None:
     """Create a playlist holding ``entries``. None, changing nothing, if the name is empty or exists (any case)."""
-    name = name.strip()
+    return _store.update(partial(_create, name=name.strip(), entries=entries))
 
-    def apply(data: dict) -> dict | None:
-        if not name or _unique_name(data["playlists"], name) != name:
-            return None
-        now = int(time.time())
-        items = _dedupe([snapshot(e, e["id"], now) for e in entries or [] if e.get("id")])
-        record = _new_record(name, items, now)
-        data["playlists"].append(record)
-        return copy.deepcopy(record)
 
-    return _store.update(apply)
+def _rename(data: dict, pid: str, name: str) -> bool:
+    record = _find(data, pid)
+    if record is None or not name or _unique_name(data["playlists"], name, skip=pid) != name:
+        return False
+    record["name"], record["updated"] = name, int(time.time())
+    return True
 
 
 def rename(pid: str, name: str) -> bool:
     """False, changing nothing, if the name is empty, taken by another playlist, or the playlist is gone."""
-    name = name.strip()
+    return _store.update(partial(_rename, pid=pid, name=name.strip()))
 
-    def apply(data: dict) -> bool:
-        record = _find(data, pid)
-        if record is None or not name or _unique_name(data["playlists"], name, skip=pid) != name:
-            return False
-        record["name"], record["updated"] = name, int(time.time())
-        return True
 
-    return _store.update(apply)
+def _delete(data: dict, pid: str) -> dict | None:
+    record = _find(data, pid)
+    if record is not None:
+        data["playlists"].remove(record)
+    return record
 
 
 def delete(pid: str) -> dict | None:
     """Remove the playlist (never any file) and return it, or None if it is gone."""
-    def apply(data: dict) -> dict | None:
-        record = _find(data, pid)
-        if record is not None:
-            data["playlists"].remove(record)
-        return record
+    return _store.update(partial(_delete, pid=pid))
 
-    return _store.update(apply)
+
+def _restore(data: dict, record: dict) -> bool:
+    if _find(data, record["id"]) or _unique_name(data["playlists"], record["name"]) != record["name"]:
+        return False
+    data["playlists"].append(copy.deepcopy(record))
+    return True
 
 
 def restore(record: dict) -> bool:
     """Put back a playlist returned by `delete` (same id). False if its id or name is taken again."""
-    def apply(data: dict) -> bool:
-        if _find(data, record["id"]) or _unique_name(data["playlists"], record["name"]) != record["name"]:
-            return False
-        data["playlists"].append(copy.deepcopy(record))
-        return True
+    return _store.update(partial(_restore, record=record))
 
-    return _store.update(apply)
+
+def _add_items(record: dict, entries: list[Entry]) -> int:
+    have = {i["id"]: i for i in record["items"]}
+    added = 0
+    for entry in entries:
+        if entry["id"] in have:
+            _refresh(have[entry["id"]], entry)
+            continue
+        item = snapshot(entry, entry["id"])
+        record["items"].append(item)
+        have[item["id"]] = item
+        added += 1
+    return added
 
 
 def add_items(pid: str, entries: Iterable[Entry]) -> int:
     """Append the entries not already in the playlist (a known one is refreshed). Returns how many were added."""
-    entries = [e for e in entries if e.get("id")]
+    return _mutate(pid, partial(_add_items, entries=[e for e in entries if e.get("id")])) or 0
 
-    def apply(record: dict) -> int:
-        have = {i["id"]: i for i in record["items"]}
-        added = 0
-        for entry in entries:
-            if entry["id"] in have:
-                _refresh(have[entry["id"]], entry)
-                continue
-            item = snapshot(entry, entry["id"])
-            record["items"].append(item)
-            have[item["id"]] = item
-            added += 1
-        return added
 
-    return _mutate(pid, apply) or 0
+def _remove_items(record: dict, wanted: set[str]) -> list[dict]:
+    removed = [{**item, "_pos": i} for i, item in enumerate(record["items"]) if item["id"] in wanted]
+    record["items"] = [i for i in record["items"] if i["id"] not in wanted]
+    return removed
 
 
 def remove_items(pid: str, video_ids: Iterable[str]) -> list[dict]:
     """Remove those videos. Returns the removed items, each with its old index as `_pos` for `restore_items`."""
-    wanted = set(video_ids)
+    return _mutate(pid, partial(_remove_items, wanted=set(video_ids))) or []
 
-    def apply(record: dict) -> list[dict]:
-        removed = [{**item, "_pos": i} for i, item in enumerate(record["items"]) if item["id"] in wanted]
-        record["items"] = [i for i in record["items"] if i["id"] not in wanted]
-        return removed
 
-    return _mutate(pid, apply) or []
+def _restore_items(record: dict, items: list[dict]) -> int:
+    have = {i["id"] for i in record["items"]}
+    restored = 0
+    for item in sorted(items, key=lambda i: i.get("_pos", 0)):
+        if item["id"] in have:
+            continue
+        clean = {k: v for k, v in item.items() if k != "_pos"}
+        record["items"].insert(min(item.get("_pos", len(record["items"])), len(record["items"])), clean)
+        have.add(item["id"])
+        restored += 1
+    return restored
 
 
 def restore_items(pid: str, items: list[dict]) -> int:
     """Put items from `remove_items` back at their old positions (clamped); ones already present are skipped."""
-    def apply(record: dict) -> int:
-        have = {i["id"] for i in record["items"]}
-        restored = 0
-        for item in sorted(items, key=lambda i: i.get("_pos", 0)):
-            if item["id"] in have:
-                continue
-            clean = {k: v for k, v in item.items() if k != "_pos"}
-            record["items"].insert(min(item.get("_pos", len(record["items"])), len(record["items"])), clean)
-            have.add(item["id"])
-            restored += 1
-        return restored
+    return _mutate(pid, partial(_restore_items, items=items)) or 0
 
-    return _mutate(pid, apply) or 0
+
+def _move_item(record: dict, video_id: str, to: int) -> bool:
+    items = record["items"]
+    at = next((i for i, item in enumerate(items) if item["id"] == video_id), None)
+    if at is None or not 0 <= to < len(items) or at == to:
+        return False
+    items.insert(to, items.pop(at))
+    return True
 
 
 def move_item(pid: str, video_id: str, to: int) -> bool:
     """Move the video to index ``to``. False, changing nothing, if it is missing or ``to`` is out of range."""
-    def apply(record: dict) -> bool:
-        items = record["items"]
-        at = next((i for i, item in enumerate(items) if item["id"] == video_id), None)
-        if at is None or not 0 <= to < len(items) or at == to:
-            return False
-        items.insert(to, items.pop(at))
-        return True
-
-    return bool(_mutate(pid, apply))
+    return bool(_mutate(pid, partial(_move_item, video_id=video_id, to=to)))
 
 
 def video_playlists(video_id: str) -> list[str]:
     """Names of all playlists containing ``video_id``."""
-    def names(data: dict) -> list[str]:
-        return [p["name"] for p in data["playlists"] if any(i["id"] == video_id for i in p["items"])]
+    return _store.read(
+        lambda data: [p["name"] for p in data["playlists"] if any(i["id"] == video_id for i in p["items"])]
+    )
 
-    return _store.read(names)
+
+def _membership(data: dict) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for p in data["playlists"]:
+        for item in p["items"]:
+            out.setdefault(item["id"], []).append(p["name"])
+    return out
 
 
 def membership() -> dict[str, list[str]]:
     """{video id: names of the playlists holding it}, in one read."""
-    def build(data: dict) -> dict[str, list[str]]:
-        out: dict[str, list[str]] = {}
-        for p in data["playlists"]:
-            for item in p["items"]:
-                out.setdefault(item["id"], []).append(p["name"])
-        return out
-
-    return _store.read(build)
+    return _store.read(_membership)
 
 
 def all_video_ids() -> set[str]:
     return _store.read(lambda data: {i["id"] for p in data["playlists"] for i in p["items"]})
 
 
+def _refresh_all(data: dict, by_id: dict[str, Entry]) -> int:
+    return sum(_refresh(i, by_id[i["id"]]) for p in data["playlists"] for i in p["items"] if i["id"] in by_id)
+
+
 def refresh_items(entries: Iterable[Entry]) -> int:
     """Fill in snapshot fields that are empty from richer entries (cache hits, feed rows). Returns items changed."""
     by_id = {e["id"]: e for e in entries if e.get("id")}
-
-    def apply(data: dict) -> int:
-        return sum(_refresh(i, by_id[i["id"]]) for p in data["playlists"] for i in p["items"] if i["id"] in by_id)
-
-    return _store.update(apply, defer=True)
+    return _store.update(partial(_refresh_all, by_id=by_id), defer=True)
 
 
 def _refresh(item: dict, entry: Entry) -> bool:

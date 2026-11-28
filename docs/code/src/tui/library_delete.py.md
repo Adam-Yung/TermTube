@@ -10,3 +10,5 @@ The Library tab's delete handler, registered in `MainScreen._removals()` under `
   `reload` returns `library.all_entries`, so the list re-pages from the index after the delete.
 
 `removal(config, kind)` is per rail collection: `reload` returns only that collection, so the list keeps showing it after a delete.
+
+`removal` binds the download roots into `_delete` when it is built.

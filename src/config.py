@@ -103,16 +103,11 @@ class Config:
             return text("config.missing")
         self._apply(loaded)
         return None
+
     def resolved_browser(self) -> str | None:
         """The browser whose cookies are used (``auto`` = first detected); None for ``none`` or nothing found."""
-        browser = self.get("browser", "auto")
-        if not browser or browser.lower() == "none":
-            return None
-        from src.browsers import detect_installed_browsers, is_auto_browser
-        if is_auto_browser(browser):
-            detected = detect_installed_browsers()
-            return detected[0]["name"] if detected else None
-        return browser
+        from src.cookies import resolve_browser
+        return resolve_browser(self)
 
     def browser_cookie_args(self) -> list[str]:
         """Return yt-dlp cookie flags for mpv passthrough (empty when no browser resolves)."""
@@ -172,19 +167,20 @@ class Config:
         """On unless a literal ``false``: partial search text goes to Google while typing, so this is the opt-out."""
         return self._data.get("search_suggestions") is not False
 
+    def _clamped(self, key: str, default: int, low: int, high: int) -> int:
+        """An integer setting held inside ``low``..``high``; ``default`` for anything that is not an integer."""
+        value = self._data.get(key)
+        if isinstance(value, bool) or not isinstance(value, int):
+            return default
+        return min(high, max(low, value))
+
     @property
     def history_max(self) -> int:
-        value = self._data.get("history_max")
-        if isinstance(value, bool) or not isinstance(value, int):
-            return 500
-        return min(5000, max(50, value))
+        return self._clamped("history_max", 500, 50, 5000)
 
     @property
     def rows_per_page(self) -> int:
-        value = self._data.get("rows_per_page")
-        if isinstance(value, bool) or not isinstance(value, int):
-            return DEFAULT_ROWS_PER_PAGE
-        return min(MAX_ROWS_PER_PAGE, max(MIN_ROWS_PER_PAGE, value))
+        return self._clamped("rows_per_page", DEFAULT_ROWS_PER_PAGE, MIN_ROWS_PER_PAGE, MAX_ROWS_PER_PAGE)
 
     @property
     def cookie_prewarm(self) -> bool:
