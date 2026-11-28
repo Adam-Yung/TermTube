@@ -129,8 +129,8 @@ async def test_highlighting_a_file_probes_it_locally_and_fills_the_detail_panel(
         await open_local(app, pilot)
         await goto(app, pilot, "clip.mp4")
         await until(pilot, lambda: (highlighted(app) or {}).get("duration") == 75)
-        desc = str(app.screen.query_one("#video-desc").render())
-        assert "probe ok" in desc
+        # the row and the panel are updated by two separate calls from the worker
+        await until(pilot, lambda: "probe ok" in str(app.screen.query_one("#video-desc").render()))
 
 
 def _record_run(seen, build_cmd, **kwargs):
