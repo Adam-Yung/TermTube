@@ -1,0 +1,21 @@
+src/tests/tui/test_feed_prefetch.py
+  s_856376552aead6::t_8fc495f0f96fd0 9,43
+src/tests/tui/test_hook_wiring.py
+  s_856376552aead6::t_8fc495f0f96fd0 13,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "90c40ca880843feffd53306a2ae67f11b88b81af",
+  "prompts": {},
+  "sessions": {
+    "s_856376552aead6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bae150dd-b94b-4856-8f1f-1339dddc03e4",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
