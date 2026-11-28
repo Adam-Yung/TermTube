@@ -1,0 +1,84 @@
+docs/features/README.md
+  s_856376552aead6::t_7b42a2e4df304a 1-2,5-20
+  s_856376552aead6::t_186a7e27698f79 3-4
+docs/features/playback.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,70-83
+docs/todo.md
+  s_856376552aead6::t_bd1e3b3dd2955d 5-10
+docs/code/src/tui/screens/main_screen.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 9,34,37
+docs/guides/morning-checklist.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-4,10,24,30
+docs/features/ui.md
+  s_856376552aead6::t_7b42a2e4df304a 1-37
+docs/guides/environments.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-4
+docs/status.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-5,9,28,48-49
+docs/features/thumbnails.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,31-43
+.framework.json
+  s_856376552aead6::t_bd1e3b3dd2955d 6
+docs/guides/startup-debugging.md
+  s_856376552aead6::t_bd1e3b3dd2955d 1,3,5,7,10-13,16-17,19,21-24,28-31
+docs/code/src/tui/screens/mixins/feed_loader.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 11,39,69
+docs/guides/ci.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-4,10
+docs/README.md
+  s_856376552aead6::t_186a7e27698f79 21
+  s_856376552aead6::t_bd1e3b3dd2955d 24,30
+docs/features/install.md
+  s_856376552aead6::t_7b42a2e4df304a 1-38
+docs/code/src/tui/widgets/action_bar.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 12
+docs/features/keybindings.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,89-104
+docs/guides/benchmarks.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-4,25-26
+docs/features/accounts-and-cookies.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,17,59-75
+docs/features/browse.md
+  s_856376552aead6::t_7b42a2e4df304a 1-44
+.deslop.json
+  s_856376552aead6::t_bd1e3b3dd2955d 3
+README.md
+  s_856376552aead6::t_186a7e27698f79 24,119
+docs/features/architecture.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8
+  s_856376552aead6::t_bd1e3b3dd2955d 15,17-22,24-26,28,30,32,37,42-43,46,49-51,73-75,99,120,123,145
+docs/code/src/innertube.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3
+docs/guides/setup.md
+  s_856376552aead6::t_bd1e3b3dd2955d 3-4,144
+docs/code/src/ui/thumbnail.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 4
+docs/code/src/config.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 23
+docs/features/sources.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,29-30,54-59,71-89
+docs/features/library-and-downloads.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,56,69-87
+docs/code/src/updater.py.md
+  s_856376552aead6::t_bd1e3b3dd2955d 20
+docs/features/configuration.md
+  s_856376552aead6::t_7b42a2e4df304a 3-8,39-41,63-74
+docs/features/quality.md
+  s_856376552aead6::t_7b42a2e4df304a 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9a96d6a00c38c782711a7c4a9ba99f9b60c1c37d",
+  "prompts": {},
+  "sessions": {
+    "s_856376552aead6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bae150dd-b94b-4856-8f1f-1339dddc03e4",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Adam Yung <adyung@paloaltonetworks.com>"
+    }
+  }
+}
