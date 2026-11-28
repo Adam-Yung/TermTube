@@ -21,7 +21,7 @@ Browse, search, listen in the background and watch, without leaving the command 
 
 - **Home feed, subscriptions, search, channels, history and a Library** in tabs, driven entirely from the keyboard (vim-style `hjkl`).
 - **List tools** on every list: `f` filters all loaded pages as you type, `m`/`M` mark rows, `D` removes them after one `y`/N, `u` undoes (History and playlists; Library deletes files for good).
-- **History** with day headers, resume points (`▶ 2:05 / 10:00`), watch time and sorting; `Y` switches between local history, your YouTube history and Watch Later. `history: false` records nothing.
+- **History** with day headers, resume points (`▶ 2:05 / 10:00`), watch time and sorting; a side list switches between local history, your YouTube history and Watch Later. `history: false` records nothing.
 - **Library** with a left rail (All downloads, Videos, Audio and your local playlists), search tokens (`type:audio`, `dur:<10m`) and delete of the files with sizes shown first.
 - **Background audio** through a headless mpv: queue (`q` shows, reorders and clears it), pause, seek, SponsorBlock auto-skip. It keeps playing while you browse.
 - **Video** in an mpv window, with progress and controls in the terminal.
@@ -116,7 +116,7 @@ Run `termtube`. The tabs are **Home**, **Subscriptions**, **Search**, **History*
 | `c` | channel page (`s` sort, `r` reload) | `r` | refresh the feed |
 | `p` | add to a local playlist | `,` | settings |
 | `f` `m` `M` | filter / mark row / mark page | `D` `u` | remove marked or current / undo |
-| `Y` | History: cycle source | `q` | audio queue |
+| `Tab` | Library, History, Subscriptions: side list | `q` | audio queue |
 | `y` | copy the URL | `?` | help |
 | `b` | open in the browser | `Ctrl+Q` | quit |
 

@@ -1,5 +1,11 @@
 # Configuration
 
+> Verified: 2026-11-28 · Sources: `src/config.py`, `src/tui/settings_fields.py`, `src/tui/screens/settings_modal.py`
+> Serves: `ui`, `privacy`
+> Owns: `src/config.py`, `src/tui/settings_fields.py`, `src/tui/screens/settings_modal.py`
+
+## What it does
+
 One YAML file, created with defaults on first run. Nothing ships in the repo.
 
 | | Path |
@@ -30,6 +36,9 @@ History (`history.json`) and local playlists (`playlists.json`) sit next to it. 
 | `cache_ttl.home` | `3600` | seconds a cached Home feed stays fresh |
 | `cache_ttl.home_revalidate` | `600` | seconds after which a cached Home feed is shown at once and re-read in the background (a non-integer or negative value means 600; no Settings row) |
 | `cache_ttl.subscriptions` | `3600` | reserved for a subscription video feed (the Subscriptions tab lists channels, cached with the 1 h default); no Settings row until something reads it |
+| `cache_ttl.yt_history` | `600` | seconds the YouTube history id list stays fresh |
+| `cache_ttl.yt_watchlater` | `600` | seconds the Watch Later id list stays fresh |
+| `cookie_prewarm` | `true` | read the browser cookies in the background after the first paint; only a literal `false` turns it off |
 | `cache_ttl.search` | `1800` | seconds a cached search stays fresh |
 | `cache_ttl.metadata` | `86400` | seconds cached video metadata stays valid |
 | `history` | `true` | `false` records nothing in the local watch history (existing history stays until `--clear-history`); only a literal `false` turns it off |
@@ -51,3 +60,15 @@ History (`history.json`) and local playlists (`playlists.json`) sit next to it. 
 - `termtube --clear-history` erases the local watch history and the search history file contents at once and exits; nothing else changes.
 
 Design record: `docs/decisions/config.md`; code: `docs/code/src/config.py.md`.
+
+## Code
+
+`src/config.py`, `src/tui/settings_fields.py`, `src/tui/screens/settings_modal.py`.
+
+## Limits
+
+- No search inside Settings. `cache_ttl.subscriptions` is read by nothing.
+
+## How to check it
+
+`src/tests/unit/test_config.py`, `src/tests/unit/test_settings_fields.py`, `src/tests/tui/test_settings.py`.

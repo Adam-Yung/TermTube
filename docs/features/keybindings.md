@@ -1,5 +1,11 @@
 # Keybindings
 
+> Verified: 2026-11-28 · Sources: `src/tui/keymap.py`, `src/tui/screens/help_screen.py`, `src/tui/screens/video_action_modal.py`, `src/tui/screens/watch_modal.py`, `src/tui/screens/queue_screen.py`
+> Serves: `ui`
+> Owns: `src/tui/keymap.py`, `src/tui/screens/help_screen.py`, `src/tui/screens/video_action_modal.py`
+
+## What it does
+
 Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/screens/watch_modal.py` (video player) and each modal's
 `BINDINGS`. Shown to the user in `src/tui/screens/help_screen.py`, `src/tui/widgets/action_bar.py` and
 `src/tui/screens/video_action_modal.py`. Change all of them together.
@@ -59,7 +65,6 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | `B` | channel page: follow or unfollow the channel locally (`channels.json`, works with `browser: none`) | |
 | `o` | playlist page (a playlist opened from Search or Home): open the channel that owns the playlist; `s`, `B`, `H` `L` and the tab menu answer "A playlist has no tabs, sort or follow." there | |
 | `Z` | Home tab: show or hide the videos already played (the footer says `N hidden`, or `played shown`); a hint on other tabs | |
-| `F` | Subscriptions tab: the local Following list (`Enter` opens a channel, `Esc` returns); a hint on other tabs | |
 | `P` `E` `S` | channel page, inside a playlist (`Enter` on a playlist row opens it): play all / add all to the queue / save as a local playlist | |
 | `/` `,` `?` `q` | work on the channel page too: `/` leaves it first (search results belong to the main screen); `q` opens the queue over it | |
 | `↑` `↓` `Enter` `Ctrl+D` | search prompt only: walk the earlier searches / search the highlighted one / forget it | |
@@ -81,3 +86,19 @@ Defined in code in `src/tui/keymap.py` (main and channel screens), `src/tui/scre
 | Channel page lacked `e`, `>`, `x`, `V` | copy of the main screen's keys, drifted | same table via `keymap.py` |
 
 Not changed: `F1`–`F6` and `` ` `` (F-keys need `fn` on macOS; the picker covers that), `d`/`c`/`y`/`p`/`b`, `/`, `r`, `,`, `?`.
+
+## Code
+
+`src/tui/keymap.py`, `src/tui/screens/help_screen.py`, `src/tui/screens/video_action_modal.py`.
+
+## Rules that must hold
+
+- A key changes in the keymap, this page, the help screen and the action hints together.
+
+## Limits
+
+- `Z` and `I` each work on one tab only. The video player's keys are bound in `watch_modal.py`, not the keymap.
+
+## How to check it
+
+`src/tests/unit/test_keymap.py`, `src/tests/unit/test_help_matches_keymap.py`, `src/tests/tui/test_key_hints.py`, `src/tests/tui/test_row_actions.py`.

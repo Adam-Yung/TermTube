@@ -1,5 +1,7 @@
 # Source benchmarks
 
+> Verified: 2026-11-28 · Sources: `scripts/bench-sources.py`, `src/innertube.py`, `src/streams.py`, `src/thumbnail_http.py`
+
 `scripts/bench-sources.py [runs]` times each rung of the source ladder (`docs/features/sources.md`) with anonymous
 requests: no cookies, no browser profile, no media download. Run it from the network you care about; results depend on it.
 
@@ -20,11 +22,8 @@ requests: no cookies, no browser profile, no media download. Run it from the net
 - **InnerTube beats yt-dlp by 3.4x to 14x** for what it can serve: `/player` 219 ms, channel `/browse` 399 ms, `/search` 871 ms against
   3.0 s for a yt-dlp resolve. Search and channel info use InnerTube.
 - **RSS returned HTTP 404 for all three channels tried (superseded: RSS was removed on 2026-11-16, see `docs/decisions/feeds-and-paging.md`)** (the URL is valid: a `UC…` id with `channel_id`, the documented form; a second check the same day also got nothing for the uploads-playlist form `playlist_id=UULF…`. Public reports from late October 2026, including one 404 for the Google Developers channel itself, describe a YouTube-side outage of `feeds/videos.xml`, not a client mistake; reports from May 2026 describe it as working, so it comes and goes) (Rick Astley, Google Developers, YouTube Spotlight) from this network. Do not make
-  RSS the primary source for the subscription feed. Plan step 3 changes: try RSS, fall back to InnerTube `/browse` per channel, and keep a
-  per-session "RSS is dead" flag so a 404 costs one request, not one per channel.
-- **`i.ytimg.com` fails TLS verification here** (self-signed certificate in the chain, a proxy). `thumbnail_http.download_thumbnail` already retries
-  without verification for public images. The benchmark does not, so it shows 0; derived thumbnail URLs (step 1) work, but the fetch path
-  keeps that retry. Timing of the thumbnail rung is not measured.
+  RSS the primary source for the subscription feed. - **`i.ytimg.com` fails TLS verification here** (self-signed certificate in the chain, a proxy). the app trusts the macOS keychain there, and retries without verification only with `insecure_thumbnails: true`. The benchmark does not, so it shows 0; derived thumbnail URLs (step 1) work, but the fetch path
+  keeps both. Timing of the thumbnail rung is not measured.
 - `/search` is the slowest InnerTube call; its payload is large. Request only the first page and cache by query.
 
 ## 2026-11-15, yt-dlp stream resolve variants (`scripts/bench-sources.py 2 --streams`, 3 public videos x 2 runs)

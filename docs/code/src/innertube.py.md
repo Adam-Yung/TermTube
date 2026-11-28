@@ -1,6 +1,6 @@
 # src/innertube.py
 
-Stdlib-only client for YouTube's InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's tabs (Videos about 600 ms for 30 entries, Shorts, Live, Playlists) with continuation pages. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/channel_screen.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
+Stdlib-only client for YouTube's InnerTube endpoints, used where yt-dlp is too slow: `/player` for video details (~220 ms) and `/browse` for a channel's tabs (Videos about 600 ms for 30 entries, Shorts, Live, Playlists) with continuation pages. Callers: `src/tui/screens/mixins/detail_focus.py` (details) and `src/tui/screens/mixins/channel_content.py` (channel videos and playlists, falling back to `ytdlp.fetch_channel_videos` / `fetch_channel_playlists` when empty).
 
 Three files: `innertube.py` sends the requests and owns the public `fetch_*` and `search` functions, `innertube_pages.py` reads whole replies, `innertube_rows.py` turns one list item into an entry.
 

@@ -1,5 +1,11 @@
 # Accounts, cookies and privacy
 
+> Verified: 2026-11-28 · Sources: `src/cookies.py`, `src/browsers.py`, `src/ytdlp.py`, `src/logger.py`
+> Serves: `privacy`
+> Owns: `src/cookies.py`, `src/browsers.py`, `src/logger.py`
+
+## What it does
+
 TermTube has no login of its own and no telemetry. It can borrow the YouTube session of a browser you already use, for exactly these account feeds: Home, the subscription list, YouTube watch history and Watch Later (the last two are read-only views in the History tab).
 
 ## What needs an account
@@ -8,7 +14,7 @@ TermTube has no login of its own and no telemetry. It can borrow the YouTube ses
 |---|---|---|
 | **Home feed** | yes | YouTube personalises it; without a session it is generic or empty |
 | **Subscription list** (the channels you follow) | yes | it is your data |
-| **YouTube history** and **Watch Later** (History tab, `Y` switches source) | yes | it is your data; read-only here |
+| **YouTube history** and **Watch Later** (History tab side list) | yes | it is your data; read-only here |
 | Search, channel pages, playlists, video details | no | public data, fetched anonymously |
 | Stream URLs for playback, downloads | no, deliberately | requests carrying account cookies got YouTube's degraded "tv downgraded player" answer (5 poor formats instead of 37+) |
 | Local library, history, local playlists | no | files on your machine |
@@ -50,3 +56,20 @@ mpv gets the browser setting separately (`--ytdl-raw-options=cookies-from-browse
 
 Design record: `docs/decisions/cookies-and-auth.md`; code: `docs/code/src/cookies.py.md`, `docs/code/src/browsers.py.md`, and the cookie policy table in
 `docs/code/src/ytdlp.py.md`.
+
+## Code
+
+`src/cookies.py`, `src/browsers.py`, `src/logger.py` (redaction of debug logs), the cookie policy in `src/ytdlp.py`.
+
+## Rules that must hold
+
+- Only account feeds get a cookie jar; the list of `auth=True` call sites is pinned by a test.
+- No cookie or secret reaches a log or the disk.
+
+## Limits
+
+- Switching accounts in the browser takes effect after an authentication error or a restart.
+
+## How to check it
+
+`src/tests/unit/test_cookie_policy.py`, `src/tests/unit/test_cookie_cache.py`, `src/tests/unit/test_browsers.py`, `src/tests/unit/test_log_redaction.py`.

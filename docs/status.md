@@ -1,10 +1,12 @@
 # Status
 
-**Last updated:** 2026-11-27. `main` is green on Linux, macOS and Windows (six pipeline jobs); the weekly canary against live YouTube passed 8 of 8 on 2026-11-23 (now also a playlist page and a Mix).
+**Last updated:** 2026-11-28. Branch `deslop`: a behaviour-preserving refactor of `src`, tests and scripts, with the docs matched to it; not yet merged. On `main` the six pipeline jobs and the weekly canary against live YouTube (8 of 8 on 2026-11-23) were green at the last check.
+
+Next: finish the de-slop plan (review, merge, push, watch the pipeline), then a **Local files** tab.
 
 ## What exists
 
-- Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` runs with mpv launch and polling stubbed); `test_screen_layout_audit.py` does the same for every main-screen tab, the Library rail and the channel page, and sets the width rules (rail 24, list `9fr` min 40, detail `11fr` min 30, `-narrow` under 100 columns). `test_mixin_wiring.py`, `test_hook_wiring.py` and `test_theme_wiring.py` read both screens' MRO, spy on the real hooks and check CSS selectors against the composed widgets. Error paths, races, 5000-row lists, hostile text and whole-screen journeys have their own suites (`test_loader_errors.py`, `test_races.py`, `test_scale_edge.py`, `test_journeys.py`). The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS`; the panel lists only what applies to the tab, focus and row ([decisions/ui.md](decisions/ui.md)).
+- Every modal is centered and fits the screen; `src/tests/tui/test_layout_audit.py` opens each at five terminal sizes and checks centering, protrusion, overlap and truncated text (`WatchModal` runs with mpv launch and polling stubbed); `test_screen_layout_audit.py` does the same for every main-screen tab, the Library rail and the channel page, and sets the width rules (rail 24, list `9fr` min 40, detail `11fr` min 30, `-narrow` under 100 columns). `test_mixin_wiring.py`, `test_hook_wiring.py` and `test_theme_wiring.py` read the screens' MRO, spy on the real hooks and check CSS selectors against the composed widgets. Error paths, races, 5000-row lists, hostile text and whole-screen journeys have their own suites (`test_loader_errors.py`, `test_races.py`, `test_scale_edge.py`, `test_journeys.py`). The Enter menu and the Actions panel are built from `keymap.ROW_ACTIONS`; the panel lists only what applies to the tab, focus and row ([decisions/ui.md](decisions/ui.md)).
 - A Textual TUI with tabs Home, Subscriptions, Search, History, Library, Help (`F1`..`F6`); vim-style keys ([features/keybindings.md](features/keybindings.md)).
 - Background audio with queue, seek, SponsorBlock, owned by one controller (`app.audio`); video in an mpv window; downloads (mp4/mp3) and a Library.
 - Local history is slim (v2 records, `history` and `history_max` settings, `--clear-history`), written off the UI thread; history and playlists share `src/store.py`; a failed write there never raises: it notifies once and stays dirty. Debug logs are redacted (`logger.redact`).
@@ -23,7 +25,7 @@
 - Data source ladder: cache, then InnerTube (search, channels, playlists, details), then yt-dlp; account cookies only for Home, the subscription list, YouTube history and Watch Later (the last two read-only)
   ([features/sources.md](features/sources.md), [features/accounts-and-cookies.md](features/accounts-and-cookies.md)). RSS was tried and removed.
 - Installers for macOS, Linux and Windows that fetch Deno, ffmpeg and mpv; `--update`, `--refresh`, uninstall scripts ([guides/setup.md](guides/setup.md)).
-- Quality gate `scripts/verify.sh` (ruff, about 1210 tests, doc checks); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
+- Quality gate `scripts/verify.sh` (ruff, about 1300 tests, dead-code check); ratchet gates in `scripts/gate/` (structure, duplication, dead code, mirror freshness, feature ownership, doc size, expiry, growth) and the doc gate (brief, mirrors, links, page freshness); pipeline and weekly canary ([guides/ci.md](guides/ci.md)).
 
 ## What has been verified
 
@@ -43,8 +45,8 @@
 
 ## Known limits
 
-- InnerTube fetch errors become empty results; callers then fall back to yt-dlp.
-- A sign-in failure on Home or Subscriptions shows the empty-feed dialog, not a "sign in again" message.
+- Apart from the first page of a search, InnerTube failures read as empty results and the caller falls back to yt-dlp.
+- A signed-out browser that YouTube answers with an empty list (no error) shows the empty-feed dialog on Home or Subscriptions; a reported sign-in error shows the sign-in message.
 - History stores slim records, including for rows played from the Library. The Library index (`library.json`) is slim too.
 
 Next work: [todo.md](todo.md). Open plans: [plans/](plans/).

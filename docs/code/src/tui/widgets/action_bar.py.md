@@ -9,7 +9,7 @@ The bottom-right box of the detail panel. It is either the shortcut grid (action
 - `set_actions_mode` clears segments, queue length and the wave timer. Call it on every stop path or the next track inherits the old SponsorBlock overlay.
 - `set_segments` overlays SponsorBlock ranges in green. The drawing and its per-column cache are `SegmentBar` (`segment_bar.py`), shared with the video player.
 - Theme colours come from `app.config.theme` and fall back to crimson when the app has no config (isolated widget tests). `THEME_COLORS` is shared with `video_rows.py` and other widgets. Call `refresh_theme` after a theme change; Rich markup is baked into the Static widgets.
-- The grid (`_action_entries`) takes the row actions and their keys from `keymap.ROW_ACTIONS` / `keymap.key_of`, the tools from the screen's `HAS_*` flags. It never lists a key the Footer already shows (`/` search, `r` refresh, `,` settings, `?` help, `q` quit): `tests/tui/test_row_actions.py` fails if it does. The key hints in `_update_np_keys` still repeat the keymap by hand (`docs/features/keybindings.md`).
+- The grid (`_action_entries`) is whatever `screen.panel_hints()` returns (see Prompt below). It never lists a key the Footer already shows (`/` search, `r` refresh, `,` settings, `?` help, `q` queue): `tests/tui/test_row_actions.py` fails if it does. The key hints in `_update_np_keys` still repeat the keymap by hand (`docs/features/keybindings.md`).
 - `render_actions` picks the column count that fits the panel width (up to 5) and sets the panel height to the rows needed, at most 5 grid rows and what the detail panel can spare after `MIN_INFO_ROWS`. Entries that do not fit end in a `…` cell. It posts `HeightChanged` so the detail panel re-splits its height.
 
 ## Limits

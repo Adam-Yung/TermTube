@@ -6,7 +6,7 @@ The root screen: header, tab bar, `VideoListPanel`, `DetailPanel`, debug log. It
 
 ## Tabs
 
-- `_current_tab` is the view shown: a tab id, `search`, or on the Library tab a collection (`library`, `library:video`, `library:audio`, `playlist:<id>`). `tab_of(view)` maps a view to its tab (every Library collection is `library`); the tab bar, `H`/`L` cycling and the Help restore all go through it. Leaving and re-entering Library reopens `_library_view`.
+- `_current_tab` is the view shown: a tab id, `search`, or on the Library tab a collection (`library`, `library:video`, `library:audio`, `playlist:<id>`). `tab_of(view)` maps a view to its tab (every Library collection is `library`); the tab bar, `H`/`L` cycling and the Help restore all go through it. Leaving and re-entering a rail tab reopens its last source (`_rail_views`).
 - `on_tabs_tab_activated` ignores an activation of the current tab (compared through `tab_of`). Appending list items can move focus to the tab bar, which re-fires activation of the tab already shown and would reload it. A real switch always changes the id.
 - Search and Help are tabs that open a modal. Cancelling the search modal must not set `tabs.active` (that re-activates the current tab and reloads its list); `_opening_search_tab` suppresses the dialog when `_show_search_results` sets the tab itself.
 - Switching away from the home tab saves the feed stash first (`FeedLoaderMixin._save_feed_stash`); `on_unmount` and quit do the same; `on_unmount` also detaches the screen as the audio debug-log sink.
@@ -31,10 +31,10 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 
 ## List tools
 
-`ListToolsMixin` comes first in the MRO so its `on_key` can swallow keys while a remove question is open. `_removals()` is the per-view table of remove handlers (History, the three Library collections, playlists). `action_nav_back` clears a kept filter first, then on Library moves focus from the list to the rail, then on Search pops the previous query.
+`ListToolsMixin` comes first in the MRO so its `on_key` can swallow keys while a remove question is open. `_removals()` is the per-view table of remove handlers (History, the three Library collections, playlists). `action_nav_back` clears a kept filter first, then on a rail tab (Library, History, Subscriptions) moves focus from the list to the rail, then on Search pops the previous query.
 - `_search` is a `SearchStack`. `_show_search_results` saves the page and row of the results being left (`_save_search_position`, also when switching tabs), pushes the query and shows it through `_show_search_frame`. `action_nav_back` pops it only on the Search tab. The saved position is applied once by `ListSourcesMixin._finish_search_load` after the (cached) results load.
 
-- `s` / `t` (`action_search_sort`, `action_search_type`) open the shared `SortModal` with the search sort or type options and write the choice to the current `SearchFrame` (`set_filter`), then `_show_search_frame` reloads (own cache entry per sort and type). Off the Search tab they only hint. Enter on a playlist row of a Search result hints "Press b to open the playlist in the browser" (`b` opens the page); channel rows open the channel page as on Subscriptions.
+- `s` / `t` (`action_search_sort`, `action_search_type`) open the shared `SortModal` with the search sort or type options and write the choice to the current `SearchFrame` (`set_filter`), then `_show_search_frame` reloads (own cache entry per sort and type). Off the Search tab they only hint. Enter on a playlist row opens its playlist page (`_open_playlist`); channel rows open the channel page as on Subscriptions.
 
 `_removals()` registers History, Library (`library_delete.removal(config, kind)` for each collection) and `PlaylistToolsMixin._playlist_removals()`.
 
@@ -50,4 +50,3 @@ The avatar renders into the shared detail panel, so a cursor move must cancel it
 
 **Following (local).** The Following entry of the Subscriptions side list opens the locally followed channels: `_current_tab` becomes `following`, and `FeedLoaderMixin._load_following` fills the list from `channel_bookmarks`. Enter opens the channel as on Subscriptions.
 
-`action_nav_back` reloads the view it returns to when that tab is already the active one. Setting an unchanged `Tabs.active` fires no event, so before this fix Backspace out of a playlist (and out of Following) left the drill-down's rows on screen.

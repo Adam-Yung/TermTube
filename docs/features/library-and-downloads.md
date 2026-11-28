@@ -1,5 +1,11 @@
 # Downloads and the Library
 
+> Verified: 2026-11-28 · Sources: `src/downloads.py`, `src/library.py`, `src/library_scan.py`, `src/playlist.py`, `src/history.py`, `src/tui/library_delete.py`, `src/tui/screens/mixins/playlist_tools.py`
+> Serves: `library`
+> Owns: `src/downloads.py`, `src/library*.py`, `src/playlist.py`, `src/history.py`, `src/tui/library_delete.py`, `src/tui/screens/download_*.py`, `src/tui/screens/playlist_modal.py`, `src/tui/screens/name_modal.py`, `src/tui/screens/mixins/library_rail.py`, `src/tui/screens/mixins/list_tools.py`, `src/tui/screens/mixins/playlist_tools.py`, `src/tui/widgets/library_rail.py`
+
+## What it does
+
 ## Downloading (`d`)
 
 `d` on a video opens a picker: **video** or **audio**, then a quality. A progress dialog shows the transfer, then merging or conversion.
@@ -47,7 +53,7 @@ deletes a downloaded file. On the Library tab (`F5`) playlists are entries of th
 `p` on any video opens the playlist dialog: `Space` selects several playlists, `Enter` toggles them. Videos in a playlist are pinned in the
 cache so the list and its thumbnails work offline. The first run on a v1 file keeps `playlists.json.v1` beside it.
 
-## The Library tab and its rail
+## The rail
 
 One tab holds everything downloaded or saved. The rail on the left lists `All downloads`, `Videos` (anything with a video file), `Audio` (anything with
 an audio file; a video with a merged audio file is in both), then one entry per playlist, then `+ New playlist`. Counts sit beside each entry. Choosing an
@@ -60,3 +66,22 @@ file on disk, otherwise it streams. The detail panel lists "In playlists: A, B" 
 Filter (`f`) in the Library tab and in playlists takes free words (title, uploader or channel, tags, description) and tokens: `type:audio|video`,
 `dur:<10m` / `dur:>20m`, `by:name` or `by:"two words"`, `year:2024`, `pl:name`, `dl:yes|no`. A malformed token is treated as a free word. Other tabs filter
 plain text only. A search across History, Library and playlists together is not built.
+
+## History
+
+The local watch history (`history.json`, slim records, `history_max`) holds what was played here. `D` removes, `u` undoes, `s` sorts, `I` on
+the YouTube source imports its rows.
+
+## Rules that must hold
+
+- Deleting a playlist or an item never deletes a download; Library `D` deletes only inside the download folders, never through a symlink.
+- Downloads never use account cookies.
+
+## Limits
+
+- Media without an `.info.json` sidecar is not listed. No search across History, Library and playlists together.
+- Two running instances can overwrite each other's stores.
+
+## How to check it
+
+`src/tests/unit/test_library.py`, `src/tests/unit/test_playlist.py`, `src/tests/unit/test_history.py`, `src/tests/tui/test_library_delete.py`, `src/tests/tui/test_download_modal.py`.

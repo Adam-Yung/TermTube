@@ -1,5 +1,11 @@
 # Where the data comes from
 
+> Verified: 2026-11-28 · Sources: `src/ytdlp.py`, `src/innertube.py`, `src/feed_cursor.py`, `src/feed_cache.py`, `src/cache.py`, `src/errors.py`, `src/tui/screens/mixins/feed_loader.py`
+> Serves: `browse`
+> Owns: `src/ytdlp.py`, `src/innertube*.py`, `src/flat_entries.py`, `src/feed_cache.py`, `src/feed_cursor.py`, `src/cache.py`, `src/errors.py`
+
+## What it does
+
 TermTube asks the cheapest source that can answer, and falls back one step when it cannot. Public data goes through YouTube's own web API
 ("InnerTube", anonymous, 0.1 to 1 s); only what truly needs yt-dlp uses yt-dlp (2 to 3 s).
 
@@ -20,8 +26,8 @@ yt-dlp variant), it returns every field the UI reads, and the slower one stays w
 
 | Data | Source | Account | Fallback | Cached |
 |---|---|---|---|---|
-| **YouTube history** (History tab, `Y`) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out, or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
-| **Watch Later** (History tab, `Y`) | yt-dlp, `youtube.com/playlist?list=WL` | cookies (browser) | a message | id list 10 min (`cache_ttl.yt_watchlater`); read-only, same loader as Home |
+| **YouTube history** (History side list) | yt-dlp, `youtube.com/feed/history` | cookies (browser) | a message (browser signed out, or history paused) | id list 10 min (`cache_ttl.yt_history`); read-only, same loader and paging as Home |
+| **Watch Later** (History side list) | yt-dlp, `youtube.com/playlist?list=WL` | cookies (browser) | a message | id list 10 min (`cache_ttl.yt_watchlater`); read-only, same loader as Home |
 | **Home feed** | yt-dlp, flat listing of `youtube.com` | cookies (browser) | none (an empty feed explains itself) | id list 1 h (`cache_ttl.home`) plus a one-page stash for instant start |
 | **Subscription list** | yt-dlp, `feed/channels` | cookies | none | about 1 h |
 | **Search** | InnerTube `/search`; first page after one request, first 50 results, then 50 more each time you page, up to 200; `s` sort (relevance / date / views) and `t` type (all / video / channel / playlist) via the request `params` | no | yt-dlp `ytsearchN:` (plain search only) | by query, sort and type, 30 min |
@@ -45,7 +51,12 @@ Notes:
   in November 2026, so it is not used. The channel page needs nothing it provided.
 - **InnerTube is undocumented.** A response shape can change without notice; parsers are small, tested on recorded fixtures, and every call falls
   back one step. A weekly canary (`scripts/canary-live.py`, GitHub `canary.yml`) checks the live shapes.
-- The page size is 20 rows; Home fetches 80 at a time (the first 15 appear as soon as they arrive) and (a cache older than `cache_ttl.home_revalidate`, 10 min, is shown at once and re-read behind it; new items are announced in the footer as `↑ N new · r to refresh`, never inserted under the cursor) (Home hides videos you already played: the footer counts them as `N hidden` and `Z` shows or hides them) fetches the next 80 when you reach the second-to-last page, continuing the same open yt-dlp listing instead of re-reading from the top (History on YouTube and Watch Later work the same). The footer shows `loading 80 more…` and then the new total.
+- The page size is 20 rows (`rows_per_page`). Home fetches 80 at a time and shows the first 15 as they arrive. It fetches the next 80 at the
+  second-to-last page, continuing the same open yt-dlp listing; YouTube history and Watch Later page the same way. The footer shows
+  `loading 80 more…`, then the new total.
+- A Home cache older than `cache_ttl.home_revalidate` (10 min) is shown at once and re-read behind it; new items are announced in the footer as
+  `↑ N new · r to refresh`, never inserted under the cursor.
+- Home hides videos already played: the footer counts them as `N hidden` and `Z` shows or hides them.
 
 Code: `docs/code/src/innertube.py.md`, `ytdlp.py.md`, `streams.py.md`, `cache.py.md`. Decisions: `docs/decisions/feeds-and-paging.md`,
 `cookies-and-auth.md`, `playback.md`.
@@ -57,3 +68,22 @@ While typing in the search prompt (2 or more characters, after a 250 ms pause) t
 ## Failures
 
 A failed fetch is a typed error (`src/errors.py`), not an empty list; an honestly empty feed still shows the empty-feed dialog (Home) or "Nothing here" (account sources). The list shows `⚠ Network error · r to retry`, `⚠ YouTube is rate limiting this IP · try again in a minute`, or the sign-in message (Settings `,`, then `r`); only a real extraction failure on Home opens the yt-dlp update prompt. InnerTube retries once after about 1 s on 429, 5xx or a failed connection; search then falls back to yt-dlp. The debug log pane says which source answered (`cache`, `innertube`, `yt-dlp`). Local tabs (History, Library, playlists) never touch the network.
+
+## Code
+
+`src/ytdlp.py`, `src/innertube.py` (with `innertube_pages.py`, `innertube_rows.py`), `src/flat_entries.py`, `src/feed_cursor.py`,
+`src/feed_cache.py`, `src/cache.py`, `src/errors.py`.
+
+## Rules that must hold
+
+- InnerTube is anonymous. A faster source keeps the slower one as fallback.
+- A failure is not cached as a feed.
+
+## Limits
+
+- Only the first page of an InnerTube search reports a typed failure; other InnerTube failures read as empty and the caller falls back.
+- The paging of a live account feed through one open listing is not verified against YouTube.
+
+## How to check it
+
+`src/tests/unit/test_innertube_parsers.py`, `src/tests/unit/test_feed_cursor.py`, `src/tests/unit/test_source_errors.py`, `src/tests/unit/test_cache.py`; live shapes with `scripts/canary-live.py`.

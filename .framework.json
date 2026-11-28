@@ -3,6 +3,6 @@
     "sources": ["src/*", "scripts/*", "termtube", "termtube.cmd"],
     "exclude": ["src/tests/*", "src/__init__.py", "src/*/__init__.py", "scripts/gate/*"]
   },
-  "freshness": {"folders": [], "exempt": []},
+  "freshness": {"folders": ["docs/guides", "docs/features"], "exempt": []},
   "links": {"skip": ["docs/decisions/", "scripts/gate/"]}
 }

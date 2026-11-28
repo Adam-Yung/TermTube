@@ -17,7 +17,7 @@ Update paths for `termtube --update` and for the in-app yt-dlp refresh. Policy: 
 
 ## Interface
 
-- `main.py` calls `self_update()` for `--update` and exits 0 only if it returns True. `run_all_updates` is False when the tool install, the yt-dlp upgrade or the app-code update failed. `tui/screens/main_screen.py` calls `update_ytdlp()` after an empty feed or an extraction error.
+- `main.py` calls `self_update()` for `--update` and exits 0 only if it returns True. `run_all_updates` is False when the tool install, the yt-dlp upgrade or the app-code update failed. `tui/screens/mixins/feed_prompts.py` calls `update_ytdlp()` after an empty feed or an extraction error.
 - `python -m src.updater --run [-v]` runs `run_all_updates` directly.
 
 ## Limits

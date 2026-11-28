@@ -1,7 +1,7 @@
 # src/ui/thumbnail.py
 
 Everything about thumbnail files, with no Textual dependency: find or download a JPEG, validate it, render PIL half-block ANSI art for
-terminals where `textual-image` is unavailable. Callers: `src/tui/thumb_loader.py` (worker threads), `src/ytdlp.py` (`_best_thumb_url`),
+terminals where `textual-image` is unavailable. Callers: `src/tui/thumb_loader.py` (worker threads), `src/flat_entries.py` (`best_thumb_url`),
 `src/tui/app.py` (pruning). Decisions: `docs/decisions/thumbnails.md`.
 
 ## Rendering paths

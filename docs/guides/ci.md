@@ -1,11 +1,13 @@
 # Continuous integration: what a green run proves
 
+> Verified: 2026-11-28 · Sources: `.github/workflows/test.yml`, `.github/workflows/canary.yml`, `scripts/verify.sh`, `scripts/e2e-local.py`, `scripts/smoke-ipc.py`, `scripts/canary-live.py`
+
 The pipeline (`.github/workflows/test.yml`) exists so that **green on a platform means TermTube works there**, not just that tests passed. It has
 three layers, each catching what the one before cannot.
 
 | Layer | Job (runs on) | What it runs | What a pass proves |
 |---|---|---|---|
-| 1. Gate | `gate` (ubuntu, macos, windows) | `scripts/verify.sh`: byte-compile, ruff, about 390 unit and headless TUI tests, doc checks | The code is consistent, and its logic and layout work against mocks on this OS |
+| 1. Gate | `gate` (ubuntu, macos, windows) | `scripts/verify.sh`: byte-compile, ruff, about 1300 unit, integration and headless TUI tests, the dead-code check; on Linux also the ratchet and doc gates (`scripts/gate/run.sh`) | The code is consistent, and its logic and layout work against mocks on this OS |
 | 2. Real install | `real app` (ubuntu, macos; windows) | The real installer (`setup.sh --no-prompt`, `setup.ps1 -NoPrompt`), the installed launcher, `scripts/smoke-ipc.py` | The app installs from a clean runner: Python venv, deno, ffmpeg, mpv, the launcher; and a real mpv answers over the IPC socket (Unix) or named pipe (Windows) |
 | 3. Real app | same jobs, last step | `scripts/e2e-local.py` against the **installed** copy, through the installed launcher | The app starts in a real terminal, renders, scans the library, starts and controls real mpv with real keys (play, pause, seek, stop), records history and quits with code 0 |
 

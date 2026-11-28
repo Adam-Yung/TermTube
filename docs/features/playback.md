@@ -1,5 +1,11 @@
 # Playback: audio and video
 
+> Verified: 2026-11-28 · Sources: `src/tui/audio_controller.py`, `src/tui/audio_launch.py`, `src/tui/audio_queue.py`, `src/player.py`, `src/streams.py`, `src/tui/screens/watch_modal.py`, `src/progress.py`, `src/tui/screens/mixins/playlist_rows.py`
+> Serves: `playback`
+> Owns: `src/tui/audio_*.py`, `src/player.py`, `src/mpv_ipc.py`, `src/streams.py`, `src/sponsorblock.py`, `src/progress.py`, `src/playlist_fetch.py`, `src/tui/segment_skip.py`, `src/tui/screens/watch_*.py`, `src/tui/screens/queue_screen.py`, `src/tui/screens/quality_modal.py`, `src/tui/screens/mixins/audio_bar.py`, `src/tui/screens/mixins/playlist_rows.py`, `src/tui/widgets/segment_bar.py`
+
+## What it does
+
 Both go through **mpv**, driven by TermTube. Audio runs headless in the background and keeps playing while you browse; video opens an mpv window.
 
 ## Audio (`a`, `A`, `e`, `>`, `<`, `q`, `Space`, `x`, `[ ] { }`, `0`-`9`)
@@ -61,3 +67,17 @@ Both go through **mpv**, driven by TermTube. Audio runs headless in the backgrou
 `src/streams.py` (URL resolution and cache), `src/playlist_fetch.py` and
 `src/tui/screens/mixins/playlist_rows.py` (playlist rows), `src/tui/screens/watch_modal.py` (video), `src/sponsorblock.py`. Mirrors under `docs/code/`; decisions in
 `docs/decisions/playback.md`; the real thing exercised end to end by `scripts/e2e-local.py` ([../guides/ci.md](../guides/ci.md)).
+
+## Rules that must hold
+
+- A late launch, poll or completion of an old track never touches the new one (session counter).
+- Stream resolution never uses account cookies.
+- Video is refused while audio plays; a track is never both playing and queued.
+
+## Limits
+
+- The queue is in memory only. Video-run keys are tested against a headless mpv, not a real video window.
+
+## How to check it
+
+`src/tests/tui/test_audio_controller.py`, `src/tests/tui/test_queue.py`, `src/tests/tui/test_playlist_row_playback.py`, `src/tests/unit/test_run_mpv.py`, `src/tests/integration/test_mpv_ipc.py`.

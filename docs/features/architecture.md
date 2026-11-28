@@ -1,42 +1,54 @@
 # Architecture: the wiring map
 
+> Verified: 2026-11-28 · Sources: `src/tui/app.py`, `src/main.py`, `src/tui/screens/main_screen.py`, `src/tui/messages.py`
+> Serves: `ui`, `quality`
+> Owns: `src/__init__.py`, `src/main.py`, `src/entries.py`, `src/store.py`, `src/strings.py`, `src/strings.json`, `src/tui/__init__.py`, `src/tui/app.py`, `src/tui/messages.py`, `src/ui/__init__.py`
+
+## What it does
+
 How the pieces connect. For why a file is written the way it is, read its mirror in `docs/code/`. For settled calls, `docs/decisions/`.
 
 ## Layers
 
 | Layer | File | Role |
 |---|---|---|
-| Entry | `src/main.py` | CLI args, logger, imports `textual_image` before Textual, launches the app |
+| Entry | `src/main.py` (dependency check in `src/deps.py`) | CLI args, logger, imports `textual_image` before Textual, launches the app |
 | App | `src/tui/app.py` | `TermTubeApp`: config and cache, screen push, housekeeping, warm-ups |
-| Screens | `src/tui/screens/main_screen.py`, `channel_screen.py` | Thin; compose widgets and mixins |
-| Mixins | `src/tui/screens/mixins/` | list navigation, list tools (filter, marks, remove, undo), playlist tools, Library rail, detail focus, item actions, playlist rows, feed loading, audio bar, debug log |
-| Audio | `src/tui/audio_controller.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
-| Widgets | `src/tui/widgets/` | list, detail panel, action bar, thumbnail, page indicator, header, channel info |
-| Keys | `src/tui/keymap.py` | The only definition of the keymap in code (`docs/features/keybindings.md`) |
+| Screens | `src/tui/screens/main_screen.py`, `channel_screen.py`, `queue_screen.py` | Compose widgets and mixins; dialogs are the other files in `src/tui/screens/` |
+| Mixins | `src/tui/screens/mixins/` | list navigation and tools, playlist tools and rows, Library rail, detail focus, item actions, feed loading, paging and list sources, search tab, subscription rows, feed dialogs, channel header, content and playlist, Help/Settings pages, audio bar, debug log |
+| Audio | `src/tui/audio_controller.py` (state, polling, completion), `audio_launch.py` (launch thread), `audio_queue.py` (queue), `segment_skip.py` | `app.audio`: mpv process, queue, polling, SponsorBlock skip |
+| Widgets | `src/tui/widgets/` | list (`video_list.py` with `list_cursor.py`, `list_filter.py`, `list_footer.py`, `video_rows.py`, `row_markup.py`), detail panel, action bar, segment bar, thumbnail, page indicator, header, channel info, Library rail |
+| Keys | `src/tui/keymap.py` | The keymap of the main, channel and queue pages (`docs/features/keybindings.md`) |
+| Views and URLs | `src/tui/views.py`, `src/tui/urls.py`, `src/tui/screens/channel_tabs.py` | view ids and their tabs; YouTube page URLs; channel tab ids |
 | Messages | `src/tui/messages.py` | `PlayerStateUpdated`, `AudioTrackChanged`, `AudioQueueChanged`, `AudioSegmentsLoaded`: the audio controller broadcasts them to every screen on the stack |
-| Thumbnails | `src/tui/thumb_loader.py`, `src/ui/thumbnail.py` | worker-side thumbnail loading; fetch, validate, half-block render |
-| yt-dlp | `src/ytdlp.py` (opts, feeds, search, channels), `src/cookies.py`, `src/downloads.py`, `src/streams.py` | all extraction; `streams.py` resolves and caches playback URLs |
-| InnerTube | `src/innertube.py` | fast video details and channel browse without yt-dlp |
+| Thumbnails | `src/tui/thumb_loader.py`, `src/ui/thumbnail.py`, `src/thumbnail_http.py` | worker-side loading; validate and half-block render; the HTTP fetch and its TLS contexts |
+| yt-dlp | `src/ytdlp.py` (opts, feeds, search, channels), `src/flat_entries.py` (flat rows), `src/feed_cache.py` (cached id lists), `src/feed_cursor.py`, `src/cookies.py`, `src/downloads.py`, `src/streams.py` | all extraction; `streams.py` resolves and caches playback URLs |
+| InnerTube | `src/innertube.py` (requests), `src/innertube_pages.py` (replies), `src/innertube_rows.py` (list items) | search, video details, channels, playlists and Mixes without yt-dlp |
 | Playlists (remote) | `src/playlist_fetch.py` | reads a playlist or Mix for the playlist page and for playing from a row |
-| Player | `src/player.py` | mpv command lines, IPC, polling |
+| Player | `src/player.py` (mpv commands, launch and retry), `src/mpv_ipc.py` (socket or pipe transport) | |
 | Row types | `src/entries.py` | `TypedDict`s for video, channel, playlist and library rows (annotations only) |
-| Data | `src/cache.py`, `src/history.py`, `src/library.py`, `src/playlist.py`, `src/search_history.py`, `src/config.py` | disk and RAM state |
+| Data | `src/cache.py`, `src/history.py`, `src/library.py` (index, delete) with `src/library_scan.py` (folder walk), `src/playlist.py`, `src/search_history.py`, `src/channel_bookmarks.py`, `src/config.py` | disk and RAM state |
 | Store | `src/store.py` | locked, atomic, versioned JSON file shared by history, playlists, search history and the Library index; a corrupt file is kept as `.bad` and the store starts empty |
-| Errors | `src/errors.py` | typed `SourceError` (`SignInRequired`, ...) from `classify(exc)`; feed loaders show its message |
+| Errors | `src/errors.py` | typed `SourceError` (`SignInRequired`, `RateLimited`, `NetworkDown`, `ExtractionFailed`) from `classify(exc)`; loaders show its message |
 | Search | `src/search_stack.py`, `src/fuzzy.py`, `src/library_query.py` | session stack of searches (Backspace), list-filter ranking, Library `key:value` queries |
 | Progress | `src/progress.py` | turns mpv's polled position into history `resume_s` and `seconds` |
 | Settings | `src/tui/settings_fields.py` | the Settings rows: names, parsing, validation (`SettingsModal` renders them) |
 | Platform | `src/plat.py` | paths, clipboard, process registry, IPC paths |
+| Install | `src/bootstrap.py`, `src/release_download.py`, `src/updater.py` | managed tools and updates ([install.md](install.md)) |
 
 ## Screens and mixins
 
 ```
-MainScreen (PlaylistTools, LibraryRail, ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog)
+MainScreen (PlaylistTools, LibraryRail, ListTools, ListNav, DetailFocus, ItemActions, AudioBar, FeedLoader, DebugLog,
+            SearchTab, SubscriptionRows, FeedPrompts, AppPages)
  |- AppHeader, Tabs, LibraryRail, VideoListPanel, DetailPanel (ThumbnailWidget + ActionBar), RichLog
  |- pushes: ChannelScreen, WatchModal, DownloadModal, SearchModal, SettingsModal, QueueScreen, PlaylistModal, HelpScreen, ...
-ChannelScreen (ListNav, DetailFocus, ItemActions, AudioBar)
+ChannelScreen (ChannelPlaylist, ListNav, DetailFocus, ItemActions, AudioBar, ChannelHeader, ChannelContent, AppPages)
  |- ChannelInfoPanel, Tabs, VideoListPanel, DetailPanel
  |- audio: mirrors app.audio, like MainScreen
+QueueScreen (ListNav, DetailFocus, ItemActions, AudioBar, AppPages)
+
+FeedLoaderMixin = ListSources + FeedPaging; ItemActionsMixin includes PlaylistRows; AudioController includes AudioQueue and AudioLaunch
 ```
 
 `ListToolsMixin` runs `f`, `m`/`M`, `D` and `u` over a `Removal` (what a tab's `D` deletes and how it reloads; `MainScreen._removals()` maps tab to `Removal`: History, Library in `src/tui/library_delete.py`, playlists via `PlaylistToolsMixin`). `LibraryRailMixin` drives the rail (All downloads, Videos, Audio, playlists). `QueueScreen` (ListNav, DetailFocus, ItemActions, AudioBar) is the audio queue as a page, pushed over any screen by `q`; `Ctrl+Q` is an app binding that quits through `MainScreen.action_quit_app`.
@@ -58,7 +70,9 @@ All are `@work(thread=True, exclusive=True)` unless noted. `exclusive` cancels t
 | `ch_focus` | Main | `_channel_info_worker` | channel info for a subscription row |
 | `ch_thumb` | Channel | `_avatar_worker` | avatar in the info column |
 | `ch_info` | Channel | `_load_channel_info` | channel metadata |
-| `ch_content` | Channel | `_load_content` | videos or playlists |
+| `ch_content` | Channel | `_load_content` | first page of a tab |
+| `ch_extend` | Channel | `_extend_content` | continuation pages |
+| `ch_gather` | Channel | `docs/code/src/tui/screens/mixins/channel_playlist.py.md` | playlist play all, queue, save |
 | thread `audio-launch` | AudioController | `_launch_worker` | resolve URL, run mpv, retry (plain thread, one per start) |
 | thread `audio-poll` | AudioController | `_poll_worker` | read position/duration/pause over IPC every 0.5 s; skipped while the previous poll runs |
 | default (not exclusive) | Main | `_run_ytdlp_update` | yt-dlp self-update |
@@ -82,7 +96,7 @@ A worker is handed a number when it starts and drops its result if the counter h
 | `_feed_session` | `MainScreen` | result of `_extend_feed` | every tab load (`_start_view`) |
 | `_session` | `AudioController` | launch, poll, completion, socket path | every audio start |
 
-The channel info avatar must not share a counter the cursor bumps: it does not change with the cursor, and sharing one cancels it mid-load (fixed in ccebfaa).
+The channel info avatar must not share a counter the cursor bumps: it does not change with the cursor, and sharing one cancels it mid-load.
 
 ## Message flow
 
@@ -103,10 +117,10 @@ The channel info avatar must not share a counter the cursor bumps: it does not c
 | Home | stash, then disk cache or `ytdlp.fetch_page_batch` (`auth=True`, cookies) | paged, extendable; played videos suppressed (`docs/code/src/tui/screens/mixins/feed_loader.py.md`) |
 | Subscriptions | `ytdlp.fetch_subscribed_channels` | rows are channels; avatar and channel info workers per row; detail panel in channel mode |
 | Search | `ytdlp.fetch_search_batch` | 50 results at a time up to 200 (continuations as you page), `s` sort and `t` type per search; `SearchStack` (`src/search_stack.py`) holds up to 20 searches for Backspace |
-| History | `history.iter_entries` (Local), `playlist?list=WL` (Watch Later), `:ythis` through the Home loader (YouTube); `Y` cycles | Local is read off disk; the other two are read-only and need cookies |
+| History | `history.iter_entries` (local), `playlist?list=WL` (Watch Later), YouTube history (`/feed/history`) through the Home loader; the side list picks | local is read off disk; the other two are read-only and need cookies |
 | Library (rail: All downloads, Videos, Audio) | `library.all_entries` | local files and `.info.json` sidecars; playback uses `_local_path`, no URL resolution |
 | Library rail: playlists (`playlists.json`) | `playlist.py` snapshots + `library.attach_local` | one playlist per rail entry; rows carry their download state |
-| Channel page | `fetch_channel_info`, `innertube.fetch_channel_page` (token kept in `ChannelPager`) or yt-dlp | pushed `ChannelScreen` |
+| Channel and playlist pages | `fetch_channel_info`, `innertube.fetch_channel_page` / `fetch_playlist_page` (token kept in `ChannelPager`) or yt-dlp | pushed `ChannelScreen` |
 
 Cursor move on a video row: `update_basic` immediately; 100 ms later the metadata worker (skipped if the entry has a description); 150 ms later the thumbnail worker.
 
@@ -128,7 +142,7 @@ Channel avatars pass `url=` directly (no entry lookup). `ThumbnailWidget` discar
 
 - **Thumbnail missing or stuck on "Loading"**: URL empty; session counter shared between workers that should not share one; `ensure_thumb_jpeg` returning None; for library rows, the sidecar missing. Check `is_current` closures first.
 - **"Buffering…" never ends**: no successful poll (`poll_audio_properties` returns None: wrong or stale socket path, mpv not up); or a screen missing `AudioBarMixin` (the handlers are `on_player_state_updated` and the `on_audio_*` ones); messages must be posted with `screen.post_message`, never `app.post_message`.
-- **Feed empty or not loading**: cookies (`browser` setting, `src/cookies.py`), `ytdlp` options, cache freshness (`cache.is_feed_fresh`), the `_EXTRACTION_ERRORS` match opening the update prompt.
+- **Feed empty or not loading**: cookies (`browser` setting, `src/cookies.py`), `ytdlp` options, cache freshness (`cache.is_feed_fresh`), an `ExtractionFailed` on Home opening the update prompt.
 - **Play fails or silent**: stale cached stream URL (`streams.re_resolve`), IPC socket path, mpv stderr in the debug log (Ctrl+D, `termtube --debug`).
 - **Keys stop working in the list**: focus left the list (`ListNavMixin.on_key` reclaims it for navigation keys only); a modal not dismissed.
 - **List reloads when switching tabs**: `tabs.active` assigned to the current tab (see `MainScreen` mirror).

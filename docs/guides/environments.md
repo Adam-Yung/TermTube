@@ -1,5 +1,7 @@
 # Two environments: the app and the checkout
 
+> Verified: 2026-11-28 · Sources: `scripts/dev-setup.sh`, `scripts/setup.sh`, `scripts/verify.sh`, `termtube`, `requirements-dev.txt`
+
 | | Installed app | This checkout (development) |
 |---|---|---|
 | Code | `~/.local/share/TermTube/` (a **copy** made by `scripts/setup.sh`: `src`, `scripts`, `assets`, a few files) | the git working tree |

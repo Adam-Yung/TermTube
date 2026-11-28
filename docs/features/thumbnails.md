@@ -1,5 +1,11 @@
 # Thumbnails
 
+> Verified: 2026-11-28 · Sources: `src/ui/thumbnail.py`, `src/thumbnail_http.py`, `src/tui/thumb_loader.py`, `src/tui/widgets/thumbnail_widget.py`
+> Serves: `ui`
+> Owns: `src/ui/thumbnail.py`, `src/thumbnail_http.py`, `src/tui/thumb_loader.py`, `src/tui/widgets/thumbnail_widget.py`, `src/tui/screens/image_warning_modal.py`
+
+## What it does
+
 Every video row shows a thumbnail in the detail panel, in one of three ways, chosen once at startup:
 
 1. **Real image** through the terminal's graphics protocol (Kitty or Sixel; kitty, WezTerm, foot, iTerm2, Windows Terminal) using `textual-image`.
@@ -22,3 +28,16 @@ Some networks (TLS-inspecting proxies) fail certificate checks for `i.ytimg.com`
 `insecure_thumbnails: true` allows one retry without verification, for these public images only. Downloads are limited to 2 MB, http(s) URLs, and files PIL can decode.
 
 Code: `src/ui/thumbnail.py`, `src/tui/thumb_loader.py`, `src/tui/widgets/thumbnail_widget.py`; decisions in `docs/decisions/thumbnails.md`.
+
+## Rules that must hold
+
+- Fetch and render happen in a worker; a result for a row the cursor left is dropped.
+- Unverified TLS is used only with `insecure_thumbnails: true`, for public images only.
+
+## Limits
+
+- Image thumbnails on Windows and Linux terminals are not verified.
+
+## How to check it
+
+`src/tests/unit/test_thumbnail_download.py`, `src/tests/unit/test_thumbnail_files.py`, `src/tests/unit/test_thumbnail_mode.py`, `src/tests/tui/test_thumbnail_teardown.py`.
